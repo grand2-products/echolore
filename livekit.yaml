@@ -1,0 +1,74 @@
+# LiveKit Server Configuration
+# Documentation: https://docs.livekit.io/realtime/
+
+# Port configuration
+port: 7880
+rtc:
+  port_range_start: 50000
+  port_range_end: 50200
+  use_external_ip: true
+
+# API keys (use environment variables in production)
+key_id: ${LIVEKIT_API_KEY:devkey}
+key_secret: ${LIVEKIT_API_SECRET:secret}
+
+# Room configuration
+room:
+  # Auto-create rooms when participants join
+  auto_create: true
+  # Timeout for empty rooms (seconds)
+  empty_timeout: 300
+  # Max participants per room
+  max_participants: 100
+
+# Redis for clustering (optional for single node)
+redis:
+  address: redis:6379
+
+# Logging
+logging:
+  level: info
+  # level: debug  # Uncomment for development
+
+# Webhook configuration (optional)
+# webhook:
+#   api_key: api-key
+#   urls:
+#     - http://api:3001/api/webhooks/livekit
+# Documentation: https://docs.livekit.io/realtime/
+
+# Port configuration
+port: 7880
+rtc:
+  port_range_start: 50000
+  port_range_end: 50200
+  use_external_ip: true
+
+# API keys (use environment variables in production)
+key_id: ${LIVEKIT_API_KEY:devkey}
+key_secret: ${LIVEKIT_API_SECRET:secret}
+
+# Room configuration
+room:
+  # Auto-create rooms when participants join
+  auto_create: true
+  # Timeout for empty rooms (seconds)
+  empty_timeout: 300
+  # Max participants per room
+  max_participants: 100
+
+# Redis for clustering (optional for single node)
+redis:
+  address: redis:6379
+
+# Logging
+logging:
+  level: info
+  # level: debug  # Uncomment for development
+
+# Webhook configuration (optional)
+# webhook:
+#   api_key: api-key
+#   urls:
+#     - http://api:3001/api/webhooks/livekit
+

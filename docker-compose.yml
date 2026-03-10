@@ -1,0 +1,95 @@
+version: "3.8"
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:17-alpine
+    container_name: corp-internal-db
+    environment:
+      POSTGRES_DB: wiki
+      POSTGRES_USER: wiki
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-wiki_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wiki -d wiki"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis (for LiveKit and caching)
+  redis:
+    image: redis:7-alpine
+    container_name: corp-internal-redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+
+  # LiveKit Server (WebRTC SFU)
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: corp-internal-livekit
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50000-50200:50000-50200/udp"
+    depends_on:
+      - redis
+
+  # API Server (Node.js + Hono)
+  api:
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile
+    container_name: corp-internal-api
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DATABASE_URL=postgresql://wiki:${DB_PASSWORD:-wiki_password}@db:5432/wiki
+      - GCS_BUCKET=${GCS_BUCKET:-corp-internal-files-dev}
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT:-}
+      - LIVEKIT_HOST=http://livekit:7880
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-devkey}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-secret}
+      - CORS_ORIGIN=http://localhost:3000
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      livekit:
+        condition: service_started
+    volumes:
+      - ./apps/api/src:/app/src:ro
+      - ${GOOGLE_APPLICATION_CREDENTIALS:-/dev/null}:/app/credentials.json:ro
+
+  # Web Frontend (Next.js)
+  web:
+    build:
+      context: .
+      dockerfile: ./apps/web/Dockerfile
+    container_name: corp-internal-web
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - NEXT_PUBLIC_LIVEKIT_URL=ws://localhost:7880
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    volumes:
+      - ./apps/web/app:/app/app:ro
+      - ./apps/web/components:/app/components:ro
+      - ./apps/web/lib:/app/lib:ro
+
+volumes:
+  postgres_data:
+  redis_data:

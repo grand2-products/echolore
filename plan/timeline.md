@@ -2,6 +2,11 @@
 
 ## 1. 全体スケジュール
 
+> 実績注記（2026-03-10）
+> - 本タイムラインは初期計画。現状は「基盤API・基本画面の実装」が先行し、認証/AI/本番IaCは未完。
+> - Week 6-7で定義したAI機能（Speech-to-Text、話者分離、Egress録画、Vertex AI要約、Wiki自動スタック）は未着手。
+> - 進捗の正本は `plan/implementation-status.md` を参照。
+
 **開発期間: 8週間（2ヶ月）**
 
 ```
@@ -18,6 +23,7 @@ Week 1  2   3   4   5   6   7   8
 - [x] 企画書作成
 - [ ] ステークホルダー承認
 - [ ] 開発リソース確定
+- [ ] GCPプロジェクト確認
 
 ---
 
@@ -28,14 +34,15 @@ Week 1  2   3   4   5   6   7   8
 | タスク | 期間 | 成果物 |
 |--------|------|--------|
 | プロジェクト初期化 | 1日 | Turborepo構成 |
-| Cloudflare環境設定 | 1日 | D1/R2/Pages設定 |
-| CI/CD構築 | 1日 | GitHub Actions |
+| Terraform環境構築 | 1日 | GCE/GCS設定 |
+| Docker環境構築 | 1日 | docker-compose.yml |
 | DBスキーマ設計 | 1日 | Drizzle schema |
 | API設計 | 1日 | OpenAPI spec |
 
 **チェックポイント:**
-- `wrangler dev` でローカル開発可能
-- CI/CDでテスト実行可能
+- `terraform apply` でGCEインスタンス作成
+- `docker compose up` でローカル開発可能
+- GCSバケット作成済み
 
 ---
 
@@ -45,14 +52,16 @@ Week 1  2   3   4   5   6   7   8
 
 | タスク | 期間 | 成果物 |
 |--------|------|--------|
-| Cloudflare Access設定 | 0.5日 | Google SSO |
+| OAuth2 Proxy設定 | 0.5日 | Google SSO |
+| Traefik設定 | 0.5日 | Let's Encrypt |
 | フロントエンド雛形 | 1日 | Layout/Router |
-| API Helloworld | 0.5日 | Worker API |
+| API Helloworld | 0.5日 | Node.js API |
 | ログインフロー | 1日 | 認証ガード |
 | 基本レイアウト | 1日 | Header/Sidebar |
 
 **チェックポイント:**
 - Googleアカウントでログイン可能
+- HTTPS接続可能 (Let's Encrypt)
 - ログイン後ページ表示
 
 ---
@@ -93,11 +102,12 @@ Week 1  2   3   4   5   6   7   8
 
 | タスク | 期間 | 成果物 |
 |--------|------|--------|
-| R2ファイルアップロード | 1日 | API実装 |
+| GCS統合 | 0.5日 | GCS Client Library |
+| ファイルアップロードAPI | 1日 | API実装 |
 | 画像ブロック | 1日 | 画像埋め込み |
 | ファイルブロック | 1日 | 添付ファイル |
-| フルテキスト検索 | 1日 | 検索API |
-| 検索UI | 1日 | 検索ページ |
+| フルテキスト検索 | 1日 | PostgreSQL全文検索 |
+| 検索UI | 0.5日 | 検索ページ |
 
 **チェックポイント:**
 - 画像・ファイル添付可能
@@ -105,22 +115,37 @@ Week 1  2   3   4   5   6   7   8
 
 ---
 
-### Phase 5: ビデオ会議 (Week 6)
+### Phase 5: 社内通話ツール (Week 6-7)
 
-**目標:** WebRTCミーティング完成
+**目標:** 2モード通話ツール完成
+
+#### Week 6: 基本通話機能
 
 | タスク | 期間 | 成果物 |
 |--------|------|--------|
-| Calls API統合 | 1日 | トークン発行 |
-| ミーティング一覧 | 0.5日 | API/UI |
-| ミーティング作成 | 0.5日 | API/UI |
-| ビデオ通話UI | 2日 | グリッド表示 |
+| LiveKitサーバー設定 | 1日 | Docker構成 |
+| LiveKit SDK統合 | 1日 | トークン発行 |
+| Everybody Coworking UI | 1日 | グリッド表示、オフィスカメラ大画面 |
+| Room作成・一覧 | 0.5日 | API/UI |
+| ビデオ通話UI | 0.5日 | Room グリッド表示 |
 | 画面共有 | 1日 | 実装 |
 
+#### Week 7: AI機能
+
+| タスク | 期間 | 成果物 |
+|--------|------|--------|
+| Speech-to-Text統合 | 1日 | リアルタイム文字起こし |
+| 話者分離 | 1日 | Diarization実装 |
+| LiveKit Egress設定 | 0.5日 | 録画機能 |
+| Vertex AI統合 | 1日 | 要約生成 |
+| 議事録Wiki連携 | 0.5日 | 自動ページ作成 |
+| テスト・改善 | 2日 | バグ修正 |
+
 **チェックポイント:**
-- ミーティングルーム作成可能
-- 複数人でビデオ通話可能
-- 画面共有可能
+- Everybody Coworking参加可能（オフィスカメラ大画面表示）
+- Room作成・ビデオ通話可能
+- 文字起こしリアルタイム表示
+- 議事録自動生成
 
 ---
 
@@ -147,15 +172,18 @@ Week 1  2   3   4   5   6   7   8
 
 | タスク | 期間 | 成果物 |
 |--------|------|--------|
-| 本番デプロイ | 0.5日 | Cloudflare |
+| Terraform本番適用 | 0.5日 | GCE/GCS本番環境 |
+| Dockerデプロイ | 0.5日 | コンテナデプロイ |
+| ドメイン設定 | 0.5日 | DNS設定 |
 | ドキュメント整備 | 1日 | README/運用ガイド |
 | ユーザー説明会 | 0.5日 | - |
-| モニタリング設定 | 1日 | Cloudflare Analytics |
-| 運用開始 | 2日 | - |
+| 監視設定 | 1日 | Cloud Monitoring |
+| 運用開始 | 1日 | - |
 
 **チェックポイント:**
 - 本番環境で全機能動作
 - 社員がログイン可能
+- SSL証明書有効
 
 ---
 
@@ -171,10 +199,11 @@ Week 1  2   3   4   5   6   7   8
 
 | リスク | 確率 | 影響 | 対策 |
 |--------|------|------|------|
-| Cloudflare Calls制限 | 低 | 高 | Daily.co等のSaaS予備案 |
+| LiveKit設定難易度 | 中 | 高 | Jitsi Meet予備案 |
 | TipTap学習コスト | 中 | 中 | 公式サンプル活用 |
 | リソース不足 | 中 | 高 | 外部委託 or 優先度調整 |
 | 要件変更 | 高 | 中 | アジャイル開発で対応 |
+| GCEリソース不足 | 低 | 中 | スケールアップ計画 |
 
 ## 5. リソース計画
 
@@ -182,5 +211,108 @@ Week 1  2   3   4   5   6   7   8
 |--------|------|------|
 | フルスタックエンジニア | 1-2人 | 100% |
 | デザイナー | 0.5人 | 20% (UIレビュー) |
+| インフラ (初期のみ) | 0.5人 | 10% (Terraform設定) |
 
 **総工数:** 1人月 × 2ヶ月 = 2人月
+
+---
+
+## 6. Terraform関連タスク
+
+### 6.1 初回のみ必要なタスク
+
+| タスク | 期間 | 備考 |
+|--------|------|------|
+| GCPプロジェクト確認 | 0.5日 | 既存プロジェクト |
+| Terraform状態管理設定 | 0.5日 | GCSバックエンド |
+| VPC/Firewall設計 | 0.5日 | ネットワーク設計 |
+| サービスアカウント設定 | 0.5日 | IAM設定 |
+
+### 6.2 Terraform構成管理
+
+```
+terraform/
+├── environments/
+│   ├── dev/
+│   │   ├── main.tf
+│   │   ├── terraform.tfvars
+│   │   └── backend.tf
+│   └── prod/
+│       ├── main.tf
+│       ├── terraform.tfvars
+│       └── backend.tf
+└── modules/
+    ├── compute/
+    ├── storage/
+    └── network/
+```
+
+---
+
+## 7. デプロイフロー
+
+```
+開発環境                CI/CD                  本番環境 (GCE)
+   │                     │                       │
+   │──git push──────────▶│                       │
+   │                     │                       │
+   │                     │──build & test────────▶│
+   │                     │                       │
+   │                     │──docker build────────▶│
+   │                     │                       │
+   │                     │──docker push (GCR)───▶│
+   │                     │                       │
+   │                     │──terraform plan──────▶│
+   │                     │                       │
+   │                     │──terraform apply─────▶│
+   │                     │                       │
+   │                     │──SSH deploy──────────▶│
+   │                     │                       │
+   │                     │                       │──docker pull
+   │                     │                       │
+   │                     │                       │──docker up -d
+   │                     │                       │
+   │                     │                       │──health check
+   │                     │                       │
+   │◀────────────────────────────通知────────────│
+```
+
+---
+
+## 8. 維持運用タスク
+
+| タスク | 頻度 | 備考 |
+|--------|------|------|
+| Docker イメージ更新 | 月1 | セキュリティパッチ |
+| PostgreSQLバックアップ確認 | 週1 | GCSへ自動バックアップ |
+| ログ確認 | 週1 | Cloud Logging |
+| リソース監視 | 日1 | Cloud Monitoring |
+| Terraform状態確認 | 月1 | ドリフト検出 |
+
+---
+
+## 9. 本番環境構成
+
+### 9.1 GCEインスタンス
+
+| 項目 | 値 |
+|------|---|
+| インスタンスタイプ | e2-standard-2 |
+| リージョン | asia-northeast1 |
+| ゾーン | asia-northeast1-a |
+| ディスク | 100GB SSD |
+| OS | Ubuntu 22.04 LTS |
+
+### 9.2 Docker コンテナ
+
+| コンテナ | イメージ | リソース |
+|---------|---------|---------|
+| traefik | traefik:v3.3 | 0.5 CPU, 512MB |
+| oauth2-proxy | oauth2-proxy:v7.7.x | 0.25 CPU, 256MB |
+| web | gcr.io/.../wiki-web | 1 CPU, 1GB |
+| api | gcr.io/.../wiki-api | 1 CPU, 1GB |
+| db | postgres:17-alpine | 1 CPU, 2GB |
+| livekit | livekit-server:latest | 1 CPU, 1GB |
+| redis | redis:7-alpine | 0.25 CPU, 256MB |
+
+**合計リソース:** 5 CPU, 6GB RAM (e2-standard-2で十分)
