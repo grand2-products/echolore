@@ -1,18 +1,34 @@
-import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
-import { and, eq, inArray } from "drizzle-orm";
+import { Hono } from "hono";
 import { nanoid } from "nanoid";
-import { db } from "../db/index.js";
+import { z } from "zod";
+import type { AppEnv } from "../lib/auth.js";
 import {
-  users,
-  userGroups,
-  userGroupMemberships,
-  pagePermissions,
-  pageInheritance,
-} from "../db/schema.js";
+  createGroup,
+  deleteGroup,
+  deleteMembership,
+  deletePagePermission,
+  getGroupById,
+  getGroupByName,
+  getPageInheritance,
+  updateGroup as updateGroupRecord,
+} from "../repositories/admin/admin-repository.js";
+import {
+  addGroupMembers,
+  createAgentDefinition,
+  getGroupDetail,
+  getPagePermissionsDetail,
+  listAvailableAgents,
+  listGroupMembers,
+  listGroupsWithMemberCounts,
+  listUsersWithGroups,
+  replacePageInheritance,
+  replacePagePermissions,
+  replaceUserGroups,
+  updateAgentDefinition,
+} from "../services/admin/admin-service.js";
 
-export const adminRoutes = new Hono();
+export const adminRoutes = new Hono<AppEnv>();
 
 const createGroupSchema = z.object({
   name: z.string().min(1).max(100),
@@ -29,6 +45,16 @@ const updateGroupSchema = z.object({
 const addMembersSchema = z.object({ userIds: z.array(z.string()).min(1) });
 const updateUserGroupsSchema = z.object({ groupIds: z.array(z.string()) });
 const updateInheritanceSchema = z.object({ inheritFromParent: z.boolean() });
+const createAgentSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().nullable().optional(),
+  systemPrompt: z.string().min(1),
+  voiceProfile: z.string().nullable().optional(),
+  interventionStyle: z.string().min(1),
+  defaultProvider: z.enum(["google"]).default("google"),
+  isActive: z.boolean().optional(),
+});
+const updateAgentSchema = createAgentSchema.partial();
 
 const setPagePermissionsSchema = z.object({
   inheritFromParent: z.boolean().optional(),
@@ -38,48 +64,74 @@ const setPagePermissionsSchema = z.object({
       canRead: z.boolean(),
       canWrite: z.boolean(),
       canDelete: z.boolean(),
-    }),
+    })
   ),
 });
 
 adminRoutes.get("/groups", async (c) => {
   try {
-    const [groups, memberships] = await Promise.all([
-      db.select().from(userGroups),
-      db.select().from(userGroupMemberships),
-    ]);
-
-    return c.json({
-      groups: groups.map((group) => ({
-        ...group,
-        memberCount: memberships.filter((m) => m.groupId === group.id).length,
-      })),
-    });
+    return c.json({ groups: await listGroupsWithMemberCounts() });
   } catch (error) {
     console.error("Error fetching groups:", error);
     return c.json({ error: "Failed to fetch groups" }, 500);
   }
 });
 
+adminRoutes.get("/agents", async (c) => {
+  try {
+    return c.json({ agents: await listAvailableAgents() });
+  } catch (error) {
+    console.error("Error fetching agents:", error);
+    return c.json({ error: "Failed to fetch agents" }, 500);
+  }
+});
+
+adminRoutes.post("/agents", zValidator("json", createAgentSchema), async (c) => {
+  const data = c.req.valid("json");
+  const user = c.get("user");
+
+  try {
+    const agent = await createAgentDefinition({
+      ...data,
+      createdBy: user.id,
+    });
+    return c.json({ agent }, 201);
+  } catch (error) {
+    console.error("Error creating agent:", error);
+    return c.json({ error: "Failed to create agent" }, 500);
+  }
+});
+
+adminRoutes.put("/agents/:id", zValidator("json", updateAgentSchema), async (c) => {
+  const { id } = c.req.param();
+  const data = c.req.valid("json");
+
+  try {
+    const agent = await updateAgentDefinition(id, data);
+    if (!agent) return c.json({ error: "Agent not found" }, 404);
+    return c.json({ agent });
+  } catch (error) {
+    console.error("Error updating agent:", error);
+    return c.json({ error: "Failed to update agent" }, 500);
+  }
+});
+
 adminRoutes.post("/groups", zValidator("json", createGroupSchema), async (c) => {
   const data = c.req.valid("json");
   try {
-    const [exists] = await db.select().from(userGroups).where(eq(userGroups.name, data.name));
+    const exists = await getGroupByName(data.name);
     if (exists) return c.json({ error: "Group name already exists" }, 400);
 
     const now = new Date();
-    const [group] = await db
-      .insert(userGroups)
-      .values({
-        id: `group_${nanoid(12)}`,
-        name: data.name,
-        description: data.description ?? null,
-        isSystem: false,
-        permissions: data.permissions,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
+    const group = await createGroup({
+      id: `group_${nanoid(12)}`,
+      name: data.name,
+      description: data.description ?? null,
+      isSystem: false,
+      permissions: data.permissions,
+      createdAt: now,
+      updatedAt: now,
+    });
 
     return c.json({ group }, 201);
   } catch (error) {
@@ -91,15 +143,9 @@ adminRoutes.post("/groups", zValidator("json", createGroupSchema), async (c) => 
 adminRoutes.get("/groups/:id", async (c) => {
   const { id } = c.req.param();
   try {
-    const [group] = await db.select().from(userGroups).where(eq(userGroups.id, id));
+    const group = await getGroupDetail(id);
     if (!group) return c.json({ error: "Group not found" }, 404);
-
-    const memberships = await db
-      .select()
-      .from(userGroupMemberships)
-      .where(eq(userGroupMemberships.groupId, id));
-
-    return c.json({ group: { ...group, members: memberships.map((m) => m.userId) } });
+    return c.json({ group });
   } catch (error) {
     console.error("Error fetching group:", error);
     return c.json({ error: "Failed to fetch group" }, 500);
@@ -110,25 +156,21 @@ adminRoutes.put("/groups/:id", zValidator("json", updateGroupSchema), async (c) 
   const { id } = c.req.param();
   const data = c.req.valid("json");
   try {
-    const [group] = await db.select().from(userGroups).where(eq(userGroups.id, id));
+    const group = await getGroupById(id);
     if (!group) return c.json({ error: "Group not found" }, 404);
     if (group.isSystem) return c.json({ error: "Cannot modify system groups" }, 403);
 
     if (data.name && data.name !== group.name) {
-      const [dupe] = await db.select().from(userGroups).where(eq(userGroups.name, data.name));
+      const dupe = await getGroupByName(data.name);
       if (dupe) return c.json({ error: "Group name already exists" }, 400);
     }
 
-    const [updated] = await db
-      .update(userGroups)
-      .set({
-        name: data.name ?? group.name,
-        description: data.description ?? group.description,
-        permissions: data.permissions ?? group.permissions,
-        updatedAt: new Date(),
-      })
-      .where(eq(userGroups.id, id))
-      .returning();
+    const updated = await updateGroupRecord(id, {
+      name: data.name ?? group.name,
+      description: data.description ?? group.description,
+      permissions: data.permissions ?? group.permissions,
+      updatedAt: new Date(),
+    });
 
     return c.json({ group: updated });
   } catch (error) {
@@ -140,12 +182,11 @@ adminRoutes.put("/groups/:id", zValidator("json", updateGroupSchema), async (c) 
 adminRoutes.delete("/groups/:id", async (c) => {
   const { id } = c.req.param();
   try {
-    const [group] = await db.select().from(userGroups).where(eq(userGroups.id, id));
+    const group = await getGroupById(id);
     if (!group) return c.json({ error: "Group not found" }, 404);
     if (group.isSystem) return c.json({ error: "Cannot delete system groups" }, 403);
 
-    await db.delete(userGroupMemberships).where(eq(userGroupMemberships.groupId, id));
-    await db.delete(userGroups).where(eq(userGroups.id, id));
+    await deleteGroup(id);
     return c.json({ success: true });
   } catch (error) {
     console.error("Error deleting group:", error);
@@ -156,20 +197,7 @@ adminRoutes.delete("/groups/:id", async (c) => {
 adminRoutes.get("/groups/:id/members", async (c) => {
   const { id } = c.req.param();
   try {
-    const memberships = await db
-      .select()
-      .from(userGroupMemberships)
-      .where(eq(userGroupMemberships.groupId, id));
-    const userIds = memberships.map((m) => m.userId);
-    if (userIds.length === 0) return c.json({ members: [] });
-
-    const members = await db.select().from(users).where(inArray(users.id, userIds));
-    return c.json({
-      members: members.map((user) => ({
-        ...user,
-        membership: memberships.find((m) => m.userId === user.id) ?? null,
-      })),
-    });
+    return c.json({ members: await listGroupMembers(id) });
   } catch (error) {
     console.error("Error fetching group members:", error);
     return c.json({ error: "Failed to fetch group members" }, 500);
@@ -180,21 +208,7 @@ adminRoutes.post("/groups/:id/members", zValidator("json", addMembersSchema), as
   const { id } = c.req.param();
   const data = c.req.valid("json");
   try {
-    const now = new Date();
-    const inserted = [];
-    for (const userId of data.userIds) {
-      const [exists] = await db
-        .select()
-        .from(userGroupMemberships)
-        .where(and(eq(userGroupMemberships.groupId, id), eq(userGroupMemberships.userId, userId)));
-      if (exists) continue;
-
-      const [record] = await db
-        .insert(userGroupMemberships)
-        .values({ id: `membership_${nanoid(12)}`, userId, groupId: id, addedBy: null, createdAt: now })
-        .returning();
-      inserted.push(record);
-    }
+    const inserted = await addGroupMembers(id, data.userIds);
 
     return c.json({ added: inserted.length, memberships: inserted });
   } catch (error) {
@@ -206,10 +220,7 @@ adminRoutes.post("/groups/:id/members", zValidator("json", addMembersSchema), as
 adminRoutes.delete("/groups/:id/members/:userId", async (c) => {
   const { id, userId } = c.req.param();
   try {
-    const [deleted] = await db
-      .delete(userGroupMemberships)
-      .where(and(eq(userGroupMemberships.groupId, id), eq(userGroupMemberships.userId, userId)))
-      .returning();
+    const deleted = await deleteMembership(id, userId);
     if (!deleted) return c.json({ error: "Membership not found" }, 404);
     return c.json({ success: true });
   } catch (error) {
@@ -220,22 +231,7 @@ adminRoutes.delete("/groups/:id/members/:userId", async (c) => {
 
 adminRoutes.get("/users", async (c) => {
   try {
-    const [allUsers, groups, memberships] = await Promise.all([
-      db.select().from(users),
-      db.select().from(userGroups),
-      db.select().from(userGroupMemberships),
-    ]);
-
-    return c.json({
-      users: allUsers.map((user) => ({
-        ...user,
-        groups: memberships
-          .filter((m) => m.userId === user.id)
-          .map((m) => groups.find((g) => g.id === m.groupId))
-          .filter((g): g is (typeof groups)[number] => Boolean(g))
-          .map((g) => ({ id: g.id, name: g.name })),
-      })),
-    });
+    return c.json({ users: await listUsersWithGroups() });
   } catch (error) {
     console.error("Error fetching users:", error);
     return c.json({ error: "Failed to fetch users" }, 500);
@@ -246,17 +242,7 @@ adminRoutes.put("/users/:id/groups", zValidator("json", updateUserGroupsSchema),
   const { id } = c.req.param();
   const data = c.req.valid("json");
   try {
-    await db.delete(userGroupMemberships).where(eq(userGroupMemberships.userId, id));
-    const now = new Date();
-    for (const groupId of data.groupIds) {
-      await db.insert(userGroupMemberships).values({
-        id: `membership_${nanoid(12)}`,
-        userId: id,
-        groupId,
-        addedBy: null,
-        createdAt: now,
-      });
-    }
+    await replaceUserGroups(id, data.groupIds);
     return c.json({ success: true, groupIds: data.groupIds });
   } catch (error) {
     console.error("Error updating user groups:", error);
@@ -267,68 +253,34 @@ adminRoutes.put("/users/:id/groups", zValidator("json", updateUserGroupsSchema),
 adminRoutes.get("/permissions/pages/:pageId", async (c) => {
   const { pageId } = c.req.param();
   try {
-    const [perms, groups, inherit] = await Promise.all([
-      db.select().from(pagePermissions).where(eq(pagePermissions.pageId, pageId)),
-      db.select().from(userGroups),
-      db.select().from(pageInheritance).where(eq(pageInheritance.pageId, pageId)),
-    ]);
-
-    return c.json({
-      pageId,
-      inheritFromParent: inherit[0]?.inheritFromParent ?? true,
-      permissions: perms.map((p) => ({
-        ...p,
-        group: groups.find((g) => g.id === p.groupId) ?? null,
-      })),
-    });
+    return c.json(await getPagePermissionsDetail(pageId));
   } catch (error) {
     console.error("Error fetching page permissions:", error);
     return c.json({ error: "Failed to fetch page permissions" }, 500);
   }
 });
 
-adminRoutes.put("/permissions/pages/:pageId", zValidator("json", setPagePermissionsSchema), async (c) => {
-  const { pageId } = c.req.param();
-  const data = c.req.valid("json");
-  try {
-    const now = new Date();
-    await db.delete(pagePermissions).where(eq(pagePermissions.pageId, pageId));
-    await db.delete(pageInheritance).where(eq(pageInheritance.pageId, pageId));
+adminRoutes.put(
+  "/permissions/pages/:pageId",
+  zValidator("json", setPagePermissionsSchema),
+  async (c) => {
+    const { pageId } = c.req.param();
+    const data = c.req.valid("json");
+    try {
+      await replacePagePermissions(pageId, data.inheritFromParent ?? true, data.permissions);
 
-    await db.insert(pageInheritance).values({
-      id: `inherit_${nanoid(12)}`,
-      pageId,
-      inheritFromParent: data.inheritFromParent ?? true,
-      createdAt: now,
-    });
-
-    for (const perm of data.permissions) {
-      await db.insert(pagePermissions).values({
-        id: `perm_${nanoid(12)}`,
-        pageId,
-        groupId: perm.groupId,
-        canRead: perm.canRead,
-        canWrite: perm.canWrite,
-        canDelete: perm.canDelete,
-        createdAt: now,
-        updatedAt: now,
-      });
+      return c.json({ pageId, inheritFromParent: data.inheritFromParent ?? true });
+    } catch (error) {
+      console.error("Error setting page permissions:", error);
+      return c.json({ error: "Failed to set page permissions" }, 500);
     }
-
-    return c.json({ pageId, inheritFromParent: data.inheritFromParent ?? true });
-  } catch (error) {
-    console.error("Error setting page permissions:", error);
-    return c.json({ error: "Failed to set page permissions" }, 500);
   }
-});
+);
 
 adminRoutes.delete("/permissions/pages/:pageId/groups/:groupId", async (c) => {
   const { pageId, groupId } = c.req.param();
   try {
-    const [deleted] = await db
-      .delete(pagePermissions)
-      .where(and(eq(pagePermissions.pageId, pageId), eq(pagePermissions.groupId, groupId)))
-      .returning();
+    const deleted = await deletePagePermission(pageId, groupId);
     if (!deleted) return c.json({ error: "Permission not found" }, 404);
     return c.json({ success: true });
   } catch (error) {
@@ -340,7 +292,7 @@ adminRoutes.delete("/permissions/pages/:pageId/groups/:groupId", async (c) => {
 adminRoutes.get("/permissions/pages/:pageId/inherit", async (c) => {
   const { pageId } = c.req.param();
   try {
-    const [inherit] = await db.select().from(pageInheritance).where(eq(pageInheritance.pageId, pageId));
+    const inherit = await getPageInheritance(pageId);
     return c.json({ pageId, inheritFromParent: inherit?.inheritFromParent ?? true });
   } catch (error) {
     console.error("Error fetching inheritance:", error);
@@ -348,20 +300,18 @@ adminRoutes.get("/permissions/pages/:pageId/inherit", async (c) => {
   }
 });
 
-adminRoutes.put("/permissions/pages/:pageId/inherit", zValidator("json", updateInheritanceSchema), async (c) => {
-  const { pageId } = c.req.param();
-  const data = c.req.valid("json");
-  try {
-    await db.delete(pageInheritance).where(eq(pageInheritance.pageId, pageId));
-    await db.insert(pageInheritance).values({
-      id: `inherit_${nanoid(12)}`,
-      pageId,
-      inheritFromParent: data.inheritFromParent,
-      createdAt: new Date(),
-    });
-    return c.json({ pageId, inheritFromParent: data.inheritFromParent });
-  } catch (error) {
-    console.error("Error setting inheritance:", error);
-    return c.json({ error: "Failed to set inheritance" }, 500);
+adminRoutes.put(
+  "/permissions/pages/:pageId/inherit",
+  zValidator("json", updateInheritanceSchema),
+  async (c) => {
+    const { pageId } = c.req.param();
+    const data = c.req.valid("json");
+    try {
+      await replacePageInheritance(pageId, data.inheritFromParent);
+      return c.json({ pageId, inheritFromParent: data.inheritFromParent });
+    } catch (error) {
+      console.error("Error setting inheritance:", error);
+      return c.json({ error: "Failed to set inheritance" }, 500);
+    }
   }
-});
+);

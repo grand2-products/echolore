@@ -1,0 +1,10 @@
+project_id            = "corp-internal-prod"
+region                = "asia-northeast1"
+zone                  = "asia-northeast1-a"
+admin_source_ranges   = ["35.235.240.0/20"]
+web_source_ranges     = ["0.0.0.0/0"]
+
+# OAuth2 Proxy Cookie Security
+# docker-compose.yml の `--cookie-secure` は OAUTH_COOKIE_SECURE（既定値 true）で制御。
+# 本番環境では Secure 属性を維持するため、必ず true を使用すること。
+

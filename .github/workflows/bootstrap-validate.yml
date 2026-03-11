@@ -1,0 +1,115 @@
+name: Bootstrap Validate
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+jobs:
+  validate-dev:
+    name: Validate Bootstrap (dev)
+    runs-on: ubuntu-latest
+    if: inputs.environment == 'dev'
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID_DEV }}
+      INSTANCE_NAME: wiki-dev
+      ZONE: asia-northeast1-a
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Write validation env (dev)
+        shell: bash
+        run: |
+          cat > ./.bootstrap.dev.env <<EOF
+          ${{ secrets.GCE_ENV_FILE_DEV }}
+          EOF
+
+      - name: Copy bootstrap validation files to instance (dev)
+        shell: bash
+        run: |
+          gcloud compute scp \
+            docker-compose.bootstrap-check.yml \
+            livekit.yaml \
+            scripts/release/remote-bootstrap-validate.sh \
+            ./.bootstrap.dev.env \
+            "${{ env.INSTANCE_NAME }}:/tmp/" \
+            --project="${{ env.PROJECT_ID }}" \
+            --zone="${{ env.ZONE }}"
+
+      - name: Run bootstrap validation on instance (dev)
+        shell: bash
+        run: |
+          export RUN_ID="${GITHUB_RUN_ID}"
+          gcloud compute ssh "${{ env.INSTANCE_NAME }}" \
+            --project="${{ env.PROJECT_ID }}" \
+            --zone="${{ env.ZONE }}" \
+            --command="set -euo pipefail
+              chmod +x /tmp/remote-bootstrap-validate.sh
+              /tmp/remote-bootstrap-validate.sh ${RUN_ID} /tmp/.bootstrap.dev.env
+            "
+
+  validate-prod:
+    name: Validate Bootstrap (prod)
+    runs-on: ubuntu-latest
+    if: inputs.environment == 'prod'
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID_PROD }}
+      INSTANCE_NAME: wiki-prod
+      ZONE: asia-northeast1-a
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Write validation env (prod)
+        shell: bash
+        run: |
+          cat > ./.bootstrap.prod.env <<EOF
+          ${{ secrets.GCE_ENV_FILE_PROD }}
+          EOF
+
+      - name: Copy bootstrap validation files to instance (prod)
+        shell: bash
+        run: |
+          gcloud compute scp \
+            docker-compose.bootstrap-check.yml \
+            livekit.yaml \
+            scripts/release/remote-bootstrap-validate.sh \
+            ./.bootstrap.prod.env \
+            "${{ env.INSTANCE_NAME }}:/tmp/" \
+            --project="${{ env.PROJECT_ID }}" \
+            --zone="${{ env.ZONE }}"
+
+      - name: Run bootstrap validation on instance (prod)
+        shell: bash
+        run: |
+          export RUN_ID="${GITHUB_RUN_ID}"
+          gcloud compute ssh "${{ env.INSTANCE_NAME }}" \
+            --project="${{ env.PROJECT_ID }}" \
+            --zone="${{ env.ZONE }}" \
+            --command="set -euo pipefail
+              chmod +x /tmp/remote-bootstrap-validate.sh
+              /tmp/remote-bootstrap-validate.sh ${RUN_ID} /tmp/.bootstrap.prod.env
+            "

@@ -1,0 +1,123 @@
+name: App Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      api_image:
+        description: "API image tag to roll back to"
+        required: true
+        type: string
+      web_image:
+        description: "Web image tag to roll back to"
+        required: true
+        type: string
+      release_sha:
+        description: "Release SHA label for the rollback"
+        required: true
+        type: string
+
+jobs:
+  rollback-dev:
+    name: Rollback App (dev)
+    runs-on: ubuntu-latest
+    if: inputs.environment == 'dev'
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID_DEV }}
+      INSTANCE_NAME: wiki-dev
+      ZONE: asia-northeast1-a
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Write rollback env (dev)
+        shell: bash
+        run: |
+          cat > ./.rollback.dev.env <<EOF
+          ${{ secrets.GCE_ENV_FILE_DEV }}
+          API_IMAGE=${{ inputs.api_image }}
+          WEB_IMAGE=${{ inputs.web_image }}
+          RELEASE_SHA=${{ inputs.release_sha }}
+          EOF
+
+      - name: Copy rollback env to instance (dev)
+        shell: bash
+        run: |
+          gcloud compute scp \
+            scripts/release/remote-runtime-apply.sh \
+            ./.rollback.dev.env \
+            "${{ env.INSTANCE_NAME }}:/tmp/" \
+            --project="${{ env.PROJECT_ID }}" \
+            --zone="${{ env.ZONE }}"
+
+      - name: Roll back on instance (dev)
+        shell: bash
+        run: |
+          gcloud compute ssh "${{ env.INSTANCE_NAME }}" \
+            --project="${{ env.PROJECT_ID }}" \
+            --zone="${{ env.ZONE }}" \
+            --command='set -euo pipefail
+              chmod +x /tmp/remote-runtime-apply.sh
+              /tmp/remote-runtime-apply.sh /tmp/.rollback.dev.env
+            '
+
+  rollback-prod:
+    name: Rollback App (prod)
+    runs-on: ubuntu-latest
+    if: inputs.environment == 'prod'
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID_PROD }}
+      INSTANCE_NAME: wiki-prod
+      ZONE: asia-northeast1-a
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Write rollback env (prod)
+        shell: bash
+        run: |
+          cat > ./.rollback.prod.env <<EOF
+          ${{ secrets.GCE_ENV_FILE_PROD }}
+          API_IMAGE=${{ inputs.api_image }}
+          WEB_IMAGE=${{ inputs.web_image }}
+          RELEASE_SHA=${{ inputs.release_sha }}
+          EOF
+
+      - name: Copy rollback env to instance (prod)
+        shell: bash
+        run: |
+          gcloud compute scp \
+            scripts/release/remote-runtime-apply.sh \
+            ./.rollback.prod.env \
+            "${{ env.INSTANCE_NAME }}:/tmp/" \
+            --project="${{ env.PROJECT_ID }}" \
+            --zone="${{ env.ZONE }}"
+
+      - name: Roll back on instance (prod)
+        shell: bash
+        run: |
+          gcloud compute ssh "${{ env.INSTANCE_NAME }}" \
+            --project="${{ env.PROJECT_ID }}" \
+            --zone="${{ env.ZONE }}" \
+            --command='set -euo pipefail
+              chmod +x /tmp/remote-runtime-apply.sh
+              /tmp/remote-runtime-apply.sh /tmp/.rollback.prod.env
+            '

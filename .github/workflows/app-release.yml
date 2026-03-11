@@ -1,0 +1,193 @@
+name: App Release
+
+on:
+  workflow_run:
+    workflows: ["Terraform"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      ref:
+        description: "Git ref to release"
+        required: false
+        default: main
+        type: string
+
+concurrency:
+  group: app-release-${{ github.event_name == 'workflow_dispatch' && inputs.environment || github.event.workflow_run.head_branch || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release-dev:
+    name: Release App (dev)
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && (github.event.workflow_run.head_branch == 'develop' || github.event.workflow_run.head_branch == 'main')) || (github.event_name == 'workflow_dispatch' && inputs.environment == 'dev')
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID_DEV }}
+      INSTANCE_NAME: wiki-dev
+      ZONE: asia-northeast1-a
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.workflow_run.head_sha }}
+
+      - name: Resolve release metadata
+        id: release-meta
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker --quiet
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/api/Dockerfile
+          push: true
+          tags: gcr.io/${{ secrets.GCP_PROJECT_ID_DEV }}/corp-internal-api:${{ steps.release-meta.outputs.sha }}
+          cache-from: type=gha,scope=api-dev
+          cache-to: type=gha,mode=max,scope=api-dev
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/web/Dockerfile
+          push: true
+          tags: gcr.io/${{ secrets.GCP_PROJECT_ID_DEV }}/corp-internal-web:${{ steps.release-meta.outputs.sha }}
+          cache-from: type=gha,scope=web-dev
+          cache-to: type=gha,mode=max,scope=web-dev
+
+      - name: Write runtime env (dev)
+        shell: bash
+        run: |
+          cat > ./.deploy.dev.env <<EOF
+          ${{ secrets.GCE_ENV_FILE_DEV }}
+          API_IMAGE=gcr.io/${{ secrets.GCP_PROJECT_ID_DEV }}/corp-internal-api:${{ steps.release-meta.outputs.sha }}
+          WEB_IMAGE=gcr.io/${{ secrets.GCP_PROJECT_ID_DEV }}/corp-internal-web:${{ steps.release-meta.outputs.sha }}
+          RELEASE_SHA=${{ steps.release-meta.outputs.sha }}
+          EOF
+
+      - name: Copy release files to instance (dev)
+        shell: bash
+        run: |
+          gcloud compute scp \
+            docker-compose.yml \
+            livekit.yaml \
+            scripts/release/remote-runtime-apply.sh \
+            ./.deploy.dev.env \
+            "${{ env.INSTANCE_NAME }}:/tmp/" \
+            --project="${{ env.PROJECT_ID }}" \
+            --zone="${{ env.ZONE }}"
+
+      - name: Deploy on instance (dev)
+        shell: bash
+        run: |
+          gcloud compute ssh "${{ env.INSTANCE_NAME }}" \
+            --project="${{ env.PROJECT_ID }}" \
+            --zone="${{ env.ZONE }}" \
+            --command='set -euo pipefail
+              chmod +x /tmp/remote-runtime-apply.sh
+              /tmp/remote-runtime-apply.sh /tmp/.deploy.dev.env
+            '
+
+  release-prod:
+    name: Release App (prod)
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'prod')
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID_PROD }}
+      INSTANCE_NAME: wiki-prod
+      ZONE: asia-northeast1-a
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.workflow_run.head_sha }}
+
+      - name: Resolve release metadata
+        id: release-meta
+        shell: bash
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth
+        run: gcloud auth configure-docker --quiet
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/api/Dockerfile
+          push: true
+          tags: gcr.io/${{ secrets.GCP_PROJECT_ID_PROD }}/corp-internal-api:${{ steps.release-meta.outputs.sha }}
+          cache-from: type=gha,scope=api-prod
+          cache-to: type=gha,mode=max,scope=api-prod
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/web/Dockerfile
+          push: true
+          tags: gcr.io/${{ secrets.GCP_PROJECT_ID_PROD }}/corp-internal-web:${{ steps.release-meta.outputs.sha }}
+          cache-from: type=gha,scope=web-prod
+          cache-to: type=gha,mode=max,scope=web-prod
+
+      - name: Write runtime env (prod)
+        shell: bash
+        run: |
+          cat > ./.deploy.prod.env <<EOF
+          ${{ secrets.GCE_ENV_FILE_PROD }}
+          API_IMAGE=gcr.io/${{ secrets.GCP_PROJECT_ID_PROD }}/corp-internal-api:${{ steps.release-meta.outputs.sha }}
+          WEB_IMAGE=gcr.io/${{ secrets.GCP_PROJECT_ID_PROD }}/corp-internal-web:${{ steps.release-meta.outputs.sha }}
+          RELEASE_SHA=${{ steps.release-meta.outputs.sha }}
+          EOF
+
+      - name: Copy release files to instance (prod)
+        shell: bash
+        run: |
+          gcloud compute scp \
+            docker-compose.yml \
+            livekit.yaml \
+            scripts/release/remote-runtime-apply.sh \
+            ./.deploy.prod.env \
+            "${{ env.INSTANCE_NAME }}:/tmp/" \
+            --project="${{ env.PROJECT_ID }}" \
+            --zone="${{ env.ZONE }}"
+
+      - name: Deploy on instance (prod)
+        shell: bash
+        run: |
+          gcloud compute ssh "${{ env.INSTANCE_NAME }}" \
+            --project="${{ env.PROJECT_ID }}" \
+            --zone="${{ env.ZONE }}" \
+            --command='set -euo pipefail
+              chmod +x /tmp/remote-runtime-apply.sh
+              /tmp/remote-runtime-apply.sh /tmp/.deploy.prod.env
+            '

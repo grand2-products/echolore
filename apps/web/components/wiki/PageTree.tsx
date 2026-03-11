@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export interface PageNode {
   id: string;
@@ -14,16 +14,40 @@ interface PageTreeItemProps {
   page: PageNode;
   level: number;
   activeId?: string;
+  expandedIds: Set<string>;
+  draggingId: string | null;
+  dragOverId: string | null;
+  onToggleExpand: (id: string, expanded: boolean) => void;
+  onDragStart: (id: string) => void;
+  onDragEnd: () => void;
+  onDragOver: (id: string) => void;
+  onDropTo: (targetId: string) => void;
   onExpand?: (id: string, expanded: boolean) => void;
 }
 
-function PageTreeItem({ page, level, activeId, onExpand }: PageTreeItemProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+function PageTreeItem({
+  page,
+  level,
+  activeId,
+  expandedIds,
+  draggingId,
+  dragOverId,
+  onToggleExpand,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDropTo,
+  onExpand,
+}: PageTreeItemProps) {
   const hasChildren = page.children && page.children.length > 0;
+  const isExpanded = expandedIds.has(page.id);
+  const isDragging = draggingId === page.id;
+  const isDragOver = dragOverId === page.id;
 
   const handleToggle = () => {
-    setIsExpanded(!isExpanded);
-    onExpand?.(page.id, !isExpanded);
+    const next = !isExpanded;
+    onToggleExpand(page.id, next);
+    onExpand?.(page.id, next);
   };
 
   return (
@@ -33,8 +57,21 @@ function PageTreeItem({ page, level, activeId, onExpand }: PageTreeItemProps) {
           activeId === page.id
             ? "bg-blue-50 text-blue-600"
             : "text-gray-700 hover:bg-gray-100"
-        }`}
+        } ${isDragOver ? "ring-1 ring-blue-400" : ""} ${isDragging ? "opacity-50" : ""}`}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
+        draggable
+        onDragStart={() => onDragStart(page.id)}
+        onDragEnd={onDragEnd}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onDragOver(page.id);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onDropTo(page.id);
+        }}
       >
         {/* Expand/Collapse Button */}
         {hasChildren ? (
@@ -97,6 +134,14 @@ function PageTreeItem({ page, level, activeId, onExpand }: PageTreeItemProps) {
               page={child}
               level={level + 1}
               activeId={activeId}
+              expandedIds={expandedIds}
+              draggingId={draggingId}
+              dragOverId={dragOverId}
+              onToggleExpand={onToggleExpand}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              onDragOver={onDragOver}
+              onDropTo={onDropTo}
               onExpand={onExpand}
             />
           ))}
@@ -110,72 +155,161 @@ interface PageTreeProps {
   pages: PageNode[];
   activeId?: string;
   onExpand?: (id: string, expanded: boolean) => void;
+  onReparent?: (pageId: string, parentId: string | null) => Promise<void> | void;
 }
 
-export function PageTree({ pages, activeId, onExpand }: PageTreeProps) {
+function flattenPageIds(nodes: PageNode[]): string[] {
+  const result: string[] = [];
+
+  for (const node of nodes) {
+    result.push(node.id);
+    if (node.children?.length) {
+      result.push(...flattenPageIds(node.children));
+    }
+  }
+
+  return result;
+}
+
+function collectDescendants(node: PageNode): Set<string> {
+  const descendants = new Set<string>();
+
+  for (const child of node.children ?? []) {
+    descendants.add(child.id);
+    const nested = collectDescendants(child);
+    for (const nestedId of nested) {
+      descendants.add(nestedId);
+    }
+  }
+
+  return descendants;
+}
+
+function findNodeById(nodes: PageNode[], id: string): PageNode | null {
+  for (const node of nodes) {
+    if (node.id === id) {
+      return node;
+    }
+    const found = findNodeById(node.children ?? [], id);
+    if (found) {
+      return found;
+    }
+  }
+  return null;
+}
+
+export function PageTree({ pages, activeId, onExpand, onReparent }: PageTreeProps) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  const allIds = useMemo(() => flattenPageIds(pages), [pages]);
+
+  useEffect(() => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of allIds) {
+        if (!next.has(id)) {
+          next.add(id);
+        }
+      }
+      return next;
+    });
+  }, [allIds]);
+
+  const handleToggleExpand = (id: string, expanded: boolean) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (expanded) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const handleDropTo = async (targetId: string) => {
+    if (!onReparent || !draggingId || draggingId === targetId) {
+      setDraggingId(null);
+      setDragOverId(null);
+      return;
+    }
+
+    const draggingNode = findNodeById(pages, draggingId);
+    if (!draggingNode) {
+      setDraggingId(null);
+      setDragOverId(null);
+      return;
+    }
+
+    const descendants = collectDescendants(draggingNode);
+    if (descendants.has(targetId)) {
+      setDraggingId(null);
+      setDragOverId(null);
+      return;
+    }
+
+    try {
+      await onReparent(draggingId, targetId);
+    } finally {
+      setDraggingId(null);
+      setDragOverId(null);
+    }
+  };
+
+  const handleDropToRoot = async () => {
+    if (!onReparent || !draggingId) {
+      setDraggingId(null);
+      setDragOverId(null);
+      return;
+    }
+
+    try {
+      await onReparent(draggingId, null);
+    } finally {
+      setDraggingId(null);
+      setDragOverId(null);
+    }
+  };
+
   return (
-    <div className="space-y-0.5">
+    <div
+      className="space-y-0.5"
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOverId(null);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (e.target !== e.currentTarget) {
+          return;
+        }
+        void handleDropToRoot();
+      }}
+    >
       {pages.map((page) => (
         <PageTreeItem
           key={page.id}
           page={page}
           level={0}
           activeId={activeId}
+          expandedIds={expandedIds}
+          draggingId={draggingId}
+          dragOverId={dragOverId}
+          onToggleExpand={handleToggleExpand}
+          onDragStart={(id) => setDraggingId(id)}
+          onDragEnd={() => {
+            setDraggingId(null);
+            setDragOverId(null);
+          }}
+          onDragOver={(id) => setDragOverId(id)}
+          onDropTo={(targetId) => {
+            void handleDropTo(targetId);
+          }}
           onExpand={onExpand}
         />
       ))}
     </div>
   );
 }
-
-// Sample data for development
-export const samplePages: PageNode[] = [
-  {
-    id: "home",
-    title: "ホーム",
-    children: [
-      {
-        id: "about",
-        title: "会社概要",
-        children: [
-          { id: "mission", title: "ミッション" },
-          { id: "vision", title: "ビジョン" },
-        ],
-      },
-      {
-        id: "team",
-        title: "チーム紹介",
-        children: [
-          { id: "engineering", title: "エンジニアリング" },
-          { id: "design", title: "デザイン" },
-        ],
-      },
-    ],
-  },
-  {
-    id: "projects",
-    title: "プロジェクト",
-    children: [
-      {
-        id: "project-a",
-        title: "プロジェクトA",
-        children: [
-          { id: "project-a-spec", title: "仕様書" },
-          { id: "project-a-meeting", title: "議事録" },
-        ],
-      },
-      {
-        id: "project-b",
-        title: "プロジェクトB",
-      },
-    ],
-  },
-  {
-    id: "meetings",
-    title: "会議",
-    children: [
-      { id: "weekly", title: "週次定例" },
-      { id: "monthly", title: "月次レビュー" },
-    ],
-  },
-];

@@ -45,6 +45,7 @@ docker-compose.override.yml
 
 # Terraform
 terraform/.terraform/
+terraform/**/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.*
 terraform/*.tfvars
@@ -57,6 +58,10 @@ livekit/acme.json
 
 # Drizzle
 apps/api/drizzle/
+
+# Terraform nested env files
+terraform/**/*.tfvars
+terraform/**/backend.hcl
 node_modules/
 .pnpm-store/
 
@@ -115,4 +120,3 @@ livekit/acme.json
 
 # Drizzle
 apps/api/drizzle/
-

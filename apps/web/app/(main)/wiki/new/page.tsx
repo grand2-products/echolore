@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { WikiEditor } from "@/components/wiki";
 import { PageTree, type PageNode } from "@/components/wiki";
-import { usersApi, wikiApi, type Page } from "@/lib/api";
+import { wikiApi, type Page } from "@/lib/api";
 
 function buildPageTree(flatPages: Page[]): PageNode[] {
   const nodeMap = new Map<string, PageNode>();
@@ -47,14 +47,12 @@ export default function NewWikiPage() {
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pages, setPages] = useState<Page[]>([]);
-  const [authorId, setAuthorId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPages = async () => {
       try {
-        const [pagesRes, usersRes] = await Promise.all([wikiApi.listPages(), usersApi.list()]);
+        const pagesRes = await wikiApi.listPages();
         setPages(pagesRes.pages);
-        setAuthorId(usersRes.users[0]?.id ?? null);
       } catch (e) {
         console.error("Failed to fetch pages", e);
       }
@@ -67,12 +65,7 @@ export default function NewWikiPage() {
 
   const handleSave = async () => {
     if (!title.trim()) {
-      alert("タイトルを入力してください");
-      return;
-    }
-
-    if (!authorId) {
-      alert("作成者ユーザーが見つかりません。先にユーザーを作成してください。");
+      alert("繧ｿ繧､繝医Ν繧貞・蜉帙＠縺ｦ縺上□縺輔＞");
       return;
     }
 
@@ -80,13 +73,12 @@ export default function NewWikiPage() {
 
     try {
       const created = await wikiApi.createPage({
-        title,
-        authorId,
+        title
       });
 
       router.push(`/wiki/${created.page.id}`);
     } catch (e) {
-      const message = e instanceof Error ? e.message : "ページ作成に失敗しました";
+      const message = e instanceof Error ? e.message : "繝壹・繧ｸ菴懈・縺ｫ螟ｱ謨励＠縺ｾ縺励◆";
       alert(message);
     } finally {
       setIsSubmitting(false);
@@ -98,13 +90,12 @@ export default function NewWikiPage() {
       {/* Sidebar with Page Tree */}
       <div className="w-64 border-r border-gray-200 bg-white p-4">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-500">ページ一覧</h2>
+          <h2 className="text-sm font-semibold text-gray-500">繝壹・繧ｸ荳隕ｧ</h2>
           <Link
             href="/wiki/new"
             className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700"
           >
-            + 新規
-          </Link>
+            + 譁ｰ隕・          </Link>
         </div>
         <PageTree pages={treePages} />
       </div>
@@ -119,14 +110,14 @@ export default function NewWikiPage() {
                 Wiki
               </Link>
               <span>/</span>
-              <span>新規ページ</span>
+              <span>譁ｰ隕上・繝ｼ繧ｸ</span>
             </div>
 
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="ページタイトル"
+              placeholder="繝壹・繧ｸ繧ｿ繧､繝医Ν"
               className="w-full text-3xl font-bold text-gray-900 border-b-2 border-gray-200 focus:border-blue-500 focus:outline-none pb-2"
             />
           </div>
@@ -136,7 +127,7 @@ export default function NewWikiPage() {
             <WikiEditor
               content={content}
               onChange={setContent}
-              placeholder="ページの内容を入力してください..."
+              placeholder="繝壹・繧ｸ縺ｮ蜀・ｮｹ繧貞・蜉帙＠縺ｦ縺上□縺輔＞..."
               editable={true}
             />
           </div>
@@ -147,7 +138,7 @@ export default function NewWikiPage() {
               href="/wiki"
               className="rounded-lg border border-gray-300 px-6 py-2 text-gray-700 hover:bg-gray-50"
             >
-              キャンセル
+              繧ｭ繝｣繝ｳ繧ｻ繝ｫ
             </Link>
             <button
               type="button"
@@ -155,7 +146,7 @@ export default function NewWikiPage() {
               disabled={isSubmitting || !title.trim()}
               className="rounded-lg bg-blue-600 px-6 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isSubmitting ? "保存中..." : "保存"}
+              {isSubmitting ? "Saving..." : "Save"}
             </button>
           </div>
         </div>
@@ -163,3 +154,4 @@ export default function NewWikiPage() {
     </div>
   );
 }
+

@@ -1,0 +1,232 @@
+export type ISODateString = string;
+
+export type MeetingStatus = "scheduled" | "active" | "ended";
+
+export type BlockType =
+  | "text"
+  | "heading1"
+  | "heading2"
+  | "heading3"
+  | "bulletList"
+  | "orderedList"
+  | "numberedList"
+  | "image"
+  | "file"
+  | "code"
+  | "codeBlock"
+  | "quote"
+  | "divider";
+
+export interface UserDto {
+  id: string;
+  email: string;
+  name: string;
+  avatarUrl: string | null;
+  role: string;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export interface PageDto {
+  id: string;
+  title: string;
+  parentId: string | null;
+  authorId: string;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export interface BlockDto {
+  id: string;
+  pageId: string;
+  type: string;
+  content: string | null;
+  properties: Record<string, unknown> | null;
+  sortOrder: number;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export interface MeetingDto {
+  id: string;
+  title: string;
+  creatorId: string;
+  roomName: string;
+  status: MeetingStatus;
+  startedAt: ISODateString | null;
+  endedAt: ISODateString | null;
+  createdAt: ISODateString;
+}
+
+export interface TranscriptDto {
+  id: string;
+  meetingId: string;
+  speakerId: string | null;
+  content: string;
+  timestamp: ISODateString;
+  createdAt: ISODateString;
+}
+
+export interface SummaryDto {
+  id: string;
+  meetingId: string;
+  content: string;
+  createdAt: ISODateString;
+}
+
+export interface FileMetadataDto {
+  id: string;
+  filename: string;
+  contentType: string | null;
+  size: number | null;
+  gcsPath: string;
+  uploaderId: string;
+  createdAt: ISODateString;
+}
+
+export class ErrorResponse {
+  constructor(
+    public error: string,
+    public message?: string,
+  ) {}
+}
+
+export class SuccessResponse {
+  public readonly success = true;
+}
+
+export class ListUsersResponse {
+  constructor(public users: UserDto[]) {}
+}
+
+export class GetUserResponse {
+  constructor(public user: UserDto) {}
+}
+
+export interface CreateUserRequest {
+  id: string;
+  email: string;
+  name: string;
+  avatarUrl?: string;
+}
+
+export interface UpdateUserRequest {
+  name?: string;
+  avatarUrl?: string;
+}
+
+export class ListPagesResponse {
+  constructor(public pages: PageDto[]) {}
+}
+
+export class GetPageResponse {
+  constructor(
+    public page: PageDto,
+    public blocks: BlockDto[],
+  ) {}
+}
+
+export interface CreatePageRequest {
+  title: string;
+  parentId?: string;
+}
+
+export interface UpdatePageRequest {
+  title?: string;
+  parentId?: string | null;
+}
+
+export interface CreateBlockRequest {
+  pageId: string;
+  type: string;
+  content?: string;
+  properties?: Record<string, unknown>;
+  sortOrder: number;
+}
+
+export interface UpdateBlockRequest {
+  type?: string;
+  content?: string | null;
+  properties?: Record<string, unknown> | null;
+  sortOrder?: number;
+}
+
+export class CreateBlockResponse {
+  constructor(public block: BlockDto) {}
+}
+
+export class ListMeetingsResponse {
+  constructor(public meetings: MeetingDto[]) {}
+}
+
+export class GetMeetingResponse {
+  constructor(
+    public meeting: MeetingDto,
+    public transcripts: TranscriptDto[],
+    public summaries: SummaryDto[],
+  ) {}
+}
+
+export interface CreateMeetingRequest {
+  title: string;
+  scheduledAt?: string;
+}
+
+export interface UpdateMeetingRequest {
+  title?: string;
+  status?: MeetingStatus;
+}
+
+export class CreateMeetingResponse {
+  constructor(public meeting: MeetingDto) {}
+}
+
+export interface CreateTranscriptRequest {
+  speakerId?: string;
+  content: string;
+  timestamp: ISODateString;
+}
+
+export class CreateTranscriptResponse {
+  constructor(public transcript: TranscriptDto) {}
+}
+
+export interface CreateSummaryRequest {
+  content: string;
+}
+
+export class CreateSummaryResponse {
+  constructor(public summary: SummaryDto) {}
+}
+
+export class ListFilesResponse {
+  constructor(public files: FileMetadataDto[]) {}
+}
+
+export class GetFileResponse {
+  constructor(public file: FileMetadataDto) {}
+}
+
+export class UploadFileResponse {
+  constructor(public file: FileMetadataDto) {}
+}
+
+export class GetFileDownloadUrlResponse {
+  constructor(public url: string) {}
+}
+
+export interface LivekitTokenRequest {
+  roomName: string;
+  participantName: string;
+  participantIdentity: string;
+}
+
+export class LivekitTokenResponse {
+  constructor(public token: string) {}
+}
+
+export interface LivekitCreateRoomRequest {
+  name: string;
+  emptyTimeout?: number;
+  maxParticipants?: number;
+}

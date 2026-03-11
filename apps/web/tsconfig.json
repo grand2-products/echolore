@@ -20,6 +20,9 @@
       ],
       "@/types/*": [
         "types/*"
+      ],
+      "@contracts/*": [
+        "../../packages/shared/src/contracts/*"
       ]
     },
     "allowJs": true,

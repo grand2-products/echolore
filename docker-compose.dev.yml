@@ -1,0 +1,22 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile
+    environment:
+      API_NODE_ENV: development
+      AUTH_BYPASS: ${AUTH_BYPASS:-true}
+      GOOGLE_APPLICATION_CREDENTIALS_HOST: ${GOOGLE_APPLICATION_CREDENTIALS:-/dev/null}
+    volumes:
+      - ./apps/api/src:/app/src:ro
+
+  web:
+    build:
+      context: .
+      dockerfile: ./apps/web/Dockerfile
+    environment:
+      WEB_NODE_ENV: development
+    volumes:
+      - ./apps/web/app:/app/app:ro
+      - ./apps/web/components:/app/components:ro
+      - ./apps/web/lib:/app/lib:ro

@@ -2,8 +2,9 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { PageTree, type PageNode } from "@/components/wiki";
-import { useWikiPagesQuery, type Page } from "@/lib/api";
+import { useWikiPagesQuery, wikiApi, type Page } from "@/lib/api";
 
 function buildPageTree(flatPages: Page[]): PageNode[] {
   const nodeMap = new Map<string, PageNode>();
@@ -40,6 +41,7 @@ function buildPageTree(flatPages: Page[]): PageNode[] {
 }
 
 export default function WikiListPage() {
+  const queryClient = useQueryClient();
   const {
     data,
     isLoading,
@@ -48,6 +50,11 @@ export default function WikiListPage() {
 
   const pages = data?.pages ?? [];
   const treePages = useMemo(() => buildPageTree(pages), [pages]);
+
+  const handleReparent = async (pageId: string, parentId: string | null) => {
+    await wikiApi.updatePage(pageId, { parentId });
+    await queryClient.invalidateQueries({ queryKey: ["wiki", "pages"] });
+  };
 
   return (
     <div className="flex h-full">
@@ -62,7 +69,7 @@ export default function WikiListPage() {
             + 新規
           </Link>
         </div>
-        <PageTree pages={treePages} />
+        <PageTree pages={treePages} onReparent={handleReparent} />
       </div>
 
       {/* Main Content */}

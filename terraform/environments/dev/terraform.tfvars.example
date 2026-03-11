@@ -1,0 +1,6 @@
+project_id            = "corp-internal-dev"
+region                = "asia-northeast1"
+zone                  = "asia-northeast1-a"
+admin_source_ranges   = ["35.235.240.0/20"]
+web_source_ranges     = ["0.0.0.0/0"]
+

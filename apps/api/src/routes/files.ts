@@ -1,10 +1,16 @@
-import { Hono } from "hono";
-import { db } from "../db/index.js";
-import { files } from "../db/schema.js";
-import { eq } from "drizzle-orm";
 import { Storage } from "@google-cloud/storage";
+import { Hono } from "hono";
+import type { AppEnv } from "../lib/auth.js";
+import { authorizeOwnerResource } from "../policies/authorization-policy.js";
+import {
+  createFile,
+  deleteFile,
+  getFileById,
+  listFiles,
+  listFilesByUploader,
+} from "../repositories/file/file-repository.js";
 
-export const filesRoutes = new Hono();
+export const filesRoutes = new Hono<AppEnv>();
 
 const storage = new Storage();
 const bucketName = process.env.GCS_BUCKET || "corp-internal-files-dev";
@@ -12,8 +18,10 @@ const bucket = storage.bucket(bucketName);
 
 // GET /api/files - List all files
 filesRoutes.get("/", async (c) => {
+  const user = c.get("user");
+
   try {
-    const allFiles = await db.select().from(files);
+    const allFiles = user.role === "admin" ? await listFiles() : await listFilesByUploader(user.id);
     return c.json({ files: allFiles });
   } catch (error) {
     console.error("Error fetching files:", error);
@@ -26,13 +34,15 @@ filesRoutes.get("/:id", async (c) => {
   const { id } = c.req.param();
 
   try {
-    const [file] = await db
-      .select()
-      .from(files)
-      .where(eq(files.id, id));
+    const file = await getFileById(id);
 
     if (!file) {
       return c.json({ error: "File not found" }, 404);
+    }
+
+    const authz = await authorizeOwnerResource(c, "file", id, file.uploaderId, "read");
+    if (!authz.allowed) {
+      return c.json({ error: "Forbidden" }, 403);
     }
 
     return c.json({ file });
@@ -45,6 +55,11 @@ filesRoutes.get("/:id", async (c) => {
 // POST /api/files/upload - Upload file
 filesRoutes.post("/upload", async (c) => {
   try {
+    const user = c.get("user");
+    if (!user?.id) {
+      return c.json({ error: "Unauthorized" }, 401);
+    }
+
     const contentType = c.req.header("content-type") || "";
 
     if (!contentType.includes("multipart/form-data")) {
@@ -53,10 +68,9 @@ filesRoutes.post("/upload", async (c) => {
 
     const body = await c.req.parseBody();
     const uploadedFile = body.file as File;
-    const uploaderId = body.uploaderId as string;
 
-    if (!uploadedFile || !uploaderId) {
-      return c.json({ error: "File and uploaderId are required" }, 400);
+    if (!uploadedFile) {
+      return c.json({ error: "File is required" }, 400);
     }
 
     const fileId = crypto.randomUUID();
@@ -71,22 +85,19 @@ filesRoutes.post("/upload", async (c) => {
       contentType: uploadedFile.type,
       metadata: {
         originalName: uploadedFile.name,
-        uploaderId,
+        uploaderId: user.id,
       },
     });
 
-    const [newFile] = await db
-      .insert(files)
-      .values({
-        id: fileId,
-        filename: uploadedFile.name,
-        contentType: uploadedFile.type,
-        size: uploadedFile.size,
-        gcsPath: `gs://${bucketName}/${gcsPath}`,
-        uploaderId,
-        createdAt: new Date(),
-      })
-      .returning();
+    const newFile = await createFile({
+      id: fileId,
+      filename: uploadedFile.name,
+      contentType: uploadedFile.type,
+      size: uploadedFile.size,
+      gcsPath: `gs://${bucketName}/${gcsPath}`,
+      uploaderId: user.id,
+      createdAt: new Date(),
+    });
 
     return c.json({ file: newFile }, 201);
   } catch (error) {
@@ -100,13 +111,15 @@ filesRoutes.get("/:id/download", async (c) => {
   const { id } = c.req.param();
 
   try {
-    const [fileRecord] = await db
-      .select()
-      .from(files)
-      .where(eq(files.id, id));
+    const fileRecord = await getFileById(id);
 
     if (!fileRecord) {
       return c.json({ error: "File not found" }, 404);
+    }
+
+    const authz = await authorizeOwnerResource(c, "file", id, fileRecord.uploaderId, "read");
+    if (!authz.allowed) {
+      return c.json({ error: "Forbidden" }, 403);
     }
 
     const pathMatch = fileRecord.gcsPath.match(/gs:\/\/[^/]+\/(.+)/);
@@ -134,13 +147,15 @@ filesRoutes.delete("/:id", async (c) => {
   const { id } = c.req.param();
 
   try {
-    const [fileRecord] = await db
-      .select()
-      .from(files)
-      .where(eq(files.id, id));
+    const fileRecord = await getFileById(id);
 
     if (!fileRecord) {
       return c.json({ error: "File not found" }, 404);
+    }
+
+    const authz = await authorizeOwnerResource(c, "file", id, fileRecord.uploaderId, "delete");
+    if (!authz.allowed) {
+      return c.json({ error: "Forbidden" }, 403);
     }
 
     const pathMatch = fileRecord.gcsPath.match(/gs:\/\/[^/]+\/(.+)/);
@@ -149,7 +164,7 @@ filesRoutes.delete("/:id", async (c) => {
       await bucket.file(gcsPath).delete();
     }
 
-    await db.delete(files).where(eq(files.id, id));
+    await deleteFile(id);
 
     return c.json({ success: true });
   } catch (error) {

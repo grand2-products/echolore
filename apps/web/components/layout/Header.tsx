@@ -1,14 +1,11 @@
 "use client";
 
+import type { SessionUser } from "@/lib/api";
 import Link from "next/link";
 import { useState } from "react";
 
 interface HeaderProps {
-  user?: {
-    name: string;
-    email: string;
-    avatarUrl?: string;
-  };
+  user?: SessionUser | null;
 }
 
 export function Header({ user }: HeaderProps) {
@@ -37,6 +34,7 @@ export function Header({ user }: HeaderProps) {
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
+              <title>Search</title>
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -49,16 +47,10 @@ export function Header({ user }: HeaderProps) {
 
         {/* Navigation */}
         <nav className="hidden items-center gap-6 md:flex">
-          <Link
-            href="/wiki"
-            className="text-gray-600 transition hover:text-blue-600"
-          >
+          <Link href="/wiki" className="text-gray-600 transition hover:text-blue-600">
             Wiki
           </Link>
-          <Link
-            href="/meetings"
-            className="text-gray-600 transition hover:text-blue-600"
-          >
+          <Link href="/meetings" className="text-gray-600 transition hover:text-blue-600">
             ビデオ会議
           </Link>
         </nav>
@@ -71,11 +63,7 @@ export function Header({ user }: HeaderProps) {
             className="flex items-center gap-2 rounded-full p-1 transition hover:bg-gray-100"
           >
             {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.name}
-                className="h-8 w-8 rounded-full"
-              />
+              <img src={user.avatarUrl} alt={user.name} className="h-8 w-8 rounded-full" />
             ) : (
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-medium text-white">
                 {user?.name?.charAt(0) || "U"}
@@ -90,12 +78,8 @@ export function Header({ user }: HeaderProps) {
           {isMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
               <div className="border-b border-gray-100 px-4 py-2">
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.name || "ユーザー"}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {user?.email || "user@example.com"}
-                </p>
+                <p className="text-sm font-medium text-gray-900">{user?.name || "ユーザー"}</p>
+                <p className="text-xs text-gray-500">{user?.email || "user@example.com"}</p>
               </div>
               <Link
                 href="/settings"
@@ -115,17 +99,14 @@ export function Header({ user }: HeaderProps) {
         </div>
 
         {/* Mobile Menu Button */}
-        <button
-          type="button"
-          className="md:hidden"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-        >
+        <button type="button" className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
           <svg
             className="h-6 w-6 text-gray-600"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
+            <title>Menu</title>
             <path
               strokeLinecap="round"
               strokeLinejoin="round"

@@ -42,10 +42,18 @@ function buildPageTree(flatPages: Page[]): PageNode[] {
 }
 
 function blocksToHtml(pageTitle: string, pageBlocks: Block[]): string {
+  const escapeHtml = (s: string) =>
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
   const body = pageBlocks
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((block) => {
-      const text = block.content ?? "";
+      const text = escapeHtml(block.content ?? "");
       switch (block.type) {
         case "heading1":
           return `<h1>${text}</h1>`;
@@ -60,7 +68,8 @@ function blocksToHtml(pageTitle: string, pageBlocks: Block[]): string {
         case "codeBlock":
           return `<pre><code>${text}</code></pre>`;
         case "image": {
-          const src = typeof block.properties?.src === "string" ? block.properties.src : "";
+          const src =
+            typeof block.properties?.src === "string" ? escapeHtml(block.properties.src) : "";
           return src ? `<img src="${src}" alt="${text}" />` : "";
         }
         default:
