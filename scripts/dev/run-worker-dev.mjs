@@ -19,28 +19,7 @@ function normalizeLocalHttpUrl(rawValue, fallbackPort) {
   return rawValue;
 }
 
-function normalizeLocalDatabaseUrl(rawValue, fallbackPort) {
-  const fallback = `postgresql://wiki:wiki_password@localhost:${fallbackPort}/wiki`;
-  if (!rawValue) {
-    return fallback;
-  }
-
-  try {
-    const url = new URL(rawValue);
-    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
-      url.port = fallbackPort;
-      return url.toString();
-    }
-  } catch {
-    return fallback;
-  }
-
-  return rawValue;
-}
-
-const port = process.env.API_PORT || process.env.PORT || "3001";
-const webPort = process.env.WEB_PORT || "3000";
-const dbPort = process.env.DB_PORT || "5432";
+const apiPort = process.env.API_PORT || process.env.PORT || "3001";
 const livekitPort = process.env.LIVEKIT_PORT || "7880";
 
 const child = spawn("tsx", ["watch", "src/index.ts"], {
@@ -48,11 +27,8 @@ const child = spawn("tsx", ["watch", "src/index.ts"], {
   shell: true,
   env: {
     ...process.env,
-    API_PORT: port,
-    PORT: port,
-    CORS_ORIGIN: normalizeLocalHttpUrl(process.env.CORS_ORIGIN, webPort),
+    ROOM_AI_API_BASE_URL: normalizeLocalHttpUrl(process.env.ROOM_AI_API_BASE_URL, apiPort),
     LIVEKIT_HOST: normalizeLocalHttpUrl(process.env.LIVEKIT_HOST, livekitPort),
-    DATABASE_URL: normalizeLocalDatabaseUrl(process.env.DATABASE_URL, dbPort),
   },
 });
 

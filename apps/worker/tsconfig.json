@@ -3,6 +3,8 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "allowImportingTsExtensions": false,
+    "noEmit": false,
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {

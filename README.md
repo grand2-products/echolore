@@ -28,10 +28,16 @@ Internal collaboration platform for grand2 Products.
 1. Install dependencies
    - `pnpm install`
 2. Prepare environment
-   - copy `.env.example` to `.env`
+   - copy `apps/api/.env.example` to `apps/api/.env`
+   - copy `apps/web/.env.local.example` to `apps/web/.env.local`
+   - copy `apps/worker/.env.example` to `apps/worker/.env`
+   - copy `.env.example` to `.env` only if you need root orchestration overrides
+   - for local dev, prefer changing `*_PORT` values; localhost URLs are derived automatically by the dev launchers
+   - set explicit URL variables only when you need non-localhost endpoints
 3. Start local stack
    - `./dev.ps1`
    - or `pnpm dev:daily`
+   - this starts `web`, `api`, and `worker` after middleware boot
    - default local ports use the `17720` range and can be overridden in `.env`
 4. Run typecheck
    - `pnpm typecheck`

@@ -11,6 +11,7 @@ import {
   useAuthMeQuery,
 } from "@/lib/api";
 import { fetchLiveKitToken, getLiveKitUrl } from "@/lib/livekit";
+import { useStableEvent } from "@/lib/use-stable-event";
 import {
   ConnectionState,
   LiveKitRoom,
@@ -21,7 +22,7 @@ import {
 import { Room, Track } from "livekit-client";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 function AgentPanel(props: {
   meetingId: string;
@@ -381,7 +382,7 @@ export default function MeetingRoomPage() {
     return () => window.clearInterval(timer);
   }, [meetingId]);
 
-  const connectAgentParticipant = useEffectEvent(async (agentId: string) => {
+  const connectAgentParticipant = useStableEvent(async (agentId: string) => {
     if (!roomName || agentRoomMapRef.current.has(agentId)) {
       return;
     }
@@ -410,7 +411,7 @@ export default function MeetingRoomPage() {
     }
   });
 
-  const disconnectAgentParticipant = useEffectEvent(async (agentId: string) => {
+  const disconnectAgentParticipant = useStableEvent(async (agentId: string) => {
     const room = agentRoomMapRef.current.get(agentId);
     if (!room) {
       return;

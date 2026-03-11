@@ -1,7 +1,8 @@
 param(
   [switch]$SkipDocker,
   [switch]$SkipApi,
-  [switch]$SkipWeb
+  [switch]$SkipWeb,
+  [switch]$SkipWorker
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,6 +42,14 @@ function Import-EnvFile {
   }
 }
 
+function Import-OptionalEnvFiles {
+  param([string[]]$Paths)
+
+  foreach ($path in $Paths) {
+    Import-EnvFile -Path $path
+  }
+}
+
 function Set-DefaultEnv {
   param(
     [string]$Name,
@@ -50,6 +59,15 @@ function Set-DefaultEnv {
   if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($Name, "Process"))) {
     [Environment]::SetEnvironmentVariable($Name, $Value, "Process")
   }
+}
+
+function Set-Env {
+  param(
+    [string]$Name,
+    [string]$Value
+  )
+
+  [Environment]::SetEnvironmentVariable($Name, $Value, "Process")
 }
 
 function Wait-ForContainerHealth {
@@ -76,7 +94,19 @@ function Test-DockerAvailable {
   return $LASTEXITCODE -eq 0
 }
 
-Import-EnvFile -Path (Join-Path $repoRoot ".env")
+Import-OptionalEnvFiles -Paths @(
+  (Join-Path $repoRoot ".env"),
+  (Join-Path $repoRoot "apps/api/.env"),
+  (Join-Path $repoRoot "apps/api/.env.local"),
+  (Join-Path $repoRoot "apps/web/.env"),
+  (Join-Path $repoRoot "apps/web/.env.local"),
+  (Join-Path $repoRoot "apps/worker/.env"),
+  (Join-Path $repoRoot "apps/worker/.env.local")
+)
+
+if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable("API_PORT", "Process")) -and -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable("PORT", "Process"))) {
+  Set-Env -Name "API_PORT" -Value ([Environment]::GetEnvironmentVariable("PORT", "Process"))
+}
 
 Set-DefaultEnv -Name "DB_PASSWORD" -Value "wiki_password"
 Set-DefaultEnv -Name "WEB_PORT" -Value "17720"
@@ -87,7 +117,7 @@ Set-DefaultEnv -Name "DB_PORT" -Value "17724"
 Set-DefaultEnv -Name "VALKEY_PORT" -Value "17725"
 Set-DefaultEnv -Name "OAUTH_PROXY_PORT" -Value "17726"
 Set-DefaultEnv -Name "LIVEKIT_RTC_PORT_RANGE" -Value "17730-17930"
-Set-DefaultEnv -Name "PORT" -Value ([Environment]::GetEnvironmentVariable("API_PORT", "Process"))
+Set-Env -Name "PORT" -Value ([Environment]::GetEnvironmentVariable("API_PORT", "Process"))
 Set-DefaultEnv -Name "NEXT_PUBLIC_API_URL" -Value ("http://localhost:" + [Environment]::GetEnvironmentVariable("API_PORT", "Process"))
 Set-DefaultEnv -Name "NEXT_PUBLIC_LIVEKIT_URL" -Value ("ws://localhost:" + [Environment]::GetEnvironmentVariable("LIVEKIT_PORT", "Process"))
 Set-DefaultEnv -Name "LIVEKIT_HOST" -Value ("http://localhost:" + [Environment]::GetEnvironmentVariable("LIVEKIT_PORT", "Process"))
@@ -105,6 +135,10 @@ Set-DefaultEnv -Name "GOOGLE_CLIENT_SECRET" -Value "local-dev-client-secret"
 Set-DefaultEnv -Name "APP_TITLE" -Value "corp-internal"
 Set-DefaultEnv -Name "NEXT_PUBLIC_APP_TITLE" -Value ([Environment]::GetEnvironmentVariable("APP_TITLE", "Process"))
 Set-DefaultEnv -Name "NEXT_PUBLIC_APP_TAGLINE" -Value "Internal collaboration platform"
+Set-DefaultEnv -Name "ROOM_AI_WORKER_MODE" -Value "monitor"
+Set-DefaultEnv -Name "ROOM_AI_API_BASE_URL" -Value ("http://localhost:" + [Environment]::GetEnvironmentVariable("API_PORT", "Process"))
+Set-DefaultEnv -Name "ROOM_AI_POLL_INTERVAL_MS" -Value "15000"
+Set-DefaultEnv -Name "ROOM_AI_WEBHOOK_PORT" -Value "17727"
 
 if (-not $SkipDocker) {
   if (-not (Test-DockerAvailable)) {
@@ -152,6 +186,10 @@ if (-not $SkipApi) {
 
 if (-not $SkipWeb) {
   $devFilters += "--filter=@corp-internal/web"
+}
+
+if (-not $SkipWorker) {
+  $devFilters += "--filter=@corp-internal/worker"
 }
 
 if ($devFilters.Count -eq 0) {

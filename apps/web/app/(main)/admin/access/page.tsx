@@ -8,7 +8,8 @@ import {
   type Page,
   wikiApi,
 } from "@/lib/api";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useStableEvent } from "@/lib/use-stable-event";
+import { useEffect, useState } from "react";
 
 type GroupFormState = CreateAdminGroupRequest;
 
@@ -60,7 +61,7 @@ export default function AdminAccessPage() {
   const selectedUser = users.find((user) => user.id === selectedUserId) ?? null;
   const selectedPage = pages.find((page) => page.id === selectedPageId) ?? null;
 
-  const loadAdminData = useEffectEvent(async () => {
+  const loadAdminData = useStableEvent(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -83,10 +84,11 @@ export default function AdminAccessPage() {
     }
   });
 
-  const loadPagePermissions = useEffectEvent(async (pageId: string, availableGroups: AdminGroup[]) => {
-    try {
-      const detail = await adminApi.getPagePermissions(pageId);
-      setInheritFromParent(detail.inheritFromParent);
+  const loadPagePermissions = useStableEvent(
+    async (pageId: string, availableGroups: AdminGroup[]) => {
+      try {
+        const detail = await adminApi.getPagePermissions(pageId);
+        setInheritFromParent(detail.inheritFromParent);
       setPermissionRows(
         availableGroups.map((group) => {
           const existing = detail.permissions.find((permission) => permission.groupId === group.id);
@@ -99,10 +101,11 @@ export default function AdminAccessPage() {
           };
         })
       );
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load page permissions");
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Failed to load page permissions");
+      }
     }
-  });
+  );
 
   useEffect(() => {
     void loadAdminData();

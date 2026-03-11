@@ -1,7 +1,8 @@
 "use client";
 
 import { type AgentDefinition, type CreateAgentRequest, adminApi } from "@/lib/api";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useStableEvent } from "@/lib/use-stable-event";
+import { useEffect, useState } from "react";
 
 const emptyForm: CreateAgentRequest = {
   name: "",
@@ -21,7 +22,7 @@ export default function AdminAgentsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAgents = useEffectEvent(async () => {
+  const loadAgents = useStableEvent(async () => {
     setIsLoading(true);
     setError(null);
     try {

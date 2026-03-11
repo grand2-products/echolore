@@ -14,7 +14,10 @@ High-level project overview lives in `README.md`.
 1. Install dependencies
    - `pnpm install`
 2. Create local env file
-   - copy `.env.example` to `.env`
+   - copy `.env.example` to `.env` only if you need root orchestration overrides
+   - copy `apps/api/.env.example` to `apps/api/.env`
+   - copy `apps/web/.env.local.example` to `apps/web/.env.local`
+   - copy `apps/worker/.env.example` to `apps/worker/.env`
 3. Review compose config
    - `docker compose -f docker-compose.yml -f docker-compose.dev.yml config`
 4. Start local services
@@ -33,11 +36,14 @@ High-level project overview lives in `README.md`.
 - Daily Windows workflow:
   - `./dev.ps1`
   - or `pnpm dev:daily`
-- `dev.ps1` starts middleware (`db`, `valkey`, `livekit`) in Docker and then runs the app dev processes through Turborepo in the current shell.
-- The script loads `.env` if present and defaults `AUTH_BYPASS=true` for local daily development.
-- The default local ports are `17720`-series values and can be overridden in `.env`.
-- App branding can also be overridden in `.env` via `APP_TITLE`, `NEXT_PUBLIC_APP_TITLE`, and `NEXT_PUBLIC_APP_TAGLINE`.
+- `dev.ps1` starts middleware (`db`, `valkey`, `livekit`) in Docker and then runs `web`, `api`, and `worker` through Turborepo in the current shell.
+- The script loads root `.env` first for orchestration overrides, then app-specific env files from `apps/api`, `apps/web`, and `apps/worker`.
+- The default local ports are `17720`-series values and can be overridden in root `.env` or the app-specific env files.
+- In local dev, treat `WEB_PORT`, `API_PORT`, `DB_PORT`, and `LIVEKIT_PORT` as the primary values. The dev launchers normalize localhost URLs such as `NEXT_PUBLIC_API_URL`, `CORS_ORIGIN`, `ROOM_AI_API_BASE_URL`, `LIVEKIT_HOST`, and local `DATABASE_URL` from those ports.
+- Set the URL variables explicitly only when you need non-localhost endpoints.
+- App branding can be overridden in `apps/api/.env` and `apps/web/.env.local` via `APP_TITLE`, `NEXT_PUBLIC_APP_TITLE`, and `NEXT_PUBLIC_APP_TAGLINE`.
 - If Docker Desktop is not running, start it first or use `./dev.ps1 -SkipDocker` to launch only the app processes.
+- Use `-SkipWorker` only when you intentionally want to exclude the worker from daily development.
 - `docker-compose.yml` is the runtime-oriented base compose file.
 - `docker-compose.dev.yml` is the local override for source-based development.
 - `pnpm docker:dev` runs the API with `tsx watch` and the web app with `next dev --turbopack`.

@@ -11,10 +11,19 @@ export type WorkerConfig = {
   webhookPort: number;
 };
 
+function requireEnv(name: string) {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`${name} is required`);
+  }
+
+  return value;
+}
+
 export function getWorkerConfig(): WorkerConfig {
   return {
     mode: (process.env.ROOM_AI_WORKER_MODE as WorkerMode | undefined) ?? "monitor",
-    apiBaseUrl: process.env.ROOM_AI_API_BASE_URL || "http://localhost:3001",
+    apiBaseUrl: requireEnv("ROOM_AI_API_BASE_URL"),
     roomAiWorkerSecret: process.env.ROOM_AI_WORKER_SECRET || "",
     livekitHost: process.env.LIVEKIT_HOST || "http://localhost:7880",
     livekitApiKey: process.env.LIVEKIT_API_KEY || "",
