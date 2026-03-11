@@ -15,6 +15,7 @@ import { usersRoutes } from "./routes/users.js";
 import { wikiRoutes } from "./routes/wiki.js";
 
 const app = new Hono<AppEnv>();
+const appTitle = process.env.APP_TITLE || "corp-internal";
 
 app.use("*", logger());
 app.use("*", prettyJSON());
@@ -28,7 +29,7 @@ app.use(
   })
 );
 
-app.get("/", (c) => c.json({ message: "grand2 Products 社内ポータル API", version: "0.0.1" }));
+app.get("/", (c) => c.json({ message: `${appTitle} API`, version: "0.0.1" }));
 app.get("/health", (c) => c.json({ status: "ok", timestamp: new Date().toISOString() }));
 app.route("/internal/room-ai", internalRoomAiRoutes);
 
@@ -66,7 +67,7 @@ app.notFound((c) => c.json({ error: "Not Found" }, 404));
 app.onError((err, c) => c.json({ error: "Internal Server Error", message: err.message }, 500));
 
 const port = Number(process.env.PORT) || 3001;
-console.log(`🚀 Server is running on http://localhost:${port}`);
+console.log(`Server is running on http://localhost:${port}`);
 serve({ fetch: app.fetch, port });
 
 export { app };

@@ -42,5 +42,4 @@ docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" pull
 docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" up -d --wait --remove-orphans
 docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" ps
 docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" exec -T api wget --no-verbose --tries=1 --spider http://localhost:3001/health
-docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" exec -T web wget --no-verbose --tries=1 --spider http://localhost:3000
-
+docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" exec -T web wget --no-verbose --tries=1 --spider http://127.0.0.1:3000

@@ -18,7 +18,7 @@ services:
       - --client-secret=${GOOGLE_CLIENT_SECRET}
       - --redirect-url=${OAUTH_REDIRECT_URL:-http://localhost:4180/oauth2/callback}
     ports:
-      - "4180:4180"
+      - "${OAUTH_PROXY_PORT:-4180}:4180"
     depends_on:
       - web
 
@@ -32,20 +32,20 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U wiki -d wiki"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    container_name: corp-internal-redis
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: corp-internal-valkey
     volumes:
-      - redis_data:/data
+      - valkey_data:/data
     ports:
-      - "6379:6379"
+      - "${VALKEY_PORT:-6379}:6379"
 
   livekit:
     image: livekit/livekit-server:latest
@@ -54,11 +54,11 @@ services:
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro
     ports:
-      - "7880:7880"
-      - "7881:7881"
-      - "50000-50200:50000-50200/udp"
+      - "${LIVEKIT_PORT:-7880}:7880"
+      - "${LIVEKIT_SIGNAL_PORT:-7881}:7881"
+      - "${LIVEKIT_RTC_PORT_RANGE:-50000-50200}:50000-50200/udp"
     depends_on:
-      - redis
+      - valkey
 
   api:
     image: ${API_IMAGE:-gcr.io/local-dev/corp-internal-api:latest}
@@ -79,11 +79,11 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GOOGLE_APPLICATION_CREDENTIALS: /app/credentials.json
     ports:
-      - "3001:3001"
+      - "${API_PORT:-3001}:3001"
     depends_on:
       db:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_started
       livekit:
         condition: service_started
@@ -109,7 +109,7 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -117,4 +117,4 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
+  valkey_data:

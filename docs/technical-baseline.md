@@ -10,7 +10,7 @@ This document records the currently adopted technical baseline for the repositor
 - ORM: Drizzle ORM
 - Database: PostgreSQL
 - Realtime: LiveKit
-- Cache/broker: Redis
+- Cache/broker: Valkey
 - Auth gateway: OAuth2 Proxy
 - Infra baseline: GCE + GCS + Docker Compose
 
@@ -33,6 +33,7 @@ This document records the currently adopted technical baseline for the repositor
 - authentication provider: Google SSO through OAuth2 Proxy
 - AI summary path: Vertex AI
 - speech/transcript path: Google Cloud Speech-to-Text
+- runtime image registry: explicit `gcr.io/${PROJECT_ID}/...` tags in GitHub Actions workflows
 
 ## Current Constraints
 - frontend and API contracts should stay aligned through `packages/shared`
@@ -50,4 +51,6 @@ This document records the currently adopted technical baseline for the repositor
 - `../plan/implementation-status-master.md`
 - `../docs/release-workflows.md`
 - `../docs/ops-runbook.md`
+- `../docs/observability-architecture.md`
+- `../docs/rollback-recovery-architecture.md`
 - `../AGENTS.md`

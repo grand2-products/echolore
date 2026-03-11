@@ -8,7 +8,7 @@ Source: architecture review remediation (2026-03-11)
 - [x] SEC-02: Enforce authorization for Wiki/File/Meeting resources
 - [x] SEC-03: Lock down user-management endpoints to admin or self-only
 - [ ] REL-01: Fix deploy path mismatch (compose build vs runtime artifact availability)
-- [ ] REL-02: Define production image strategy (registry tags + immutable rollout)
+- [x] REL-02: Define production image strategy (registry tags + immutable rollout)
 
 ## P1 (High Priority)
 - [x] INF-01: Apply least-privilege IAM and scope design for GCE/API/GCS
@@ -17,8 +17,8 @@ Source: architecture review remediation (2026-03-11)
 - [x] APP-02: Normalize authentication flow in web app (remove mock user path)
 - [x] APP-03: Add transaction boundaries for multi-step write operations (pipeline/create flows)
 - [x] ROOM-01: Add realtime transcript and explicit-invocation AI employee foundation
-- [ ] WIKI-ATTACH-01: Finish Wiki attachment filename, download URL, and page-aware authorization flow
-- [ ] ADMIN-UI-01: Build frontend admin UI for groups, memberships, and page permissions
+- [x] WIKI-ATTACH-01: Finish Wiki attachment filename, download URL, and page-aware authorization flow
+- [x] ADMIN-UI-01: Build frontend admin UI for groups, memberships, and page permissions
 
 ## P2 (Quality/Operational Hardening)
 - [x] CFG-01: Remove duplicated/broken config definitions (Drizzle config, Dockerfiles, workspace entries)
@@ -26,8 +26,8 @@ Source: architecture review remediation (2026-03-11)
 - [x] QA-02: Add API contract tests for protected endpoints
 - [x] OBS-01: Add security/authorization KPI metrics and alerts
 - [x] DOC-01: Align architecture docs with actual implementation and CI/CD behavior
-- [ ] QA-03: Add regression coverage for Wiki file attachment access and download behavior
-- [ ] DOC-02: Add durable observability and rollback architecture docs after release flow stabilizes
+- [x] QA-03: Add regression coverage for Wiki file attachment access and download behavior
+- [x] DOC-02: Add durable observability and rollback architecture docs after release flow stabilizes
 
 ## Detailed Task Breakdown (Execution List)
 ### SEC-01: Server-authoritative identity
@@ -79,7 +79,7 @@ Source: architecture review remediation (2026-03-11)
 - [x] Add transcript segment schema for partial/final realtime transcript
 - [x] Add STT/TTS gateway abstraction with initial Google-backed adapters
 - [x] Add explicit AI invocation flow in meeting room UI
-- [ ] Add bot participant join flow and voice response path
+- [x] Add bot participant join flow and voice response path
 - [x] Add admin CRUD for agent definitions
 - [x] Persist meeting agent events and session state
 - [x] Add live transcript panel to meeting room UI
@@ -98,24 +98,29 @@ Source: architecture review remediation (2026-03-11)
 - [x] Update deployment tracking and runbook to match implemented flow
 
 ### WIKI-ATTACH-01: Wiki attachment flow
-- [ ] Preserve original uploaded filename in file metadata
-- [ ] Store a stable `fileId` reference in Wiki blocks instead of browser-unusable storage URLs
-- [ ] Serve browser-downloadable attachment links through an authorized API path
-- [ ] Connect attachment download authorization to owning page permissions instead of uploader-only ownership
+- [x] Preserve original uploaded filename in file metadata
+- [x] Store a stable `fileId` reference in Wiki blocks instead of browser-unusable storage URLs
+- [x] Serve browser-downloadable attachment links through an authorized API path
+- [x] Connect attachment download authorization to owning page permissions instead of uploader-only ownership
+- [x] Support drag-and-drop and paste image insertion for immediate inline Wiki display
 
 ### ADMIN-UI-01: Admin management frontend
-- [ ] Build frontend admin UI for groups and memberships
-- [ ] Build frontend admin UI for page permission management
-- [ ] Clarify minimum operator workflow for admin management
+- [x] Build frontend admin UI for groups and memberships
+- [x] Build frontend admin UI for page permission management
+- [x] Clarify minimum operator workflow for admin management in admin implementation docs and UI flow
 
 ### QA-03: Wiki attachment regression coverage
-- [ ] Add route-level coverage for authorized attachment download behavior
-- [ ] Add route-level coverage for denied attachment access across page permission boundaries
+- [x] Add route-level coverage for authorized attachment download behavior
+- [x] Add route-level coverage for denied attachment access across page permission boundaries
+
+### WIKI-UX-01: Remaining Wiki UX polish
+- [x] Review remaining Wiki UX polish and error states
+- [x] Add richer editor polish beyond current image drag-and-drop and paste insert flow
+- [x] Decide whether additional Wiki operational docs belong in `docs/`
 
 ### DOC-02: Remaining durable architecture docs
-- [ ] Document observability architecture once monitoring shape stabilizes
-- [ ] Document rollback and failure-mode architecture once release hardening is complete
+- [x] Document observability architecture once monitoring shape stabilizes
+- [x] Document rollback and failure-mode architecture once release hardening is complete
 
 ## Canonical Detailed Plan
 - [Architecture Review Snapshot 2026-03-11](../docs/architecture-review-2026-03-11.md)
-- [Realtime AI Employee Plan](./ai-employee-realtime-plan.md)

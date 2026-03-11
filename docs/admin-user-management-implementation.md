@@ -52,9 +52,10 @@ This document describes the currently implemented admin user management behavior
 
 ## Current Frontend
 - KPI screen: `apps/web/app/(main)/admin/kpi/page.tsx`
+- Access management screen: `apps/web/app/(main)/admin/access/page.tsx`
+- AI agent screen: `apps/web/app/(main)/admin/agents/page.tsx`
 
 ## Known Gaps
-- full admin UI for groups, memberships, and page permissions is not finished
 - broader regression test coverage is missing
 - operational guidance should stay in `docs/`, not in planning docs
 

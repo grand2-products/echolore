@@ -34,5 +34,4 @@ docker compose pull
 docker compose up -d --remove-orphans
 docker compose ps
 curl --fail --retry 10 --retry-delay 5 http://localhost:3001/health
-curl --fail --retry 10 --retry-delay 5 http://localhost:3000
-
+docker compose exec -T web wget --no-verbose --tries=1 --spider http://127.0.0.1:3000

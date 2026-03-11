@@ -6,7 +6,7 @@ This document describes the currently implemented frontend app structure in `app
 
 ## Current Scope
 - App Router based Next.js frontend
-- Main screens for Wiki, Meetings, Search, and Admin KPI
+- Main screens for Wiki, Meetings, Search, and Admin operations
 - Shared API client in `apps/web/lib/api.ts`
 - Shared layout components in `apps/web/components/layout`
 
@@ -22,6 +22,7 @@ This document describes the currently implemented frontend app structure in `app
 - `/meetings`: meetings list
 - `/meetings/[id]`: meeting room
 - `/meetings/coworking`: shared coworking room
+- `/admin/access`: admin access management
 - `/admin/kpi`: admin KPI screen
 - `/admin/agents`: admin AI agent management
 
@@ -39,7 +40,6 @@ This document describes the currently implemented frontend app structure in `app
 
 ## Known Gaps
 - frontend main layout session state is derived from `/api/auth/me`; deeper screen-level user hydration is still partial
-- admin frontend is limited to KPI and does not yet cover groups, memberships, or page permissions
 - dedicated sitemap and screen inventory should be kept in `docs/site-map.md`
 
 ## Related Files

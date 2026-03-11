@@ -9,7 +9,7 @@ This document describes the currently implemented system architecture of `corp-i
 - `apps/api`: Hono API
 - PostgreSQL: primary database
 - LiveKit: realtime meeting infrastructure
-- Redis: LiveKit support service
+- Valkey: LiveKit support service
 - GCS: file/object storage
 - OAuth2 Proxy: auth gateway
 - Traefik: ingress and TLS termination
@@ -46,8 +46,8 @@ This document describes the currently implemented system architecture of `corp-i
 - `./technical-baseline.md`
 - `./release-workflows.md`
 - `./ops-runbook.md`
+- `./observability-architecture.md`
+- `./rollback-recovery-architecture.md`
 
 ## Known Gaps
-- observability architecture is not yet fully documented
-- rollback and recovery architecture still needs more durable operational detail
 - some historical planning artifacts still need to be trimmed from `plan/`

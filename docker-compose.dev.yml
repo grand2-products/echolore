@@ -1,22 +1,57 @@
 services:
   api:
-    build:
-      context: .
-      dockerfile: ./apps/api/Dockerfile
+    image: node:22-alpine
+    working_dir: /workspace
+    command:
+      - sh
+      - -lc
+      - corepack enable && pnpm install --frozen-lockfile && pnpm --filter @corp-internal/api dev
     environment:
       API_NODE_ENV: development
+      NODE_ENV: development
       AUTH_BYPASS: ${AUTH_BYPASS:-true}
       GOOGLE_APPLICATION_CREDENTIALS_HOST: ${GOOGLE_APPLICATION_CREDENTIALS:-/dev/null}
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
     volumes:
-      - ./apps/api/src:/app/src:ro
+      - .:/workspace
+      - pnpm_store:/root/.local/share/pnpm/store
+      - api_workspace_node_modules:/workspace/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   web:
-    build:
-      context: .
-      dockerfile: ./apps/web/Dockerfile
+    image: node:22-alpine
+    working_dir: /workspace
+    command:
+      - sh
+      - -lc
+      - corepack enable && pnpm install --frozen-lockfile && pnpm --filter @corp-internal/web dev
     environment:
       WEB_NODE_ENV: development
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "${WEB_PORT:-3000}:3000"
     volumes:
-      - ./apps/web/app:/app/app:ro
-      - ./apps/web/components:/app/components:ro
-      - ./apps/web/lib:/app/lib:ro
+      - .:/workspace
+      - pnpm_store:/root/.local/share/pnpm/store
+      - web_workspace_node_modules:/workspace/node_modules
+      - web_next_cache:/workspace/apps/web/.next
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  pnpm_store:
+  api_workspace_node_modules:
+  web_workspace_node_modules:
+  web_next_cache:

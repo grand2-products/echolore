@@ -18,10 +18,10 @@ import {
   TrackToggle,
   useTracks,
 } from "@livekit/components-react";
-import { Track } from "livekit-client";
+import { Room, Track } from "livekit-client";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 function AgentPanel(props: {
   meetingId: string;
@@ -38,6 +38,7 @@ function AgentPanel(props: {
   const [isInvoking, setIsInvoking] = useState(false);
   const [isResponding, setIsResponding] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const firstAgent = props.agents[0];
@@ -67,12 +68,24 @@ function AgentPanel(props: {
     if (!selectedAgentId || !prompt.trim()) return;
     setIsResponding(true);
     setError(null);
+    setVoiceStatus(null);
     try {
       const result = await meetingsApi.respondAsAgent(props.meetingId, selectedAgentId, {
         prompt: prompt.trim(),
         languageCode: "ja-JP",
       });
       setResponse(result);
+      if (result.audio) {
+        const audio = new Audio(`data:${result.audio.mimeType};base64,${result.audio.base64}`);
+        try {
+          await audio.play();
+          setVoiceStatus("Voice response is playing.");
+        } catch {
+          setVoiceStatus("Voice response is ready, but browser playback was blocked.");
+        }
+      } else {
+        setVoiceStatus("Voice response is not available for this agent response.");
+      }
     } catch (respondError) {
       setError(
         respondError instanceof Error ? respondError.message : "Failed to get agent response"
@@ -171,6 +184,7 @@ function AgentPanel(props: {
         </button>
 
         {error ? <div className="text-sm text-red-300">{error}</div> : null}
+        {voiceStatus ? <div className="text-sm text-emerald-300">{voiceStatus}</div> : null}
 
         {response ? (
           <div className="space-y-2 rounded-md border border-gray-700 bg-gray-900/60 p-3">
@@ -314,6 +328,7 @@ export default function MeetingRoomPage() {
   const [activeAgentSessions, setActiveAgentSessions] = useState<MeetingAgentSession[]>([]);
   const [transcriptSegments, setTranscriptSegments] = useState<RealtimeTranscriptSegment[]>([]);
   const [agentEvents, setAgentEvents] = useState<MeetingAgentEvent[]>([]);
+  const agentRoomMapRef = useRef<Map<string, Room>>(new Map());
 
   useEffect(() => {
     const run = async () => {
@@ -365,6 +380,68 @@ export default function MeetingRoomPage() {
 
     return () => window.clearInterval(timer);
   }, [meetingId]);
+
+  const connectAgentParticipant = useEffectEvent(async (agentId: string) => {
+    if (!roomName || agentRoomMapRef.current.has(agentId)) {
+      return;
+    }
+
+    const agent = agents.find((item) => item.id === agentId);
+    if (!agent) {
+      return;
+    }
+
+    const botRoom = new Room();
+    try {
+      const token = await fetchLiveKitToken({
+        roomName,
+        participantName: `${agent.name} (AI)`,
+        participantIdentity: `agent-${meetingId}-${agentId}`,
+      });
+      await botRoom.connect(getLiveKitUrl(), token, { autoSubscribe: false });
+      agentRoomMapRef.current.set(agentId, botRoom);
+    } catch (connectError) {
+      await botRoom.disconnect();
+      setError(
+        connectError instanceof Error
+          ? connectError.message
+          : "Failed to connect AI participant to LiveKit"
+      );
+    }
+  });
+
+  const disconnectAgentParticipant = useEffectEvent(async (agentId: string) => {
+    const room = agentRoomMapRef.current.get(agentId);
+    if (!room) {
+      return;
+    }
+
+    agentRoomMapRef.current.delete(agentId);
+    await room.disconnect();
+  });
+
+  useEffect(() => {
+    const activeIds = new Set(activeAgentSessions.map((session) => session.agentId));
+
+    for (const agentId of activeIds) {
+      void connectAgentParticipant(agentId);
+    }
+
+    for (const agentId of agentRoomMapRef.current.keys()) {
+      if (!activeIds.has(agentId)) {
+        void disconnectAgentParticipant(agentId);
+      }
+    }
+  }, [activeAgentSessions, connectAgentParticipant, disconnectAgentParticipant]);
+
+  useEffect(() => {
+    return () => {
+      for (const room of agentRoomMapRef.current.values()) {
+        void room.disconnect();
+      }
+      agentRoomMapRef.current.clear();
+    };
+  }, []);
 
   const meetingLabel = useMemo(() => `${title} (${roomName})`, [roomName, title]);
   const activeAgentIds = useMemo(

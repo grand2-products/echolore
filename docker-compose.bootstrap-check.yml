@@ -31,8 +31,8 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
+  valkey:
+    image: valkey/valkey:8-alpine
 
   livekit:
     image: livekit/livekit-server:latest
@@ -40,7 +40,7 @@ services:
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro
     depends_on:
-      - redis
+      - valkey
 
   api:
     image: ${API_IMAGE:-gcr.io/local-dev/corp-internal-api:latest}
@@ -62,7 +62,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_started
       livekit:
         condition: service_started
@@ -87,7 +87,7 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000"]
       interval: 30s
       timeout: 10s
       retries: 5

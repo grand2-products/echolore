@@ -23,7 +23,7 @@
 - API: Hono + Drizzle ORM
 - Database: PostgreSQL
 - Realtime: LiveKit
-- Cache/broker: Redis
+- Cache/broker: Valkey
 - Auth gateway: OAuth2 Proxy
 - Infra baseline: GCE + GCS + Docker Compose
 - Network baseline: explicit per-environment VPC/subnet/firewall in Terraform

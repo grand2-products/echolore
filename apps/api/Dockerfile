@@ -16,6 +16,7 @@ COPY packages/shared ./packages/shared
 
 RUN pnpm --filter @corp-internal/shared build
 RUN pnpm --filter @corp-internal/api build
+RUN pnpm deploy --filter @corp-internal/api --prod /prod/api
 
 FROM node:22-alpine AS runner
 
@@ -23,15 +24,11 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
-COPY --from=builder /app/apps/api/dist ./dist
-COPY --from=builder /app/apps/api/package.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/shared/dist ./node_modules/@corp-internal/shared/dist
-COPY --from=builder /app/packages/shared/package.json ./node_modules/@corp-internal/shared/
+COPY --from=builder /prod/api ./
 
 ENV NODE_ENV=production
 ENV PORT=3001
 
 EXPOSE 3001
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/apps/api/src/index.js"]

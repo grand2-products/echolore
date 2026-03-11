@@ -1,6 +1,7 @@
 "use client";
 
 import type { SessionUser } from "@/lib/api";
+import { appTitle } from "@/lib/app-config";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -14,18 +15,15 @@ export function Header({ user }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-        {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <span className="text-xl font-bold text-blue-600">grand2</span>
-          <span className="text-sm text-gray-500">社内ポータル</span>
+          <span className="text-xl font-bold text-blue-600">{appTitle}</span>
         </Link>
 
-        {/* Search Bar */}
         <div className="hidden flex-1 justify-center px-8 md:flex">
           <div className="relative w-full max-w-md">
             <input
               type="text"
-              placeholder="検索..."
+              placeholder="Search..."
               className="w-full rounded-lg border border-gray-300 px-4 py-2 pl-10 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             <svg
@@ -45,17 +43,15 @@ export function Header({ user }: HeaderProps) {
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className="hidden items-center gap-6 md:flex">
           <Link href="/wiki" className="text-gray-600 transition hover:text-blue-600">
             Wiki
           </Link>
           <Link href="/meetings" className="text-gray-600 transition hover:text-blue-600">
-            ビデオ会議
+            Meetings
           </Link>
         </nav>
 
-        {/* User Menu */}
         <div className="relative">
           <button
             type="button"
@@ -70,15 +66,14 @@ export function Header({ user }: HeaderProps) {
               </div>
             )}
             <span className="hidden text-sm font-medium text-gray-700 md:block">
-              {user?.name || "ユーザー"}
+              {user?.name || "User"}
             </span>
           </button>
 
-          {/* Dropdown Menu */}
           {isMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
               <div className="border-b border-gray-100 px-4 py-2">
-                <p className="text-sm font-medium text-gray-900">{user?.name || "ユーザー"}</p>
+                <p className="text-sm font-medium text-gray-900">{user?.name || "User"}</p>
                 <p className="text-xs text-gray-500">{user?.email || "user@example.com"}</p>
               </div>
               <Link
@@ -86,33 +81,22 @@ export function Header({ user }: HeaderProps) {
                 className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 onClick={() => setIsMenuOpen(false)}
               >
-                設定
+                Settings
               </Link>
               <button
                 type="button"
                 className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
               >
-                ログアウト
+                Log out
               </button>
             </div>
           )}
         </div>
 
-        {/* Mobile Menu Button */}
         <button type="button" className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-          <svg
-            className="h-6 w-6 text-gray-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="h-6 w-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <title>Menu</title>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h16"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
       </div>

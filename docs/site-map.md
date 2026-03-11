@@ -35,6 +35,10 @@ This document maps the currently implemented frontend routes in `apps/web`.
 - `/admin/kpi`
   - admin KPI dashboard
   - security metrics included
+- `/admin/access`
+  - admin group management
+  - admin membership management
+  - admin wiki page permission management
 - `/admin/agents`
   - admin AI agent definition management
 
@@ -44,6 +48,7 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - `/wiki`
   - `/meetings`
   - `/search`
+  - `/admin/access` for admin only
   - `/admin/kpi` for admin only
   - `/admin/agents` for admin only
 - Local wiki navigation:
@@ -68,6 +73,7 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - `/meetings` -> `/meetings/coworking`
   - `/meetings/[id]` -> AI employee actions -> Room AI summary to Wiki
 - Admin flow:
+  - `/admin/access`
   - `/admin/kpi`
   - `/admin/agents`
 
@@ -82,6 +88,7 @@ This document maps the currently implemented frontend routes in `apps/web`.
 - `apps/web/app/(main)/meetings/page.tsx`
 - `apps/web/app/(main)/meetings/[id]/page.tsx`
 - `apps/web/app/(main)/meetings/coworking/page.tsx`
+- `apps/web/app/(main)/admin/access/page.tsx`
 - `apps/web/app/(main)/admin/kpi/page.tsx`
 - `apps/web/app/(main)/admin/agents/page.tsx`
 - `apps/web/components/layout/Sidebar.tsx`

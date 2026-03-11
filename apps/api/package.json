@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts --port 3001",
+    "dev": "node ../../scripts/dev/run-api-dev.mjs",
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "biome check .",
@@ -27,6 +27,7 @@
     "drizzle-orm": "^0.40.1",
     "hono": "^4.7.2",
     "livekit-server-sdk": "^2.9.7",
+    "nanoid": "^5.1.6",
     "pg": "^8.13.3",
     "zod": "^3.24.2"
   },

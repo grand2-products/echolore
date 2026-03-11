@@ -35,6 +35,3 @@ This document captures durable implementation notes that do not belong in short-
 - `plan/implementation-status-master.md`
 - `plan/todo-master.md`
 - `plan/deployment.md`
-- `plan/implementation-status-master.md`
-- `plan/todo-master.md`
-- `plan/deployment.md`

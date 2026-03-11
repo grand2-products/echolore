@@ -56,6 +56,8 @@ This document describes the currently implemented meeting tool behavior.
 - persist agent session and event timeline records
 - expose active agent sessions through `GET /api/meetings/:id/agents/active`
 - generate text response and optional TTS audio through the speech gateway path
+- connect an AI agent bot participant to LiveKit when invoked
+- play synthesized voice responses in the room UI when audio is available
 - operator can see active agent status, invoke an agent, and leave an active agent session from the room UI
 - worker can resolve `roomName -> meeting`, receive LiveKit webhooks, and ingest transcript segments through internal routes
 
@@ -69,8 +71,7 @@ This document describes the currently implemented meeting tool behavior.
 ## Known Gaps
 - stronger regression test coverage
 - realtime transcript worker can receive webhooks and ingest segments, but direct LiveKit audio subscription is still not implemented
-- bot participant join flow is not implemented yet
-- agent voice response depends on Google Cloud access token or metadata-service auth being available at runtime
+- voice synthesis still depends on configured Google Cloud auth at runtime
 
 ## Related Files
 - `../plan/todo-master.md`

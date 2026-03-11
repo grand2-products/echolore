@@ -20,7 +20,7 @@ Internal collaboration platform for grand2 Products.
 - API: Hono + Drizzle ORM
 - DB: PostgreSQL
 - Realtime: LiveKit
-- Cache/broker: Redis
+- Cache/broker: Valkey
 - Auth gateway: OAuth2 Proxy
 - Infra baseline: GCE + GCS + Docker Compose
 
@@ -30,7 +30,9 @@ Internal collaboration platform for grand2 Products.
 2. Prepare environment
    - copy `.env.example` to `.env`
 3. Start local stack
-   - `pnpm docker:dev`
+   - `./dev.ps1`
+   - or `pnpm dev:daily`
+   - default local ports use the `17720` range and can be overridden in `.env`
 4. Run typecheck
    - `pnpm typecheck`
 
@@ -39,6 +41,7 @@ Internal collaboration platform for grand2 Products.
 - `pnpm typecheck`
 - `pnpm build`
 - `pnpm test`
+- `pnpm bootstrap:local`
 - `pnpm docker:dev`
 - `pnpm docker:down`
 - `pnpm db:generate`
@@ -55,6 +58,7 @@ Internal collaboration platform for grand2 Products.
 - Runtime deploy uses prebuilt images and `docker-compose.yml`.
 - Local-only overrides live in `docker-compose.dev.yml`.
 - Clean-host validation uses `docker-compose.bootstrap-check.yml`.
+- Local preflight rehearsal is available with `pnpm bootstrap:local`.
 
 ## Key Documents
 - Project rules and operating conventions: `AGENTS.md`

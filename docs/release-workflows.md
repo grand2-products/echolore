@@ -52,7 +52,8 @@ This document describes the currently implemented release flow.
   - `docker compose pull`
   - `docker compose up -d --remove-orphans`
   - `docker compose ps`
-  - API and web health verification
+  - API host health verification
+  - in-container web health verification
 - Automatic trigger:
   - `workflow_run` after successful `Terraform`
 - Manual trigger:
@@ -65,7 +66,7 @@ This document describes the currently implemented release flow.
   - write rollback `.env`
   - execute `scripts/release/remote-runtime-apply.sh` on the host
   - roll runtime back through `docker compose pull` and `up -d`
-  - verify API and web health
+  - verify API host health and in-container web health
 - Trigger:
   - `workflow_dispatch`
 
@@ -79,6 +80,9 @@ This document describes the currently implemented release flow.
   - show `docker compose ps` for the isolated stack
   - verify API and web health inside that validation stack
   - tear the validation stack down
+- Local preflight:
+  - `pnpm bootstrap:local`
+  - builds local API/web images, stages only runtime files into a temp directory, pre-pulls non-app runtime dependencies, and runs the compose bootstrap checks without a source-tree-backed runtime
 - Trigger:
   - `workflow_dispatch`
 
@@ -98,6 +102,7 @@ This document describes the currently implemented release flow.
 
 ## Runtime Strategy
 - Runtime uses prebuilt images only.
+- Runtime image registry is kept explicit as `gcr.io/${PROJECT_ID}/...` in the current implementation.
 - `docker-compose.yml` is the runtime compose file.
 - `docker-compose.dev.yml` is the local-only override.
 - `docker-compose.bootstrap-check.yml` is the isolated host validation compose file.
@@ -119,8 +124,10 @@ This document describes the currently implemented release flow.
 - Do not build application containers on the host.
 - Re-run the workflow instead of editing image tags or compose files by hand.
 - Keep host-side rollout logic in `scripts/release/` instead of duplicating inline SSH commands across workflows.
+- Treat `pnpm bootstrap:local` as a preflight rehearsal only; the remaining release gate is successful workflow execution in both `dev` and `prod`.
 
 ## Related Files
 - `../AGENTS.md`
 - `../plan/deployment.md`
 - `../docs/ops-runbook.md`
+- `../docs/rollback-recovery-architecture.md`

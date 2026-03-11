@@ -25,59 +25,43 @@ interface PageTreeItemProps {
   onExpand?: (id: string, expanded: boolean) => void;
 }
 
-function PageTreeItem({
-  page,
-  level,
-  activeId,
-  expandedIds,
-  draggingId,
-  dragOverId,
-  onToggleExpand,
-  onDragStart,
-  onDragEnd,
-  onDragOver,
-  onDropTo,
-  onExpand,
-}: PageTreeItemProps) {
-  const hasChildren = page.children && page.children.length > 0;
-  const isExpanded = expandedIds.has(page.id);
-  const isDragging = draggingId === page.id;
-  const isDragOver = dragOverId === page.id;
-
-  const handleToggle = () => {
-    const next = !isExpanded;
-    onToggleExpand(page.id, next);
-    onExpand?.(page.id, next);
-  };
+function PageTreeItem(props: PageTreeItemProps) {
+  const hasChildren = (props.page.children?.length ?? 0) > 0;
+  const isExpanded = props.expandedIds.has(props.page.id);
+  const isDragging = props.draggingId === props.page.id;
+  const isDragOver = props.dragOverId === props.page.id;
 
   return (
     <div>
       <div
         className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm transition ${
-          activeId === page.id
+          props.activeId === props.page.id
             ? "bg-blue-50 text-blue-600"
             : "text-gray-700 hover:bg-gray-100"
         } ${isDragOver ? "ring-1 ring-blue-400" : ""} ${isDragging ? "opacity-50" : ""}`}
-        style={{ paddingLeft: `${level * 12 + 8}px` }}
+        style={{ paddingLeft: `${props.level * 12 + 8}px` }}
         draggable
-        onDragStart={() => onDragStart(page.id)}
-        onDragEnd={onDragEnd}
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onDragOver(page.id);
+        onDragStart={() => props.onDragStart(props.page.id)}
+        onDragEnd={props.onDragEnd}
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          props.onDragOver(props.page.id);
         }}
-        onDrop={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onDropTo(page.id);
+        onDrop={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          props.onDropTo(props.page.id);
         }}
       >
-        {/* Expand/Collapse Button */}
         {hasChildren ? (
           <button
             type="button"
-            onClick={handleToggle}
+            onClick={() => {
+              const next = !isExpanded;
+              props.onToggleExpand(props.page.id, next);
+              props.onExpand?.(props.page.id, next);
+            }}
             className="flex h-5 w-5 items-center justify-center rounded hover:bg-gray-200"
           >
             <svg
@@ -86,67 +70,27 @@ function PageTreeItem({
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
         ) : (
           <span className="h-5 w-5" />
         )}
 
-        {/* Page Icon */}
-        <span className="text-gray-400">
-          {hasChildren ? "📁" : "📄"}
-        </span>
+        <span className="text-gray-400">{hasChildren ? ">" : "-"}</span>
 
-        {/* Page Title */}
-        <Link
-          href={`/wiki/${page.id}`}
-          className="flex-1 truncate"
-        >
-          {page.title}
+        <Link href={`/wiki/${props.page.id}`} className="flex-1 truncate">
+          {props.page.title}
         </Link>
-
-        {/* Actions */}
-        <div className="hidden group-hover:flex">
-          <button
-            type="button"
-            className="rounded p-1 hover:bg-gray-200"
-            title="子ページを作成"
-          >
-            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </button>
-        </div>
       </div>
 
-      {/* Children */}
-      {hasChildren && isExpanded && (
+      {hasChildren && isExpanded ? (
         <div>
-          {page.children!.map((child) => (
-            <PageTreeItem
-              key={child.id}
-              page={child}
-              level={level + 1}
-              activeId={activeId}
-              expandedIds={expandedIds}
-              draggingId={draggingId}
-              dragOverId={dragOverId}
-              onToggleExpand={onToggleExpand}
-              onDragStart={onDragStart}
-              onDragEnd={onDragEnd}
-              onDragOver={onDragOver}
-              onDropTo={onDropTo}
-              onExpand={onExpand}
-            />
+          {props.page.children?.map((child) => (
+            <PageTreeItem key={child.id} {...props} page={child} level={props.level + 1} />
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -160,40 +104,27 @@ interface PageTreeProps {
 
 function flattenPageIds(nodes: PageNode[]): string[] {
   const result: string[] = [];
-
   for (const node of nodes) {
     result.push(node.id);
-    if (node.children?.length) {
-      result.push(...flattenPageIds(node.children));
-    }
+    if (node.children?.length) result.push(...flattenPageIds(node.children));
   }
-
   return result;
 }
 
 function collectDescendants(node: PageNode): Set<string> {
   const descendants = new Set<string>();
-
   for (const child of node.children ?? []) {
     descendants.add(child.id);
-    const nested = collectDescendants(child);
-    for (const nestedId of nested) {
-      descendants.add(nestedId);
-    }
+    for (const nestedId of collectDescendants(child)) descendants.add(nestedId);
   }
-
   return descendants;
 }
 
 function findNodeById(nodes: PageNode[], id: string): PageNode | null {
   for (const node of nodes) {
-    if (node.id === id) {
-      return node;
-    }
+    if (node.id === id) return node;
     const found = findNodeById(node.children ?? [], id);
-    if (found) {
-      return found;
-    }
+    if (found) return found;
   }
   return null;
 }
@@ -202,32 +133,15 @@ export function PageTree({ pages, activeId, onExpand, onReparent }: PageTreeProp
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
-
   const allIds = useMemo(() => flattenPageIds(pages), [pages]);
 
   useEffect(() => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
-      for (const id of allIds) {
-        if (!next.has(id)) {
-          next.add(id);
-        }
-      }
+      for (const id of allIds) next.add(id);
       return next;
     });
   }, [allIds]);
-
-  const handleToggleExpand = (id: string, expanded: boolean) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (expanded) {
-        next.add(id);
-      } else {
-        next.delete(id);
-      }
-      return next;
-    });
-  };
 
   const handleDropTo = async (targetId: string) => {
     if (!onReparent || !draggingId || draggingId === targetId) {
@@ -243,8 +157,7 @@ export function PageTree({ pages, activeId, onExpand, onReparent }: PageTreeProp
       return;
     }
 
-    const descendants = collectDescendants(draggingNode);
-    if (descendants.has(targetId)) {
+    if (collectDescendants(draggingNode).has(targetId)) {
       setDraggingId(null);
       setDragOverId(null);
       return;
@@ -258,34 +171,19 @@ export function PageTree({ pages, activeId, onExpand, onReparent }: PageTreeProp
     }
   };
 
-  const handleDropToRoot = async () => {
-    if (!onReparent || !draggingId) {
-      setDraggingId(null);
-      setDragOverId(null);
-      return;
-    }
-
-    try {
-      await onReparent(draggingId, null);
-    } finally {
-      setDraggingId(null);
-      setDragOverId(null);
-    }
-  };
-
   return (
     <div
       className="space-y-0.5"
-      onDragOver={(e) => {
-        e.preventDefault();
+      onDragOver={(event) => {
+        event.preventDefault();
         setDragOverId(null);
       }}
-      onDrop={(e) => {
-        e.preventDefault();
-        if (e.target !== e.currentTarget) {
-          return;
-        }
-        void handleDropToRoot();
+      onDrop={(event) => {
+        event.preventDefault();
+        if (event.target !== event.currentTarget || !onReparent || !draggingId) return;
+        void onReparent(draggingId, null);
+        setDraggingId(null);
+        setDragOverId(null);
       }}
     >
       {pages.map((page) => (
@@ -297,7 +195,14 @@ export function PageTree({ pages, activeId, onExpand, onReparent }: PageTreeProp
           expandedIds={expandedIds}
           draggingId={draggingId}
           dragOverId={dragOverId}
-          onToggleExpand={handleToggleExpand}
+          onToggleExpand={(id, expanded) =>
+            setExpandedIds((prev) => {
+              const next = new Set(prev);
+              if (expanded) next.add(id);
+              else next.delete(id);
+              return next;
+            })
+          }
           onDragStart={(id) => setDraggingId(id)}
           onDragEnd={() => {
             setDraggingId(null);

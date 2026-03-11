@@ -16,6 +16,8 @@ COPY apps/web ./apps/web
 COPY packages/shared ./packages/shared
 COPY packages/ui ./packages/ui
 
+RUN mkdir -p /app/apps/web/public
+
 RUN pnpm --filter @corp-internal/shared build
 RUN pnpm --filter @corp-internal/ui build
 RUN pnpm --filter @corp-internal/web build
@@ -41,4 +43,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-CMD ["node", "server.js"]
+CMD ["node", "apps/web/server.js"]

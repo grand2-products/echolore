@@ -18,7 +18,6 @@
 - `todo-master.md`: active execution backlog
 - `implementation-status-master.md`: remaining gates only
 - `deployment.md`: release/deployment-specific remaining work
-- `ai-employee-realtime-plan.md`: active detailed plan for unfinished Room AI work
 
 ## Directory Split
 - `plan/`: future-facing and status-oriented

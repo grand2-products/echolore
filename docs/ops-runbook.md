@@ -4,7 +4,7 @@ Last updated: 2026-03-11
 
 ## Scope
 - API health: `http://localhost:3001/health`
-- Web: `http://localhost:3000`
+- Web container health: `docker compose exec -T web wget --no-verbose --tries=1 --spider http://127.0.0.1:3000`
 - OAuth2 Proxy: `http://localhost:4180`
 - LiveKit: `http://localhost:7880`
 
@@ -23,18 +23,19 @@ Last updated: 2026-03-11
 4. Confirm `App Release` succeeded.
 5. Validate:
    - `curl http://localhost:3001/health`
-   - `curl http://localhost:3000`
+   - `docker compose exec -T web wget --no-verbose --tries=1 --spider http://127.0.0.1:3000`
    - `docker compose ps`
    - `curl http://localhost:4180/oauth2/auth` from inside the host if auth validation is needed
 
 ## Initial Triage
 1. `docker compose ps`
 2. `curl http://localhost:3001/health`
-3. `docker compose logs --tail=200 api`
-4. `docker compose logs --tail=200 web`
-5. `docker compose logs --tail=200 oauth2-proxy`
-6. `docker compose logs --tail=200 livekit`
-7. `docker compose logs --tail=200 db`
+3. `docker compose exec -T web wget --no-verbose --tries=1 --spider http://127.0.0.1:3000`
+4. `docker compose logs --tail=200 api`
+5. `docker compose logs --tail=200 web`
+6. `docker compose logs --tail=200 oauth2-proxy`
+7. `docker compose logs --tail=200 livekit`
+8. `docker compose logs --tail=200 db`
 
 ## Incident Patterns
 
@@ -77,6 +78,13 @@ Last updated: 2026-03-11
 5. Review the `docker compose ps` output from that isolated stack
 6. Treat failure as a release-path issue, not only an instance drift issue
 
+### Local bootstrap preflight
+1. Run `pnpm bootstrap:local`
+2. Confirm local API and web images build successfully
+3. Confirm the script stages only `docker-compose.bootstrap-check.yml`, `livekit.yaml`, and `.env` into a temp directory
+4. Confirm `docker compose config`, `pull`, `up -d --wait`, and in-container health checks all succeed
+5. Use this as a repo-level regression check before running `Bootstrap Validate` against `dev` or `prod`
+
 ## Break-Glass Recovery
 1. SSH to instance
 2. `cd /opt/wiki`
@@ -84,7 +92,7 @@ Last updated: 2026-03-11
 4. `docker compose pull`
 5. `docker compose up -d --remove-orphans`
 6. `curl http://localhost:3001/health`
-7. `curl http://localhost:3000`
+7. `docker compose exec -T web wget --no-verbose --tries=1 --spider http://127.0.0.1:3000`
 8. If still failing, collect logs and workflow run URLs
 
 ## Workflow Rollback
@@ -96,7 +104,7 @@ Last updated: 2026-03-11
    - rollback `RELEASE_SHA`
 3. Confirm:
    - `curl http://localhost:3001/health`
-   - `curl http://localhost:3000`
+   - `docker compose exec -T web wget --no-verbose --tries=1 --spider http://127.0.0.1:3000`
    - `docker compose ps`
 
 ## Escalation Packet

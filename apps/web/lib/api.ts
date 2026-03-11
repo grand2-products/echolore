@@ -204,6 +204,67 @@ export interface MeetingAgentResponse {
   } | null;
 }
 
+export interface AdminGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  permissions: string[];
+  createdAt: string;
+  updatedAt: string;
+  memberCount: number;
+}
+
+export interface AdminGroupDetail extends Omit<AdminGroup, "memberCount"> {
+  members: string[];
+}
+
+export interface AdminUserGroupRef {
+  id: string;
+  name: string;
+}
+
+export interface AdminUserRecord {
+  id: string;
+  email: string;
+  name: string;
+  avatarUrl?: string | null;
+  role: "admin" | "member";
+  createdAt: string;
+  updatedAt: string;
+  groups: AdminUserGroupRef[];
+}
+
+export interface AdminPagePermissionRecord {
+  id: string;
+  pageId: string;
+  groupId: string | null;
+  canRead: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
+  createdAt: string;
+  updatedAt: string;
+  group: AdminUserGroupRef | null;
+}
+
+export interface AdminPagePermissionsResponse {
+  pageId: string;
+  inheritFromParent: boolean;
+  permissions: AdminPagePermissionRecord[];
+}
+
+export interface CreateAdminGroupRequest {
+  name: string;
+  description?: string;
+  permissions: string[];
+}
+
+export interface UpdateAdminGroupRequest {
+  name?: string;
+  description?: string;
+  permissions?: string[];
+}
+
 // ===========================================
 // API Response Types
 // ===========================================
@@ -427,6 +488,55 @@ export const metricsApi = {
 };
 
 export const adminApi = {
+  listGroups: () => fetchApi<{ groups: AdminGroup[] }>("/admin/groups"),
+
+  getGroup: (id: string) => fetchApi<{ group: AdminGroupDetail }>(`/admin/groups/${id}`),
+
+  createGroup: (data: CreateAdminGroupRequest) =>
+    fetchApi<{ group: AdminGroup }>("/admin/groups", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateGroup: (id: string, data: UpdateAdminGroupRequest) =>
+    fetchApi<{ group: AdminGroup }>(`/admin/groups/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  deleteGroup: (id: string) =>
+    fetchApi<SuccessResponse>(`/admin/groups/${id}`, {
+      method: "DELETE",
+    }),
+
+  listUsers: () => fetchApi<{ users: AdminUserRecord[] }>("/admin/users"),
+
+  updateUserGroups: (id: string, groupIds: string[]) =>
+    fetchApi<{ success: boolean; groupIds: string[] }>(`/admin/users/${id}/groups`, {
+      method: "PUT",
+      body: JSON.stringify({ groupIds }),
+    }),
+
+  getPagePermissions: (pageId: string) =>
+    fetchApi<AdminPagePermissionsResponse>(`/admin/permissions/pages/${pageId}`),
+
+  setPagePermissions: (
+    pageId: string,
+    data: {
+      inheritFromParent?: boolean;
+      permissions: Array<{
+        groupId: string;
+        canRead: boolean;
+        canWrite: boolean;
+        canDelete: boolean;
+      }>;
+    }
+  ) =>
+    fetchApi<{ pageId: string; inheritFromParent: boolean }>(`/admin/permissions/pages/${pageId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
   listAgents: () => fetchApi<{ agents: AgentDefinition[] }>("/admin/agents"),
 
   createAgent: (data: CreateAgentRequest) =>

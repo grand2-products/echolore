@@ -37,7 +37,7 @@ This document describes the currently implemented product shape of `corp-interna
 ### Administration
 - admin-protected backend routes
 - group, membership, and page permission APIs
-- KPI screen on the frontend
+- access-management, KPI, and AI agent screens on the frontend
 
 ## Current Operational Shape
 - web frontend in `apps/web`
@@ -47,7 +47,6 @@ This document describes the currently implemented product shape of `corp-interna
 
 ## Known Gaps
 - frontend session and role-aware UX are not yet complete
-- full admin UI is not yet implemented
 - regression test coverage still needs to reach release-grade expectations
 
 ## Related Files

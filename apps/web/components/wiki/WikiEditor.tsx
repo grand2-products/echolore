@@ -24,7 +24,7 @@ function isImageFile(file: File) {
 export function WikiEditor({
   content = "",
   onChange,
-  placeholder = "ここにコンテンツを入力...",
+  placeholder = "Write the page content here...",
   editable = true,
   pageId,
 }: WikiEditorProps) {
@@ -32,6 +32,7 @@ export function WikiEditor({
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [isUploadingAsset, setIsUploadingAsset] = useState(false);
+  const [assetError, setAssetError] = useState<string | null>(null);
   const [pickerMode, setPickerMode] = useState<"image" | "file">("file");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const dragDepthRef = useRef(0);
@@ -39,7 +40,6 @@ export function WikiEditor({
   useEffect(() => {
     const fetchBlocks = async () => {
       if (!pageId) return;
-
       try {
         const res = await wikiApi.getPage(pageId);
         setSavedBlocks(res.blocks);
@@ -50,6 +50,47 @@ export function WikiEditor({
 
     void fetchBlocks();
   }, [pageId]);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      Image.configure({ HTMLAttributes: { class: "rounded-lg max-w-full shadow-sm" } }),
+      Link.configure({
+        openOnClick: true,
+        HTMLAttributes: { class: "text-blue-600 underline hover:text-blue-800" },
+      }),
+      Placeholder.configure({ placeholder }),
+    ],
+    content,
+    editable,
+    onUpdate: ({ editor: current }) => onChange?.(current.getHTML()),
+    editorProps: {
+      attributes: {
+        class:
+          "prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none min-h-[300px] p-4 focus:outline-none",
+      },
+      handleDrop: (_view, event) => {
+        if (!editable || !pageId) return false;
+        const files = Array.from(event.dataTransfer?.files ?? []);
+        const image = files.find(isImageFile);
+        if (!image) return false;
+        event.preventDefault();
+        dragDepthRef.current = 0;
+        setIsDraggingImage(false);
+        void insertImageAsset(image);
+        return true;
+      },
+      handlePaste: (_view, event) => {
+        if (!editable || !pageId) return false;
+        const files = Array.from(event.clipboardData?.files ?? []);
+        const image = files.find(isImageFile);
+        if (!image) return false;
+        event.preventDefault();
+        void insertImageAsset(image);
+        return true;
+      },
+    },
+  });
 
   const createBlock = async (type: string, blockContent?: string, properties?: Record<string, unknown>) => {
     if (!pageId) return;
@@ -74,15 +115,15 @@ export function WikiEditor({
   };
 
   const insertImageAsset = async (file: File) => {
-    if (!pageId) return;
+    if (!pageId || !editor) return;
 
     setIsUploadingAsset(true);
-
+    setAssetError(null);
     try {
       const { file: fileData } = await filesApi.upload(file);
       const src = getWikiFileDownloadUrl(pageId, fileData.id);
 
-      editor?.chain().focus().setImage({ src, alt: fileData.filename }).run();
+      editor.chain().focus().setImage({ src, alt: fileData.filename }).run();
       await createBlock("image", fileData.filename, {
         fileId: fileData.id,
         filename: fileData.filename,
@@ -90,134 +131,37 @@ export function WikiEditor({
       });
     } catch (error) {
       console.error("Failed to insert image", error);
+      setAssetError(error instanceof Error ? error.message : "Failed to insert image.");
     } finally {
       setIsUploadingAsset(false);
     }
   };
 
   const attachFileAsset = async (file: File) => {
-    if (!pageId) return;
+    if (!pageId || !editor) return;
 
     setIsUploadingAsset(true);
-
+    setAssetError(null);
     try {
       const { file: fileData } = await filesApi.upload(file);
       const downloadUrl = getWikiFileDownloadUrl(pageId, fileData.id);
 
-      editor?.chain().focus().insertContent(`<p><a href="${downloadUrl}">${fileData.filename}</a></p>`).run();
+      editor.chain().focus().insertContent(`<p><a href="${downloadUrl}">${fileData.filename}</a></p>`).run();
       await createBlock("file", fileData.filename, {
         fileId: fileData.id,
         filename: fileData.filename,
+        href: downloadUrl,
         gcsPath: fileData.gcsPath,
       });
     } catch (error) {
       console.error("Failed to attach file", error);
+      setAssetError(error instanceof Error ? error.message : "Failed to attach file.");
     } finally {
       setIsUploadingAsset(false);
     }
   };
 
-  const handleAssetSelection = async (file: File) => {
-    if (isImageFile(file)) {
-      await insertImageAsset(file);
-      return;
-    }
-
-    await attachFileAsset(file);
-  };
-
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: {
-          levels: [1, 2, 3],
-        },
-      }),
-      Image.configure({
-        HTMLAttributes: {
-          class: "rounded-lg max-w-full shadow-sm",
-        },
-      }),
-      Link.configure({
-        openOnClick: true,
-        HTMLAttributes: {
-          class: "text-blue-600 underline hover:text-blue-800",
-        },
-      }),
-      Placeholder.configure({
-        placeholder,
-      }),
-    ],
-    content,
-    editable,
-    onUpdate: ({ editor }) => {
-      onChange?.(editor.getHTML());
-    },
-    editorProps: {
-      attributes: {
-        class:
-          "prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none min-h-[300px] p-4 focus:outline-none",
-      },
-      handleDrop: (_view, event) => {
-        if (!editable || !pageId || !(event instanceof DragEvent)) {
-          return false;
-        }
-
-        const files = Array.from(event.dataTransfer?.files ?? []);
-        const image = files.find(isImageFile);
-        if (!image) {
-          return false;
-        }
-
-        event.preventDefault();
-        dragDepthRef.current = 0;
-        setIsDraggingImage(false);
-        void insertImageAsset(image);
-        return true;
-      },
-      handlePaste: (_view, event) => {
-        if (!editable || !pageId) {
-          return false;
-        }
-
-        const files = Array.from(event.clipboardData?.files ?? []);
-        const image = files.find(isImageFile);
-        if (!image) {
-          return false;
-        }
-
-        event.preventDefault();
-        void insertImageAsset(image);
-        return true;
-      },
-    },
-  });
-
-  if (!editor) {
-    return null;
-  }
-
-  const deleteSavedBlock = async (id: string) => {
-    const previous = [...savedBlocks];
-    const normalized = previous
-      .filter((block) => block.id !== id)
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((block, index) => ({ ...block, sortOrder: index }));
-
-    setSavedBlocks(normalized);
-
-    try {
-      await wikiApi.deleteBlock(id);
-
-      const changed = normalized.filter(
-        (block) => previous.find((prev) => prev.id === block.id)?.sortOrder !== block.sortOrder
-      );
-      await Promise.all(changed.map((block) => wikiApi.updateBlock(block.id, { sortOrder: block.sortOrder })));
-    } catch (error) {
-      console.error("Failed to delete block", error);
-      setSavedBlocks(previous);
-    }
-  };
+  if (!editor) return null;
 
   const moveBlock = async (blockId: string, direction: "up" | "down") => {
     const sorted = [...savedBlocks].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -241,10 +185,7 @@ export function WikiEditor({
     try {
       const first = normalized[index];
       const second = normalized[targetIndex];
-      if (!first || !second) {
-        setSavedBlocks(sorted);
-        return;
-      }
+      if (!first || !second) return;
 
       await Promise.all([
         wikiApi.updateBlock(first.id, { sortOrder: first.sortOrder }),
@@ -253,6 +194,27 @@ export function WikiEditor({
     } catch (error) {
       console.error("Failed to reorder blocks", error);
       setSavedBlocks(sorted);
+    }
+  };
+
+  const deleteSavedBlock = async (id: string) => {
+    const previous = [...savedBlocks];
+    const normalized = previous
+      .filter((block) => block.id !== id)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((block, index) => ({ ...block, sortOrder: index }));
+
+    setSavedBlocks(normalized);
+
+    try {
+      await wikiApi.deleteBlock(id);
+      const changed = normalized.filter(
+        (block) => previous.find((prev) => prev.id === block.id)?.sortOrder !== block.sortOrder
+      );
+      await Promise.all(changed.map((block) => wikiApi.updateBlock(block.id, { sortOrder: block.sortOrder })));
+    } catch (error) {
+      console.error("Failed to delete block", error);
+      setSavedBlocks(previous);
     }
   };
 
@@ -286,51 +248,22 @@ export function WikiEditor({
     }
   };
 
-  const handleAddHeading = async () => {
-    editor.chain().focus().toggleHeading({ level: 2 }).run();
-    await createBlock("heading2", "新しい見出し");
-  };
-
-  const handleAddList = async () => {
-    editor.chain().focus().toggleBulletList().run();
-    await createBlock("bulletList", "新しいリスト項目");
-  };
-
-  const handleAddImage = async () => {
-    setPickerMode("image");
-    fileInputRef.current?.click();
-  };
-
-  const handleAddCodeBlock = async () => {
-    editor.chain().focus().toggleCodeBlock().run();
-    await createBlock("codeBlock", "// code");
-  };
-
   const handleEditorDragEnter = (event: DragEvent<HTMLDivElement>) => {
     if (!editable) return;
-
     const files = Array.from(event.dataTransfer.files ?? []);
     if (!files.some(isImageFile)) return;
-
     dragDepthRef.current += 1;
     setIsDraggingImage(true);
   };
 
   const handleEditorDragLeave = () => {
     dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-    if (dragDepthRef.current === 0) {
-      setIsDraggingImage(false);
-    }
-  };
-
-  const handleEditorDrop = () => {
-    dragDepthRef.current = 0;
-    setIsDraggingImage(false);
+    if (dragDepthRef.current === 0) setIsDraggingImage(false);
   };
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white">
-      {editable && (
+      {editable ? (
         <Toolbar
           editor={editor}
           onAttachFile={() => {
@@ -338,43 +271,55 @@ export function WikiEditor({
             fileInputRef.current?.click();
           }}
         />
-      )}
-      {editable && pageId && (
+      ) : null}
+      {editable && pageId ? (
         <div className="flex flex-wrap gap-2 border-b border-gray-200 px-3 py-2">
           <button
             type="button"
-            onClick={handleAddHeading}
+            onClick={async () => {
+              editor.chain().focus().toggleHeading({ level: 2 }).run();
+              await createBlock("heading2", "New heading");
+            }}
             className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
           >
-            見出し追加
+            Add heading
           </button>
           <button
             type="button"
-            onClick={handleAddList}
+            onClick={async () => {
+              editor.chain().focus().toggleBulletList().run();
+              await createBlock("bulletList", "New list item");
+            }}
             className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
           >
-            箇条書き追加
+            Add bullet list
           </button>
           <button
             type="button"
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
             className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
           >
-            番号付きリスト
+            Add numbered list
           </button>
           <button
             type="button"
-            onClick={handleAddImage}
+            onClick={() => {
+              setPickerMode("image");
+              fileInputRef.current?.click();
+            }}
             className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
           >
-            画像追加
+            Insert image
           </button>
           <button
             type="button"
-            onClick={handleAddCodeBlock}
+            onClick={async () => {
+              editor.chain().focus().toggleCodeBlock().run();
+              await createBlock("codeBlock", "// code");
+            }}
             className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
           >
-            コード追加
+            Add code block
           </button>
           <button
             type="button"
@@ -384,50 +329,63 @@ export function WikiEditor({
             }}
             className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
           >
-            ファイル添付
+            Attach file
           </button>
           <input
             ref={fileInputRef}
             type="file"
-            accept={pickerMode === "image" ? "image/*" : "image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"}
+            accept={
+              pickerMode === "image"
+                ? "image/*"
+                : "image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+            }
             className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
+            onChange={(event) => {
+              const file = event.target.files?.[0];
               if (file) {
-                void handleAssetSelection(file);
+                if (isImageFile(file)) void insertImageAsset(file);
+                else void attachFileAsset(file);
               }
               setPickerMode("file");
-              e.currentTarget.value = "";
+              event.currentTarget.value = "";
             }}
           />
         </div>
-      )}
+      ) : null}
       <div
         className="relative"
         onDragEnter={handleEditorDragEnter}
         onDragLeave={handleEditorDragLeave}
-        onDragOver={(e) => {
-          if (editable) {
-            e.preventDefault();
-          }
+        onDragOver={(event) => {
+          if (editable) event.preventDefault();
         }}
-        onDrop={handleEditorDrop}
+        onDrop={() => {
+          dragDepthRef.current = 0;
+          setIsDraggingImage(false);
+        }}
       >
-        {editable && isDraggingImage && (
+        {editable && isDraggingImage ? (
           <div className="pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-blue-400 bg-blue-50/90 text-sm font-medium text-blue-700">
-            画像をドロップして記事内に挿入
+            Drop the image here to upload and insert it.
           </div>
-        )}
-        {editable && isUploadingAsset && (
+        ) : null}
+        {editable && isUploadingAsset ? (
           <div className="pointer-events-none absolute right-4 top-4 z-10 rounded-full bg-slate-900 px-3 py-1 text-xs text-white">
-            アップロード中...
+            Uploading asset...
           </div>
-        )}
+        ) : null}
         <EditorContent editor={editor} />
       </div>
-      {editable && pageId && savedBlocks.length > 0 && (
+      {assetError ? (
+        <div className="border-t border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {assetError}
+        </div>
+      ) : null}
+      {editable && pageId && savedBlocks.length > 0 ? (
         <div className="border-t border-gray-200 p-3">
-          <p className="mb-2 text-xs text-gray-500">保存済みブロック</p>
+          <p className="mb-2 text-xs text-gray-500">
+            Saved blocks. Drag to reorder, or use the buttons for precise moves.
+          </p>
           <div className="space-y-1">
             {[...savedBlocks]
               .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -436,7 +394,7 @@ export function WikiEditor({
                   key={block.id}
                   draggable
                   onDragStart={() => setDraggingBlockId(block.id)}
-                  onDragOver={(e) => e.preventDefault()}
+                  onDragOver={(event) => event.preventDefault()}
                   onDrop={() => {
                     void handleDropBlock(block.id);
                   }}
@@ -452,7 +410,7 @@ export function WikiEditor({
                       disabled={index === 0}
                       className="rounded border px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      上へ
+                      Up
                     </button>
                     <button
                       type="button"
@@ -460,21 +418,21 @@ export function WikiEditor({
                       disabled={index === arr.length - 1}
                       className="rounded border px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      下へ
+                      Down
                     </button>
                     <button
                       type="button"
                       onClick={() => void deleteSavedBlock(block.id)}
                       className="text-xs text-red-600 hover:text-red-700"
                     >
-                      削除
+                      Delete
                     </button>
                   </div>
                 </div>
               ))}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

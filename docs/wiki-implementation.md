@@ -45,6 +45,8 @@ This document describes the currently implemented Wiki behavior.
 - attach files to a page
 - resolve attached files through a page-authorized download route
 - drag and drop or paste an image into the editor for inline insertion
+- save edited page HTML back into block records on create and update
+- surface inline asset upload and save-state errors in the editor flow
 
 ### Tree and Hierarchy
 - tree rendering in sidebar

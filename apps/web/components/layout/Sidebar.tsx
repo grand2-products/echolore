@@ -1,6 +1,7 @@
 "use client";
 
 import type { SessionUser } from "@/lib/api";
+import { appTitle } from "@/lib/app-config";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -77,17 +78,27 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    label: "Access",
+    href: "/admin/access",
+    icon: (
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <title>Access</title>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 14a3 3 0 100-6 3 3 0 000 6zm7 6H5a2 2 0 01-2-2 5 5 0 015-5h8a5 5 0 015 5 2 2 0 01-2 2zm-7-11V4m0 0L9 7m3-3l3 3"
+        />
+      </svg>
+    ),
+  },
+  {
     label: "KPI",
     href: "/admin/kpi",
     icon: (
       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <title>KPI</title>
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M7 20V10m5 10V4m5 16v-7M4 20h16"
-        />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20V10m5 10V4m5 16v-7M4 20h16" />
       </svg>
     ),
   },
@@ -139,7 +150,7 @@ export function Sidebar({ children, user }: SidebarProps) {
       {children}
 
       <div className="border-t border-gray-200 p-4">
-        <div className="text-xs text-gray-500">(c) 2024 grand2 Products</div>
+        <div className="text-xs text-gray-500">(c) 2024 {appTitle}</div>
       </div>
     </aside>
   );
