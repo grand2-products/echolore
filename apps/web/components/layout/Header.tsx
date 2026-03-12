@@ -1,8 +1,9 @@
 "use client";
 
-import { authApi, type AuthMeResponse, type SessionUser } from "@/lib/api";
+import type { AuthMeResponse, SessionUser } from "@/lib/api";
 import { appTitle } from "@/lib/app-config";
 import { supportedLocales, useLocale, useSetLocale, useT, type SupportedLocale } from "@/lib/i18n";
+import { useAuthActions } from "@/lib/use-auth-actions";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -31,6 +32,7 @@ export function Header({ user, authMode }: HeaderProps) {
   const locale = useLocale();
   const setLocale = useSetLocale();
   const t = useT();
+  const { logout } = useAuthActions();
   const [query, setQuery] = useState("");
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -57,14 +59,7 @@ export function Header({ user, authMode }: HeaderProps) {
   };
 
   const handleLogout = async () => {
-    if (authMode === "password") {
-      await authApi.logout().catch(() => undefined);
-      router.push("/login");
-      router.refresh();
-      return;
-    }
-
-    window.location.href = "/oauth2/sign_out";
+    await logout(authMode ?? null);
   };
 
   return (

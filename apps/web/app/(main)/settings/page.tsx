@@ -1,47 +1,42 @@
 "use client";
 
-import { authApi, usersApi, useAuthMeQuery } from "@/lib/api";
+import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useAuthContext } from "@/lib/auth-context";
 import { useFormatters, useT } from "@/lib/i18n";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuthActions } from "@/lib/use-auth-actions";
+import {
+  useCurrentAuthSessions,
+  useRevokeCurrentAuthSession,
+} from "@/lib/use-auth-session";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function SettingsPage() {
-  const { data, isLoading, isError } = useAuthMeQuery();
-  const user = data?.user ?? null;
-  const authMode = data?.authMode ?? null;
+  const { user, authMode, isLoading, isError } = useAuthContext();
   const t = useT();
   const formatters = useFormatters();
+  const getApiErrorMessage = useApiErrorMessage();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const sessionsQuery = useQuery({
-    queryKey: ["auth", "sessions"],
-    queryFn: () => usersApi.listAuthSessions(),
-    enabled: Boolean(user),
-  });
-  const revokeSessionMutation = useMutation({
-    mutationFn: (sessionId: string) => usersApi.revokeAuthSession(sessionId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["auth", "sessions"] });
-    },
-  });
+  const { logout } = useAuthActions();
+  const [revokeError, setRevokeError] = useState<string | null>(null);
+  const sessionsQuery = useCurrentAuthSessions(Boolean(user));
+  const revokeSessionMutation = useRevokeCurrentAuthSession();
 
   const handleRevokeSession = async (sessionId: string, current: boolean) => {
-    await revokeSessionMutation.mutateAsync(sessionId);
-    if (current) {
-      router.push("/login");
-      router.refresh();
+    setRevokeError(null);
+    try {
+      await revokeSessionMutation.mutateAsync(sessionId);
+      if (current) {
+        router.push("/login");
+        router.refresh();
+      }
+    } catch (error) {
+      setRevokeError(getApiErrorMessage(error, t("settings.sessionsError")));
     }
   };
 
   const handleLogout = async () => {
-    if (authMode === "password") {
-      await authApi.logout().catch(() => undefined);
-      router.push("/login");
-      router.refresh();
-      return;
-    }
-
-    window.location.href = "/oauth2/sign_out";
+    await logout(authMode);
   };
 
   const sessionDescriptionKey =
@@ -91,11 +86,18 @@ export default function SettingsPage() {
                 <p className="mt-2 text-sm text-gray-600">
                   {t(sessionDescriptionKey)}
                 </p>
+                {revokeError ? (
+                  <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {revokeError}
+                  </p>
+                ) : null}
                 <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50">
                   {sessionsQuery.isLoading ? (
                     <p className="px-4 py-4 text-sm text-gray-500">{t("settings.sessionsLoading")}</p>
                   ) : sessionsQuery.isError ? (
-                    <p className="px-4 py-4 text-sm text-red-600">{t("settings.sessionsError")}</p>
+                    <p className="px-4 py-4 text-sm text-red-600">
+                      {getApiErrorMessage(sessionsQuery.error, t("settings.sessionsError"))}
+                    </p>
                   ) : sessionsQuery.data?.sessions.length ? (
                     <ul className="divide-y divide-gray-200">
                       {sessionsQuery.data.sessions.map((session) => (

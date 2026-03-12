@@ -1,10 +1,11 @@
 "use client";
 
-import { authApi, useAuthMeQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { appTitle } from "@/lib/app-config";
+import { useAuthContext } from "@/lib/auth-context";
 import { useLocale, type SupportedLocale } from "@/lib/i18n";
-import Link from "next/link";
+import { useAuthActions } from "@/lib/use-auth-actions";
+import { usePasswordAuth } from "@/lib/use-password-auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -38,7 +39,7 @@ const loginCopy: Record<SupportedLocale, LoginCopy> = {
   ja: {
     loading: "読み込み中...",
     titleSignin: "サインイン",
-    titleRegister: "アカウント作成",
+    titleRegister: "アカウント登録",
     intro: "Google SSO とメール/パスワードは同じメールアドレスのアカウントに統合されます。",
     tabSignin: "サインイン",
     tabRegister: "登録",
@@ -49,16 +50,16 @@ const loginCopy: Record<SupportedLocale, LoginCopy> = {
     signInError: "サインインに失敗しました。",
     registerError: "アカウント登録に失敗しました。",
     registerStarted:
-      "登録を開始しました。セットアップ完了のため、API ログに出力された確認リンクを開いてください。",
+      "登録を開始しました。セットアップを完了するには API ログに出力された確認リンクを開いてください。",
     email: "メールアドレス",
     password: "パスワード",
     name: "名前",
     signInWithEmail: "メールでサインイン",
     signingIn: "サインイン中...",
     registrationHint:
-      "登録はメール確認後に完了します。ローカル開発ではリンクが API ログに出力されます。",
-    createAccount: "アカウント作成",
-    creatingAccount: "アカウント作成中...",
+      "登録はメール確認後に完了します。ローカル開発では確認リンクが API ログに出力されます。",
+    createAccount: "アカウント登録",
+    creatingAccount: "アカウント登録中...",
   },
   en: {
     loading: "Loading...",
@@ -88,47 +89,48 @@ const loginCopy: Record<SupportedLocale, LoginCopy> = {
   "zh-CN": {
     loading: "加载中...",
     titleSignin: "登录",
-    titleRegister: "创建账号",
-    intro: "Google SSO 和邮箱/密码都会归并到相同邮箱地址的账号。",
+    titleRegister: "创建账户",
+    intro: "Google SSO 与邮箱/密码登录会归并到同一个邮箱账户。",
     tabSignin: "登录",
     tabRegister: "注册",
     continueGoogle: "使用 Google 继续",
     verifyInProgress: "正在验证邮箱...",
-    verifySuccess: "邮箱验证完成，正在为你登录...",
+    verifySuccess: "邮箱验证完成，正在为您登录...",
     verifyError: "邮箱验证失败。",
     signInError: "登录失败。",
-    registerError: "注册账号失败。",
-    registerStarted: "已开始注册。请打开 API 日志中的验证链接完成设置。",
+    registerError: "注册账户失败。",
+    registerStarted: "注册已开始。请打开 API 日志中的验证链接以完成设置。",
     email: "邮箱",
     password: "密码",
     name: "姓名",
     signInWithEmail: "使用邮箱登录",
     signingIn: "登录中...",
-    registrationHint: "邮箱验证后才会完成注册。在本地开发环境中，链接会写入 API 日志。",
-    createAccount: "创建账号",
-    creatingAccount: "正在创建账号...",
+    registrationHint:
+      "注册会在邮箱验证后完成。在本地开发环境中，验证链接会写入 API 日志。",
+    createAccount: "创建账户",
+    creatingAccount: "正在创建账户...",
   },
   ko: {
     loading: "불러오는 중...",
     titleSignin: "로그인",
     titleRegister: "계정 만들기",
-    intro: "Google SSO와 이메일/비밀번호는 같은 이메일 주소의 계정으로 연결됩니다.",
+    intro: "Google SSO 와 이메일/비밀번호 로그인은 같은 이메일 계정으로 통합됩니다.",
     tabSignin: "로그인",
     tabRegister: "등록",
     continueGoogle: "Google로 계속하기",
     verifyInProgress: "이메일을 확인하는 중...",
-    verifySuccess: "이메일 확인이 완료되었습니다. 로그인 중입니다...",
+    verifySuccess: "이메일 확인이 완료되었습니다. 로그인하는 중...",
     verifyError: "이메일 확인에 실패했습니다.",
     signInError: "로그인에 실패했습니다.",
     registerError: "계정 등록에 실패했습니다.",
-    registerStarted: "등록을 시작했습니다. 설정을 완료하려면 API 로그의 인증 링크를 여세요.",
+    registerStarted: "등록이 시작되었습니다. 설정을 완료하려면 API 로그의 확인 링크를 여세요.",
     email: "이메일",
     password: "비밀번호",
     name: "이름",
     signInWithEmail: "이메일로 로그인",
     signingIn: "로그인 중...",
     registrationHint:
-      "이메일 확인 후 등록이 완료됩니다. 로컬 개발에서는 링크가 API 로그에 기록됩니다.",
+      "등록은 이메일 확인 후 완료됩니다. 로컬 개발 환경에서는 확인 링크가 API 로그에 기록됩니다.",
     createAccount: "계정 만들기",
     creatingAccount: "계정 생성 중...",
   },
@@ -137,8 +139,10 @@ const loginCopy: Record<SupportedLocale, LoginCopy> = {
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data, isLoading } = useAuthMeQuery();
+  const { user, isLoading } = useAuthContext();
   const locale = useLocale();
+  const { googleSignInUrl } = useAuthActions();
+  const passwordAuth = usePasswordAuth();
   const getApiErrorMessage = useApiErrorMessage();
   const [view, setView] = useState<AuthView>("signin");
   const [signinEmail, setSigninEmail] = useState("");
@@ -153,10 +157,10 @@ export default function LoginPage() {
   const copy: LoginCopy = loginCopy[locale as SupportedLocale] ?? loginCopy.en;
 
   useEffect(() => {
-    if (data?.user) {
+    if (user) {
       router.replace("/");
     }
-  }, [data?.user, router]);
+  }, [user, router]);
 
   useEffect(() => {
     const token = searchParams.get("verify");
@@ -167,15 +171,13 @@ export default function LoginPage() {
     setError(null);
     setMessage(copy.verifyInProgress);
 
-    void authApi
-      .verifyEmail({ token })
+    void passwordAuth
+      .verifyEmail(token)
       .then(() => {
         if (cancelled) return;
         setMessage(copy.verifySuccess);
-        router.replace("/");
-        router.refresh();
       })
-      .catch((verifyError) => {
+      .catch((verifyError: unknown) => {
         if (cancelled) return;
         setError(getApiErrorMessage(verifyError, copy.verifyError));
         setMessage(null);
@@ -194,7 +196,7 @@ export default function LoginPage() {
     copy.verifyInProgress,
     copy.verifySuccess,
     getApiErrorMessage,
-    router,
+    passwordAuth,
     searchParams,
   ]);
 
@@ -205,9 +207,7 @@ export default function LoginPage() {
     setMessage(null);
 
     try {
-      await authApi.login({ email: signinEmail, password: signinPassword });
-      router.replace("/");
-      router.refresh();
+      await passwordAuth.signIn({ email: signinEmail, password: signinPassword });
     } catch (submitError) {
       setError(getApiErrorMessage(submitError, copy.signInError));
     } finally {
@@ -222,7 +222,7 @@ export default function LoginPage() {
     setMessage(null);
 
     try {
-      await authApi.register({
+      await passwordAuth.register({
         name: registerName,
         email: registerEmail,
         password: registerPassword,
@@ -283,12 +283,12 @@ export default function LoginPage() {
         </div>
 
         <div className="mt-6 space-y-3">
-          <Link
-            href="/oauth2/start"
+          <a
+            href={googleSignInUrl}
             className="block rounded-lg border border-slate-300 px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             {copy.continueGoogle}
-          </Link>
+          </a>
         </div>
 
         {message ? (

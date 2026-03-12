@@ -34,6 +34,7 @@ Internal collaboration platform for grand2 Products.
    - copy `apps/worker/.env.example` to `apps/worker/.env`
    - copy `.env.example` to `.env` only if you need root orchestration overrides
    - keep app env files explicit: if you change a local port, update the related localhost URL values in the same file as well
+   - when browser Google SSO is enabled locally, set `NEXT_PUBLIC_AUTH_GATEWAY_URL` to the OAuth2 Proxy origin, for example `http://localhost:17726`
    - app dev scripts read their own `.env` files directly
    - password registration and sign-in are available at `/login`
    - local development writes email verification links to the API log; `APP_BASE_URL` controls the generated link target

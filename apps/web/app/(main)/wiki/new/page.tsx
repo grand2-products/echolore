@@ -60,11 +60,12 @@ export default function NewWikiPage() {
         setPages(pagesRes.pages);
       } catch (loadError) {
         console.error("Failed to fetch pages", loadError);
+        setError(getApiErrorMessage(loadError, t("wiki.list.loadError")));
       }
     };
 
     void fetchPages();
-  }, []);
+  }, [getApiErrorMessage, t]);
 
   const treePages = useMemo(() => buildPageTree(pages), [pages]);
 

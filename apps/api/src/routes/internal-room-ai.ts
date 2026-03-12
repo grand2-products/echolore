@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
+import { jsonError } from "../lib/api-error.js";
 import { requireRoomAiWorker } from "../lib/internal-auth.js";
 import {
   getMeetingById,
@@ -83,13 +84,13 @@ internalRoomAiRoutes.get("/meetings/by-room/:roomName", async (c) => {
   try {
     const meeting = await getMeetingByRoomName(roomName);
     if (!meeting) {
-      return c.json({ error: "Meeting not found" }, 404);
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
     return c.json({ meeting });
   } catch (error) {
     console.error("Error resolving meeting by room name:", error);
-    return c.json({ error: "Failed to resolve meeting by room name" }, 500);
+    return jsonError(c, 500, "ROOM_AI_MEETING_RESOLVE_FAILED", "Failed to resolve meeting by room name");
   }
 });
 
@@ -102,10 +103,10 @@ internalRoomAiRoutes.get("/meetings", async (c) => {
       return c.json({ meetings });
     }
 
-    return c.json({ error: "status query is required" }, 400);
+    return jsonError(c, 400, "ROOM_AI_STATUS_QUERY_REQUIRED", "status query is required");
   } catch (error) {
     console.error("Error listing meetings for room AI worker:", error);
-    return c.json({ error: "Failed to list meetings" }, 500);
+    return jsonError(c, 500, "ROOM_AI_MEETINGS_LIST_FAILED", "Failed to list meetings");
   }
 });
 
@@ -119,7 +120,7 @@ internalRoomAiRoutes.post(
     try {
       const meeting = await getMeetingById(id);
       if (!meeting) {
-        return c.json({ error: "Meeting not found" }, 404);
+        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
       }
 
       const segment = await transcribeMeetingAudioSegment({
@@ -137,13 +138,13 @@ internalRoomAiRoutes.post(
       });
 
       if (!segment) {
-        return c.json({ error: "No transcript recognized" }, 422);
+        return jsonError(c, 422, "ROOM_AI_TRANSCRIPT_NOT_RECOGNIZED", "No transcript recognized");
       }
 
       return c.json({ segment }, 201);
     } catch (error) {
       console.error("Error transcribing meeting audio segment:", error);
-      return c.json({ error: "Failed to transcribe meeting audio segment" }, 500);
+      return jsonError(c, 500, "ROOM_AI_TRANSCRIBE_FAILED", "Failed to transcribe meeting audio segment");
     }
   }
 );
@@ -158,7 +159,7 @@ internalRoomAiRoutes.post(
     try {
       const meeting = await getMeetingById(id);
       if (!meeting) {
-        return c.json({ error: "Meeting not found" }, 404);
+        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
       }
 
       const segment = await upsertTranscriptSegment({
@@ -178,7 +179,7 @@ internalRoomAiRoutes.post(
       return c.json({ segment }, 201);
     } catch (error) {
       console.error("Error ingesting meeting transcript segment:", error);
-      return c.json({ error: "Failed to ingest meeting transcript segment" }, 500);
+      return jsonError(c, 500, "ROOM_AI_TRANSCRIPT_INGEST_FAILED", "Failed to ingest meeting transcript segment");
     }
   }
 );
@@ -193,7 +194,7 @@ internalRoomAiRoutes.patch(
     try {
       const meeting = await getMeetingById(id);
       if (!meeting) {
-        return c.json({ error: "Meeting not found" }, 404);
+        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
       }
 
       const nextMeeting = await updateMeeting(id, {
@@ -210,7 +211,7 @@ internalRoomAiRoutes.patch(
       return c.json({ meeting: nextMeeting });
     } catch (error) {
       console.error("Error syncing meeting status:", error);
-      return c.json({ error: "Failed to sync meeting status" }, 500);
+      return jsonError(c, 500, "ROOM_AI_STATUS_SYNC_FAILED", "Failed to sync meeting status");
     }
   }
 );

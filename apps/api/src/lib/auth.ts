@@ -1,4 +1,5 @@
 import type { Context, MiddlewareHandler } from "hono";
+import { jsonError } from "./api-error.js";
 import { writeAuditLog } from "./audit.js";
 import { getAccessTokenFromCookie, reconcileGoogleIdentity, resolveAccessTokenSession } from "./local-auth.js";
 import { isSameOriginRequest } from "./password-auth-guard.js";
@@ -48,7 +49,7 @@ const getBearerToken = (c: Context): string | null => {
 };
 
 const verifySessionWithProxy = async (
-  c: Context,
+  c: Context
 ): Promise<{ email: string; name: string } | null> => {
   const cookie = c.req.header("cookie");
   if (!cookie) return null;
@@ -137,7 +138,7 @@ export const authGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
       ipAddress: getClientIp(c),
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return c.json({ error: "Unauthorized" }, 401);
+    return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
   }
 
   c.set("user", sessionUser);
@@ -158,7 +159,7 @@ export const authGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
 
 export const requireRole = (role: "admin" | "member"): MiddlewareHandler<AppEnv> => async (c, next) => {
   const sessionUser = c.get("user");
-  if (!sessionUser) return c.json({ error: "Unauthorized" }, 401);
+  if (!sessionUser) return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
 
   if (role === "admin" && sessionUser.role !== "admin") {
     await writeAuditLog({
@@ -170,7 +171,7 @@ export const requireRole = (role: "admin" | "member"): MiddlewareHandler<AppEnv>
       ipAddress: getClientIp(c),
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return c.json({ error: "Forbidden" }, 403);
+    return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
   await next();
@@ -208,7 +209,7 @@ export const passwordCsrfGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
       ipAddress: getClientIp(c),
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return c.json({ error: "Forbidden" }, 403);
+    return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
   await next();

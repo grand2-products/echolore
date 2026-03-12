@@ -1,8 +1,9 @@
 "use client";
 
 import { Header, Sidebar } from "@/components/layout";
+import { useAuthContext } from "@/lib/auth-context";
+import { useAuthActions } from "@/lib/use-auth-actions";
 import { useT } from "@/lib/i18n";
-import { useAuthMeQuery } from "@/lib/api";
 import Link from "next/link";
 
 interface MainLayoutProps {
@@ -10,10 +11,9 @@ interface MainLayoutProps {
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
-  const { data, isError, isLoading, refetch, isFetching } = useAuthMeQuery();
-  const user = data?.user ?? null;
-  const authMode = data?.authMode ?? null;
+  const { user, authMode, isError, isLoading, refetch, isFetching } = useAuthContext();
   const t = useT();
+  const { googleSignInUrl } = useAuthActions();
 
   return (
     <div className="flex h-screen flex-col">
@@ -49,12 +49,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   >
                     {t("common.actions.signInWithEmail")}
                   </Link>
-                  <Link
-                    href="/oauth2/start"
+                  <a
+                    href={googleSignInUrl}
                     className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
                     {t("common.actions.signInAgain")}
-                  </Link>
+                  </a>
                 </div>
               </div>
             </div>

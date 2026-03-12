@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
+import { jsonError } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import {
   clearPasswordSessionCookies,
@@ -41,7 +42,7 @@ const revokeSessionSchema = z.object({
 usersRoutes.get("/", async (c) => {
   const authz = await authorizeAdminResource(c, "/users", "read");
   if (!authz.allowed) {
-    return c.json({ error: "Forbidden" }, 403);
+    return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
   try {
@@ -49,7 +50,7 @@ usersRoutes.get("/", async (c) => {
     return c.json({ users: allUsers });
   } catch (error) {
     console.error("Error fetching users:", error);
-    return c.json({ error: "Failed to fetch users" }, 500);
+    return jsonError(c, 500, "USERS_LIST_FAILED", "Failed to fetch users");
   }
 });
 
@@ -61,13 +62,13 @@ usersRoutes.get("/me", async (c) => {
     const user = await getUserById(sessionUser.id);
 
     if (!user) {
-      return c.json({ error: "User not found" }, 404);
+      return jsonError(c, 404, "USER_NOT_FOUND", "User not found");
     }
 
     return c.json({ user });
   } catch (error) {
     console.error("Error fetching current user:", error);
-    return c.json({ error: "Failed to fetch current user" }, 500);
+    return jsonError(c, 500, "CURRENT_USER_FETCH_FAILED", "Failed to fetch current user");
   }
 });
 
@@ -83,13 +84,13 @@ usersRoutes.put("/me", zValidator("json", updateUserSchema), async (c) => {
     });
 
     if (!updatedUser) {
-      return c.json({ error: "User not found" }, 404);
+      return jsonError(c, 404, "USER_NOT_FOUND", "User not found");
     }
 
     return c.json({ user: updatedUser });
   } catch (error) {
     console.error("Error updating current user:", error);
-    return c.json({ error: "Failed to update current user" }, 500);
+    return jsonError(c, 500, "CURRENT_USER_UPDATE_FAILED", "Failed to update current user");
   }
 });
 
@@ -115,7 +116,7 @@ usersRoutes.get("/me/sessions", async (c) => {
     });
   } catch (error) {
     console.error("Error fetching auth sessions:", error);
-    return c.json({ error: "Failed to fetch auth sessions" }, 500);
+    return jsonError(c, 500, "AUTH_SESSIONS_FETCH_FAILED", "Failed to fetch auth sessions");
   }
 });
 
@@ -134,7 +135,7 @@ usersRoutes.delete("/me/sessions/:id", zValidator("param", revokeSessionSchema),
     });
 
     if (!revoked) {
-      return c.json({ error: "Session not found" }, 404);
+      return jsonError(c, 404, "AUTH_SESSION_NOT_FOUND", "Session not found");
     }
 
     if (currentSessions.some((session) => session.id === id && session.current)) {
@@ -144,7 +145,7 @@ usersRoutes.delete("/me/sessions/:id", zValidator("param", revokeSessionSchema),
     return c.json({ success: true });
   } catch (error) {
     console.error("Error revoking auth session:", error);
-    return c.json({ error: "Failed to revoke auth session" }, 500);
+    return jsonError(c, 500, "AUTH_SESSION_REVOKE_FAILED", "Failed to revoke auth session");
   }
 });
 
@@ -153,20 +154,20 @@ usersRoutes.get("/:id", async (c) => {
   const { id } = c.req.param();
   const authz = await authorizeUserResource(c, id, "read");
   if (!authz.allowed) {
-    return c.json({ error: "Forbidden" }, 403);
+    return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
   try {
     const user = await getUserById(id);
 
     if (!user) {
-      return c.json({ error: "User not found" }, 404);
+      return jsonError(c, 404, "USER_NOT_FOUND", "User not found");
     }
 
     return c.json({ user });
   } catch (error) {
     console.error("Error fetching user:", error);
-    return c.json({ error: "Failed to fetch user" }, 500);
+    return jsonError(c, 500, "USER_FETCH_FAILED", "Failed to fetch user");
   }
 });
 
@@ -181,20 +182,20 @@ usersRoutes.get("/email/:email", async (c) => {
       : await authorizeAdminResource(c, `/users/email/${normalizedEmail}`, "read");
 
   if (!authz.allowed) {
-    return c.json({ error: "Forbidden" }, 403);
+    return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
   try {
     const user = await getUserByEmail(decodeURIComponent(email));
 
     if (!user) {
-      return c.json({ error: "User not found" }, 404);
+      return jsonError(c, 404, "USER_NOT_FOUND", "User not found");
     }
 
     return c.json({ user });
   } catch (error) {
     console.error("Error fetching user:", error);
-    return c.json({ error: "Failed to fetch user" }, 500);
+    return jsonError(c, 500, "USER_FETCH_FAILED", "Failed to fetch user");
   }
 });
 
@@ -203,7 +204,7 @@ usersRoutes.post("/", zValidator("json", createUserSchema), async (c) => {
   const data = c.req.valid("json");
   const authz = await authorizeAdminResource(c, "/users", "write");
   if (!authz.allowed) {
-    return c.json({ error: "Forbidden" }, 403);
+    return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
   try {
@@ -222,7 +223,7 @@ usersRoutes.post("/", zValidator("json", createUserSchema), async (c) => {
     return c.json({ user: newUser }, 201);
   } catch (error) {
     console.error("Error creating user:", error);
-    return c.json({ error: "Failed to create user" }, 500);
+    return jsonError(c, 500, "USER_CREATE_FAILED", "Failed to create user");
   }
 });
 
@@ -232,7 +233,7 @@ usersRoutes.put("/:id", zValidator("json", updateUserSchema), async (c) => {
   const data = c.req.valid("json");
   const authz = await authorizeUserResource(c, id, "write");
   if (!authz.allowed) {
-    return c.json({ error: "Forbidden" }, 403);
+    return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
   try {
@@ -242,13 +243,13 @@ usersRoutes.put("/:id", zValidator("json", updateUserSchema), async (c) => {
     });
 
     if (!updatedUser) {
-      return c.json({ error: "User not found" }, 404);
+      return jsonError(c, 404, "USER_NOT_FOUND", "User not found");
     }
 
     return c.json({ user: updatedUser });
   } catch (error) {
     console.error("Error updating user:", error);
-    return c.json({ error: "Failed to update user" }, 500);
+    return jsonError(c, 500, "USER_UPDATE_FAILED", "Failed to update user");
   }
 });
 
@@ -257,19 +258,19 @@ usersRoutes.delete("/:id", async (c) => {
   const { id } = c.req.param();
   const authz = await authorizeUserResource(c, id, "delete");
   if (!authz.allowed) {
-    return c.json({ error: "Forbidden" }, 403);
+    return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
   try {
     const deletedUser = await deleteUser(id);
 
     if (!deletedUser) {
-      return c.json({ error: "User not found" }, 404);
+      return jsonError(c, 404, "USER_NOT_FOUND", "User not found");
     }
 
     return c.json({ success: true });
   } catch (error) {
     console.error("Error deleting user:", error);
-    return c.json({ error: "Failed to delete user" }, 500);
+    return jsonError(c, 500, "USER_DELETE_FAILED", "Failed to delete user");
   }
 });

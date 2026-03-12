@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
+import { jsonError } from "../lib/api-error.js";
 import { writeAuditLog } from "../lib/audit.js";
 import type { AppEnv } from "../lib/auth.js";
 import { getRequestIp, isRateLimited } from "../lib/password-auth-guard.js";
@@ -74,7 +75,7 @@ authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
       ipAddress,
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return c.json({ error: "Too many registration attempts. Try again later.", code: "RATE_LIMITED" }, 429);
+    return jsonError(c, 429, "RATE_LIMITED", "Too many registration attempts. Try again later.");
   }
 
   try {
@@ -99,7 +100,7 @@ authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
       ipAddress,
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return c.json({ error: message, code: "REGISTER_REJECTED" }, status);
+    return jsonError(c, status, "REGISTER_REJECTED", message);
   }
 });
 
@@ -114,7 +115,7 @@ authRoutes.post("/verify-email", zValidator("json", verifyEmailSchema), async (c
   });
 
   if (rateLimited) {
-    return c.json({ error: "Too many verification attempts. Try again later.", code: "RATE_LIMITED" }, 429);
+    return jsonError(c, 429, "RATE_LIMITED", "Too many verification attempts. Try again later.");
   }
 
   const user = await verifyEmailRegistrationToken(token);
@@ -126,7 +127,7 @@ authRoutes.post("/verify-email", zValidator("json", verifyEmailSchema), async (c
       ipAddress,
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return c.json({ error: "Invalid or expired verification token", code: "INVALID_TOKEN" }, 400);
+    return jsonError(c, 400, "INVALID_TOKEN", "Invalid or expired verification token");
   }
 
   await issuePasswordWebSession(c, user.id);
@@ -163,7 +164,7 @@ authRoutes.post("/login", zValidator("json", loginSchema), async (c) => {
       ipAddress,
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return c.json({ error: "Too many sign-in attempts. Try again later.", code: "RATE_LIMITED" }, 429);
+    return jsonError(c, 429, "RATE_LIMITED", "Too many sign-in attempts. Try again later.");
   }
 
   const user = await authenticatePasswordUser(email, password);
@@ -176,7 +177,7 @@ authRoutes.post("/login", zValidator("json", loginSchema), async (c) => {
       ipAddress,
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return c.json({ error: "Invalid email or password", code: "INVALID_CREDENTIALS" }, 401);
+    return jsonError(c, 401, "INVALID_CREDENTIALS", "Invalid email or password");
   }
 
   await issuePasswordWebSession(c, user.id);
@@ -211,7 +212,7 @@ authRoutes.post("/token", zValidator("json", tokenAuthSchema), async (c) => {
   });
 
   if (rateLimited) {
-    return c.json({ error: "Too many sign-in attempts. Try again later.", code: "RATE_LIMITED" }, 429);
+    return jsonError(c, 429, "RATE_LIMITED", "Too many sign-in attempts. Try again later.");
   }
 
   const user = await authenticatePasswordUser(email, password);
@@ -224,7 +225,7 @@ authRoutes.post("/token", zValidator("json", tokenAuthSchema), async (c) => {
       ipAddress,
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return c.json({ error: "Invalid email or password", code: "INVALID_CREDENTIALS" }, 401);
+    return jsonError(c, 401, "INVALID_CREDENTIALS", "Invalid email or password");
   }
 
   const tokenSet = await issueMobileTokenPair({ userId: user.id, deviceName: deviceName ?? null });
@@ -281,7 +282,7 @@ authRoutes.post("/token/google", zValidator("json", googleTokenAuthSchema), asyn
       ipAddress,
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return c.json({ error: message, code: "GOOGLE_TOKEN_INVALID" }, 401);
+    return jsonError(c, 401, "GOOGLE_TOKEN_INVALID", message);
   }
 });
 
@@ -295,7 +296,7 @@ authRoutes.post("/token/refresh", zValidator("json", tokenRefreshSchema), async 
   });
 
   if (!tokenSet) {
-    return c.json({ error: "Invalid refresh token", code: "INVALID_REFRESH_TOKEN" }, 401);
+    return jsonError(c, 401, "INVALID_REFRESH_TOKEN", "Invalid refresh token");
   }
 
   if (!isMobile) {

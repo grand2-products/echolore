@@ -8,6 +8,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
 import { Toolbar } from "./Toolbar";
 import { filesApi, getWikiFileDownloadUrl, wikiApi, type Block } from "@/lib/api";
+import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 
 interface WikiEditorProps {
@@ -30,6 +31,7 @@ export function WikiEditor({
   pageId,
 }: WikiEditorProps) {
   const t = useT();
+  const getApiErrorMessage = useApiErrorMessage();
   const [savedBlocks, setSavedBlocks] = useState<Block[]>([]);
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
@@ -49,11 +51,12 @@ export function WikiEditor({
         setSavedBlocks(res.blocks);
       } catch (error) {
         console.error("Failed to fetch blocks", error);
+        setAssetError(getApiErrorMessage(error, t("wiki.detail.loadError")));
       }
     };
 
     void fetchBlocks();
-  }, [pageId]);
+  }, [getApiErrorMessage, pageId, t]);
 
   const editor = useEditor({
     extensions: [
@@ -115,6 +118,7 @@ export function WikiEditor({
       );
     } catch (error) {
       console.error("Failed to create block", error);
+      setAssetError(getApiErrorMessage(error, t("wiki.detail.saveError")));
     }
   };
 
@@ -198,6 +202,7 @@ export function WikiEditor({
     } catch (error) {
       console.error("Failed to reorder blocks", error);
       setSavedBlocks(sorted);
+      setAssetError(getApiErrorMessage(error, t("wiki.detail.saveError")));
     }
   };
 
@@ -219,6 +224,7 @@ export function WikiEditor({
     } catch (error) {
       console.error("Failed to delete block", error);
       setSavedBlocks(previous);
+      setAssetError(getApiErrorMessage(error, t("wiki.detail.saveError")));
     }
   };
 
@@ -249,6 +255,7 @@ export function WikiEditor({
     } catch (error) {
       console.error("Failed to reorder blocks by drag and drop", error);
       setSavedBlocks(sorted);
+      setAssetError(getApiErrorMessage(error, t("wiki.detail.saveError")));
     }
   };
 

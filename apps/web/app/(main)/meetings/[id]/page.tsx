@@ -8,9 +8,9 @@ import {
   type RealtimeTranscriptSegment,
   adminApi,
   meetingsApi,
-  useAuthMeQuery,
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useAuthContext } from "@/lib/auth-context";
 import { translate, useFormatters, useLocale, useT } from "@/lib/i18n";
 import { fetchLiveKitToken, getLiveKitUrl } from "@/lib/livekit";
 import { useStableEvent } from "@/lib/use-stable-event";
@@ -378,7 +378,7 @@ function RoomBody(props: {
 export default function MeetingRoomPage() {
   const params = useParams();
   const meetingId = params.id as string;
-  const { data: auth } = useAuthMeQuery();
+  const { user } = useAuthContext();
   const t = useT();
   const getApiErrorMessage = useApiErrorMessage();
   const locale = useLocale();
@@ -406,11 +406,11 @@ export default function MeetingRoomPage() {
         setAgents(agentList.agents);
 
         const participantIdentity =
-          auth?.user?.id ?? `user-${Math.random().toString(36).slice(2, 10)}`;
+          user?.id ?? `user-${Math.random().toString(36).slice(2, 10)}`;
         const fetched = await fetchLiveKitToken({
           roomName: detail.meeting.roomName,
           participantName:
-            auth?.user?.name ?? translate(locale, "meetings.room.guestUser"),
+            user?.name ?? translate(locale, "meetings.room.guestUser"),
           participantIdentity,
         });
         setToken(fetched);
@@ -420,7 +420,7 @@ export default function MeetingRoomPage() {
     };
 
     void run();
-  }, [auth?.user?.id, auth?.user?.name, locale, meetingId]);
+  }, [getApiErrorMessage, locale, meetingId, user?.id, user?.name]);
 
   useEffect(() => {
     const sync = async () => {
@@ -543,7 +543,7 @@ export default function MeetingRoomPage() {
                     meetingId,
                     agentId,
                     state: "active",
-                    invokedByUserId: auth?.user?.id ?? "unknown",
+                    invokedByUserId: user?.id ?? "unknown",
                     joinedAt: new Date().toISOString(),
                     leftAt: null,
                     createdAt: new Date().toISOString(),

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useAuthContext } from "@/lib/auth-context";
 import {
   ConnectionState,
   LiveKitRoom,
@@ -10,7 +11,6 @@ import {
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import { useEffect, useState } from "react";
-import { useAuthMeQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 import { fetchLiveKitToken, getLiveKitUrl } from "@/lib/livekit";
@@ -93,7 +93,7 @@ function CoworkingBody() {
 }
 
 export default function CoworkingPage() {
-  const { data: auth } = useAuthMeQuery();
+  const { user } = useAuthContext();
   const t = useT();
   const getApiErrorMessage = useApiErrorMessage();
   const [token, setToken] = useState<string | null>(null);
@@ -103,10 +103,10 @@ export default function CoworkingPage() {
     const run = async () => {
       try {
         const participantIdentity =
-          auth?.user?.id ?? `user-${Math.random().toString(36).slice(2, 10)}`;
+          user?.id ?? `user-${Math.random().toString(36).slice(2, 10)}`;
         const fetched = await fetchLiveKitToken({
           roomName: "everybody-coworking",
-          participantName: auth?.user?.name ?? t("coworking.guest"),
+          participantName: user?.name ?? t("coworking.guest"),
           participantIdentity,
         });
         setToken(fetched);
@@ -116,7 +116,7 @@ export default function CoworkingPage() {
     };
 
     void run();
-  }, [auth?.user?.id, auth?.user?.name, getApiErrorMessage, t]);
+  }, [getApiErrorMessage, t, user?.id, user?.name]);
 
   if (error) {
     return <div className="p-8 text-red-600">{error}</div>;

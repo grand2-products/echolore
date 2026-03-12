@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
+import { jsonError } from "../lib/api-error.js";
 
 export const livekitRoutes = new Hono();
 
@@ -16,12 +17,7 @@ livekitRoutes.post("/token", async (c) => {
     const { roomName, participantName, participantIdentity } = body;
 
     if (!roomName || !participantName || !participantIdentity) {
-      return c.json(
-        {
-          error: "roomName, participantName, and participantIdentity are required",
-        },
-        400,
-      );
+      return jsonError(c, 400, "LIVEKIT_TOKEN_INPUT_REQUIRED", "roomName, participantName, and participantIdentity are required");
     }
 
     const at = new AccessToken(apiKey, apiSecret, {
@@ -42,7 +38,7 @@ livekitRoutes.post("/token", async (c) => {
     return c.json({ token });
   } catch (error) {
     console.error("Error generating token:", error);
-    return c.json({ error: "Failed to generate token" }, 500);
+    return jsonError(c, 500, "LIVEKIT_TOKEN_GENERATE_FAILED", "Failed to generate token");
   }
 });
 
@@ -53,7 +49,7 @@ livekitRoutes.get("/rooms", async (c) => {
     return c.json({ rooms });
   } catch (error) {
     console.error("Error listing rooms:", error);
-    return c.json({ error: "Failed to list rooms" }, 500);
+    return jsonError(c, 500, "LIVEKIT_ROOMS_LIST_FAILED", "Failed to list rooms");
   }
 });
 
@@ -64,7 +60,7 @@ livekitRoutes.post("/rooms", async (c) => {
     const { name, emptyTimeout = 300, maxParticipants = 100 } = body;
 
     if (!name) {
-      return c.json({ error: "Room name is required" }, 400);
+      return jsonError(c, 400, "LIVEKIT_ROOM_NAME_REQUIRED", "Room name is required");
     }
 
     const room = await roomService.createRoom({
@@ -76,7 +72,7 @@ livekitRoutes.post("/rooms", async (c) => {
     return c.json({ room }, 201);
   } catch (error) {
     console.error("Error creating room:", error);
-    return c.json({ error: "Failed to create room" }, 500);
+    return jsonError(c, 500, "LIVEKIT_ROOM_CREATE_FAILED", "Failed to create room");
   }
 });
 
@@ -89,7 +85,7 @@ livekitRoutes.delete("/rooms/:name", async (c) => {
     return c.json({ success: true });
   } catch (error) {
     console.error("Error deleting room:", error);
-    return c.json({ error: "Failed to delete room" }, 500);
+    return jsonError(c, 500, "LIVEKIT_ROOM_DELETE_FAILED", "Failed to delete room");
   }
 });
 
@@ -102,7 +98,7 @@ livekitRoutes.get("/rooms/:name/participants", async (c) => {
     return c.json({ participants });
   } catch (error) {
     console.error("Error listing participants:", error);
-    return c.json({ error: "Failed to list participants" }, 500);
+    return jsonError(c, 500, "LIVEKIT_PARTICIPANTS_LIST_FAILED", "Failed to list participants");
   }
 });
 
@@ -117,6 +113,6 @@ livekitRoutes.post("/rooms/:name/start-recording", async (c) => {
     });
   } catch (error) {
     console.error("Error starting recording:", error);
-    return c.json({ error: "Failed to start recording" }, 500);
+    return jsonError(c, 500, "LIVEKIT_RECORDING_START_FAILED", "Failed to start recording");
   }
 });

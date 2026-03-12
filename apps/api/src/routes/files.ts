@@ -1,6 +1,7 @@
 import { Storage } from "@google-cloud/storage";
 import { Hono } from "hono";
 import type { AppEnv } from "../lib/auth.js";
+import { jsonError } from "../lib/api-error.js";
 import { authorizeOwnerResource } from "../policies/authorization-policy.js";
 import {
   createFile,
@@ -25,7 +26,7 @@ filesRoutes.get("/", async (c) => {
     return c.json({ files: allFiles });
   } catch (error) {
     console.error("Error fetching files:", error);
-    return c.json({ error: "Failed to fetch files" }, 500);
+    return jsonError(c, 500, "FILES_LIST_FAILED", "Failed to fetch files");
   }
 });
 
@@ -37,18 +38,18 @@ filesRoutes.get("/:id", async (c) => {
     const file = await getFileById(id);
 
     if (!file) {
-      return c.json({ error: "File not found" }, 404);
+      return jsonError(c, 404, "FILE_NOT_FOUND", "File not found");
     }
 
     const authz = await authorizeOwnerResource(c, "file", id, file.uploaderId, "read");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "FORBIDDEN", "Forbidden");
     }
 
     return c.json({ file });
   } catch (error) {
     console.error("Error fetching file:", error);
-    return c.json({ error: "Failed to fetch file" }, 500);
+    return jsonError(c, 500, "FILE_FETCH_FAILED", "Failed to fetch file");
   }
 });
 
@@ -57,20 +58,20 @@ filesRoutes.post("/upload", async (c) => {
   try {
     const user = c.get("user");
     if (!user?.id) {
-      return c.json({ error: "Unauthorized" }, 401);
+      return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
     }
 
     const contentType = c.req.header("content-type") || "";
 
     if (!contentType.includes("multipart/form-data")) {
-      return c.json({ error: "Multipart form data required" }, 400);
+      return jsonError(c, 400, "FILE_MULTIPART_REQUIRED", "Multipart form data required");
     }
 
     const body = await c.req.parseBody();
     const uploadedFile = body.file as File;
 
     if (!uploadedFile) {
-      return c.json({ error: "File is required" }, 400);
+      return jsonError(c, 400, "FILE_REQUIRED", "File is required");
     }
 
     const fileId = crypto.randomUUID();
@@ -102,7 +103,7 @@ filesRoutes.post("/upload", async (c) => {
     return c.json({ file: newFile }, 201);
   } catch (error) {
     console.error("Error uploading file:", error);
-    return c.json({ error: "Failed to upload file" }, 500);
+    return jsonError(c, 500, "FILE_UPLOAD_FAILED", "Failed to upload file");
   }
 });
 
@@ -114,17 +115,17 @@ filesRoutes.get("/:id/download", async (c) => {
     const fileRecord = await getFileById(id);
 
     if (!fileRecord) {
-      return c.json({ error: "File not found" }, 404);
+      return jsonError(c, 404, "FILE_NOT_FOUND", "File not found");
     }
 
     const authz = await authorizeOwnerResource(c, "file", id, fileRecord.uploaderId, "read");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "FORBIDDEN", "Forbidden");
     }
 
     const pathMatch = fileRecord.gcsPath.match(/gs:\/\/[^/]+\/(.+)/);
     if (!pathMatch?.[1]) {
-      return c.json({ error: "Invalid file path" }, 500);
+      return jsonError(c, 500, "FILE_PATH_INVALID", "Invalid file path");
     }
 
     const gcsPath = pathMatch[1];
@@ -138,7 +139,7 @@ filesRoutes.get("/:id/download", async (c) => {
     return c.json({ url: signedUrl });
   } catch (error) {
     console.error("Error generating download URL:", error);
-    return c.json({ error: "Failed to generate download URL" }, 500);
+    return jsonError(c, 500, "FILE_DOWNLOAD_URL_FAILED", "Failed to generate download URL");
   }
 });
 
@@ -150,12 +151,12 @@ filesRoutes.delete("/:id", async (c) => {
     const fileRecord = await getFileById(id);
 
     if (!fileRecord) {
-      return c.json({ error: "File not found" }, 404);
+      return jsonError(c, 404, "FILE_NOT_FOUND", "File not found");
     }
 
     const authz = await authorizeOwnerResource(c, "file", id, fileRecord.uploaderId, "delete");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "FORBIDDEN", "Forbidden");
     }
 
     const pathMatch = fileRecord.gcsPath.match(/gs:\/\/[^/]+\/(.+)/);
@@ -169,6 +170,6 @@ filesRoutes.delete("/:id", async (c) => {
     return c.json({ success: true });
   } catch (error) {
     console.error("Error deleting file:", error);
-    return c.json({ error: "Failed to delete file" }, 500);
+    return jsonError(c, 500, "FILE_DELETE_FAILED", "Failed to delete file");
   }
 });
