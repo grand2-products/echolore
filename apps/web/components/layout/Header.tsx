@@ -2,6 +2,7 @@
 
 import type { AuthMeResponse, SessionUser } from "@/lib/api";
 import { appTitle } from "@/lib/app-config";
+import { getVisibleNavigationItems } from "@/components/layout/navigation";
 import { supportedLocales, useLocale, useSetLocale, useT, type SupportedLocale } from "@/lib/i18n";
 import { useAuthActions } from "@/lib/use-auth-actions";
 import Link from "next/link";
@@ -12,18 +13,6 @@ interface HeaderProps {
   user?: SessionUser | null;
   authMode?: AuthMeResponse["authMode"];
 }
-
-const primaryNavItems = [
-  { href: "/wiki", label: "Wiki" },
-  { href: "/meetings", label: "Meetings" },
-  { href: "/search", label: "Search" },
-];
-
-const adminNavItems = [
-  { href: "/admin/access", label: "Access" },
-  { href: "/admin/kpi", label: "KPI" },
-  { href: "/admin/agents", label: "Agents" },
-];
 
 export function Header({ user, authMode }: HeaderProps) {
   const pathname = usePathname();
@@ -36,8 +25,7 @@ export function Header({ user, authMode }: HeaderProps) {
   const [query, setQuery] = useState("");
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const mobileNavItems =
-    user?.role === "admin" ? [...primaryNavItems, ...adminNavItems] : primaryNavItems;
+  const mobileNavItems = getVisibleNavigationItems(user);
 
   useEffect(() => {
     setIsUserMenuOpen(false);
@@ -107,14 +95,6 @@ export function Header({ user, authMode }: HeaderProps) {
             </svg>
           </div>
         </form>
-
-        <nav className="hidden items-center gap-6 md:flex">
-          {primaryNavItems.map((item) => (
-            <Link key={item.href} href={item.href} className="text-gray-600 transition hover:text-blue-600">
-              {t(`common.nav.${item.label.toLowerCase()}`)}
-            </Link>
-          ))}
-        </nav>
 
         <div className="flex items-center gap-3">
           <label className="hidden items-center gap-2 text-sm text-gray-600 md:flex">

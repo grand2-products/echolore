@@ -34,10 +34,21 @@ This document describes the currently implemented frontend app structure in `app
 - `apps/web/components/layout`: shared shell
 - `apps/web/lib/api.ts`: centralized API client
 
+## Implemented Shell Behavior
+- desktop primary navigation is sidebar-led
+- the header is reserved for search, locale switching, and session actions
+- mobile navigation is exposed from the header menu and reuses the same navigation definitions as the desktop sidebar
+
 ## Implemented Integration Pattern
 - frontend calls backend APIs through `fetchApi`
 - cookie-based session transport is enabled with `credentials: "include"`
 - wiki, meetings, search, and settings screens use the shared API client
+
+## Implemented I18N Behavior
+- supported locales are `ja`, `en`, `zh-CN`, and `ko`
+- route structure stays unchanged; locale is managed client-side
+- first load hydrates locale from persisted preference or browser language
+- the active locale is reflected to `document.documentElement.lang` and a `locale` cookie
 
 ## Known Gaps
 - frontend main layout session state is derived from `/api/auth/me`; deeper screen-level user hydration is still partial

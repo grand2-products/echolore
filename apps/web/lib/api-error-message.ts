@@ -1,11 +1,12 @@
 "use client";
 
-import { ApiError } from "@/lib/api";
+import type { ApiError } from "@/lib/api";
 import type { SupportedLocale } from "@/lib/i18n";
 import { defaultLocale, useLocale } from "@/lib/i18n";
 import { useCallback } from "react";
 
 type LocalizedMessages = Record<string, string>;
+type ApiErrorLike = Pick<ApiError, "code" | "detail" | "message">;
 
 const messagesByLocale: Record<SupportedLocale, LocalizedMessages> = {
   ja: {
@@ -440,12 +441,26 @@ const messagesByLocale: Record<SupportedLocale, LocalizedMessages> = {
   },
 };
 
+function isApiErrorLike(error: unknown): error is ApiErrorLike {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as Partial<ApiErrorLike> & { name?: unknown };
+  return (
+    typeof candidate.message === "string" &&
+    (typeof candidate.code === "string" ||
+      typeof candidate.detail === "string" ||
+      candidate.name === "ApiError")
+  );
+}
+
 export function getApiErrorMessage(
   error: unknown,
   locale: SupportedLocale,
   fallbackMessage: string
 ) {
-  if (error instanceof ApiError) {
+  if (isApiErrorLike(error)) {
     const code = error.code;
     if (code) {
       const localized =
