@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiFetch, wikiApi } from "./api";
+import { ApiError, apiFetch, authApi, usersApi, wikiApi } from "./api";
 
 describe("api client", () => {
   afterEach(() => {
@@ -45,14 +45,73 @@ describe("api client", () => {
     );
   });
 
-  it("surfaces API error payload messages", async () => {
+  it("surfaces API error payload messages and codes", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ error: "Forbidden" }), {
+      new Response(JSON.stringify({ error: "Forbidden", code: "FORBIDDEN", message: "Denied by policy" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },
       })
     );
 
-    await expect(apiFetch("/denied")).rejects.toThrow("Forbidden");
+    await expect(apiFetch("/denied")).rejects.toMatchObject({
+      message: "Forbidden",
+      status: 403,
+      code: "FORBIDDEN",
+      detail: "Denied by policy",
+    } satisfies Partial<ApiError>);
+  });
+
+  it("posts Google token exchange requests through the auth API", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          accessToken: "access",
+          refreshToken: "refresh",
+          expiresAt: "2026-03-12T00:00:00.000Z",
+          user: {
+            id: "user_1",
+            email: "member@example.com",
+            name: "Member",
+            role: "member",
+            avatarUrl: null,
+          },
+          authMode: "sso",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    );
+
+    await authApi.exchangeGoogleToken({ idToken: "google-id-token", deviceName: "Pixel 9" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/auth/token/google",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify({ idToken: "google-id-token", deviceName: "Pixel 9" }),
+      })
+    );
+  });
+
+  it("calls the current-user session revoke endpoint", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    await usersApi.revokeAuthSession("rt_1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/api/users/me/sessions/rt_1",
+      expect.objectContaining({
+        method: "DELETE",
+        credentials: "include",
+      })
+    );
   });
 });

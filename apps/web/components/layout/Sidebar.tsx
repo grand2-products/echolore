@@ -2,6 +2,7 @@
 
 import type { SessionUser } from "@/lib/api";
 import { appTitle } from "@/lib/app-config";
+import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -21,8 +22,7 @@ const navItems: NavItem[] = [
     label: "Home",
     href: "/",
     icon: (
-      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <title>Home</title>
+      <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -36,8 +36,7 @@ const navItems: NavItem[] = [
     label: "Wiki",
     href: "/wiki",
     icon: (
-      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <title>Wiki</title>
+      <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -51,8 +50,7 @@ const navItems: NavItem[] = [
     label: "Meetings",
     href: "/meetings",
     icon: (
-      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <title>Meetings</title>
+      <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -66,8 +64,7 @@ const navItems: NavItem[] = [
     label: "Search",
     href: "/search",
     icon: (
-      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <title>Search</title>
+      <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -81,8 +78,7 @@ const navItems: NavItem[] = [
     label: "Access",
     href: "/admin/access",
     icon: (
-      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <title>Access</title>
+      <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -96,8 +92,7 @@ const navItems: NavItem[] = [
     label: "KPI",
     href: "/admin/kpi",
     icon: (
-      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <title>KPI</title>
+      <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20V10m5 10V4m5 16v-7M4 20h16" />
       </svg>
     ),
@@ -106,8 +101,7 @@ const navItems: NavItem[] = [
     label: "Agents",
     href: "/admin/agents",
     icon: (
-      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <title>Agents</title>
+      <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -121,12 +115,13 @@ const navItems: NavItem[] = [
 
 export function Sidebar({ children, user }: SidebarProps) {
   const pathname = usePathname();
+  const t = useT();
   const visibleNavItems = navItems.filter(
     (item) => !item.href.startsWith("/admin/") || user?.role === "admin"
   );
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r border-gray-200 bg-white">
+    <aside className="hidden h-full w-64 flex-col border-r border-gray-200 bg-white md:flex">
       <nav className="flex-1 space-y-1 p-4">
         {visibleNavItems.map((item) => {
           const isActive =
@@ -141,7 +136,7 @@ export function Sidebar({ children, user }: SidebarProps) {
               }`}
             >
               {item.icon}
-              {item.label}
+              {t(`common.nav.${item.label.toLowerCase()}`)}
             </Link>
           );
         })}
@@ -150,7 +145,7 @@ export function Sidebar({ children, user }: SidebarProps) {
       {children}
 
       <div className="border-t border-gray-200 p-4">
-        <div className="text-xs text-gray-500">(c) 2024 {appTitle}</div>
+        <div className="text-xs text-gray-500">{t("common.copyright", { year: 2024, title: appTitle })}</div>
       </div>
     </aside>
   );

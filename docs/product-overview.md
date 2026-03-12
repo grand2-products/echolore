@@ -1,11 +1,12 @@
 # Product Overview
 
-Last updated: 2026-03-11
+Last updated: 2026-03-12
 
 This document describes the currently implemented product shape of `corp-internal`.
 
 ## Current Product Areas
-- Google SSO based internal access
+- Google SSO and email/password access with email-based account reconciliation
+- mobile Google token exchange and self-service app session revocation
 - block-based Wiki
 - meetings with LiveKit
 - Room AI flow from summary generation to Wiki save
@@ -38,6 +39,10 @@ This document describes the currently implemented product shape of `corp-interna
 - admin-protected backend routes
 - group, membership, and page permission APIs
 - access-management, KPI, and AI agent screens on the frontend
+
+### Account
+- email verification for password registration
+- active app session visibility and revocation from settings
 
 ## Current Operational Shape
 - web frontend in `apps/web`

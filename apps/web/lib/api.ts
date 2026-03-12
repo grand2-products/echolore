@@ -4,6 +4,12 @@
  */
 
 import type {
+  AuthSessionDto,
+  AuthMeResponseDto,
+  PasswordAuthResponse,
+  PasswordLoginRequest,
+  PasswordRegistrationRequest,
+  PasswordRegistrationResponse,
   BlockDto,
   CreateBlockRequest,
   CreateBlockResponse,
@@ -22,7 +28,9 @@ import type {
   GetMeetingResponse,
   GetPageResponse,
   GetUserResponse,
+  GoogleTokenExchangeRequest,
   ListFilesResponse,
+  ListAuthSessionsResponse,
   ListMeetingsResponse,
   ListPagesResponse,
   ListUsersResponse,
@@ -33,17 +41,37 @@ import type {
   PageDto,
   SuccessResponse,
   SummaryDto,
+  TokenAuthResponse,
   TranscriptDto,
   UpdateBlockRequest,
   UpdateMeetingRequest,
   UpdatePageRequest,
   UpdateUserRequest,
   UploadFileResponse,
+  SessionUserDto,
   UserDto,
+  VerifyEmailRequest,
+  VerifyEmailResponse,
 } from "@contracts/index";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+function normalizeApiBaseUrl(rawUrl: string | undefined) {
+  const fallback = "http://localhost:3001/api";
+  if (!rawUrl) {
+    return fallback;
+  }
+
+  try {
+    const url = new URL(rawUrl);
+    const pathname = url.pathname.replace(/\/+$/, "");
+    url.pathname = pathname.endsWith("/api") ? pathname : `${pathname}/api`;
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return fallback;
+  }
+}
+
+const API_BASE = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
 
 function buildApiUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -61,17 +89,9 @@ export type Meeting = MeetingDto;
 export type Transcript = TranscriptDto;
 export type Summary = SummaryDto;
 export type FileMetadata = FileMetadataDto;
-export interface SessionUser {
-  id: string;
-  email: string;
-  name: string;
-  role: "admin" | "member";
-  avatarUrl?: string | null;
-}
-
-export interface AuthMeResponse {
-  user: SessionUser | null;
-}
+export type SessionUser = SessionUserDto;
+export type AuthMeResponse = AuthMeResponseDto;
+export type AuthSession = AuthSessionDto;
 
 export interface WikiSearchMeta {
   mode: "lexical" | "hybrid";
@@ -265,6 +285,20 @@ export interface UpdateAdminGroupRequest {
   permissions?: string[];
 }
 
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  detail?: string;
+
+  constructor(message: string, options: { status: number; code?: string; detail?: string }) {
+    super(message);
+    this.name = "ApiError";
+    this.status = options.status;
+    this.code = options.code;
+    this.detail = options.detail;
+  }
+}
+
 // ===========================================
 // API Response Types
 // ===========================================
@@ -284,8 +318,16 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch((): ErrorResponse => ({ error: "Unknown error" }));
-    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    const error = await response
+      .json()
+      .catch(
+        (): ErrorResponse => ({ error: "Unknown error", code: "UNKNOWN_ERROR" })
+      );
+    throw new ApiError(error.error || `HTTP error! status: ${response.status}`, {
+      status: response.status,
+      code: error.code,
+      detail: error.message,
+    });
   }
 
   return response.json();
@@ -310,6 +352,13 @@ export const usersApi = {
   getByEmail: (email: string) =>
     fetchApi<GetUserResponse>(`/users/email/${encodeURIComponent(email)}`),
 
+  listAuthSessions: () => fetchApi<ListAuthSessionsResponse>("/users/me/sessions"),
+
+  revokeAuthSession: (id: string) =>
+    fetchApi<SuccessResponse>(`/users/me/sessions/${id}`, {
+      method: "DELETE",
+    }),
+
   create: (data: CreateUserRequest) =>
     fetchApi<GetUserResponse>("/users", {
       method: "POST",
@@ -330,6 +379,31 @@ export const usersApi = {
 
 export const authApi = {
   me: () => fetchApi<AuthMeResponse>("/auth/me"),
+  login: (data: PasswordLoginRequest) =>
+    fetchApi<PasswordAuthResponse>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  register: (data: PasswordRegistrationRequest) =>
+    fetchApi<PasswordRegistrationResponse>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  verifyEmail: (data: VerifyEmailRequest) =>
+    fetchApi<VerifyEmailResponse>("/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  exchangeGoogleToken: (data: GoogleTokenExchangeRequest) =>
+    fetchApi<TokenAuthResponse>("/auth/token/google", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  logout: () =>
+    fetchApi<SuccessResponse>("/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
 };
 
 // ===========================================
@@ -602,8 +676,16 @@ export const filesApi = {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch((): ErrorResponse => ({ error: "Unknown error" }));
-      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+      const error = await response
+        .json()
+        .catch(
+          (): ErrorResponse => ({ error: "Unknown error", code: "UNKNOWN_ERROR" })
+        );
+      throw new ApiError(error.error || `HTTP error! status: ${response.status}`, {
+        status: response.status,
+        code: error.code,
+        detail: error.message,
+      });
     }
 
     return response.json();

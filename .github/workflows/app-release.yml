@@ -90,7 +90,6 @@ jobs:
         run: |
           gcloud compute scp \
             docker-compose.yml \
-            livekit.yaml \
             scripts/release/remote-runtime-apply.sh \
             ./.deploy.dev.env \
             "${{ env.INSTANCE_NAME }}:/tmp/" \
@@ -174,7 +173,6 @@ jobs:
         run: |
           gcloud compute scp \
             docker-compose.yml \
-            livekit.yaml \
             scripts/release/remote-runtime-apply.sh \
             ./.deploy.prod.env \
             "${{ env.INSTANCE_NAME }}:/tmp/" \

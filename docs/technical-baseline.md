@@ -1,6 +1,6 @@
 # Technical Baseline
 
-Last updated: 2026-03-11
+Last updated: 2026-03-12
 
 This document records the currently adopted technical baseline for the repository.
 
@@ -11,7 +11,7 @@ This document records the currently adopted technical baseline for the repositor
 - Database: PostgreSQL
 - Realtime: LiveKit
 - Cache/broker: Valkey
-- Auth gateway: OAuth2 Proxy
+- Auth gateway: OAuth2 Proxy for browser Google SSO, with API-issued access/refresh tokens for email/password and mobile Google token exchange
 - Infra baseline: GCE + GCS + Docker Compose
 
 ## Repository Baseline
@@ -30,7 +30,8 @@ This document records the currently adopted technical baseline for the repositor
 ## Current External Platform Choices
 - cloud platform: Google Cloud Platform
 - object storage: Google Cloud Storage
-- authentication provider: Google SSO through OAuth2 Proxy
+- authentication provider: Google SSO through OAuth2 Proxy, plus API-managed email/password auth with verification and mobile Google ID token exchange
+- mobile Google clients can exchange verified Google ID tokens directly with the API
 - AI summary path: Vertex AI
 - speech/transcript path: Google Cloud Speech-to-Text
 - runtime image registry: explicit `gcr.io/${PROJECT_ID}/...` tags in GitHub Actions workflows
@@ -38,6 +39,7 @@ This document records the currently adopted technical baseline for the repositor
 ## Current Constraints
 - frontend and API contracts should stay aligned through `packages/shared`
 - auth and authz remain server-authoritative
+- API-issued auth uses signed access tokens, hashed refresh tokens, route-level rate limiting, same-origin CSRF protection for cookie transport, and user-visible session revocation
 - local development and runtime deployment use different compose entrypoints
 - Terraform-managed runtime hosts use explicit per-environment VPC/subnet/firewall resources
 - GCE instance service accounts use narrowed scopes instead of `cloud-platform`

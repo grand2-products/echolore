@@ -44,7 +44,6 @@ jobs:
         run: |
           gcloud compute scp \
             docker-compose.bootstrap-check.yml \
-            livekit.yaml \
             scripts/release/remote-bootstrap-validate.sh \
             ./.bootstrap.dev.env \
             "${{ env.INSTANCE_NAME }}:/tmp/" \
@@ -95,7 +94,6 @@ jobs:
         run: |
           gcloud compute scp \
             docker-compose.bootstrap-check.yml \
-            livekit.yaml \
             scripts/release/remote-bootstrap-validate.sh \
             ./.bootstrap.prod.env \
             "${{ env.INSTANCE_NAME }}:/tmp/" \

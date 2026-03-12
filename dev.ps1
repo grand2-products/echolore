@@ -61,15 +61,6 @@ function Set-DefaultEnv {
   }
 }
 
-function Set-Env {
-  param(
-    [string]$Name,
-    [string]$Value
-  )
-
-  [Environment]::SetEnvironmentVariable($Name, $Value, "Process")
-}
-
 function Wait-ForContainerHealth {
   param(
     [string]$ContainerName,
@@ -94,18 +85,26 @@ function Test-DockerAvailable {
   return $LASTEXITCODE -eq 0
 }
 
+function Test-DrizzleMigrationsPresent {
+  param([string]$ApiDir)
+
+  $journalPath = Join-Path $ApiDir "drizzle/meta/_journal.json"
+  return Test-Path $journalPath
+}
+
 Import-OptionalEnvFiles -Paths @(
-  (Join-Path $repoRoot ".env"),
-  (Join-Path $repoRoot "apps/api/.env"),
-  (Join-Path $repoRoot "apps/api/.env.local"),
-  (Join-Path $repoRoot "apps/web/.env"),
-  (Join-Path $repoRoot "apps/web/.env.local"),
-  (Join-Path $repoRoot "apps/worker/.env"),
-  (Join-Path $repoRoot "apps/worker/.env.local")
+  (Join-Path $repoRoot ".env")
 )
 
-if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable("API_PORT", "Process")) -and -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable("PORT", "Process"))) {
-  Set-Env -Name "API_PORT" -Value ([Environment]::GetEnvironmentVariable("PORT", "Process"))
+Write-Step "Installing workspace dependencies"
+Push-Location $repoRoot
+try {
+  pnpm install --frozen-lockfile
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to install dependencies."
+  }
+} finally {
+  Pop-Location
 }
 
 Set-DefaultEnv -Name "DB_PASSWORD" -Value "wiki_password"
@@ -117,28 +116,9 @@ Set-DefaultEnv -Name "DB_PORT" -Value "17724"
 Set-DefaultEnv -Name "VALKEY_PORT" -Value "17725"
 Set-DefaultEnv -Name "OAUTH_PROXY_PORT" -Value "17726"
 Set-DefaultEnv -Name "LIVEKIT_RTC_PORT_RANGE" -Value "17730-17930"
-Set-Env -Name "PORT" -Value ([Environment]::GetEnvironmentVariable("API_PORT", "Process"))
-Set-DefaultEnv -Name "NEXT_PUBLIC_API_URL" -Value ("http://localhost:" + [Environment]::GetEnvironmentVariable("API_PORT", "Process"))
-Set-DefaultEnv -Name "NEXT_PUBLIC_LIVEKIT_URL" -Value ("ws://localhost:" + [Environment]::GetEnvironmentVariable("LIVEKIT_PORT", "Process"))
-Set-DefaultEnv -Name "LIVEKIT_HOST" -Value ("http://localhost:" + [Environment]::GetEnvironmentVariable("LIVEKIT_PORT", "Process"))
-  Set-DefaultEnv -Name "LIVEKIT_API_KEY" -Value "devkey"
-  Set-DefaultEnv -Name "LIVEKIT_API_SECRET" -Value "secret"
-Set-DefaultEnv -Name "CORS_ORIGIN" -Value ("http://localhost:" + [Environment]::GetEnvironmentVariable("WEB_PORT", "Process"))
-Set-DefaultEnv -Name "DATABASE_URL" -Value ("postgresql://wiki:wiki_password@localhost:" + [Environment]::GetEnvironmentVariable("DB_PORT", "Process") + "/wiki")
-Set-DefaultEnv -Name "AUTH_BYPASS" -Value "true"
-Set-DefaultEnv -Name "NODE_ENV" -Value "development"
-Set-DefaultEnv -Name "API_NODE_ENV" -Value "development"
-Set-DefaultEnv -Name "WEB_NODE_ENV" -Value "development"
 Set-DefaultEnv -Name "COOKIE_SECRET" -Value "local-dev-cookie-secret"
 Set-DefaultEnv -Name "GOOGLE_CLIENT_ID" -Value "local-dev-client-id"
 Set-DefaultEnv -Name "GOOGLE_CLIENT_SECRET" -Value "local-dev-client-secret"
-Set-DefaultEnv -Name "APP_TITLE" -Value "corp-internal"
-Set-DefaultEnv -Name "NEXT_PUBLIC_APP_TITLE" -Value ([Environment]::GetEnvironmentVariable("APP_TITLE", "Process"))
-Set-DefaultEnv -Name "NEXT_PUBLIC_APP_TAGLINE" -Value "Internal collaboration platform"
-Set-DefaultEnv -Name "ROOM_AI_WORKER_MODE" -Value "monitor"
-Set-DefaultEnv -Name "ROOM_AI_API_BASE_URL" -Value ("http://localhost:" + [Environment]::GetEnvironmentVariable("API_PORT", "Process"))
-Set-DefaultEnv -Name "ROOM_AI_POLL_INTERVAL_MS" -Value "15000"
-Set-DefaultEnv -Name "ROOM_AI_WEBHOOK_PORT" -Value "17727"
 
 if (-not $SkipDocker) {
   if (-not (Test-DockerAvailable)) {
@@ -158,23 +138,26 @@ if (-not $SkipDocker) {
 
   Write-Step "Waiting for PostgreSQL health"
   Wait-ForContainerHealth -ContainerName "corp-internal-db"
-}
 
-$sharedEnv = @{
-  DATABASE_URL              = [Environment]::GetEnvironmentVariable("DATABASE_URL", "Process")
-  DB_PASSWORD               = [Environment]::GetEnvironmentVariable("DB_PASSWORD", "Process")
-  LIVEKIT_HOST              = [Environment]::GetEnvironmentVariable("LIVEKIT_HOST", "Process")
-  LIVEKIT_API_KEY           = [Environment]::GetEnvironmentVariable("LIVEKIT_API_KEY", "Process")
-  LIVEKIT_API_SECRET        = [Environment]::GetEnvironmentVariable("LIVEKIT_API_SECRET", "Process")
-  NEXT_PUBLIC_LIVEKIT_URL   = [Environment]::GetEnvironmentVariable("NEXT_PUBLIC_LIVEKIT_URL", "Process")
-  GOOGLE_CLOUD_PROJECT      = [Environment]::GetEnvironmentVariable("GOOGLE_CLOUD_PROJECT", "Process")
-  GCS_BUCKET                = [Environment]::GetEnvironmentVariable("GCS_BUCKET", "Process")
-  GOOGLE_APPLICATION_CREDENTIALS = [Environment]::GetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", "Process")
-}
+  $apiDir = Join-Path $repoRoot "apps/api"
+  $dbSetupCommand = "pnpm db:migrate"
+  if (-not (Test-DrizzleMigrationsPresent -ApiDir $apiDir)) {
+    $dbSetupCommand = "pnpm db:push"
+  }
 
-foreach ($entry in $sharedEnv.GetEnumerator()) {
-  if ($null -ne $entry.Value) {
-    [Environment]::SetEnvironmentVariable($entry.Key, [string]$entry.Value, "Process")
+  Write-Step "Applying database schema with $dbSetupCommand"
+  Push-Location $repoRoot
+  try {
+    if ($dbSetupCommand -eq "pnpm db:migrate") {
+      pnpm db:migrate
+    } else {
+      pnpm db:push
+    }
+    if ($LASTEXITCODE -ne 0) {
+      throw "Failed to apply database schema."
+    }
+  } finally {
+    Pop-Location
   }
 }
 

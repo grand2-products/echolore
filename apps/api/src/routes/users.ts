@@ -2,6 +2,12 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv } from "../lib/auth.js";
+import {
+  clearPasswordSessionCookies,
+  getRefreshTokenFromCookie,
+  listAuthSessionsForUser,
+  revokeAuthSessionById,
+} from "../lib/local-auth.js";
 import { authorizeAdminResource, authorizeUserResource } from "../policies/authorization-policy.js";
 import {
   createUser,
@@ -25,6 +31,10 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   name: z.string().min(1).optional(),
   avatarUrl: z.string().optional(),
+});
+
+const revokeSessionSchema = z.object({
+  id: z.string().min(1),
 });
 
 // GET /api/users - List all users
@@ -80,6 +90,61 @@ usersRoutes.put("/me", zValidator("json", updateUserSchema), async (c) => {
   } catch (error) {
     console.error("Error updating current user:", error);
     return c.json({ error: "Failed to update current user" }, 500);
+  }
+});
+
+usersRoutes.get("/me/sessions", async (c) => {
+  const sessionUser = c.get("user");
+
+  try {
+    const sessions = await listAuthSessionsForUser({
+      userId: sessionUser.id,
+      currentRefreshToken: getRefreshTokenFromCookie(c),
+    });
+    return c.json({
+      sessions: sessions.map((session) => ({
+        id: session.id,
+        clientType: session.clientType,
+        authMode: session.authMode,
+        deviceName: session.deviceName,
+        createdAt: session.createdAt.toISOString(),
+        lastSeenAt: session.lastSeenAt?.toISOString() ?? null,
+        expiresAt: session.expiresAt.toISOString(),
+        current: session.current,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching auth sessions:", error);
+    return c.json({ error: "Failed to fetch auth sessions" }, 500);
+  }
+});
+
+usersRoutes.delete("/me/sessions/:id", zValidator("param", revokeSessionSchema), async (c) => {
+  const sessionUser = c.get("user");
+  const { id } = c.req.valid("param");
+
+  try {
+    const currentSessions = await listAuthSessionsForUser({
+      userId: sessionUser.id,
+      currentRefreshToken: getRefreshTokenFromCookie(c),
+    });
+    const revoked = await revokeAuthSessionById({
+      userId: sessionUser.id,
+      sessionId: id,
+    });
+
+    if (!revoked) {
+      return c.json({ error: "Session not found" }, 404);
+    }
+
+    if (currentSessions.some((session) => session.id === id && session.current)) {
+      clearPasswordSessionCookies(c);
+    }
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Error revoking auth session:", error);
+    return c.json({ error: "Failed to revoke auth session" }, 500);
   }
 });
 

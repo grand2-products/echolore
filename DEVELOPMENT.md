@@ -37,11 +37,22 @@ High-level project overview lives in `README.md`.
   - `./dev.ps1`
   - or `pnpm dev:daily`
 - `dev.ps1` starts middleware (`db`, `valkey`, `livekit`) in Docker and then runs `web`, `api`, and `worker` through Turborepo in the current shell.
-- The script loads root `.env` first for orchestration overrides, then app-specific env files from `apps/api`, `apps/web`, and `apps/worker`.
-- The default local ports are `17720`-series values and can be overridden in root `.env` or the app-specific env files.
-- In local dev, treat `WEB_PORT`, `API_PORT`, `DB_PORT`, and `LIVEKIT_PORT` as the primary values. The dev launchers normalize localhost URLs such as `NEXT_PUBLIC_API_URL`, `CORS_ORIGIN`, `ROOM_AI_API_BASE_URL`, `LIVEKIT_HOST`, and local `DATABASE_URL` from those ports.
-- Set the URL variables explicitly only when you need non-localhost endpoints.
+- `dev.ps1` begins with `pnpm install --frozen-lockfile` so workspace dependencies are aligned before any app starts.
+- After PostgreSQL becomes healthy, `dev.ps1` applies the schema before starting app processes. It prefers `pnpm db:migrate`, and falls back to `pnpm db:push` when Drizzle migration artifacts are not present in `apps/api/drizzle/meta/_journal.json`.
+- Turborepo uses `stream` UI so terminal output stays copyable in regular shells.
+- `dev.ps1` only loads root `.env` for orchestration overrides such as shared local ports.
+- Each app dev script loads its own `.env` and `.env.local` via `dotenv-cli`.
+- The default local ports are `17720`-series values and can be overridden in root `.env` for middleware or in the app-specific env files for app processes.
+- Keep the app env files explicit. If you change `WEB_PORT`, `API_PORT`, `DB_PORT`, or `LIVEKIT_PORT`, also update related localhost URL values such as `NEXT_PUBLIC_API_URL`, `CORS_ORIGIN`, `ROOM_AI_API_BASE_URL`, `LIVEKIT_HOST`, and `DATABASE_URL` in the same app env file.
+- `dev.ps1` is orchestration only. It does not rewrite app connection targets before `turbo run dev`.
 - App branding can be overridden in `apps/api/.env` and `apps/web/.env.local` via `APP_TITLE`, `NEXT_PUBLIC_APP_TITLE`, and `NEXT_PUBLIC_APP_TAGLINE`.
+- Password registration and sign-in are available at `/login`.
+- Local development writes email verification links to the API log. `APP_BASE_URL` in `apps/api/.env` controls the generated verification URL.
+- Shared environments can send verification mail through Resend by setting `RESEND_API_KEY` and `RESEND_FROM`.
+- If Resend is not configured, the API falls back to SMTP via `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM`.
+- Mobile Google sign-in validates ID tokens against `GOOGLE_CLIENT_ID` and any additional audiences in `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_ANDROID_CLIENT_ID`, or `GOOGLE_OAUTH_AUDIENCES`.
+- Mobile clients can use `/api/auth/token`, `/api/auth/token/google`, `/api/auth/token/refresh`, and `/api/auth/token/revoke` with bearer access tokens and rotating refresh tokens.
+- Authenticated users can review and revoke active app sessions from `/settings`.
 - If Docker Desktop is not running, start it first or use `./dev.ps1 -SkipDocker` to launch only the app processes.
 - Use `-SkipWorker` only when you intentionally want to exclude the worker from daily development.
 - `docker-compose.yml` is the runtime-oriented base compose file.

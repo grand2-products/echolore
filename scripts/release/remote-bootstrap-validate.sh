@@ -12,11 +12,6 @@ if [[ ! -f /tmp/${COMPOSE_FILE} ]]; then
   exit 1
 fi
 
-if [[ ! -f /tmp/livekit.yaml ]]; then
-  echo "missing staged livekit config: /tmp/livekit.yaml" >&2
-  exit 1
-fi
-
 if [[ ! -f "${STAGED_ENV_PATH}" ]]; then
   echo "missing staged env file: ${STAGED_ENV_PATH}" >&2
   exit 1
@@ -32,7 +27,6 @@ trap cleanup EXIT
 
 mkdir -p "${VALIDATION_DIR}"
 mv "/tmp/${COMPOSE_FILE}" "${VALIDATION_DIR}/${COMPOSE_FILE}"
-mv /tmp/livekit.yaml "${VALIDATION_DIR}/livekit.yaml"
 mv "${STAGED_ENV_PATH}" "${VALIDATION_DIR}/.env"
 
 cd "${VALIDATION_DIR}"

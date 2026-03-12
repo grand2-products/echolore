@@ -12,7 +12,6 @@ $projectName = "bootstrap-local-$runId"
 $stagingDir = Join-Path ([System.IO.Path]::GetTempPath()) "corp-internal-bootstrap-$runId"
 $envPath = Join-Path $stagingDir ".env"
 $composePath = Join-Path $stagingDir "docker-compose.bootstrap-check.yml"
-$livekitPath = Join-Path $stagingDir "livekit.yaml"
 $credentialsPath = Join-Path $stagingDir "credentials.json"
 
 function Invoke-Step {
@@ -46,7 +45,6 @@ New-Item -ItemType Directory -Path $stagingDir | Out-Null
 
 try {
   Copy-Item (Join-Path $repoRoot "docker-compose.bootstrap-check.yml") $composePath
-  Copy-Item (Join-Path $repoRoot "livekit.yaml") $livekitPath
   Set-Content -Path $credentialsPath -Value "{}" -NoNewline
 
   $envContent = @"

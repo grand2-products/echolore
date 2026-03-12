@@ -13,8 +13,28 @@ function getArgValue(flag: string) {
   return process.argv[index + 1] ?? null;
 }
 
+async function waitForApiReady(apiBaseUrl: string, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`${apiBaseUrl}/health`);
+      if (response.ok) {
+        return;
+      }
+    } catch {
+      // API may still be starting; retry until timeout.
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+
+  throw new Error(`API did not become ready within ${timeoutMs}ms: ${apiBaseUrl}/health`);
+}
+
 async function runMonitorMode() {
   const config = getWorkerConfig();
+  await waitForApiReady(config.apiBaseUrl);
   console.log(`[room-ai-worker] monitor mode started; polling every ${config.pollIntervalMs}ms`);
 
   while (true) {

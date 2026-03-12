@@ -2,6 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import { jsonError } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import {
   createGroup,
@@ -73,7 +74,7 @@ adminRoutes.get("/groups", async (c) => {
     return c.json({ groups: await listGroupsWithMemberCounts() });
   } catch (error) {
     console.error("Error fetching groups:", error);
-    return c.json({ error: "Failed to fetch groups" }, 500);
+    return jsonError(c, 500, "ADMIN_GROUPS_LIST_FAILED", "Failed to fetch groups");
   }
 });
 
@@ -82,7 +83,7 @@ adminRoutes.get("/agents", async (c) => {
     return c.json({ agents: await listAvailableAgents() });
   } catch (error) {
     console.error("Error fetching agents:", error);
-    return c.json({ error: "Failed to fetch agents" }, 500);
+    return jsonError(c, 500, "ADMIN_AGENTS_LIST_FAILED", "Failed to fetch agents");
   }
 });
 
@@ -98,7 +99,7 @@ adminRoutes.post("/agents", zValidator("json", createAgentSchema), async (c) => 
     return c.json({ agent }, 201);
   } catch (error) {
     console.error("Error creating agent:", error);
-    return c.json({ error: "Failed to create agent" }, 500);
+    return jsonError(c, 500, "ADMIN_AGENT_CREATE_FAILED", "Failed to create agent");
   }
 });
 
@@ -108,11 +109,11 @@ adminRoutes.put("/agents/:id", zValidator("json", updateAgentSchema), async (c) 
 
   try {
     const agent = await updateAgentDefinition(id, data);
-    if (!agent) return c.json({ error: "Agent not found" }, 404);
+    if (!agent) return jsonError(c, 404, "ADMIN_AGENT_NOT_FOUND", "Agent not found");
     return c.json({ agent });
   } catch (error) {
     console.error("Error updating agent:", error);
-    return c.json({ error: "Failed to update agent" }, 500);
+    return jsonError(c, 500, "ADMIN_AGENT_UPDATE_FAILED", "Failed to update agent");
   }
 });
 
@@ -120,7 +121,9 @@ adminRoutes.post("/groups", zValidator("json", createGroupSchema), async (c) => 
   const data = c.req.valid("json");
   try {
     const exists = await getGroupByName(data.name);
-    if (exists) return c.json({ error: "Group name already exists" }, 400);
+    if (exists) {
+      return jsonError(c, 400, "ADMIN_GROUP_NAME_CONFLICT", "Group name already exists");
+    }
 
     const now = new Date();
     const group = await createGroup({
@@ -136,7 +139,7 @@ adminRoutes.post("/groups", zValidator("json", createGroupSchema), async (c) => 
     return c.json({ group }, 201);
   } catch (error) {
     console.error("Error creating group:", error);
-    return c.json({ error: "Failed to create group" }, 500);
+    return jsonError(c, 500, "ADMIN_GROUP_CREATE_FAILED", "Failed to create group");
   }
 });
 
@@ -144,11 +147,11 @@ adminRoutes.get("/groups/:id", async (c) => {
   const { id } = c.req.param();
   try {
     const group = await getGroupDetail(id);
-    if (!group) return c.json({ error: "Group not found" }, 404);
+    if (!group) return jsonError(c, 404, "ADMIN_GROUP_NOT_FOUND", "Group not found");
     return c.json({ group });
   } catch (error) {
     console.error("Error fetching group:", error);
-    return c.json({ error: "Failed to fetch group" }, 500);
+    return jsonError(c, 500, "ADMIN_GROUP_FETCH_FAILED", "Failed to fetch group");
   }
 });
 
@@ -157,12 +160,16 @@ adminRoutes.put("/groups/:id", zValidator("json", updateGroupSchema), async (c) 
   const data = c.req.valid("json");
   try {
     const group = await getGroupById(id);
-    if (!group) return c.json({ error: "Group not found" }, 404);
-    if (group.isSystem) return c.json({ error: "Cannot modify system groups" }, 403);
+    if (!group) return jsonError(c, 404, "ADMIN_GROUP_NOT_FOUND", "Group not found");
+    if (group.isSystem) {
+      return jsonError(c, 403, "ADMIN_GROUP_SYSTEM_MUTATION_FORBIDDEN", "Cannot modify system groups");
+    }
 
     if (data.name && data.name !== group.name) {
       const dupe = await getGroupByName(data.name);
-      if (dupe) return c.json({ error: "Group name already exists" }, 400);
+      if (dupe) {
+        return jsonError(c, 400, "ADMIN_GROUP_NAME_CONFLICT", "Group name already exists");
+      }
     }
 
     const updated = await updateGroupRecord(id, {
@@ -175,7 +182,7 @@ adminRoutes.put("/groups/:id", zValidator("json", updateGroupSchema), async (c) 
     return c.json({ group: updated });
   } catch (error) {
     console.error("Error updating group:", error);
-    return c.json({ error: "Failed to update group" }, 500);
+    return jsonError(c, 500, "ADMIN_GROUP_UPDATE_FAILED", "Failed to update group");
   }
 });
 
@@ -183,14 +190,16 @@ adminRoutes.delete("/groups/:id", async (c) => {
   const { id } = c.req.param();
   try {
     const group = await getGroupById(id);
-    if (!group) return c.json({ error: "Group not found" }, 404);
-    if (group.isSystem) return c.json({ error: "Cannot delete system groups" }, 403);
+    if (!group) return jsonError(c, 404, "ADMIN_GROUP_NOT_FOUND", "Group not found");
+    if (group.isSystem) {
+      return jsonError(c, 403, "ADMIN_GROUP_SYSTEM_DELETE_FORBIDDEN", "Cannot delete system groups");
+    }
 
     await deleteGroup(id);
     return c.json({ success: true });
   } catch (error) {
     console.error("Error deleting group:", error);
-    return c.json({ error: "Failed to delete group" }, 500);
+    return jsonError(c, 500, "ADMIN_GROUP_DELETE_FAILED", "Failed to delete group");
   }
 });
 
@@ -200,7 +209,7 @@ adminRoutes.get("/groups/:id/members", async (c) => {
     return c.json({ members: await listGroupMembers(id) });
   } catch (error) {
     console.error("Error fetching group members:", error);
-    return c.json({ error: "Failed to fetch group members" }, 500);
+    return jsonError(c, 500, "ADMIN_GROUP_MEMBERS_LIST_FAILED", "Failed to fetch group members");
   }
 });
 
@@ -213,7 +222,7 @@ adminRoutes.post("/groups/:id/members", zValidator("json", addMembersSchema), as
     return c.json({ added: inserted.length, memberships: inserted });
   } catch (error) {
     console.error("Error adding members:", error);
-    return c.json({ error: "Failed to add members" }, 500);
+    return jsonError(c, 500, "ADMIN_GROUP_MEMBERS_ADD_FAILED", "Failed to add members");
   }
 });
 
@@ -221,11 +230,13 @@ adminRoutes.delete("/groups/:id/members/:userId", async (c) => {
   const { id, userId } = c.req.param();
   try {
     const deleted = await deleteMembership(id, userId);
-    if (!deleted) return c.json({ error: "Membership not found" }, 404);
+    if (!deleted) {
+      return jsonError(c, 404, "ADMIN_MEMBERSHIP_NOT_FOUND", "Membership not found");
+    }
     return c.json({ success: true });
   } catch (error) {
     console.error("Error removing member:", error);
-    return c.json({ error: "Failed to remove member" }, 500);
+    return jsonError(c, 500, "ADMIN_MEMBERSHIP_DELETE_FAILED", "Failed to remove member");
   }
 });
 
@@ -234,7 +245,7 @@ adminRoutes.get("/users", async (c) => {
     return c.json({ users: await listUsersWithGroups() });
   } catch (error) {
     console.error("Error fetching users:", error);
-    return c.json({ error: "Failed to fetch users" }, 500);
+    return jsonError(c, 500, "ADMIN_USERS_LIST_FAILED", "Failed to fetch users");
   }
 });
 
@@ -246,7 +257,7 @@ adminRoutes.put("/users/:id/groups", zValidator("json", updateUserGroupsSchema),
     return c.json({ success: true, groupIds: data.groupIds });
   } catch (error) {
     console.error("Error updating user groups:", error);
-    return c.json({ error: "Failed to update user groups" }, 500);
+    return jsonError(c, 500, "ADMIN_USER_GROUPS_UPDATE_FAILED", "Failed to update user groups");
   }
 });
 
@@ -256,7 +267,7 @@ adminRoutes.get("/permissions/pages/:pageId", async (c) => {
     return c.json(await getPagePermissionsDetail(pageId));
   } catch (error) {
     console.error("Error fetching page permissions:", error);
-    return c.json({ error: "Failed to fetch page permissions" }, 500);
+    return jsonError(c, 500, "ADMIN_PAGE_PERMISSIONS_FETCH_FAILED", "Failed to fetch page permissions");
   }
 });
 
@@ -272,7 +283,7 @@ adminRoutes.put(
       return c.json({ pageId, inheritFromParent: data.inheritFromParent ?? true });
     } catch (error) {
       console.error("Error setting page permissions:", error);
-      return c.json({ error: "Failed to set page permissions" }, 500);
+      return jsonError(c, 500, "ADMIN_PAGE_PERMISSIONS_SET_FAILED", "Failed to set page permissions");
     }
   }
 );
@@ -281,11 +292,13 @@ adminRoutes.delete("/permissions/pages/:pageId/groups/:groupId", async (c) => {
   const { pageId, groupId } = c.req.param();
   try {
     const deleted = await deletePagePermission(pageId, groupId);
-    if (!deleted) return c.json({ error: "Permission not found" }, 404);
+    if (!deleted) {
+      return jsonError(c, 404, "ADMIN_PAGE_PERMISSION_NOT_FOUND", "Permission not found");
+    }
     return c.json({ success: true });
   } catch (error) {
     console.error("Error removing permission:", error);
-    return c.json({ error: "Failed to remove permission" }, 500);
+    return jsonError(c, 500, "ADMIN_PAGE_PERMISSION_DELETE_FAILED", "Failed to remove permission");
   }
 });
 
@@ -296,7 +309,7 @@ adminRoutes.get("/permissions/pages/:pageId/inherit", async (c) => {
     return c.json({ pageId, inheritFromParent: inherit?.inheritFromParent ?? true });
   } catch (error) {
     console.error("Error fetching inheritance:", error);
-    return c.json({ error: "Failed to fetch inheritance" }, 500);
+    return jsonError(c, 500, "ADMIN_PAGE_INHERITANCE_FETCH_FAILED", "Failed to fetch inheritance");
   }
 });
 
@@ -311,7 +324,7 @@ adminRoutes.put(
       return c.json({ pageId, inheritFromParent: data.inheritFromParent });
     } catch (error) {
       console.error("Error setting inheritance:", error);
-      return c.json({ error: "Failed to set inheritance" }, 500);
+      return jsonError(c, 500, "ADMIN_PAGE_INHERITANCE_SET_FAILED", "Failed to set inheritance");
     }
   }
 );

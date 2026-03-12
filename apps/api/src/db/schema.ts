@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { boolean, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 // Users table
 export const users = pgTable("users", {
@@ -7,10 +7,72 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   avatarUrl: text("avatar_url"),
+  emailVerifiedAt: timestamp("email_verified_at"),
+  tokenVersion: integer("token_version").default(1).notNull(),
   role: text("role").default("member").notNull(), // admin, member
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const authIdentities = pgTable(
+  "auth_identities",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    provider: text("provider").notNull(), // google, password
+    providerUserId: text("provider_user_id"),
+    passwordHash: text("password_hash"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    providerUserUnique: uniqueIndex("auth_identities_provider_user_unique").on(
+      table.provider,
+      table.providerUserId
+    ),
+    userProviderUnique: uniqueIndex("auth_identities_user_provider_unique").on(
+      table.userId,
+      table.provider
+    ),
+  })
+);
+
+export const emailVerificationTokens = pgTable("email_verification_tokens", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  purpose: text("purpose").notNull(), // password-registration
+  pendingName: text("pending_name"),
+  pendingPasswordHash: text("pending_password_hash"),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const authRefreshTokens = pgTable(
+  "auth_refresh_tokens",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    clientType: text("client_type").notNull(), // web, mobile
+    authMode: text("auth_mode").notNull(), // password, sso
+    deviceName: text("device_name"),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    rotatedFromId: text("rotated_from_id"),
+    revokedAt: timestamp("revoked_at"),
+    lastSeenAt: timestamp("last_seen_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    tokenHashUnique: uniqueIndex("auth_refresh_tokens_token_hash_unique").on(table.tokenHash),
+  })
+);
 
 // User groups table
 export const userGroups = pgTable("user_groups", {
@@ -223,11 +285,35 @@ export const usersRelations = relations(users, ({ many }) => ({
   pages: many(pages),
   meetings: many(meetings),
   files: many(files),
+  authIdentities: many(authIdentities),
+  authRefreshTokens: many(authRefreshTokens),
+  emailVerificationTokens: many(emailVerificationTokens),
   groupMemberships: many(userGroupMemberships),
   transcriptSegments: many(meetingTranscriptSegments),
   createdAgents: many(agents),
   invokedAgentSessions: many(meetingAgentSessions),
   triggeredAgentEvents: many(meetingAgentEvents),
+}));
+
+export const authIdentitiesRelations = relations(authIdentities, ({ one }) => ({
+  user: one(users, {
+    fields: [authIdentities.userId],
+    references: [users.id],
+  }),
+}));
+
+export const emailVerificationTokensRelations = relations(emailVerificationTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [emailVerificationTokens.userId],
+    references: [users.id],
+  }),
+}));
+
+export const authRefreshTokensRelations = relations(authRefreshTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [authRefreshTokens.userId],
+    references: [users.id],
+  }),
 }));
 
 export const userGroupsRelations = relations(userGroups, ({ many }) => ({
@@ -389,6 +475,12 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
 // Type exports
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+export type AuthIdentity = typeof authIdentities.$inferSelect;
+export type NewAuthIdentity = typeof authIdentities.$inferInsert;
+export type AuthRefreshToken = typeof authRefreshTokens.$inferSelect;
+export type NewAuthRefreshToken = typeof authRefreshTokens.$inferInsert;
+export type EmailVerificationToken = typeof emailVerificationTokens.$inferSelect;
+export type NewEmailVerificationToken = typeof emailVerificationTokens.$inferInsert;
 export type UserGroup = typeof userGroups.$inferSelect;
 export type NewUserGroup = typeof userGroups.$inferInsert;
 export type UserGroupMembership = typeof userGroupMemberships.$inferSelect;

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { and, eq, exists, gte, sql } from "drizzle-orm";
+import { jsonError } from "../lib/api-error.js";
 import { db } from "../db/index.js";
 import { auditLogs, meetings, summaries, transcripts } from "../db/schema.js";
 
@@ -114,6 +115,6 @@ metricsRoutes.get("/overview", async (c) => {
     });
   } catch (error) {
     console.error("Error fetching KPI overview:", error);
-    return c.json({ error: "Failed to fetch KPI overview" }, 500);
+    return jsonError(c, 500, "ADMIN_KPI_OVERVIEW_FAILED", "Failed to fetch KPI overview");
   }
 });

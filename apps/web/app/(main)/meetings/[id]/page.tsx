@@ -10,6 +10,8 @@ import {
   meetingsApi,
   useAuthMeQuery,
 } from "@/lib/api";
+import { useApiErrorMessage } from "@/lib/api-error-message";
+import { translate, useFormatters, useLocale, useT } from "@/lib/i18n";
 import { fetchLiveKitToken, getLiveKitUrl } from "@/lib/livekit";
 import { useStableEvent } from "@/lib/use-stable-event";
 import {
@@ -24,6 +26,19 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+function localeToLanguageCode(locale: string) {
+  switch (locale) {
+    case "ja":
+      return "ja-JP";
+    case "zh-CN":
+      return "zh-CN";
+    case "ko":
+      return "ko-KR";
+    default:
+      return "en-US";
+  }
+}
+
 function AgentPanel(props: {
   meetingId: string;
   agents: AgentDefinition[];
@@ -32,6 +47,10 @@ function AgentPanel(props: {
   onAgentLeft: (agentId: string) => void;
   events: MeetingAgentEvent[];
 }) {
+  const t = useT();
+  const getApiErrorMessage = useApiErrorMessage();
+  const locale = useLocale();
+  const { time, number, interventionStyle, provider, eventType } = useFormatters();
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState<MeetingAgentResponse | null>(null);
@@ -59,7 +78,7 @@ function AgentPanel(props: {
       await meetingsApi.invokeAgent(props.meetingId, selectedAgentId);
       props.onAgentInvoked(selectedAgentId);
     } catch (invokeError) {
-      setError(invokeError instanceof Error ? invokeError.message : "Failed to invoke agent");
+      setError(getApiErrorMessage(invokeError, t("meetings.room.invokeError")));
     } finally {
       setIsInvoking(false);
     }
@@ -73,24 +92,22 @@ function AgentPanel(props: {
     try {
       const result = await meetingsApi.respondAsAgent(props.meetingId, selectedAgentId, {
         prompt: prompt.trim(),
-        languageCode: "ja-JP",
+        languageCode: localeToLanguageCode(locale),
       });
       setResponse(result);
       if (result.audio) {
         const audio = new Audio(`data:${result.audio.mimeType};base64,${result.audio.base64}`);
         try {
           await audio.play();
-          setVoiceStatus("Voice response is playing.");
+          setVoiceStatus(t("meetings.room.voicePlaying"));
         } catch {
-          setVoiceStatus("Voice response is ready, but browser playback was blocked.");
+          setVoiceStatus(t("meetings.room.voiceBlocked"));
         }
       } else {
-        setVoiceStatus("Voice response is not available for this agent response.");
+        setVoiceStatus(t("meetings.room.voiceUnavailable"));
       }
     } catch (respondError) {
-      setError(
-        respondError instanceof Error ? respondError.message : "Failed to get agent response"
-      );
+      setError(getApiErrorMessage(respondError, t("meetings.room.respondError")));
     } finally {
       setIsResponding(false);
     }
@@ -104,7 +121,7 @@ function AgentPanel(props: {
       await meetingsApi.leaveAgent(props.meetingId, selectedAgentId);
       props.onAgentLeft(selectedAgentId);
     } catch (leaveError) {
-      setError(leaveError instanceof Error ? leaveError.message : "Failed to leave agent");
+      setError(getApiErrorMessage(leaveError, t("meetings.room.leaveError")));
     } finally {
       setIsLeaving(false);
     }
@@ -113,34 +130,45 @@ function AgentPanel(props: {
   return (
     <section className="rounded-lg border border-gray-700 bg-gray-800 p-4 text-white">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">AI Employee</h2>
+        <h2 className="text-lg font-semibold">{t("meetings.room.aiEmployee")}</h2>
         {props.activeAgentIds.length > 0 ? (
           <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-xs text-emerald-300">
-            {props.activeAgentIds.length} active
+            {t("meetings.room.activeAgents", { count: number(props.activeAgentIds.length) })}
           </span>
         ) : (
-          <span className="rounded-full bg-gray-700 px-2 py-1 text-xs text-gray-300">Idle</span>
+          <span className="rounded-full bg-gray-700 px-2 py-1 text-xs text-gray-300">
+            {t("meetings.room.idle")}
+          </span>
         )}
       </div>
 
       <div className="space-y-3">
-        <select
-          value={selectedAgentId}
-          onChange={(event) => setSelectedAgentId(event.target.value)}
-          className="w-full rounded-md border border-gray-600 bg-gray-900 px-3 py-2 text-sm"
-        >
-          {props.agents.map((agent) => (
-            <option key={agent.id} value={agent.id}>
-              {agent.name}
-            </option>
-          ))}
-        </select>
+        {props.agents.length === 0 ? (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+            {t("meetings.room.noAgents")}
+          </div>
+        ) : (
+          <select
+            value={selectedAgentId}
+            onChange={(event) => setSelectedAgentId(event.target.value)}
+            className="w-full rounded-md border border-gray-600 bg-gray-900 px-3 py-2 text-sm"
+          >
+            {props.agents.map((agent) => (
+              <option key={agent.id} value={agent.id}>
+                {agent.name}
+              </option>
+            ))}
+          </select>
+        )}
 
         {selectedAgent ? (
           <div className="rounded-md bg-gray-900/60 p-3 text-sm text-gray-300">
-            <div>{selectedAgent.description || "No description"}</div>
+            <div>{selectedAgent.description || t("meetings.room.noDescription")}</div>
             <div className="mt-2 text-xs text-gray-400">
-              style: {selectedAgent.interventionStyle} / provider: {selectedAgent.defaultProvider}
+              {t("meetings.room.agentMeta", {
+                style: interventionStyle(selectedAgent.interventionStyle),
+                provider: provider(selectedAgent.defaultProvider),
+              })}
             </div>
           </div>
         ) : null}
@@ -152,17 +180,17 @@ function AgentPanel(props: {
           className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium hover:bg-blue-500 disabled:opacity-60"
         >
           {isInvoking
-            ? "Invoking..."
+            ? t("meetings.room.invoking")
             : selectedAgentIsActive
-              ? "Agent Invoked"
-              : "Invoke Agent"}
+              ? t("meetings.room.invoked")
+              : t("meetings.room.invoke")}
         </button>
 
         <textarea
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           rows={4}
-          placeholder="Ask the AI employee to summarize, clarify, or propose action items"
+          placeholder={t("meetings.room.promptPlaceholder")}
           className="w-full rounded-md border border-gray-600 bg-gray-900 px-3 py-2 text-sm"
         />
 
@@ -172,7 +200,7 @@ function AgentPanel(props: {
           disabled={!selectedAgentIsActive || isResponding || !prompt.trim()}
           className="w-full rounded-md border border-gray-600 bg-gray-900 px-3 py-2 text-sm font-medium hover:bg-gray-700 disabled:opacity-60"
         >
-          {isResponding ? "Generating..." : "Get Response"}
+          {isResponding ? t("meetings.room.generating") : t("meetings.room.getResponse")}
         </button>
 
         <button
@@ -181,7 +209,7 @@ function AgentPanel(props: {
           disabled={!selectedAgentIsActive || isLeaving}
           className="w-full rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-100 hover:bg-red-500/20 disabled:opacity-60"
         >
-          {isLeaving ? "Leaving..." : "Leave Agent"}
+          {isLeaving ? t("meetings.room.leaving") : t("meetings.room.leave")}
         </button>
 
         {error ? <div className="text-sm text-red-300">{error}</div> : null}
@@ -194,27 +222,35 @@ function AgentPanel(props: {
             </div>
             <pre className="whitespace-pre-wrap text-sm text-gray-100">{response.responseText}</pre>
             <div className="text-xs text-gray-400">
-              audio: {response.audio ? response.audio.mimeType : "not available yet"}
+              {t("meetings.room.audio", {
+                value: response.audio ? response.audio.mimeType : t("meetings.room.notAvailable"),
+              })}
             </div>
           </div>
         ) : null}
 
         <div className="rounded-md border border-gray-700 bg-gray-900/40 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <div className="text-xs uppercase tracking-wide text-gray-400">Agent Timeline</div>
-            <div className="text-xs text-gray-500">{props.events.length} events</div>
+            <div className="text-xs uppercase tracking-wide text-gray-400">
+              {t("meetings.room.agentTimeline")}
+            </div>
+            <div className="text-xs text-gray-500">
+              {t("meetings.room.eventCount", { count: number(props.events.length) })}
+            </div>
           </div>
           <div className="max-h-56 space-y-2 overflow-auto">
             {props.events.length === 0 ? (
-              <div className="text-sm text-gray-400">No agent events yet.</div>
+              <div className="text-sm text-gray-400">{t("meetings.room.noEvents")}</div>
             ) : (
               [...props.events].reverse().map((event) => (
                 <div key={event.id} className="rounded-md bg-gray-950/70 p-2">
                   <div className="flex items-center justify-between text-xs text-gray-400">
-                    <span>{event.eventType}</span>
-                    <span>{new Date(event.createdAt).toLocaleTimeString()}</span>
+                    <span>{eventType(event.eventType)}</span>
+                    <span>{time(event.createdAt)}</span>
                   </div>
-                  <div className="mt-1 text-xs text-gray-500">agent: {event.agentId}</div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {t("meetings.room.agentLabel", { id: event.agentId })}
+                  </div>
                 </div>
               ))
             )}
@@ -226,21 +262,26 @@ function AgentPanel(props: {
 }
 
 function TranscriptPanel({ segments }: { segments: RealtimeTranscriptSegment[] }) {
+  const t = useT();
+  const { number } = useFormatters();
+
   return (
     <section className="rounded-lg border border-gray-700 bg-gray-800 p-4 text-white">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Realtime Transcript</h2>
-        <span className="text-xs text-gray-400">{segments.length} segments</span>
+        <h2 className="text-lg font-semibold">{t("meetings.room.realtimeTranscript")}</h2>
+        <span className="text-xs text-gray-400">
+          {t("meetings.room.segmentCount", { count: number(segments.length) })}
+        </span>
       </div>
       <div className="max-h-80 space-y-2 overflow-auto">
         {segments.length === 0 ? (
-          <div className="text-sm text-gray-400">No realtime transcript yet.</div>
+          <div className="text-sm text-gray-400">{t("meetings.room.noTranscript")}</div>
         ) : (
           segments.map((segment) => (
             <div key={segment.id} className="rounded-md bg-gray-900/60 p-3">
               <div className="flex items-center justify-between text-xs text-gray-400">
                 <span>{segment.speakerLabel}</span>
-                <span>{segment.isPartial ? "partial" : "final"}</span>
+                <span>{segment.isPartial ? t("meetings.room.partial") : t("meetings.room.final")}</span>
               </div>
               <div className="mt-1 text-sm text-gray-100">{segment.content}</div>
             </div>
@@ -259,24 +300,39 @@ function RoomBody(props: {
   onAgentLeft: (agentId: string) => void;
   transcriptSegments: RealtimeTranscriptSegment[];
   agentEvents: MeetingAgentEvent[];
+  syncError: string | null;
+  lastSyncedAt: string | null;
 }) {
+  const t = useT();
+  const { time, number } = useFormatters();
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }]);
 
   return (
     <div className="flex h-full flex-col bg-gray-900">
       <div className="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-4 py-3">
         <Link href="/meetings" className="text-gray-300 hover:text-white">
-          Back to meetings
+          {t("meetings.room.back")}
         </Link>
         <div className="flex items-center gap-3">
           <ConnectionState className="rounded-full bg-gray-700 px-3 py-1 text-sm text-gray-100" />
-          <span className="text-sm text-gray-300">Participants: {tracks.length}</span>
+          <span className="text-sm text-gray-300">
+            {t("meetings.room.participants", { count: number(tracks.length) })}
+          </span>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto p-4">
         <div className="grid gap-4 xl:grid-cols-[2fr_1fr]">
           <div className="space-y-4">
+            {props.syncError ? (
+              <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+                {t("meetings.room.syncStale", { error: props.syncError })}
+              </div>
+            ) : props.lastSyncedAt ? (
+              <div className="text-xs text-gray-400">
+                {t("meetings.room.lastSynced", { value: time(props.lastSyncedAt) })}
+              </div>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {tracks.map((trackRef) => (
                 <div
@@ -287,7 +343,9 @@ function RoomBody(props: {
                     {trackRef.participant.name ?? trackRef.participant.identity}
                   </div>
                   <div className="mt-1 text-xs text-gray-300">
-                    {trackRef.participant.isMicrophoneEnabled ? "Mic on" : "Muted"}
+                    {trackRef.participant.isMicrophoneEnabled
+                      ? t("meetings.room.micOn")
+                      : t("meetings.room.muted")}
                   </div>
                 </div>
               ))}
@@ -307,9 +365,9 @@ function RoomBody(props: {
       </div>
 
       <div className="flex items-center justify-center gap-3 border-t border-gray-700 bg-gray-800 p-4">
-        <TrackToggle source={Track.Source.Microphone}>Mic</TrackToggle>
-        <TrackToggle source={Track.Source.Camera}>Camera</TrackToggle>
-        <TrackToggle source={Track.Source.ScreenShare}>Screen</TrackToggle>
+        <TrackToggle source={Track.Source.Microphone}>{t("meetings.room.mic")}</TrackToggle>
+        <TrackToggle source={Track.Source.Camera}>{t("meetings.room.camera")}</TrackToggle>
+        <TrackToggle source={Track.Source.ScreenShare}>{t("meetings.room.screen")}</TrackToggle>
       </div>
 
       <RoomAudioRenderer />
@@ -321,6 +379,9 @@ export default function MeetingRoomPage() {
   const params = useParams();
   const meetingId = params.id as string;
   const { data: auth } = useAuthMeQuery();
+  const t = useT();
+  const getApiErrorMessage = useApiErrorMessage();
+  const locale = useLocale();
   const [title, setTitle] = useState<string>(meetingId);
   const [roomName, setRoomName] = useState<string>(meetingId);
   const [token, setToken] = useState<string | null>(null);
@@ -329,6 +390,8 @@ export default function MeetingRoomPage() {
   const [activeAgentSessions, setActiveAgentSessions] = useState<MeetingAgentSession[]>([]);
   const [transcriptSegments, setTranscriptSegments] = useState<RealtimeTranscriptSegment[]>([]);
   const [agentEvents, setAgentEvents] = useState<MeetingAgentEvent[]>([]);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const agentRoomMapRef = useRef<Map<string, Room>>(new Map());
 
   useEffect(() => {
@@ -346,17 +409,18 @@ export default function MeetingRoomPage() {
           auth?.user?.id ?? `user-${Math.random().toString(36).slice(2, 10)}`;
         const fetched = await fetchLiveKitToken({
           roomName: detail.meeting.roomName,
-          participantName: auth?.user?.name ?? "Guest User",
+          participantName:
+            auth?.user?.name ?? translate(locale, "meetings.room.guestUser"),
           participantIdentity,
         });
         setToken(fetched);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load meeting room");
+        setError(getApiErrorMessage(err, translate(locale, "meetings.room.loadError")));
       }
     };
 
     void run();
-  }, [auth?.user?.id, auth?.user?.name, meetingId]);
+  }, [auth?.user?.id, auth?.user?.name, locale, meetingId]);
 
   useEffect(() => {
     const sync = async () => {
@@ -369,8 +433,10 @@ export default function MeetingRoomPage() {
         setTranscriptSegments(transcriptResult.segments);
         setAgentEvents(eventResult.events);
         setActiveAgentSessions(sessionResult.sessions);
-      } catch {
-        // Polling failure should not break the room UI.
+        setSyncError(null);
+        setLastSyncedAt(new Date().toISOString());
+      } catch (syncFailure) {
+        setSyncError(getApiErrorMessage(syncFailure, translate(locale, "meetings.room.syncError")));
       }
     };
 
@@ -380,7 +446,7 @@ export default function MeetingRoomPage() {
     }, 5000);
 
     return () => window.clearInterval(timer);
-  }, [meetingId]);
+  }, [locale, meetingId]);
 
   const connectAgentParticipant = useStableEvent(async (agentId: string) => {
     if (!roomName || agentRoomMapRef.current.has(agentId)) {
@@ -394,20 +460,16 @@ export default function MeetingRoomPage() {
 
     const botRoom = new Room();
     try {
-      const token = await fetchLiveKitToken({
+      const tokenValue = await fetchLiveKitToken({
         roomName,
         participantName: `${agent.name} (AI)`,
         participantIdentity: `agent-${meetingId}-${agentId}`,
       });
-      await botRoom.connect(getLiveKitUrl(), token, { autoSubscribe: false });
+      await botRoom.connect(getLiveKitUrl(), tokenValue, { autoSubscribe: false });
       agentRoomMapRef.current.set(agentId, botRoom);
     } catch (connectError) {
       await botRoom.disconnect();
-      setError(
-        connectError instanceof Error
-          ? connectError.message
-          : "Failed to connect AI participant to LiveKit"
-      );
+      setError(getApiErrorMessage(connectError, translate(locale, "meetings.room.connectAiError")));
     }
   });
 
@@ -451,7 +513,13 @@ export default function MeetingRoomPage() {
   );
 
   if (error) return <div className="p-8 text-red-600">{error}</div>;
-  if (!token) return <div className="p-8 text-gray-600">{meetingLabel} loading...</div>;
+  if (!token) {
+    return (
+      <div className="p-8 text-gray-600">
+        {t("meetings.room.loadingWithLabel", { label: meetingLabel })}
+      </div>
+    );
+  }
 
   return (
     <LiveKitRoom
@@ -491,6 +559,8 @@ export default function MeetingRoomPage() {
         }
         transcriptSegments={transcriptSegments}
         agentEvents={agentEvents}
+        syncError={syncError}
+        lastSyncedAt={lastSyncedAt}
       />
     </LiveKitRoom>
   );

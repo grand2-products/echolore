@@ -1,4 +1,5 @@
 export type ISODateString = string;
+export type AuthMode = "password" | "sso" | "bypass";
 
 export type MeetingStatus = "scheduled" | "active" | "ended";
 
@@ -87,6 +88,7 @@ export interface FileMetadataDto {
 export class ErrorResponse {
   constructor(
     public error: string,
+    public code?: string,
     public message?: string,
   ) {}
 }
@@ -129,6 +131,87 @@ export class GetPageResponse {
 export interface CreatePageRequest {
   title: string;
   parentId?: string;
+}
+
+export interface SessionUserDto {
+  id: string;
+  email: string;
+  name: string;
+  role: "admin" | "member";
+  avatarUrl?: string | null;
+}
+
+export interface AuthMeResponseDto {
+  user: SessionUserDto | null;
+  authMode: AuthMode | null;
+}
+
+export interface PasswordLoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface PasswordAuthResponse {
+  user: SessionUserDto;
+  authMode: "password";
+}
+
+export interface AuthSessionDto {
+  id: string;
+  clientType: "web" | "mobile";
+  authMode: "password" | "sso";
+  deviceName: string | null;
+  createdAt: ISODateString;
+  lastSeenAt: ISODateString | null;
+  expiresAt: ISODateString;
+  current: boolean;
+}
+
+export interface TokenAuthRequest {
+  email: string;
+  password: string;
+  deviceName?: string;
+}
+
+export interface GoogleTokenExchangeRequest {
+  idToken: string;
+  deviceName?: string;
+}
+
+export interface TokenRefreshRequest {
+  refreshToken?: string;
+  deviceName?: string;
+}
+
+export interface TokenAuthResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: ISODateString;
+  user: SessionUserDto;
+  authMode: "password" | "sso";
+}
+
+export class ListAuthSessionsResponse {
+  constructor(public sessions: AuthSessionDto[]) {}
+}
+
+export interface PasswordRegistrationRequest {
+  email: string;
+  name: string;
+  password: string;
+}
+
+export interface PasswordRegistrationResponse {
+  success: true;
+}
+
+export interface VerifyEmailRequest {
+  token: string;
+}
+
+export interface VerifyEmailResponse {
+  user: SessionUserDto;
+  authMode: "password";
 }
 
 export interface UpdatePageRequest {

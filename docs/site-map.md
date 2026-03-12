@@ -41,6 +41,10 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - admin wiki page permission management
 - `/admin/agents`
   - admin AI agent definition management
+- `/settings`
+  - authenticated account summary
+  - active app session list and revoke actions
+  - session sign-out entry point
 
 ## Navigation Model
 - Global sidebar:
@@ -51,6 +55,9 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - `/admin/access` for admin only
   - `/admin/kpi` for admin only
   - `/admin/agents` for admin only
+- Header account menu:
+  - `/settings`
+  - OAuth2 Proxy sign-out
 - Local wiki navigation:
   - page tree in `/wiki`, `/wiki/new`, `/wiki/[id]`
 - Meetings navigation:
@@ -78,9 +85,9 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - `/admin/agents`
 
 ## Source Files
-- `apps/web/app/page.tsx`
 - `apps/web/app/(main)/layout.tsx`
 - `apps/web/app/(main)/page.tsx`
+- `apps/web/app/(main)/settings/page.tsx`
 - `apps/web/app/(main)/wiki/page.tsx`
 - `apps/web/app/(main)/wiki/new/page.tsx`
 - `apps/web/app/(main)/wiki/[id]/page.tsx`

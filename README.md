@@ -3,7 +3,7 @@
 Internal collaboration platform for grand2 Products.
 
 ## Overview
-- Google SSO based access
+- Google SSO and email/password access
 - Block-based Wiki
 - Meetings with LiveKit
 - Room AI flow from transcript to summary to Wiki
@@ -22,6 +22,7 @@ Internal collaboration platform for grand2 Products.
 - Realtime: LiveKit
 - Cache/broker: Valkey
 - Auth gateway: OAuth2 Proxy
+- Mobile-ready auth: API-issued bearer access tokens with refresh rotation for email/password and Google token exchange
 - Infra baseline: GCE + GCS + Docker Compose
 
 ## Local Development
@@ -32,12 +33,19 @@ Internal collaboration platform for grand2 Products.
    - copy `apps/web/.env.local.example` to `apps/web/.env.local`
    - copy `apps/worker/.env.example` to `apps/worker/.env`
    - copy `.env.example` to `.env` only if you need root orchestration overrides
-   - for local dev, prefer changing `*_PORT` values; localhost URLs are derived automatically by the dev launchers
-   - set explicit URL variables only when you need non-localhost endpoints
+   - keep app env files explicit: if you change a local port, update the related localhost URL values in the same file as well
+   - app dev scripts read their own `.env` files directly
+   - password registration and sign-in are available at `/login`
+   - local development writes email verification links to the API log; `APP_BASE_URL` controls the generated link target
+   - shared environments can send verification mail by setting `RESEND_API_KEY` and `RESEND_FROM`, or fall back to `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM` in `apps/api/.env`
+   - mobile Google sign-in uses `GOOGLE_CLIENT_ID` plus optional `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_ANDROID_CLIENT_ID`, or `GOOGLE_OAUTH_AUDIENCES`
+   - authenticated users can review and revoke active app sessions from `/settings`
 3. Start local stack
    - `./dev.ps1`
    - or `pnpm dev:daily`
    - this starts `web`, `api`, and `worker` after middleware boot
+   - the script first runs `pnpm install --frozen-lockfile`
+   - after PostgreSQL becomes healthy, the script runs `pnpm db:migrate`, or falls back to `pnpm db:push` when migration artifacts are not present
    - default local ports use the `17720` range and can be overridden in `.env`
 4. Run typecheck
    - `pnpm typecheck`

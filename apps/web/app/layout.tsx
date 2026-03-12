@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Sans_JP } from "next/font/google";
 import "@livekit/components-styles";
 import { appTagline, appTitle } from "@/lib/app-config";
+import { I18nProvider } from "@/lib/i18n";
 import { QueryProvider } from "@/lib/query-client";
 import "./globals.css";
 
@@ -23,7 +24,9 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={`${notoSansJP.variable} font-sans antialiased`}>
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          <I18nProvider>{children}</I18nProvider>
+        </QueryProvider>
       </body>
     </html>
   );

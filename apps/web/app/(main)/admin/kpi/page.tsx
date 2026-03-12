@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { metricsApi, type KpiOverviewResponse } from "@/lib/api";
+import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useFormatters, useT } from "@/lib/i18n";
 
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 const alertTone = (critical: boolean, warning: boolean) => {
@@ -9,13 +11,14 @@ const alertTone = (critical: boolean, warning: boolean) => {
   if (warning) return "border-amber-200 bg-amber-50 text-amber-700";
   return "border-emerald-200 bg-emerald-50 text-emerald-700";
 };
-const alertLabel = (critical: boolean, warning: boolean) => {
-  if (critical) return "Critical";
-  if (warning) return "Warning";
-  return "Normal";
-};
-
 export default function KpiDashboardPage() {
+  const t = useT();
+  const getApiErrorMessage = useApiErrorMessage();
+  const { number } = useFormatters();
+  const tt = (key: string, fallback: string, values?: Record<string, string | number>) => {
+    const translated = t(key, values);
+    return translated === key ? fallback : translated;
+  };
   const [data, setData] = useState<KpiOverviewResponse | null>(null);
   const [windowDays, setWindowDays] = useState(30);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,8 +36,7 @@ export default function KpiDashboardPage() {
         setData(response);
       } catch (e) {
         if (!mounted) return;
-        const message = e instanceof Error ? e.message : "Failed to load KPI";
-        setError(message);
+        setError(getApiErrorMessage(e, tt("admin.kpi.loadError", "Failed to load KPI")));
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -45,28 +47,39 @@ export default function KpiDashboardPage() {
     return () => {
       mounted = false;
     };
-  }, [windowDays]);
+  }, [t, windowDays]);
+
+  const alertLabel = (critical: boolean, warning: boolean) => {
+    if (critical) return tt("admin.kpi.critical", "Critical");
+    if (warning) return tt("admin.kpi.warning", "Warning");
+    return tt("admin.kpi.normal", "Normal");
+  };
 
   return (
     <div className="p-8">
       <div className="mx-auto max-w-5xl">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">KPI Dashboard</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {tt("admin.kpi.title", "KPI Dashboard")}
+            </h1>
             <p className="mt-1 text-sm text-gray-600">
-              MAU / Search / Meeting minutes / Auth and authorization security signals
+              {tt(
+                "admin.kpi.description",
+                "MAU / Search / Meeting minutes / Auth and authorization security signals"
+              )}
             </p>
           </div>
           <label className="text-sm text-gray-600">
-            Window
+            {tt("admin.kpi.window", "Window")}
             <select
               value={windowDays}
               onChange={(e) => setWindowDays(Number(e.target.value))}
               className="ml-2 rounded border border-gray-300 px-2 py-1"
             >
-              <option value={7}>7 days</option>
-              <option value={30}>30 days</option>
-              <option value={90}>90 days</option>
+              <option value={7}>{tt("admin.kpi.days", "7 days", { count: 7 })}</option>
+              <option value={30}>{tt("admin.kpi.days", "30 days", { count: 30 })}</option>
+              <option value={90}>{tt("admin.kpi.days", "90 days", { count: 90 })}</option>
             </select>
           </label>
         </div>
@@ -74,31 +87,49 @@ export default function KpiDashboardPage() {
         {error && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
         {isLoading ? (
-          <div className="rounded border border-gray-200 bg-white p-8 text-center text-gray-500">Loading KPI...</div>
+          <div className="rounded border border-gray-200 bg-white p-8 text-center text-gray-500">
+            {tt("admin.kpi.loading", "Loading KPI...")}
+          </div>
         ) : data ? (
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded border border-gray-200 bg-white p-5">
-              <p className="text-xs uppercase tracking-wide text-gray-500">MAU</p>
-              <p className="mt-2 text-3xl font-semibold text-gray-900">{data.metrics.mau}</p>
-              <p className="mt-1 text-xs text-gray-500">Distinct authenticated users</p>
-            </div>
-            <div className="rounded border border-gray-200 bg-white p-5">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Search Success</p>
-              <p className="mt-2 text-3xl font-semibold text-gray-900">{percent(data.metrics.searchSuccessRate)}</p>
+              <p className="text-xs uppercase tracking-wide text-gray-500">
+                {tt("admin.kpi.mauTitle", "MAU")}
+              </p>
+              <p className="mt-2 text-3xl font-semibold text-gray-900">{number(data.metrics.mau)}</p>
               <p className="mt-1 text-xs text-gray-500">
-                {data.metrics.searchSuccess} / {data.metrics.searchTotal} searches
+                {tt("admin.kpi.mauDescription", "Distinct authenticated users")}
               </p>
             </div>
             <div className="rounded border border-gray-200 bg-white p-5">
-              <p className="text-xs uppercase tracking-wide text-gray-500">Minutes Utilization</p>
+              <p className="text-xs uppercase tracking-wide text-gray-500">
+                {tt("admin.kpi.searchSuccessTitle", "Search Success")}
+              </p>
+              <p className="mt-2 text-3xl font-semibold text-gray-900">{percent(data.metrics.searchSuccessRate)}</p>
+              <p className="mt-1 text-xs text-gray-500">
+                {tt("admin.kpi.searchSuccessDescription", `${number(data.metrics.searchSuccess)} / ${number(data.metrics.searchTotal)} searches`, {
+                  success: number(data.metrics.searchSuccess),
+                  total: number(data.metrics.searchTotal),
+                })}
+              </p>
+            </div>
+            <div className="rounded border border-gray-200 bg-white p-5">
+              <p className="text-xs uppercase tracking-wide text-gray-500">
+                {tt("admin.kpi.minutesTitle", "Minutes Utilization")}
+              </p>
               <p className="mt-2 text-3xl font-semibold text-gray-900">{percent(data.metrics.minutesUtilizationRate)}</p>
               <p className="mt-1 text-xs text-gray-500">
-                {data.metrics.meetingsWithMinutes} / {data.metrics.meetingsTotal} meetings
+                {tt("admin.kpi.minutesDescription", `${number(data.metrics.meetingsWithMinutes)} / ${number(data.metrics.meetingsTotal)} meetings`, {
+                  withMinutes: number(data.metrics.meetingsWithMinutes),
+                  total: number(data.metrics.meetingsTotal),
+                })}
               </p>
             </div>
             <div className="rounded border border-gray-200 bg-white p-5">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs uppercase tracking-wide text-gray-500">Auth Rejected</p>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  {tt("admin.kpi.authRejectedTitle", "Auth Rejected")}
+                </p>
                 <span
                   className={`rounded border px-2 py-1 text-[11px] font-medium ${alertTone(
                     data.alerts.authRejected.critical,
@@ -108,14 +139,23 @@ export default function KpiDashboardPage() {
                   {alertLabel(data.alerts.authRejected.critical, data.alerts.authRejected.warning)}
                 </span>
               </div>
-              <p className="mt-2 text-3xl font-semibold text-gray-900">{data.security.authRejectedTotal}</p>
+              <p className="mt-2 text-3xl font-semibold text-gray-900">{number(data.security.authRejectedTotal)}</p>
               <p className="mt-1 text-xs text-gray-500">
-                Warning {data.alerts.authRejected.warningThreshold} / Critical {data.alerts.authRejected.criticalThreshold}
+                {tt(
+                  "admin.kpi.thresholds",
+                  `Warning ${number(data.alerts.authRejected.warningThreshold)} / Critical ${number(data.alerts.authRejected.criticalThreshold)}`,
+                  {
+                  warning: number(data.alerts.authRejected.warningThreshold),
+                  critical: number(data.alerts.authRejected.criticalThreshold),
+                  }
+                )}
               </p>
             </div>
             <div className="rounded border border-gray-200 bg-white p-5">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs uppercase tracking-wide text-gray-500">AuthZ Denied</p>
+                <p className="text-xs uppercase tracking-wide text-gray-500">
+                  {tt("admin.kpi.authzDeniedTitle", "AuthZ Denied")}
+                </p>
                 <span
                   className={`rounded border px-2 py-1 text-[11px] font-medium ${alertTone(
                     data.alerts.authzDenied.critical,
@@ -125,9 +165,16 @@ export default function KpiDashboardPage() {
                   {alertLabel(data.alerts.authzDenied.critical, data.alerts.authzDenied.warning)}
                 </span>
               </div>
-              <p className="mt-2 text-3xl font-semibold text-gray-900">{data.security.authzDeniedTotal}</p>
+              <p className="mt-2 text-3xl font-semibold text-gray-900">{number(data.security.authzDeniedTotal)}</p>
               <p className="mt-1 text-xs text-gray-500">
-                Warning {data.alerts.authzDenied.warningThreshold} / Critical {data.alerts.authzDenied.criticalThreshold}
+                {tt(
+                  "admin.kpi.thresholds",
+                  `Warning ${number(data.alerts.authzDenied.warningThreshold)} / Critical ${number(data.alerts.authzDenied.criticalThreshold)}`,
+                  {
+                  warning: number(data.alerts.authzDenied.warningThreshold),
+                  critical: number(data.alerts.authzDenied.criticalThreshold),
+                  }
+                )}
               </p>
             </div>
           </div>

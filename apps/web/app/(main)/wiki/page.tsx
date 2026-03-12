@@ -3,8 +3,10 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { PageTree, type PageNode } from "@/components/wiki";
+import { WikiSidebar, type PageNode } from "@/components/wiki";
 import { useWikiPagesQuery, wikiApi, type Page } from "@/lib/api";
+import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useFormatters, useT } from "@/lib/i18n";
 
 function buildPageTree(flatPages: Page[]): PageNode[] {
   const nodeMap = new Map<string, PageNode>();
@@ -41,6 +43,9 @@ function buildPageTree(flatPages: Page[]): PageNode[] {
 }
 
 export default function WikiListPage() {
+  const t = useT();
+  const getApiErrorMessage = useApiErrorMessage();
+  const { number } = useFormatters();
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useWikiPagesQuery();
 
@@ -53,25 +58,14 @@ export default function WikiListPage() {
   };
 
   return (
-    <div className="flex h-full">
-      <div className="w-64 border-r border-gray-200 bg-white p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-500">Pages</h2>
-          <Link
-            href="/wiki/new"
-            className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700"
-          >
-            + New
-          </Link>
-        </div>
-        <PageTree pages={treePages} onReparent={handleReparent} />
-      </div>
+    <div className="flex h-full flex-col md:flex-row">
+      <WikiSidebar pages={treePages} onReparent={handleReparent} />
 
       <div className="flex-1 p-8">
         <div className="mx-auto max-w-4xl">
-          <h1 className="mb-4 text-3xl font-bold text-gray-900">Wiki</h1>
+          <h1 className="mb-4 text-3xl font-bold text-gray-900">{t("wiki.list.title")}</h1>
           <p className="mb-8 text-gray-600">
-            Browse, search, and reorganize pages with block-based editing.
+            {t("wiki.list.description")}
           </p>
 
           <div className="mb-8 grid gap-4 md:grid-cols-3">
@@ -80,8 +74,8 @@ export default function WikiListPage() {
               className="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-blue-500 hover:shadow-md"
             >
               <div className="mb-2 text-2xl">+</div>
-              <h3 className="font-medium text-gray-900">Create a new page</h3>
-              <p className="text-sm text-gray-500">Start a new wiki entry for a team topic.</p>
+              <h3 className="font-medium text-gray-900">{t("wiki.list.createTitle")}</h3>
+              <p className="text-sm text-gray-500">{t("wiki.list.createDescription")}</p>
             </Link>
 
             <Link
@@ -89,24 +83,24 @@ export default function WikiListPage() {
               className="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-blue-500 hover:shadow-md"
             >
               <div className="mb-2 text-2xl">?</div>
-              <h3 className="font-medium text-gray-900">Search pages</h3>
-              <p className="text-sm text-gray-500">Jump directly to permitted content.</p>
+              <h3 className="font-medium text-gray-900">{t("wiki.list.searchTitle")}</h3>
+              <p className="text-sm text-gray-500">{t("wiki.list.searchDescription")}</p>
             </Link>
 
             <div className="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
               <div className="mb-2 text-2xl">#</div>
-              <h3 className="font-medium text-gray-900">Total pages</h3>
-              <p className="text-sm text-gray-500">{pages.length} pages</p>
+              <h3 className="font-medium text-gray-900">{t("wiki.list.totalTitle")}</h3>
+              <p className="text-sm text-gray-500">{t("wiki.list.totalPages", { count: number(pages.length) })}</p>
             </div>
           </div>
 
           <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">Recently updated pages</h2>
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">{t("wiki.list.recentTitle")}</h2>
             {isLoading ? (
-              <p className="text-sm text-gray-500">Loading...</p>
+              <p className="text-sm text-gray-500">{t("common.status.loading")}</p>
             ) : error ? (
               <p className="text-sm text-red-600">
-                {error instanceof Error ? error.message : "Failed to load pages."}
+                {getApiErrorMessage(error, t("wiki.list.loadError"))}
               </p>
             ) : (
               <div className="space-y-2">
@@ -121,7 +115,7 @@ export default function WikiListPage() {
                   </Link>
                 ))}
                 {pages.length === 0 ? (
-                  <p className="text-sm text-gray-500">No pages yet.</p>
+                  <p className="text-sm text-gray-500">{t("wiki.list.noPages")}</p>
                 ) : null}
               </div>
             )}

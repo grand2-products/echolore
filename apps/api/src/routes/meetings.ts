@@ -5,6 +5,7 @@ import { z } from "zod";
 import { generateMeetingSummary } from "../ai/meeting-summary.js";
 import type { meetings, summaries, transcripts } from "../db/schema.js";
 import { writeAuditLog } from "../lib/audit.js";
+import { jsonError } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import { authorizeOwnerResource } from "../policies/authorization-policy.js";
 import {
@@ -126,7 +127,7 @@ meetingsRoutes.get("/", async (c) => {
     return c.json({ meetings: allMeetings.map(toMeetingDto) });
   } catch (error) {
     console.error("Error fetching meetings:", error);
-    return c.json({ error: "Failed to fetch meetings" }, 500);
+    return jsonError(c, 500, "MEETINGS_LIST_FAILED", "Failed to fetch meetings");
   }
 });
 
@@ -139,12 +140,12 @@ meetingsRoutes.get("/:id", async (c) => {
     const meeting = await getMeetingById(id);
 
     if (!meeting) {
-      return c.json({ error: "Meeting not found" }, 404);
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
     const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
 
     const meetingTranscripts = await getMeetingTranscripts(id);
@@ -173,7 +174,7 @@ meetingsRoutes.get("/:id", async (c) => {
     });
   } catch (error) {
     console.error("Error fetching meeting:", error);
-    return c.json({ error: "Failed to fetch meeting" }, 500);
+    return jsonError(c, 500, "MEETING_FETCH_FAILED", "Failed to fetch meeting");
   }
 });
 
@@ -183,7 +184,7 @@ meetingsRoutes.post("/", zValidator("json", createMeetingSchema), async (c) => {
   const user = c.get("user");
 
   if (!user?.id) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
   }
 
   try {
@@ -201,13 +202,13 @@ meetingsRoutes.post("/", zValidator("json", createMeetingSchema), async (c) => {
     });
 
     if (!newMeeting) {
-      return c.json({ error: "Failed to create meeting" }, 500);
+      return jsonError(c, 500, "MEETING_CREATE_FAILED", "Failed to create meeting");
     }
 
     return c.json({ meeting: toMeetingDto(newMeeting) }, 201);
   } catch (error) {
     console.error("Error creating meeting:", error);
-    return c.json({ error: "Failed to create meeting" }, 500);
+    return jsonError(c, 500, "MEETING_CREATE_FAILED", "Failed to create meeting");
   }
 });
 
@@ -219,12 +220,12 @@ meetingsRoutes.put("/:id", zValidator("json", updateMeetingSchema), async (c) =>
   try {
     const meeting = await getMeetingById(id);
     if (!meeting) {
-      return c.json({ error: "Meeting not found" }, 404);
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
     const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
 
     const updateData: Record<string, unknown> = {};
@@ -242,13 +243,13 @@ meetingsRoutes.put("/:id", zValidator("json", updateMeetingSchema), async (c) =>
     const updatedMeeting = await updateMeeting(id, updateData);
 
     if (!updatedMeeting) {
-      return c.json({ error: "Meeting not found" }, 404);
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
     return c.json({ meeting: toMeetingDto(updatedMeeting) });
   } catch (error) {
     console.error("Error updating meeting:", error);
-    return c.json({ error: "Failed to update meeting" }, 500);
+    return jsonError(c, 500, "MEETING_UPDATE_FAILED", "Failed to update meeting");
   }
 });
 
@@ -259,24 +260,24 @@ meetingsRoutes.delete("/:id", async (c) => {
   try {
     const meeting = await getMeetingById(id);
     if (!meeting) {
-      return c.json({ error: "Meeting not found" }, 404);
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
     const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "delete");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
 
     const deletedMeeting = await deleteMeeting(id);
 
     if (!deletedMeeting) {
-      return c.json({ error: "Meeting not found" }, 404);
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
     return c.json({ success: true });
   } catch (error) {
     console.error("Error deleting meeting:", error);
-    return c.json({ error: "Failed to delete meeting" }, 500);
+    return jsonError(c, 500, "MEETING_DELETE_FAILED", "Failed to delete meeting");
   }
 });
 
@@ -288,12 +289,12 @@ meetingsRoutes.post("/:id/transcripts", zValidator("json", createTranscriptSchem
   try {
     const meeting = await getMeetingById(id);
     if (!meeting) {
-      return c.json({ error: "Meeting not found" }, 404);
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
     const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
 
     const transcriptId = crypto.randomUUID();
@@ -308,13 +309,13 @@ meetingsRoutes.post("/:id/transcripts", zValidator("json", createTranscriptSchem
     });
 
     if (!newTranscript) {
-      return c.json({ error: "Failed to add transcript" }, 500);
+      return jsonError(c, 500, "MEETING_TRANSCRIPT_CREATE_FAILED", "Failed to add transcript");
     }
 
     return c.json({ transcript: toTranscriptDto(newTranscript) }, 201);
   } catch (error) {
     console.error("Error adding transcript:", error);
-    return c.json({ error: "Failed to add transcript" }, 500);
+    return jsonError(c, 500, "MEETING_TRANSCRIPT_CREATE_FAILED", "Failed to add transcript");
   }
 });
 
@@ -326,12 +327,12 @@ meetingsRoutes.post("/:id/summaries", zValidator("json", createSummarySchema), a
   try {
     const meeting = await getMeetingById(id);
     if (!meeting) {
-      return c.json({ error: "Meeting not found" }, 404);
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
     const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
 
     const summaryId = crypto.randomUUID();
@@ -344,13 +345,13 @@ meetingsRoutes.post("/:id/summaries", zValidator("json", createSummarySchema), a
     });
 
     if (!newSummary) {
-      return c.json({ error: "Failed to add summary" }, 500);
+      return jsonError(c, 500, "MEETING_SUMMARY_CREATE_FAILED", "Failed to add summary");
     }
 
     return c.json({ summary: toSummaryDto(newSummary) }, 201);
   } catch (error) {
     console.error("Error adding summary:", error);
-    return c.json({ error: "Failed to add summary" }, 500);
+    return jsonError(c, 500, "MEETING_SUMMARY_CREATE_FAILED", "Failed to add summary");
   }
 });
 
@@ -362,17 +363,22 @@ meetingsRoutes.post("/:id/pipeline/run", zValidator("json", runPipelineSchema), 
 
   try {
     const meeting = await getMeetingById(id);
-    if (!meeting) return c.json({ error: "Meeting not found" }, 404);
+    if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
     const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
 
     const meetingTranscripts = await getMeetingTranscripts(id);
 
     if (meetingTranscripts.length === 0) {
-      return c.json({ error: "No transcripts found for this meeting" }, 409);
+      return jsonError(
+        c,
+        409,
+        "MEETING_PIPELINE_TRANSCRIPTS_MISSING",
+        "No transcripts found for this meeting"
+      );
     }
 
     const existingPipelineResult = await getExistingRoomAiPipelineResult(id);
@@ -434,7 +440,7 @@ meetingsRoutes.post("/:id/pipeline/run", zValidator("json", runPipelineSchema), 
     });
   } catch (error) {
     console.error("Error running room AI pipeline:", error);
-    return c.json({ error: "Failed to run room AI pipeline" }, 500);
+    return jsonError(c, 500, "MEETING_PIPELINE_RUN_FAILED", "Failed to run room AI pipeline");
   }
 });
 
@@ -443,15 +449,20 @@ meetingsRoutes.get("/:id/realtime/transcripts", async (c) => {
 
   try {
     const meeting = await getMeetingById(id);
-    if (!meeting) return c.json({ error: "Meeting not found" }, 404);
+    if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
     const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
-    if (!authz.allowed) return c.json({ error: "Forbidden" }, 403);
+    if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     return c.json({ segments: await listRealtimeTranscriptSegments(id) });
   } catch (error) {
     console.error("Error fetching realtime transcripts:", error);
-    return c.json({ error: "Failed to fetch realtime transcripts" }, 500);
+    return jsonError(
+      c,
+      500,
+      "MEETING_REALTIME_TRANSCRIPTS_FETCH_FAILED",
+      "Failed to fetch realtime transcripts"
+    );
   }
 });
 
@@ -464,10 +475,10 @@ meetingsRoutes.post(
 
     try {
       const meeting = await getMeetingById(id);
-      if (!meeting) return c.json({ error: "Meeting not found" }, 404);
+      if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
       const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
-      if (!authz.allowed) return c.json({ error: "Forbidden" }, 403);
+      if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
       const segment = await upsertTranscriptSegment({
         meetingId: id,
@@ -486,7 +497,12 @@ meetingsRoutes.post(
       return c.json({ segment }, 201);
     } catch (error) {
       console.error("Error upserting realtime transcript:", error);
-      return c.json({ error: "Failed to upsert realtime transcript" }, 500);
+      return jsonError(
+        c,
+        500,
+        "MEETING_REALTIME_TRANSCRIPT_UPSERT_FAILED",
+        "Failed to upsert realtime transcript"
+      );
     }
   }
 );
@@ -496,15 +512,20 @@ meetingsRoutes.get("/:id/agent-events", async (c) => {
 
   try {
     const meeting = await getMeetingById(id);
-    if (!meeting) return c.json({ error: "Meeting not found" }, 404);
+    if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
     const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
-    if (!authz.allowed) return c.json({ error: "Forbidden" }, 403);
+    if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     return c.json({ events: await listMeetingAgentTimeline(id) });
   } catch (error) {
     console.error("Error fetching meeting agent events:", error);
-    return c.json({ error: "Failed to fetch meeting agent events" }, 500);
+    return jsonError(
+      c,
+      500,
+      "MEETING_AGENT_EVENTS_FETCH_FAILED",
+      "Failed to fetch meeting agent events"
+    );
   }
 });
 
@@ -513,15 +534,20 @@ meetingsRoutes.get("/:id/agents/active", async (c) => {
 
   try {
     const meeting = await getMeetingById(id);
-    if (!meeting) return c.json({ error: "Meeting not found" }, 404);
+    if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
     const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
-    if (!authz.allowed) return c.json({ error: "Forbidden" }, 403);
+    if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     return c.json({ sessions: await listActiveAgentSessions(id) });
   } catch (error) {
     console.error("Error fetching active meeting agent sessions:", error);
-    return c.json({ error: "Failed to fetch active meeting agent sessions" }, 500);
+    return jsonError(
+      c,
+      500,
+      "MEETING_AGENT_SESSIONS_FETCH_FAILED",
+      "Failed to fetch active meeting agent sessions"
+    );
   }
 });
 
@@ -531,10 +557,10 @@ meetingsRoutes.post("/:id/agents/:agentId/invoke", async (c) => {
 
   try {
     const meeting = await getMeetingById(id);
-    if (!meeting) return c.json({ error: "Meeting not found" }, 404);
+    if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
     const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
-    if (!authz.allowed) return c.json({ error: "Forbidden" }, 403);
+    if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     const result = await invokeMeetingAgent({
       meetingId: id,
@@ -542,11 +568,13 @@ meetingsRoutes.post("/:id/agents/:agentId/invoke", async (c) => {
       invokedByUserId: user.id,
     });
 
-    if (!result) return c.json({ error: "Agent not found or inactive" }, 404);
+    if (!result) {
+      return jsonError(c, 404, "MEETING_AGENT_NOT_FOUND_OR_INACTIVE", "Agent not found or inactive");
+    }
     return c.json(result, result.reused ? 200 : 201);
   } catch (error) {
     console.error("Error invoking meeting agent:", error);
-    return c.json({ error: "Failed to invoke meeting agent" }, 500);
+    return jsonError(c, 500, "MEETING_AGENT_INVOKE_FAILED", "Failed to invoke meeting agent");
   }
 });
 
@@ -556,10 +584,10 @@ meetingsRoutes.post("/:id/agents/:agentId/leave", async (c) => {
 
   try {
     const meeting = await getMeetingById(id);
-    if (!meeting) return c.json({ error: "Meeting not found" }, 404);
+    if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
     const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
-    if (!authz.allowed) return c.json({ error: "Forbidden" }, 403);
+    if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     const session = await leaveMeetingAgent({
       meetingId: id,
@@ -567,11 +595,13 @@ meetingsRoutes.post("/:id/agents/:agentId/leave", async (c) => {
       triggeredByUserId: user.id,
     });
 
-    if (!session) return c.json({ error: "Active agent session not found" }, 404);
+    if (!session) {
+      return jsonError(c, 404, "MEETING_AGENT_SESSION_NOT_FOUND", "Active agent session not found");
+    }
     return c.json({ session });
   } catch (error) {
     console.error("Error leaving meeting agent:", error);
-    return c.json({ error: "Failed to end meeting agent session" }, 500);
+    return jsonError(c, 500, "MEETING_AGENT_LEAVE_FAILED", "Failed to end meeting agent session");
   }
 });
 
@@ -585,10 +615,10 @@ meetingsRoutes.post(
 
     try {
       const meeting = await getMeetingById(id);
-      if (!meeting) return c.json({ error: "Meeting not found" }, 404);
+      if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
       const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
-      if (!authz.allowed) return c.json({ error: "Forbidden" }, 403);
+      if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
       const response = await generateMeetingAgentResponse({
         meetingId: id,
@@ -599,13 +629,18 @@ meetingsRoutes.post(
       });
 
       if (!response) {
-        return c.json({ error: "Active agent session not found" }, 404);
+        return jsonError(c, 404, "MEETING_AGENT_SESSION_NOT_FOUND", "Active agent session not found");
       }
 
       return c.json(response);
     } catch (error) {
       console.error("Error generating meeting agent response:", error);
-      return c.json({ error: "Failed to generate meeting agent response" }, 500);
+      return jsonError(
+        c,
+        500,
+        "MEETING_AGENT_RESPONSE_FAILED",
+        "Failed to generate meeting agent response"
+      );
     }
   }
 );

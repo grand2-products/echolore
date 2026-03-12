@@ -1,109 +1,210 @@
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppEnv, SessionUser } from "../lib/auth.js";
+import { authGuard, type AppEnv } from "../lib/auth.js";
 import { usersRoutes } from "./users.js";
 
 const {
-  deleteUserMock,
-  getUserByEmailMock,
+  clearPasswordSessionCookiesMock,
+  getAccessTokenFromCookieMock,
+  getRefreshTokenFromCookieMock,
   getUserByIdMock,
-  listUsersMock,
-  createUserMock,
-  updateUserMock,
+  listAuthSessionsForUserMock,
+  reconcileGoogleIdentityMock,
+  resolveAccessTokenSessionMock,
+  revokeAuthSessionByIdMock,
   writeAuditLogMock,
 } = vi.hoisted(() => ({
-  deleteUserMock: vi.fn(),
-  getUserByEmailMock: vi.fn(),
+  clearPasswordSessionCookiesMock: vi.fn(),
+  getAccessTokenFromCookieMock: vi.fn(),
+  getRefreshTokenFromCookieMock: vi.fn(),
   getUserByIdMock: vi.fn(),
-  listUsersMock: vi.fn(),
-  createUserMock: vi.fn(),
-  updateUserMock: vi.fn(),
+  listAuthSessionsForUserMock: vi.fn(),
+  reconcileGoogleIdentityMock: vi.fn(),
+  resolveAccessTokenSessionMock: vi.fn(),
+  revokeAuthSessionByIdMock: vi.fn(),
   writeAuditLogMock: vi.fn(),
 }));
 
+vi.mock("../lib/local-auth.js", () => ({
+  clearPasswordSessionCookies: clearPasswordSessionCookiesMock,
+  getAccessTokenFromCookie: getAccessTokenFromCookieMock,
+  getRefreshTokenFromCookie: getRefreshTokenFromCookieMock,
+  listAuthSessionsForUser: listAuthSessionsForUserMock,
+  reconcileGoogleIdentity: reconcileGoogleIdentityMock,
+  resolveAccessTokenSession: resolveAccessTokenSessionMock,
+  revokeAuthSessionById: revokeAuthSessionByIdMock,
+}));
+
 vi.mock("../repositories/user/user-repository.js", () => ({
-  deleteUser: deleteUserMock,
-  getUserByEmail: getUserByEmailMock,
+  createUser: vi.fn(),
+  deleteUser: vi.fn(),
+  getUserByEmail: vi.fn(),
   getUserById: getUserByIdMock,
-  listUsers: listUsersMock,
-  createUser: createUserMock,
-  updateUser: updateUserMock,
+  listUsers: vi.fn(),
+  updateUser: vi.fn(),
+}));
+
+vi.mock("../policies/authorization-policy.js", () => ({
+  authorizeAdminResource: vi.fn(),
+  authorizeUserResource: vi.fn(),
 }));
 
 vi.mock("../lib/audit.js", () => ({
   writeAuditLog: writeAuditLogMock,
 }));
 
-function createApp(sessionUser: SessionUser) {
+function createApp() {
   const app = new Hono<AppEnv>();
-
-  app.use("/api/*", async (c, next) => {
-    c.set("user", sessionUser);
-    await next();
-  });
-
+  app.use("/api/*", authGuard);
   app.route("/api/users", usersRoutes);
   return app;
 }
 
 describe("usersRoutes", () => {
   beforeEach(() => {
-    deleteUserMock.mockReset();
-    getUserByEmailMock.mockReset();
+    clearPasswordSessionCookiesMock.mockReset();
+    getAccessTokenFromCookieMock.mockReset();
+    getRefreshTokenFromCookieMock.mockReset();
     getUserByIdMock.mockReset();
-    listUsersMock.mockReset();
-    createUserMock.mockReset();
-    updateUserMock.mockReset();
+    listAuthSessionsForUserMock.mockReset();
+    reconcileGoogleIdentityMock.mockReset();
+    resolveAccessTokenSessionMock.mockReset();
+    revokeAuthSessionByIdMock.mockReset();
     writeAuditLogMock.mockReset();
   });
 
-  it("rejects updating another user for non-admin sessions", async () => {
-    const app = createApp({
-      id: "member_1",
+  it("serves /api/users/me through bearer auth", async () => {
+    resolveAccessTokenSessionMock.mockResolvedValue({
+      user: {
+        id: "user_1",
+        email: "member@example.com",
+        name: "Member",
+        role: "member",
+        avatarUrl: null,
+      },
+      authMode: "password",
+    });
+    getUserByIdMock.mockResolvedValue({
+      id: "user_1",
       email: "member@example.com",
       name: "Member",
+      avatarUrl: null,
       role: "member",
+      emailVerifiedAt: new Date("2026-03-12T00:00:00.000Z"),
+      tokenVersion: 1,
+      createdAt: new Date("2026-03-12T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-12T00:00:00.000Z"),
     });
 
-    const response = await app.request("http://localhost/api/users/member_2", {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "Changed" }),
+    const response = await createApp().request("http://localhost/api/users/me", {
+      headers: {
+        authorization: "Bearer access-token",
+      },
     });
 
-    expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
-    expect(updateUserMock).not.toHaveBeenCalled();
-    expect(writeAuditLogMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: "authz.denied",
-        resourceType: "user",
-        resourceId: "member_2",
-      })
-    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      user: {
+        id: "user_1",
+        email: "member@example.com",
+        name: "Member",
+        avatarUrl: null,
+        role: "member",
+        emailVerifiedAt: "2026-03-12T00:00:00.000Z",
+        tokenVersion: 1,
+        createdAt: "2026-03-12T00:00:00.000Z",
+        updatedAt: "2026-03-12T00:00:00.000Z",
+      },
+    });
   });
 
-  it("rejects deleting another user for non-admin sessions", async () => {
-    const app = createApp({
-      id: "member_1",
-      email: "member@example.com",
-      name: "Member",
-      role: "member",
+  it("lists current user auth sessions", async () => {
+    resolveAccessTokenSessionMock.mockResolvedValue({
+      user: {
+        id: "user_1",
+        email: "member@example.com",
+        name: "Member",
+        role: "member",
+        avatarUrl: null,
+      },
+      authMode: "password",
+    });
+    getRefreshTokenFromCookieMock.mockReturnValue("cookie-refresh");
+    listAuthSessionsForUserMock.mockResolvedValue([
+      {
+        id: "rt_1",
+        clientType: "web",
+        authMode: "password",
+        deviceName: "Chrome on Windows",
+        createdAt: new Date("2026-03-12T00:00:00.000Z"),
+        lastSeenAt: new Date("2026-03-12T00:10:00.000Z"),
+        expiresAt: new Date("2026-04-11T00:00:00.000Z"),
+        current: true,
+      },
+    ]);
+
+    const response = await createApp().request("http://localhost/api/users/me/sessions", {
+      headers: {
+        authorization: "Bearer access-token",
+      },
     });
 
-    const response = await app.request("http://localhost/api/users/member_2", {
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      sessions: [
+        {
+          id: "rt_1",
+          clientType: "web",
+          authMode: "password",
+          deviceName: "Chrome on Windows",
+          createdAt: "2026-03-12T00:00:00.000Z",
+          lastSeenAt: "2026-03-12T00:10:00.000Z",
+          expiresAt: "2026-04-11T00:00:00.000Z",
+          current: true,
+        },
+      ],
+    });
+  });
+
+  it("revokes the current session and clears cookies", async () => {
+    resolveAccessTokenSessionMock.mockResolvedValue({
+      user: {
+        id: "user_1",
+        email: "member@example.com",
+        name: "Member",
+        role: "member",
+        avatarUrl: null,
+      },
+      authMode: "password",
+    });
+    getRefreshTokenFromCookieMock.mockReturnValue("cookie-refresh");
+    listAuthSessionsForUserMock.mockResolvedValue([
+      {
+        id: "rt_current",
+        clientType: "web",
+        authMode: "password",
+        deviceName: "Chrome on Windows",
+        createdAt: new Date("2026-03-12T00:00:00.000Z"),
+        lastSeenAt: new Date("2026-03-12T00:10:00.000Z"),
+        expiresAt: new Date("2026-04-11T00:00:00.000Z"),
+        current: true,
+      },
+    ]);
+    revokeAuthSessionByIdMock.mockResolvedValue(true);
+
+    const response = await createApp().request("http://localhost/api/users/me/sessions/rt_current", {
       method: "DELETE",
+      headers: {
+        authorization: "Bearer access-token",
+      },
     });
 
-    expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
-    expect(deleteUserMock).not.toHaveBeenCalled();
-    expect(writeAuditLogMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: "authz.denied",
-        resourceType: "user",
-        resourceId: "member_2",
-      })
-    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ success: true });
+    expect(revokeAuthSessionByIdMock).toHaveBeenCalledWith({
+      userId: "user_1",
+      sessionId: "rt_current",
+    });
+    expect(clearPasswordSessionCookiesMock).toHaveBeenCalled();
   });
 });

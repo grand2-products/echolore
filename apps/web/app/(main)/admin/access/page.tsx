@@ -8,6 +8,8 @@ import {
   type Page,
   wikiApi,
 } from "@/lib/api";
+import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useT } from "@/lib/i18n";
 import { useStableEvent } from "@/lib/use-stable-event";
 import { useEffect, useState } from "react";
 
@@ -39,6 +41,8 @@ function formatPermissions(value: string[]) {
 }
 
 export default function AdminAccessPage() {
+  const t = useT();
+  const getApiErrorMessage = useApiErrorMessage();
   const [groups, setGroups] = useState<AdminGroup[]>([]);
   const [users, setUsers] = useState<AdminUserRecord[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
@@ -78,7 +82,7 @@ export default function AdminAccessPage() {
       setSelectedUserId((current) => current ?? userResult.users[0]?.id ?? null);
       setSelectedPageId((current) => current ?? pageResult.pages[0]?.id ?? null);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load admin access data");
+      setError(getApiErrorMessage(loadError, t("admin.access.loadError")));
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +106,7 @@ export default function AdminAccessPage() {
         })
       );
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load page permissions");
+        setError(getApiErrorMessage(loadError, t("admin.access.permissionsLoadError")));
       }
     }
   );
@@ -171,16 +175,16 @@ export default function AdminAccessPage() {
 
       if (selectedGroup && !selectedGroup.isSystem) {
         await adminApi.updateGroup(selectedGroup.id, payload);
-        setNotice("Group updated.");
+        setNotice(t("admin.access.groupUpdated"));
       } else {
         const created = await adminApi.createGroup(payload);
         setSelectedGroupId(created.group.id);
-        setNotice("Group created.");
+        setNotice(t("admin.access.groupCreated"));
       }
 
       await refreshGroupsAndUsers();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save group");
+      setError(getApiErrorMessage(saveError, t("admin.access.groupSaveError")));
     } finally {
       setIsSavingGroup(false);
     }
@@ -188,6 +192,15 @@ export default function AdminAccessPage() {
 
   const removeGroup = async () => {
     if (!selectedGroup || selectedGroup.isSystem) return;
+    if (
+      !window.confirm(
+        t("admin.access.deleteConfirm", {
+          name: selectedGroup.name,
+        })
+      )
+    ) {
+      return;
+    }
 
     setIsSavingGroup(true);
     setError(null);
@@ -198,9 +211,9 @@ export default function AdminAccessPage() {
       setGroupForm(emptyGroupForm);
       setPermissionText("");
       await refreshGroupsAndUsers();
-      setNotice("Group deleted.");
+      setNotice(t("admin.access.groupDeleted"));
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete group");
+      setError(getApiErrorMessage(deleteError, t("admin.access.groupDeleteError")));
     } finally {
       setIsSavingGroup(false);
     }
@@ -215,9 +228,9 @@ export default function AdminAccessPage() {
     try {
       await adminApi.updateUserGroups(selectedUser.id, membershipDraft);
       await refreshGroupsAndUsers();
-      setNotice("User memberships updated.");
+      setNotice(t("admin.access.membershipsUpdated"));
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to update memberships");
+      setError(getApiErrorMessage(saveError, t("admin.access.membershipsSaveError")));
     } finally {
       setIsSavingMemberships(false);
     }
@@ -242,9 +255,9 @@ export default function AdminAccessPage() {
           })),
       });
       await loadPagePermissions(selectedPageId, groups);
-      setNotice("Page permissions updated.");
+      setNotice(t("admin.access.permissionsUpdated"));
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to update page permissions");
+      setError(getApiErrorMessage(saveError, t("admin.access.permissionsSaveError")));
     } finally {
       setIsSavingPermissions(false);
     }
@@ -254,9 +267,9 @@ export default function AdminAccessPage() {
     <div className="p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Admin Access</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{t("admin.access.title")}</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Manage groups, user memberships, and wiki page permissions from one place.
+            {t("admin.access.description")}
           </p>
         </div>
 
@@ -274,15 +287,15 @@ export default function AdminAccessPage() {
 
         {isLoading ? (
           <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-500">
-            Loading access controls...
+            {t("admin.access.loading")}
           </div>
         ) : (
           <div className="grid gap-6 xl:grid-cols-3">
             <section className="rounded-xl border border-gray-200 bg-white p-6">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Groups</h2>
-                  <p className="mt-1 text-sm text-gray-600">Create and maintain permission groups.</p>
+                  <h2 className="text-xl font-semibold text-gray-900">{t("admin.access.groupsTitle")}</h2>
+                  <p className="mt-1 text-sm text-gray-600">{t("admin.access.groupsDescription")}</p>
                 </div>
                 <button
                   type="button"
@@ -293,7 +306,7 @@ export default function AdminAccessPage() {
                   }}
                   className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
-                  New group
+                  {t("admin.access.newGroup")}
                 </button>
               </div>
 
@@ -313,12 +326,12 @@ export default function AdminAccessPage() {
                       <div>
                         <div className="font-medium text-gray-900">{group.name}</div>
                         <div className="mt-1 text-xs text-gray-500">
-                          {group.description || "No description"}
+                          {group.description || t("admin.access.noDescription")}
                         </div>
                       </div>
                       <div className="text-right text-xs text-gray-500">
-                        <div>{group.memberCount} members</div>
-                        <div>{group.isSystem ? "system" : "custom"}</div>
+                        <div>{t("admin.access.memberCount", { count: group.memberCount })}</div>
+                        <div>{group.isSystem ? t("admin.access.system") : t("admin.access.custom")}</div>
                       </div>
                     </div>
                   </button>
@@ -327,11 +340,13 @@ export default function AdminAccessPage() {
 
               <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <h3 className="font-semibold text-gray-900">
-                  {selectedGroup ? `Edit ${selectedGroup.name}` : "Create group"}
+                  {selectedGroup
+                    ? t("admin.access.editGroup", { name: selectedGroup.name })
+                    : t("admin.access.createGroup")}
                 </h3>
 
                 <label className="block text-sm text-gray-700">
-                  Name
+                  {t("admin.access.name")}
                   <input
                     value={groupForm.name}
                     onChange={(event) =>
@@ -343,7 +358,7 @@ export default function AdminAccessPage() {
                 </label>
 
                 <label className="block text-sm text-gray-700">
-                  Description
+                  {t("admin.access.descriptionLabel")}
                   <input
                     value={groupForm.description ?? ""}
                     onChange={(event) =>
@@ -355,12 +370,12 @@ export default function AdminAccessPage() {
                 </label>
 
                 <label className="block text-sm text-gray-700">
-                  Permission labels
+                  {t("admin.access.permissionLabels")}
                   <input
                     value={permissionText}
                     onChange={(event) => setPermissionText(event.target.value)}
                     disabled={selectedGroup?.isSystem}
-                    placeholder="wiki.read, wiki.write"
+                    placeholder={t("admin.access.permissionPlaceholder")}
                     className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100"
                   />
                 </label>
@@ -374,7 +389,11 @@ export default function AdminAccessPage() {
                     }
                     className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                   >
-                    {isSavingGroup ? "Saving..." : selectedGroup ? "Update group" : "Create group"}
+                    {isSavingGroup
+                      ? t("admin.access.saving")
+                      : selectedGroup
+                        ? t("admin.access.updateGroup")
+                        : t("admin.access.createGroupAction")}
                   </button>
                   {selectedGroup && !selectedGroup.isSystem ? (
                     <button
@@ -383,7 +402,7 @@ export default function AdminAccessPage() {
                       disabled={isSavingGroup}
                       className="rounded-md border border-red-300 px-4 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"
                     >
-                      Delete
+                      {t("admin.access.delete")}
                     </button>
                   ) : null}
                 </div>
@@ -392,14 +411,14 @@ export default function AdminAccessPage() {
 
             <section className="rounded-xl border border-gray-200 bg-white p-6">
               <div className="mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Memberships</h2>
+                <h2 className="text-xl font-semibold text-gray-900">{t("admin.access.membershipsTitle")}</h2>
                 <p className="mt-1 text-sm text-gray-600">
-                  Assign users to groups without leaving the admin shell.
+                  {t("admin.access.membershipsDescription")}
                 </p>
               </div>
 
               <label className="mb-4 block text-sm text-gray-700">
-                User
+                {t("admin.access.user")}
                 <select
                   value={selectedUserId ?? ""}
                   onChange={(event) => setSelectedUserId(event.target.value || null)}
@@ -419,7 +438,7 @@ export default function AdminAccessPage() {
                     <div className="font-medium text-gray-900">{selectedUser.name}</div>
                     <div>{selectedUser.email}</div>
                     <div className="mt-1 text-xs uppercase tracking-wide text-gray-500">
-                      role: {selectedUser.role}
+                      {t("admin.access.role", { role: selectedUser.role })}
                     </div>
                   </div>
 
@@ -431,7 +450,9 @@ export default function AdminAccessPage() {
                       >
                         <div>
                           <div className="font-medium text-gray-900">{group.name}</div>
-                          <div className="text-xs text-gray-500">{group.description || "No description"}</div>
+                          <div className="text-xs text-gray-500">
+                            {group.description || t("admin.access.noDescription")}
+                          </div>
                         </div>
                         <input
                           type="checkbox"
@@ -454,26 +475,28 @@ export default function AdminAccessPage() {
                     disabled={isSavingMemberships}
                     className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                   >
-                    {isSavingMemberships ? "Saving..." : "Save memberships"}
+                    {isSavingMemberships
+                      ? t("admin.access.saving")
+                      : t("admin.access.saveMemberships")}
                   </button>
                 </div>
               ) : (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">
-                  No users available.
+                  {t("admin.access.noUsers")}
                 </div>
               )}
             </section>
 
             <section className="rounded-xl border border-gray-200 bg-white p-6">
               <div className="mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Page Permissions</h2>
+                <h2 className="text-xl font-semibold text-gray-900">{t("admin.access.pagePermissionsTitle")}</h2>
                 <p className="mt-1 text-sm text-gray-600">
-                  Replace page-level access rules and inheritance defaults.
+                  {t("admin.access.pagePermissionsDescription")}
                 </p>
               </div>
 
               <label className="mb-4 block text-sm text-gray-700">
-                Wiki page
+                {t("admin.access.wikiPage")}
                 <select
                   value={selectedPageId ?? ""}
                   onChange={(event) => setSelectedPageId(event.target.value || null)}
@@ -491,7 +514,9 @@ export default function AdminAccessPage() {
                 <div className="space-y-4">
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
                     <div className="font-medium text-gray-900">{selectedPage.title}</div>
-                    <div className="mt-1 text-xs text-gray-500">page id: {selectedPage.id}</div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      {t("admin.access.pageId", { id: selectedPage.id })}
+                    </div>
                   </div>
 
                   <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700">
@@ -500,7 +525,7 @@ export default function AdminAccessPage() {
                       checked={inheritFromParent}
                       onChange={(event) => setInheritFromParent(event.target.checked)}
                     />
-                    Inherit permissions from parent
+                    {t("admin.access.inherit")}
                   </label>
 
                   <div className="space-y-2">
@@ -520,7 +545,7 @@ export default function AdminAccessPage() {
                             <div>
                               <div className="font-medium text-gray-900">{group.name}</div>
                               <div className="text-xs text-gray-500">
-                                {group.description || "No description"}
+                                {group.description || t("admin.access.noDescription")}
                               </div>
                             </div>
                             <input
@@ -554,7 +579,7 @@ export default function AdminAccessPage() {
                                   )
                                 }
                               />
-                              Read
+                              {t("admin.access.read")}
                             </label>
                             <label className="flex items-center gap-2 rounded border border-gray-200 px-2 py-2">
                               <input
@@ -571,7 +596,7 @@ export default function AdminAccessPage() {
                                   )
                                 }
                               />
-                              Write
+                              {t("admin.access.write")}
                             </label>
                             <label className="flex items-center gap-2 rounded border border-gray-200 px-2 py-2">
                               <input
@@ -588,7 +613,7 @@ export default function AdminAccessPage() {
                                   )
                                 }
                               />
-                              Delete
+                              {t("admin.access.delete")}
                             </label>
                           </div>
                         </div>
@@ -602,12 +627,14 @@ export default function AdminAccessPage() {
                     disabled={isSavingPermissions}
                     className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
                   >
-                    {isSavingPermissions ? "Saving..." : "Save page permissions"}
+                    {isSavingPermissions
+                      ? t("admin.access.saving")
+                      : t("admin.access.savePagePermissions")}
                   </button>
                 </div>
               ) : (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">
-                  No wiki pages available.
+                  {t("admin.access.noPages")}
                 </div>
               )}
             </section>

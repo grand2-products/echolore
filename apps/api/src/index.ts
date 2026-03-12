@@ -4,8 +4,10 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import { writeAuditLog } from "./lib/audit.js";
-import { type AppEnv, authGuard, requireRole } from "./lib/auth.js";
+import { jsonError } from "./lib/api-error.js";
+import { type AppEnv, authGuard, passwordCsrfGuard, requireRole } from "./lib/auth.js";
 import { adminRoutes } from "./routes/admin.js";
+import { authRoutes } from "./routes/auth.js";
 import { filesRoutes } from "./routes/files.js";
 import { internalRoomAiRoutes } from "./routes/internal-room-ai.js";
 import { livekitRoutes } from "./routes/livekit.js";
@@ -32,8 +34,10 @@ app.use(
 app.get("/", (c) => c.json({ message: `${appTitle} API`, version: "0.0.1" }));
 app.get("/health", (c) => c.json({ status: "ok", timestamp: new Date().toISOString() }));
 app.route("/internal/room-ai", internalRoomAiRoutes);
+app.route("/api/auth", authRoutes);
 
 app.use("/api/*", authGuard);
+app.use("/api/*", passwordCsrfGuard);
 app.use("/api/admin/*", requireRole("admin"));
 app.use("/api/admin/*", async (c, next) => {
   const method = c.req.method.toUpperCase();
@@ -53,7 +57,7 @@ app.use("/api/admin/*", async (c, next) => {
   await next();
 });
 
-app.get("/api/auth/me", (c) => c.json({ user: c.get("user") ?? null }));
+app.get("/api/auth/me", (c) => c.json({ user: c.get("user") ?? null, authMode: c.get("authMode") ?? null }));
 
 app.route("/api/wiki", wikiRoutes);
 app.route("/api/meetings", meetingsRoutes);
@@ -63,8 +67,10 @@ app.route("/api/livekit", livekitRoutes);
 app.route("/api/admin", adminRoutes);
 app.route("/api/admin/metrics", metricsRoutes);
 
-app.notFound((c) => c.json({ error: "Not Found" }, 404));
-app.onError((err, c) => c.json({ error: "Internal Server Error", message: err.message }, 500));
+app.notFound((c) => jsonError(c, 404, "NOT_FOUND", "Not Found"));
+app.onError((err, c) =>
+  jsonError(c, 500, "INTERNAL_SERVER_ERROR", "Internal Server Error", err.message)
+);
 
 const port = Number(process.env.PORT) || 3001;
 console.log(`Server is running on http://localhost:${port}`);

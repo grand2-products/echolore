@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { WikiEditor } from "@/components/wiki";
-import { PageTree, type PageNode } from "@/components/wiki";
+import { WikiEditor, WikiSidebar, type PageNode } from "@/components/wiki";
 import { wikiApi, type Block, type Page } from "@/lib/api";
+import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useFormatters, useT } from "@/lib/i18n";
 import { blocksToHtml, syncPageBlocks } from "@/lib/wiki-blocks";
 
 function buildPageTree(flatPages: Page[]): PageNode[] {
@@ -45,6 +46,9 @@ function buildPageTree(flatPages: Page[]): PageNode[] {
 export default function WikiDetailPage() {
   const params = useParams();
   const pageId = params.id as string;
+  const t = useT();
+  const getApiErrorMessage = useApiErrorMessage();
+  const { dateTime } = useFormatters();
 
   const [isEditing, setIsEditing] = useState(false);
   const [pageTitle, setPageTitle] = useState("");
@@ -71,7 +75,7 @@ export default function WikiDetailPage() {
         setPageTitle(pageRes.page.title);
         setContent(blocksToHtml(pageRes.page.title, pageRes.blocks));
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load the page.");
+        setError(getApiErrorMessage(loadError, t("wiki.detail.loadError")));
       } finally {
         setIsLoading(false);
       }
@@ -84,6 +88,14 @@ export default function WikiDetailPage() {
 
   const treePages = useMemo(() => buildPageTree(pages), [pages]);
 
+  const resetDraft = () => {
+    if (!currentPage) return;
+    setPageTitle(currentPage.title);
+    setContent(blocksToHtml(currentPage.title, blocks));
+    setSaveError(null);
+    setIsEditing(false);
+  };
+
   const handleSave = async () => {
     if (!currentPage) return;
 
@@ -94,11 +106,12 @@ export default function WikiDetailPage() {
       await syncPageBlocks(currentPage.id, blocks, content);
       const pageRes = await wikiApi.getPage(currentPage.id);
       setBlocks(pageRes.blocks);
-      setContent(blocksToHtml(pageTitle, pageRes.blocks));
-      setCurrentPage({ ...pageRes.page, title: pageTitle });
+      setPageTitle(pageRes.page.title);
+      setContent(blocksToHtml(pageRes.page.title, pageRes.blocks));
+      setCurrentPage(pageRes.page);
       setIsEditing(false);
     } catch (saveErr) {
-      setSaveError(saveErr instanceof Error ? saveErr.message : "Failed to save the page.");
+      setSaveError(getApiErrorMessage(saveErr, t("wiki.detail.saveError")));
     } finally {
       setIsSaving(false);
     }
@@ -107,7 +120,7 @@ export default function WikiDetailPage() {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-gray-600">Loading page...</p>
+        <p className="text-gray-600">{t("wiki.detail.loading")}</p>
       </div>
     );
   }
@@ -116,10 +129,10 @@ export default function WikiDetailPage() {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
-          <h1 className="mb-4 text-2xl font-bold text-gray-900">Page not found</h1>
-          <p className="mb-4 text-gray-600">{error ?? "The requested page is unavailable."}</p>
+          <h1 className="mb-4 text-2xl font-bold text-gray-900">{t("wiki.detail.notFoundTitle")}</h1>
+          <p className="mb-4 text-gray-600">{error ?? t("wiki.detail.notFoundDescription")}</p>
           <Link href="/wiki" className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-            Back to Wiki
+            {t("wiki.detail.backToWiki")}
           </Link>
         </div>
       </div>
@@ -127,19 +140,8 @@ export default function WikiDetailPage() {
   }
 
   return (
-    <div className="flex h-full">
-      <div className="w-64 border-r border-gray-200 bg-white p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-500">Pages</h2>
-          <Link
-            href="/wiki/new"
-            className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700"
-          >
-            + New
-          </Link>
-        </div>
-        <PageTree pages={treePages} activeId={pageId} />
-      </div>
+    <div className="flex h-full flex-col md:flex-row">
+      <WikiSidebar pages={treePages} activeId={pageId} />
 
       <div className="flex-1 overflow-auto">
         <div className="mx-auto max-w-4xl p-8">
@@ -156,7 +158,7 @@ export default function WikiDetailPage() {
                 <h1 className="text-3xl font-bold text-gray-900">{pageTitle}</h1>
               )}
               <p className="mt-1 text-sm text-gray-500">
-                Updated: {new Date(currentPage.updatedAt).toLocaleString("ja-JP")}
+                {t("wiki.detail.updatedAt", { value: dateTime(currentPage.updatedAt) })}
               </p>
             </div>
             <div className="flex gap-2">
@@ -164,10 +166,10 @@ export default function WikiDetailPage() {
                 <>
                   <button
                     type="button"
-                    onClick={() => setIsEditing(false)}
+                    onClick={resetDraft}
                     className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
                   >
-                    Cancel
+                    {t("wiki.detail.cancel")}
                   </button>
                   <button
                     type="button"
@@ -175,7 +177,7 @@ export default function WikiDetailPage() {
                     disabled={isSaving}
                     className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
                   >
-                    {isSaving ? "Saving..." : "Save"}
+                    {isSaving ? t("wiki.detail.saving") : t("wiki.detail.save")}
                   </button>
                 </>
               ) : (
@@ -184,7 +186,7 @@ export default function WikiDetailPage() {
                   onClick={() => setIsEditing(true)}
                   className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
                 >
-                  Edit
+                  {t("wiki.detail.edit")}
                 </button>
               )}
             </div>

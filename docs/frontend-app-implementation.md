@@ -1,6 +1,6 @@
 # Frontend App Implementation
 
-Last updated: 2026-03-11
+Last updated: 2026-03-12
 
 This document describes the currently implemented frontend app structure in `apps/web`.
 
@@ -25,6 +25,7 @@ This document describes the currently implemented frontend app structure in `app
 - `/admin/access`: admin access management
 - `/admin/kpi`: admin KPI screen
 - `/admin/agents`: admin AI agent management
+- `/settings`: account summary and active session management
 
 ## Current Frontend Structure
 - `apps/web/app`: App Router screens
@@ -36,7 +37,7 @@ This document describes the currently implemented frontend app structure in `app
 ## Implemented Integration Pattern
 - frontend calls backend APIs through `fetchApi`
 - cookie-based session transport is enabled with `credentials: "include"`
-- wiki, meetings, and search screens use the shared API client
+- wiki, meetings, search, and settings screens use the shared API client
 
 ## Known Gaps
 - frontend main layout session state is derived from `/api/auth/me`; deeper screen-level user hydration is still partial

@@ -4,7 +4,7 @@
 - Repository: `corp-internal`
 - Purpose: internal collaboration platform for grand2 Products
 - Main domains:
-  - Google SSO based access
+  - Google SSO and email/password access with email-based identity reconciliation
   - block-based Wiki
   - Meetings with LiveKit
   - Room AI flow from transcript to summary to Wiki
@@ -24,7 +24,7 @@
 - Database: PostgreSQL
 - Realtime: LiveKit
 - Cache/broker: Valkey
-- Auth gateway: OAuth2 Proxy
+- Auth gateway: OAuth2 Proxy for browser Google SSO, plus API-issued access/refresh tokens for email/password and mobile Google token exchange
 - Infra baseline: GCE + GCS + Docker Compose
 - Network baseline: explicit per-environment VPC/subnet/firewall in Terraform
 

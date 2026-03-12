@@ -8,6 +8,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
 import { Toolbar } from "./Toolbar";
 import { filesApi, getWikiFileDownloadUrl, wikiApi, type Block } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 interface WikiEditorProps {
   content?: string;
@@ -24,10 +25,11 @@ function isImageFile(file: File) {
 export function WikiEditor({
   content = "",
   onChange,
-  placeholder = "Write the page content here...",
+  placeholder,
   editable = true,
   pageId,
 }: WikiEditorProps) {
+  const t = useT();
   const [savedBlocks, setSavedBlocks] = useState<Block[]>([]);
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
@@ -36,6 +38,8 @@ export function WikiEditor({
   const [pickerMode, setPickerMode] = useState<"image" | "file">("file");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const dragDepthRef = useRef(0);
+
+  const resolvedPlaceholder = placeholder ?? t("wiki.editor.defaultPlaceholder");
 
   useEffect(() => {
     const fetchBlocks = async () => {
@@ -59,7 +63,7 @@ export function WikiEditor({
         openOnClick: true,
         HTMLAttributes: { class: "text-blue-600 underline hover:text-blue-800" },
       }),
-      Placeholder.configure({ placeholder }),
+      Placeholder.configure({ placeholder: resolvedPlaceholder }),
     ],
     content,
     editable,
@@ -90,7 +94,7 @@ export function WikiEditor({
         return true;
       },
     },
-  });
+  }, [content, editable, onChange, resolvedPlaceholder]);
 
   const createBlock = async (type: string, blockContent?: string, properties?: Record<string, unknown>) => {
     if (!pageId) return;
@@ -131,7 +135,7 @@ export function WikiEditor({
       });
     } catch (error) {
       console.error("Failed to insert image", error);
-      setAssetError(error instanceof Error ? error.message : "Failed to insert image.");
+      setAssetError(t("wiki.editor.imageUploadError"));
     } finally {
       setIsUploadingAsset(false);
     }
@@ -155,7 +159,7 @@ export function WikiEditor({
       });
     } catch (error) {
       console.error("Failed to attach file", error);
-      setAssetError(error instanceof Error ? error.message : "Failed to attach file.");
+      setAssetError(t("wiki.editor.fileUploadError"));
     } finally {
       setIsUploadingAsset(false);
     }
@@ -282,7 +286,7 @@ export function WikiEditor({
             }}
             className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
           >
-            Add heading
+            {t("wiki.editor.addHeading")}
           </button>
           <button
             type="button"
@@ -292,14 +296,14 @@ export function WikiEditor({
             }}
             className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
           >
-            Add bullet list
+            {t("wiki.editor.addBulletList")}
           </button>
           <button
             type="button"
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
             className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
           >
-            Add numbered list
+            {t("wiki.editor.addNumberedList")}
           </button>
           <button
             type="button"
@@ -309,7 +313,7 @@ export function WikiEditor({
             }}
             className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
           >
-            Insert image
+            {t("wiki.editor.insertImage")}
           </button>
           <button
             type="button"
@@ -319,7 +323,7 @@ export function WikiEditor({
             }}
             className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
           >
-            Add code block
+            {t("wiki.editor.addCodeBlock")}
           </button>
           <button
             type="button"
@@ -329,7 +333,7 @@ export function WikiEditor({
             }}
             className="rounded border px-2 py-1 text-sm hover:bg-gray-50"
           >
-            Attach file
+            {t("wiki.editor.attachFile")}
           </button>
           <input
             ref={fileInputRef}
@@ -366,12 +370,12 @@ export function WikiEditor({
       >
         {editable && isDraggingImage ? (
           <div className="pointer-events-none absolute inset-3 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-blue-400 bg-blue-50/90 text-sm font-medium text-blue-700">
-            Drop the image here to upload and insert it.
+            {t("wiki.editor.dragImage")}
           </div>
         ) : null}
         {editable && isUploadingAsset ? (
           <div className="pointer-events-none absolute right-4 top-4 z-10 rounded-full bg-slate-900 px-3 py-1 text-xs text-white">
-            Uploading asset...
+            {t("wiki.editor.uploadingAsset")}
           </div>
         ) : null}
         <EditorContent editor={editor} />
@@ -384,7 +388,7 @@ export function WikiEditor({
       {editable && pageId && savedBlocks.length > 0 ? (
         <div className="border-t border-gray-200 p-3">
           <p className="mb-2 text-xs text-gray-500">
-            Saved blocks. Drag to reorder, or use the buttons for precise moves.
+            {t("wiki.editor.savedBlocksHint")}
           </p>
           <div className="space-y-1">
             {[...savedBlocks]
@@ -401,7 +405,7 @@ export function WikiEditor({
                   className="flex items-center justify-between rounded bg-gray-50 px-2 py-1 text-sm"
                 >
                   <span className="truncate text-gray-700">
-                    {block.type}: {block.content ?? "(empty)"}
+                    {block.type}: {block.content ?? t("wiki.editor.emptyBlock")}
                   </span>
                   <div className="ml-3 flex items-center gap-1">
                     <button
@@ -410,7 +414,7 @@ export function WikiEditor({
                       disabled={index === 0}
                       className="rounded border px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      Up
+                      {t("wiki.editor.moveUp")}
                     </button>
                     <button
                       type="button"
@@ -418,14 +422,14 @@ export function WikiEditor({
                       disabled={index === arr.length - 1}
                       className="rounded border px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      Down
+                      {t("wiki.editor.moveDown")}
                     </button>
                     <button
                       type="button"
                       onClick={() => void deleteSavedBlock(block.id)}
                       className="text-xs text-red-600 hover:text-red-700"
                     >
-                      Delete
+                      {t("wiki.editor.delete")}
                     </button>
                   </div>
                 </div>

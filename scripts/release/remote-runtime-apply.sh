@@ -19,10 +19,6 @@ if [[ -f /tmp/docker-compose.yml ]]; then
   sudo mv /tmp/docker-compose.yml "${RUNTIME_DIR}/docker-compose.yml"
 fi
 
-if [[ -f /tmp/livekit.yaml ]]; then
-  sudo mv /tmp/livekit.yaml "${RUNTIME_DIR}/livekit.yaml"
-fi
-
 sudo mv "${STAGED_ENV_PATH}" "${RUNTIME_DIR}/.env"
 sudo chown -R "$USER:$USER" "${RUNTIME_DIR}"
 

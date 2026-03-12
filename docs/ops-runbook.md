@@ -81,7 +81,7 @@ Last updated: 2026-03-11
 ### Local bootstrap preflight
 1. Run `pnpm bootstrap:local`
 2. Confirm local API and web images build successfully
-3. Confirm the script stages only `docker-compose.bootstrap-check.yml`, `livekit.yaml`, and `.env` into a temp directory
+3. Confirm the script stages only `docker-compose.bootstrap-check.yml` and `.env` into a temp directory
 4. Confirm `docker compose config`, `pull`, `up -d --wait`, and in-container health checks all succeed
 5. Use this as a repo-level regression check before running `Bootstrap Validate` against `dev` or `prod`
 

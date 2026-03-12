@@ -1,6 +1,8 @@
 "use client";
 
 import { type AgentDefinition, type CreateAgentRequest, adminApi } from "@/lib/api";
+import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useFormatters, useT } from "@/lib/i18n";
 import { useStableEvent } from "@/lib/use-stable-event";
 import { useEffect, useState } from "react";
 
@@ -15,6 +17,9 @@ const emptyForm: CreateAgentRequest = {
 };
 
 export default function AdminAgentsPage() {
+  const t = useT();
+  const formatters = useFormatters();
+  const getApiErrorMessage = useApiErrorMessage();
   const [agents, setAgents] = useState<AgentDefinition[]>([]);
   const [form, setForm] = useState<CreateAgentRequest>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -29,7 +34,7 @@ export default function AdminAgentsPage() {
       const response = await adminApi.listAgents();
       setAgents(response.agents);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load agents");
+      setError(getApiErrorMessage(loadError, t("admin.agents.loadError")));
     } finally {
       setIsLoading(false);
     }
@@ -52,7 +57,7 @@ export default function AdminAgentsPage() {
       setEditingId(null);
       await loadAgents();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to save agent");
+      setError(getApiErrorMessage(saveError, t("admin.agents.saveError")));
     } finally {
       setIsSaving(false);
     }
@@ -63,9 +68,9 @@ export default function AdminAgentsPage() {
       <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <section className="rounded-xl border border-gray-200 bg-white p-6">
           <div className="mb-4">
-            <h1 className="text-3xl font-bold text-gray-900">AI Agents</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{t("admin.agents.title")}</h1>
             <p className="mt-1 text-sm text-gray-600">
-              Define admin-managed AI employees for explicit meeting invocation.
+              {t("admin.agents.description")}
             </p>
           </div>
 
@@ -77,7 +82,7 @@ export default function AdminAgentsPage() {
 
           {isLoading ? (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center text-gray-500">
-              Loading agents...
+              {t("admin.agents.loading")}
             </div>
           ) : (
             <div className="space-y-3">
@@ -103,7 +108,7 @@ export default function AdminAgentsPage() {
                     <div>
                       <div className="font-semibold text-gray-900">{agent.name}</div>
                       <div className="mt-1 text-sm text-gray-600">
-                        {agent.description || "No description"}
+                        {agent.description || t("admin.agents.noDescription")}
                       </div>
                     </div>
                     <span
@@ -113,11 +118,14 @@ export default function AdminAgentsPage() {
                           : "bg-gray-100 text-gray-600"
                       }`}
                     >
-                      {agent.isActive ? "active" : "inactive"}
+                      {agent.isActive ? t("admin.agents.active") : t("admin.agents.inactive")}
                     </span>
                   </div>
-                  <div className="mt-3 text-xs text-gray-500">
-                    style: {agent.interventionStyle} / provider: {agent.defaultProvider}
+                    <div className="mt-3 text-xs text-gray-500">
+                      {t("admin.agents.meta", {
+                      style: formatters.interventionStyle(agent.interventionStyle),
+                      provider: formatters.provider(agent.defaultProvider),
+                    })}
                   </div>
                 </button>
               ))}
@@ -128,7 +136,7 @@ export default function AdminAgentsPage() {
         <section className="rounded-xl border border-gray-200 bg-white p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">
-              {editingId ? "Edit agent" : "Create agent"}
+              {editingId ? t("admin.agents.edit") : t("admin.agents.create")}
             </h2>
             {editingId ? (
               <button
@@ -139,14 +147,14 @@ export default function AdminAgentsPage() {
                 }}
                 className="text-sm text-gray-500 hover:text-gray-800"
               >
-                Reset
+                {t("admin.agents.reset")}
               </button>
             ) : null}
           </div>
 
           <div className="space-y-4">
             <label className="block text-sm text-gray-700">
-              Name
+              {t("admin.agents.name")}
               <input
                 value={form.name}
                 onChange={(event) =>
@@ -157,7 +165,7 @@ export default function AdminAgentsPage() {
             </label>
 
             <label className="block text-sm text-gray-700">
-              Description
+              {t("admin.agents.descriptionLabel")}
               <input
                 value={form.description ?? ""}
                 onChange={(event) =>
@@ -168,7 +176,7 @@ export default function AdminAgentsPage() {
             </label>
 
             <label className="block text-sm text-gray-700">
-              Intervention style
+              {t("admin.agents.interventionStyle")}
               <input
                 value={form.interventionStyle}
                 onChange={(event) =>
@@ -179,7 +187,7 @@ export default function AdminAgentsPage() {
             </label>
 
             <label className="block text-sm text-gray-700">
-              Voice profile
+              {t("admin.agents.voiceProfile")}
               <input
                 value={form.voiceProfile ?? ""}
                 onChange={(event) =>
@@ -190,7 +198,7 @@ export default function AdminAgentsPage() {
             </label>
 
             <label className="block text-sm text-gray-700">
-              System prompt
+              {t("admin.agents.systemPrompt")}
               <textarea
                 value={form.systemPrompt}
                 onChange={(event) =>
@@ -209,7 +217,7 @@ export default function AdminAgentsPage() {
                   setForm((current) => ({ ...current, isActive: event.target.checked }))
                 }
               />
-              Active
+              {t("admin.agents.activeLabel")}
             </label>
 
             <button
@@ -218,7 +226,11 @@ export default function AdminAgentsPage() {
               disabled={isSaving || !form.name.trim() || !form.systemPrompt.trim()}
               className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
             >
-              {isSaving ? "Saving..." : editingId ? "Update agent" : "Create agent"}
+              {isSaving
+                ? t("admin.agents.saving")
+                : editingId
+                  ? t("admin.agents.updateAction")
+                  : t("admin.agents.createAction")}
             </button>
           </div>
         </section>

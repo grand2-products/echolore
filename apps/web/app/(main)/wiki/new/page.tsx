@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { WikiEditor } from "@/components/wiki";
-import { PageTree, type PageNode } from "@/components/wiki";
+import { WikiEditor, WikiSidebar, type PageNode } from "@/components/wiki";
 import { wikiApi, type Page } from "@/lib/api";
+import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useT } from "@/lib/i18n";
 import { syncPageBlocks } from "@/lib/wiki-blocks";
 
 function buildPageTree(flatPages: Page[]): PageNode[] {
@@ -44,6 +45,8 @@ function buildPageTree(flatPages: Page[]): PageNode[] {
 
 export default function NewWikiPage() {
   const router = useRouter();
+  const t = useT();
+  const getApiErrorMessage = useApiErrorMessage();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,7 +70,7 @@ export default function NewWikiPage() {
 
   const handleSave = async () => {
     if (!title.trim()) {
-      setError("Enter a title before saving.");
+      setError(t("wiki.newPage.titleRequired"));
       return;
     }
 
@@ -79,43 +82,32 @@ export default function NewWikiPage() {
       await syncPageBlocks(created.page.id, [], content);
       router.push(`/wiki/${created.page.id}`);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Failed to create the page.");
+      setError(getApiErrorMessage(saveError, t("wiki.newPage.createError")));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="flex h-full">
-      <div className="w-64 border-r border-gray-200 bg-white p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-500">Pages</h2>
-          <Link
-            href="/wiki/new"
-            className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700"
-          >
-            + New
-          </Link>
-        </div>
-        <PageTree pages={treePages} />
-      </div>
+    <div className="flex h-full flex-col md:flex-row">
+      <WikiSidebar pages={treePages} />
 
       <div className="flex-1 overflow-auto">
         <div className="mx-auto max-w-4xl p-8">
           <div className="mb-6">
             <div className="mb-4 flex items-center gap-2 text-sm text-gray-500">
               <Link href="/wiki" className="hover:text-blue-600">
-                Wiki
+                {t("wiki.list.title")}
               </Link>
               <span>/</span>
-              <span>New Page</span>
+              <span>{t("wiki.newPage.breadcrumb")}</span>
             </div>
 
             <input
               type="text"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Page title"
+              placeholder={t("wiki.newPage.titlePlaceholder")}
               className="w-full border-b-2 border-gray-200 pb-2 text-3xl font-bold text-gray-900 focus:border-blue-500 focus:outline-none"
             />
           </div>
@@ -130,7 +122,7 @@ export default function NewWikiPage() {
             <WikiEditor
               content={content}
               onChange={setContent}
-              placeholder="Start drafting the page body..."
+              placeholder={t("wiki.newPage.editorPlaceholder")}
               editable={true}
             />
           </div>
@@ -140,7 +132,7 @@ export default function NewWikiPage() {
               href="/wiki"
               className="rounded-lg border border-gray-300 px-6 py-2 text-gray-700 hover:bg-gray-50"
             >
-              Cancel
+              {t("wiki.newPage.cancel")}
             </Link>
             <button
               type="button"
@@ -148,7 +140,7 @@ export default function NewWikiPage() {
               disabled={isSubmitting || !title.trim()}
               className="rounded-lg bg-blue-600 px-6 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isSubmitting ? "Saving..." : "Save"}
+              {isSubmitting ? t("wiki.newPage.saving") : t("wiki.newPage.save")}
             </button>
           </div>
         </div>

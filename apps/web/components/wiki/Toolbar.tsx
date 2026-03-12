@@ -1,5 +1,6 @@
 "use client";
 
+import { useT } from "@/lib/i18n";
 import type { Editor } from "@tiptap/react";
 
 interface ToolbarProps {
@@ -36,12 +37,14 @@ function Divider() {
 }
 
 export function Toolbar({ editor, onAttachFile }: ToolbarProps) {
+  const t = useT();
+
   return (
     <div className="flex flex-wrap items-center gap-1 border-b border-gray-200 p-2">
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         isActive={editor.isActive("bold")}
-        title="Bold (Ctrl+B)"
+        title={t("wiki.toolbar.bold")}
       >
         <span className="text-sm font-bold">B</span>
       </ToolbarButton>
@@ -49,7 +52,7 @@ export function Toolbar({ editor, onAttachFile }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleItalic().run()}
         isActive={editor.isActive("italic")}
-        title="Italic (Ctrl+I)"
+        title={t("wiki.toolbar.italic")}
       >
         <span className="text-sm italic">I</span>
       </ToolbarButton>
@@ -57,7 +60,7 @@ export function Toolbar({ editor, onAttachFile }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleStrike().run()}
         isActive={editor.isActive("strike")}
-        title="Strikethrough"
+        title={t("wiki.toolbar.strike")}
       >
         <span className="text-sm line-through">S</span>
       </ToolbarButton>
@@ -67,7 +70,7 @@ export function Toolbar({ editor, onAttachFile }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
         isActive={editor.isActive("heading", { level: 1 })}
-        title="Heading 1"
+        title={t("wiki.toolbar.heading1")}
       >
         <span className="text-sm font-bold">H1</span>
       </ToolbarButton>
@@ -75,7 +78,7 @@ export function Toolbar({ editor, onAttachFile }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
         isActive={editor.isActive("heading", { level: 2 })}
-        title="Heading 2"
+        title={t("wiki.toolbar.heading2")}
       >
         <span className="text-sm font-bold">H2</span>
       </ToolbarButton>
@@ -83,7 +86,7 @@ export function Toolbar({ editor, onAttachFile }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
         isActive={editor.isActive("heading", { level: 3 })}
-        title="Heading 3"
+        title={t("wiki.toolbar.heading3")}
       >
         <span className="text-sm font-bold">H3</span>
       </ToolbarButton>
@@ -93,15 +96,15 @@ export function Toolbar({ editor, onAttachFile }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBulletList().run()}
         isActive={editor.isActive("bulletList")}
-        title="Bulleted list"
+        title={t("wiki.toolbar.bulletList")}
       >
-        <span className="text-sm">List</span>
+        <span className="text-sm">{t("wiki.toolbar.bulletList")}</span>
       </ToolbarButton>
 
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
         isActive={editor.isActive("orderedList")}
-        title="Numbered list"
+        title={t("wiki.toolbar.orderedList")}
       >
         <span className="text-sm">1.</span>
       </ToolbarButton>
@@ -111,7 +114,7 @@ export function Toolbar({ editor, onAttachFile }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
         isActive={editor.isActive("blockquote")}
-        title="Quote"
+        title={t("wiki.toolbar.quote")}
       >
         <span className="text-sm">"</span>
       </ToolbarButton>
@@ -119,7 +122,7 @@ export function Toolbar({ editor, onAttachFile }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
         isActive={editor.isActive("codeBlock")}
-        title="Code block"
+        title={t("wiki.toolbar.codeBlock")}
       >
         <span className="text-sm">{"</>"}</span>
       </ToolbarButton>
@@ -128,27 +131,27 @@ export function Toolbar({ editor, onAttachFile }: ToolbarProps) {
 
       <ToolbarButton
         onClick={() => {
-          const url = window.prompt("Enter a URL:");
+          const url = window.prompt(t("wiki.toolbar.promptLink"));
           if (url) editor.chain().focus().setLink({ href: url }).run();
         }}
         isActive={editor.isActive("link")}
-        title="Link"
+        title={t("wiki.toolbar.link")}
       >
-        <span className="text-sm">Link</span>
+        <span className="text-sm">{t("wiki.toolbar.linkLabel")}</span>
       </ToolbarButton>
 
       <ToolbarButton
         onClick={() => {
-          const url = window.prompt("Enter an image URL:");
+          const url = window.prompt(t("wiki.toolbar.promptImage"));
           if (url) editor.chain().focus().setImage({ src: url }).run();
         }}
-        title="Image"
+        title={t("wiki.toolbar.image")}
       >
-        <span className="text-sm">Img</span>
+        <span className="text-sm">{t("wiki.toolbar.imageLabel")}</span>
       </ToolbarButton>
 
-      <ToolbarButton onClick={() => onAttachFile?.()} title="Attach file">
-        <span className="text-sm">File</span>
+      <ToolbarButton onClick={() => onAttachFile?.()} title={t("wiki.toolbar.attachFile")}>
+        <span className="text-sm">{t("wiki.toolbar.fileLabel")}</span>
       </ToolbarButton>
 
       <Divider />
@@ -156,17 +159,17 @@ export function Toolbar({ editor, onAttachFile }: ToolbarProps) {
       <ToolbarButton
         onClick={() => editor.chain().focus().undo().run()}
         disabled={!editor.can().undo()}
-        title="Undo (Ctrl+Z)"
+        title={t("wiki.toolbar.undo")}
       >
-        <span className="text-sm">Undo</span>
+        <span className="text-sm">{t("wiki.toolbar.undoLabel")}</span>
       </ToolbarButton>
 
       <ToolbarButton
         onClick={() => editor.chain().focus().redo().run()}
         disabled={!editor.can().redo()}
-        title="Redo (Ctrl+Y)"
+        title={t("wiki.toolbar.redo")}
       >
-        <span className="text-sm">Redo</span>
+        <span className="text-sm">{t("wiki.toolbar.redoLabel")}</span>
       </ToolbarButton>
     </div>
   );

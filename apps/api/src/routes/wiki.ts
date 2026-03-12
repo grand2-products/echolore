@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { NewBlock } from "../db/schema.js";
 import { writeAuditLog } from "../lib/audit.js";
+import { jsonError } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import { authorizePageResource } from "../policies/authorization-policy.js";
 import { getFileById } from "../repositories/file/file-repository.js";
@@ -78,7 +79,7 @@ wikiRoutes.get("/", async (c) => {
     return c.json({ pages: visiblePages });
   } catch (error) {
     console.error("Error fetching pages:", error);
-    return c.json({ error: "Failed to fetch pages" }, 500);
+    return jsonError(c, 500, "WIKI_PAGES_LIST_FAILED", "Failed to fetch pages");
   }
 });
 
@@ -113,7 +114,7 @@ wikiRoutes.get("/search", async (c) => {
     return c.json(result);
   } catch (error) {
     console.error("Error searching pages:", error);
-    return c.json({ error: "Failed to search pages" }, 500);
+    return jsonError(c, 500, "WIKI_SEARCH_FAILED", "Failed to search pages");
   }
 });
 
@@ -123,27 +124,27 @@ wikiRoutes.get("/:id/files/:fileId/download", async (c) => {
   try {
     const page = await getPageById(id);
     if (!page) {
-      return c.json({ error: "Page not found" }, 404);
+      return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
     }
 
     const authz = await authorizePageResource(c, id, page.authorId, "read");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
     }
 
     const [pageBlocks, fileRecord] = await Promise.all([getPageBlocks(id), getFileById(fileId)]);
 
     if (!pageHasFileAttachment(pageBlocks, fileId)) {
-      return c.json({ error: "File not attached to page" }, 404);
+      return jsonError(c, 404, "WIKI_FILE_NOT_ATTACHED", "File not attached to page");
     }
 
     if (!fileRecord) {
-      return c.json({ error: "File not found" }, 404);
+      return jsonError(c, 404, "WIKI_FILE_NOT_FOUND", "File not found");
     }
 
     const gcsPath = getGcsObjectPath(fileRecord.gcsPath);
     if (!gcsPath) {
-      return c.json({ error: "Invalid file path" }, 500);
+      return jsonError(c, 500, "WIKI_FILE_PATH_INVALID", "Invalid file path");
     }
 
     const [signedUrl] = await bucket.file(gcsPath).getSignedUrl({
@@ -154,7 +155,7 @@ wikiRoutes.get("/:id/files/:fileId/download", async (c) => {
     return c.redirect(signedUrl, 302);
   } catch (error) {
     console.error("Error resolving wiki file download:", error);
-    return c.json({ error: "Failed to resolve wiki file download" }, 500);
+    return jsonError(c, 500, "WIKI_FILE_DOWNLOAD_RESOLVE_FAILED", "Failed to resolve wiki file download");
   }
 });
 
@@ -165,12 +166,12 @@ wikiRoutes.get("/:id", async (c) => {
   try {
     const page = await getPageById(id);
     if (!page) {
-      return c.json({ error: "Page not found" }, 404);
+      return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
     }
 
     const authz = await authorizePageResource(c, id, page.authorId, "read");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
     }
 
     const pageBlocks = await getPageBlocks(id);
@@ -189,7 +190,7 @@ wikiRoutes.get("/:id", async (c) => {
     return c.json({ page, blocks: pageBlocks });
   } catch (error) {
     console.error("Error fetching page:", error);
-    return c.json({ error: "Failed to fetch page" }, 500);
+    return jsonError(c, 500, "WIKI_PAGE_FETCH_FAILED", "Failed to fetch page");
   }
 });
 
@@ -198,7 +199,7 @@ wikiRoutes.post("/", zValidator("json", createPageSchema), async (c) => {
   const user = c.get("user");
 
   if (!user?.id) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
   }
 
   try {
@@ -214,12 +215,12 @@ wikiRoutes.post("/", zValidator("json", createPageSchema), async (c) => {
 
     const createdPage = await createPageWithAccessDefaults(newPage);
     if (!createdPage) {
-      return c.json({ error: "Failed to create page" }, 500);
+      return jsonError(c, 500, "WIKI_PAGE_CREATE_FAILED", "Failed to create page");
     }
     return c.json({ page: createdPage }, 201);
   } catch (error) {
     console.error("Error creating page:", error);
-    return c.json({ error: "Failed to create page" }, 500);
+    return jsonError(c, 500, "WIKI_PAGE_CREATE_FAILED", "Failed to create page");
   }
 });
 
@@ -230,18 +231,18 @@ wikiRoutes.put("/:id", zValidator("json", updatePageSchema), async (c) => {
   try {
     const page = await getPageById(id);
     if (!page) {
-      return c.json({ error: "Page not found" }, 404);
+      return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
     }
 
     const authz = await authorizePageResource(c, id, page.authorId, "write");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
     }
 
     if (data.parentId !== undefined && data.parentId !== null) {
       const hasCycle = await detectPageCycle(id, data.parentId);
       if (hasCycle) {
-        return c.json({ error: "Circular parent reference detected" }, 409);
+        return jsonError(c, 409, "WIKI_PAGE_PARENT_CYCLE", "Circular parent reference detected");
       }
     }
 
@@ -255,13 +256,13 @@ wikiRoutes.put("/:id", zValidator("json", updatePageSchema), async (c) => {
     const updatedPage = await updatePage(id, updatePayload);
 
     if (!updatedPage) {
-      return c.json({ error: "Page not found" }, 404);
+      return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
     }
 
     return c.json({ page: updatedPage });
   } catch (error) {
     console.error("Error updating page:", error);
-    return c.json({ error: "Failed to update page" }, 500);
+    return jsonError(c, 500, "WIKI_PAGE_UPDATE_FAILED", "Failed to update page");
   }
 });
 
@@ -271,19 +272,19 @@ wikiRoutes.delete("/:id", async (c) => {
   try {
     const page = await getPageById(id);
     if (!page) {
-      return c.json({ error: "Page not found" }, 404);
+      return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
     }
 
     const authz = await authorizePageResource(c, id, page.authorId, "delete");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
     }
 
     await deletePage(id);
     return c.json({ success: true });
   } catch (error) {
     console.error("Error deleting page:", error);
-    return c.json({ error: "Failed to delete page" }, 500);
+    return jsonError(c, 500, "WIKI_PAGE_DELETE_FAILED", "Failed to delete page");
   }
 });
 
@@ -293,12 +294,12 @@ wikiRoutes.post("/blocks", zValidator("json", createBlockSchema), async (c) => {
   try {
     const page = await getPageById(data.pageId);
     if (!page) {
-      return c.json({ error: "Page not found" }, 404);
+      return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
     }
 
     const authz = await authorizePageResource(c, page.id, page.authorId, "write");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
     }
 
     const now = new Date();
@@ -315,12 +316,12 @@ wikiRoutes.post("/blocks", zValidator("json", createBlockSchema), async (c) => {
 
     const createdBlock = await createBlock(newBlock);
     if (!createdBlock) {
-      return c.json({ error: "Failed to create block" }, 500);
+      return jsonError(c, 500, "WIKI_BLOCK_CREATE_FAILED", "Failed to create block");
     }
     return c.json({ block: createdBlock }, 201);
   } catch (error) {
     console.error("Error creating block:", error);
-    return c.json({ error: "Failed to create block" }, 500);
+    return jsonError(c, 500, "WIKI_BLOCK_CREATE_FAILED", "Failed to create block");
   }
 });
 
@@ -330,17 +331,17 @@ wikiRoutes.delete("/blocks/:id", async (c) => {
   try {
     const block = await getBlockById(id);
     if (!block) {
-      return c.json({ error: "Block not found" }, 404);
+      return jsonError(c, 404, "WIKI_BLOCK_NOT_FOUND", "Block not found");
     }
 
     const page = await getPageById(block.pageId);
     if (!page) {
-      return c.json({ error: "Page not found" }, 404);
+      return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
     }
 
     const authz = await authorizePageResource(c, page.id, page.authorId, "write");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
     }
 
     await deleteBlock(id);
@@ -348,7 +349,7 @@ wikiRoutes.delete("/blocks/:id", async (c) => {
     return c.json({ success: true });
   } catch (error) {
     console.error("Error deleting block:", error);
-    return c.json({ error: "Failed to delete block" }, 500);
+    return jsonError(c, 500, "WIKI_BLOCK_DELETE_FAILED", "Failed to delete block");
   }
 });
 
@@ -359,17 +360,17 @@ wikiRoutes.put("/blocks/:id", zValidator("json", updateBlockSchema), async (c) =
   try {
     const block = await getBlockById(id);
     if (!block) {
-      return c.json({ error: "Block not found" }, 404);
+      return jsonError(c, 404, "WIKI_BLOCK_NOT_FOUND", "Block not found");
     }
 
     const page = await getPageById(block.pageId);
     if (!page) {
-      return c.json({ error: "Page not found" }, 404);
+      return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
     }
 
     const authz = await authorizePageResource(c, page.id, page.authorId, "write");
     if (!authz.allowed) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
     }
 
     const updatePayload: {
@@ -390,12 +391,12 @@ wikiRoutes.put("/blocks/:id", zValidator("json", updateBlockSchema), async (c) =
     const updatedBlock = await updateBlock(id, updatePayload);
 
     if (!updatedBlock) {
-      return c.json({ error: "Block not found" }, 404);
+      return jsonError(c, 404, "WIKI_BLOCK_NOT_FOUND", "Block not found");
     }
 
     return c.json({ block: updatedBlock });
   } catch (error) {
     console.error("Error updating block:", error);
-    return c.json({ error: "Failed to update block" }, 500);
+    return jsonError(c, 500, "WIKI_BLOCK_UPDATE_FAILED", "Failed to update block");
   }
 });
