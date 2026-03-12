@@ -11,6 +11,7 @@ describe("wiki-service", () => {
     const pageRecord = {
       id: "page_1",
       title: "Root",
+      spaceId: "00000000-0000-0000-0000-000000000001",
       parentId: null,
       authorId: "user_1",
       createdAt: new Date("2026-03-12T00:00:00.000Z"),
@@ -84,6 +85,7 @@ describe("wiki-service", () => {
     const pageRecord = {
       id: "page_child",
       title: "Child",
+      spaceId: "00000000-0000-0000-0000-000000000001",
       parentId: "page_parent",
       authorId: "user_1",
       createdAt: new Date("2026-03-12T00:00:00.000Z"),

@@ -1,24 +1,34 @@
 import { zValidator } from "@hono/zod-validator";
+import { ALL_GROUP_PERMISSIONS, type GroupPermission, UserRole } from "@corp-internal/shared/contracts";
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import { createChatModel, isTextGenerationEnabled, resolveTextProvider } from "../ai/llm/index.js";
+import type { LlmOverrides } from "../ai/llm/index.js";
 import { jsonError } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
+import { createStorageProvider, removeFile, saveFile, setStorageProvider } from "../lib/file-storage.js";
 import {
   createGroup,
   deleteGroup,
   deleteMembership,
+  deleteSiteSetting,
   deletePagePermission,
   getGroupById,
   getGroupByName,
   getPageInheritance,
+  upsertSiteSetting,
   updateGroup as updateGroupRecord,
 } from "../repositories/admin/admin-repository.js";
 import {
   addGroupMembers,
+  changeUserRole,
   createAgentDefinition,
   getGroupDetail,
   getPagePermissionsDetail,
+  getEmailSettings,
+  getLlmSettings,
+  getSiteSettings,
   listAvailableAgents,
   listGroupMembers,
   listGroupsWithMemberCounts,
@@ -27,20 +37,30 @@ import {
   replacePagePermissions,
   replaceUserGroups,
   updateAgentDefinition,
+  getStorageSettings,
+  updateEmailSettings,
+  updateLlmSettings,
+  updateSiteSettings,
+  updateStorageSettings,
 } from "../services/admin/admin-service.js";
+import { ensureTeamSpaceForGroup } from "../services/wiki/space-service.js";
 
 export const adminRoutes = new Hono<AppEnv>();
+
+const groupPermissionSchema = z.enum(
+  ALL_GROUP_PERMISSIONS as [GroupPermission, ...GroupPermission[]]
+);
 
 const createGroupSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().optional(),
-  permissions: z.array(z.string()),
+  permissions: z.array(groupPermissionSchema),
 });
 
 const updateGroupSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().optional(),
-  permissions: z.array(z.string()).optional(),
+  permissions: z.array(groupPermissionSchema).optional(),
 });
 
 const addMembersSchema = z.object({ userIds: z.array(z.string()).min(1) });
@@ -52,10 +72,23 @@ const createAgentSchema = z.object({
   systemPrompt: z.string().min(1),
   voiceProfile: z.string().nullable().optional(),
   interventionStyle: z.string().min(1),
-  defaultProvider: z.enum(["google"]).default("google"),
+  defaultProvider: z.enum(["google", "vertex", "zhipu"]).default("google"),
   isActive: z.boolean().optional(),
 });
 const updateAgentSchema = createAgentSchema.partial();
+
+const updateUserRoleSchema = z.object({ role: z.enum([UserRole.Admin, UserRole.Member]) });
+
+const updateSiteSettingsSchema = z.object({
+  siteTitle: z.string().max(200).optional(),
+  siteTagline: z.string().max(500).optional(),
+  livekitMeetingSimulcast: z.boolean().optional(),
+  livekitMeetingDynacast: z.boolean().optional(),
+  livekitMeetingAdaptiveStream: z.boolean().optional(),
+  livekitCoworkingSimulcast: z.boolean().optional(),
+  livekitCoworkingDynacast: z.boolean().optional(),
+  livekitCoworkingAdaptiveStream: z.boolean().optional(),
+});
 
 const setPagePermissionsSchema = z.object({
   inheritFromParent: z.boolean().optional(),
@@ -135,6 +168,11 @@ adminRoutes.post("/groups", zValidator("json", createGroupSchema), async (c) => 
       createdAt: now,
       updatedAt: now,
     });
+
+    if (group) {
+      // Auto-create a team space for the new group
+      await ensureTeamSpaceForGroup(group.id, group.name);
+    }
 
     return c.json({ group }, 201);
   } catch (error) {
@@ -249,6 +287,19 @@ adminRoutes.get("/users", async (c) => {
   }
 });
 
+adminRoutes.put("/users/:id/role", zValidator("json", updateUserRoleSchema), async (c) => {
+  const { id } = c.req.param();
+  const data = c.req.valid("json");
+  try {
+    const user = await changeUserRole(id, data.role);
+    if (!user) return jsonError(c, 404, "ADMIN_USER_NOT_FOUND", "User not found");
+    return c.json({ user });
+  } catch (error) {
+    console.error("Error updating user role:", error);
+    return jsonError(c, 500, "ADMIN_USER_ROLE_UPDATE_FAILED", "Failed to update user role");
+  }
+});
+
 adminRoutes.put("/users/:id/groups", zValidator("json", updateUserGroupsSchema), async (c) => {
   const { id } = c.req.param();
   const data = c.req.valid("json");
@@ -328,3 +379,306 @@ adminRoutes.put(
     }
   }
 );
+
+adminRoutes.get("/settings", async (c) => {
+  try {
+    return c.json(await getSiteSettings());
+  } catch (error) {
+    console.error("Error fetching site settings:", error);
+    return jsonError(c, 500, "ADMIN_SETTINGS_FETCH_FAILED", "Failed to fetch site settings");
+  }
+});
+
+adminRoutes.put("/settings", zValidator("json", updateSiteSettingsSchema), async (c) => {
+  const data = c.req.valid("json");
+  try {
+    const updated = await updateSiteSettings(data);
+    return c.json(updated);
+  } catch (error) {
+    console.error("Error updating site settings:", error);
+    return jsonError(c, 500, "ADMIN_SETTINGS_UPDATE_FAILED", "Failed to update site settings");
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Email settings
+// ---------------------------------------------------------------------------
+
+const updateEmailSettingsSchema = z.object({
+  provider: z.enum(["none", "resend", "smtp"]).optional(),
+  resendApiKey: z.string().max(500).nullable().optional(),
+  resendFrom: z.string().max(200).nullable().optional(),
+  smtpHost: z.string().max(200).nullable().optional(),
+  smtpPort: z.number().int().min(1).max(65535).nullable().optional(),
+  smtpSecure: z.boolean().optional(),
+  smtpUser: z.string().max(200).nullable().optional(),
+  smtpPass: z.string().max(500).nullable().optional(),
+  smtpFrom: z.string().max(200).nullable().optional(),
+});
+
+adminRoutes.get("/email-settings", async (c) => {
+  try {
+    const settings = await getEmailSettings();
+    // Mask sensitive fields
+    return c.json({
+      ...settings,
+      resendApiKey: settings.resendApiKey ? "••••••••" : null,
+      smtpPass: settings.smtpPass ? "••••••••" : null,
+    });
+  } catch (error) {
+    console.error("Error fetching email settings:", error);
+    return jsonError(c, 500, "ADMIN_EMAIL_SETTINGS_FETCH_FAILED", "Failed to fetch email settings");
+  }
+});
+
+adminRoutes.put("/email-settings", zValidator("json", updateEmailSettingsSchema), async (c) => {
+  const data = c.req.valid("json");
+  try {
+    const updated = await updateEmailSettings(data);
+    return c.json({
+      ...updated,
+      resendApiKey: updated.resendApiKey ? "••••••••" : null,
+      smtpPass: updated.smtpPass ? "••••••••" : null,
+    });
+  } catch (error) {
+    console.error("Error updating email settings:", error);
+    return jsonError(c, 500, "ADMIN_EMAIL_SETTINGS_UPDATE_FAILED", "Failed to update email settings");
+  }
+});
+
+// ---------------------------------------------------------------------------
+// LLM provider settings
+// ---------------------------------------------------------------------------
+
+const updateLlmSettingsSchema = z.object({
+  provider: z.enum(["google", "vertex", "zhipu"]).optional(),
+  geminiApiKey: z.string().max(500).nullable().optional(),
+  geminiTextModel: z.string().max(100).nullable().optional(),
+  vertexProject: z.string().max(200).nullable().optional(),
+  vertexLocation: z.string().max(100).nullable().optional(),
+  vertexModel: z.string().max(100).nullable().optional(),
+  zhipuApiKey: z.string().max(500).nullable().optional(),
+  zhipuTextModel: z.string().max(100).nullable().optional(),
+});
+
+adminRoutes.get("/llm-settings", async (c) => {
+  try {
+    const settings = await getLlmSettings();
+    return c.json({
+      ...settings,
+      geminiApiKey: settings.geminiApiKey ? "••••••••" : null,
+      zhipuApiKey: settings.zhipuApiKey ? "••••••••" : null,
+    });
+  } catch (error) {
+    console.error("Error fetching LLM settings:", error);
+    return jsonError(c, 500, "ADMIN_LLM_SETTINGS_FETCH_FAILED", "Failed to fetch LLM settings");
+  }
+});
+
+adminRoutes.put("/llm-settings", zValidator("json", updateLlmSettingsSchema), async (c) => {
+  const data = c.req.valid("json");
+  try {
+    const updated = await updateLlmSettings(data);
+    return c.json({
+      ...updated,
+      geminiApiKey: updated.geminiApiKey ? "••••••••" : null,
+      zhipuApiKey: updated.zhipuApiKey ? "••••••••" : null,
+    });
+  } catch (error) {
+    console.error("Error updating LLM settings:", error);
+    return jsonError(c, 500, "ADMIN_LLM_SETTINGS_UPDATE_FAILED", "Failed to update LLM settings");
+  }
+});
+
+adminRoutes.post("/llm-settings/test", async (c) => {
+  try {
+    const settings = await getLlmSettings();
+    const provider = resolveTextProvider(settings.provider);
+    const overrides: LlmOverrides = {
+      geminiApiKey: settings.geminiApiKey,
+      geminiTextModel: settings.geminiTextModel,
+      vertexProject: settings.vertexProject,
+      vertexLocation: settings.vertexLocation,
+      vertexModel: settings.vertexModel,
+      zhipuApiKey: settings.zhipuApiKey,
+      zhipuTextModel: settings.zhipuTextModel,
+    };
+
+    if (!isTextGenerationEnabled(provider, overrides)) {
+      return c.json({ ok: false, error: "API key is not configured for the selected provider." }, 400);
+    }
+
+    const model = createChatModel({ provider, temperature: 0, overrides });
+    const { HumanMessage } = await import("@langchain/core/messages");
+    const response = await model.invoke([new HumanMessage("Reply with exactly: OK")]);
+    const text = typeof response.content === "string" ? response.content.trim() : String(response.content).trim();
+
+    return c.json({ ok: true, reply: text });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return c.json({ ok: false, error: message }, 502);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Site icon upload / delete
+// ---------------------------------------------------------------------------
+
+const SITE_ICON_MAX_BYTES = 256 * 1024;
+const SITE_ICON_ALLOWED_TYPES = new Set([
+  "image/png",
+  "image/svg+xml",
+  "image/x-icon",
+  "image/vnd.microsoft.icon",
+]);
+const SITE_ICON_STORAGE_PATH = "site/site-icon";
+
+adminRoutes.post("/site-icon", async (c) => {
+  try {
+    const contentType = c.req.header("content-type") || "";
+    if (!contentType.includes("multipart/form-data")) {
+      return jsonError(c, 400, "SITE_ICON_MULTIPART_REQUIRED", "Multipart form data required");
+    }
+
+    const body = await c.req.parseBody();
+    const uploadedFile = body.file as File | undefined;
+    if (!uploadedFile) {
+      return jsonError(c, 400, "SITE_ICON_FILE_REQUIRED", "File is required");
+    }
+
+    if (!SITE_ICON_ALLOWED_TYPES.has(uploadedFile.type)) {
+      return jsonError(c, 400, "SITE_ICON_FORMAT_ERROR", "Only PNG, SVG, and ICO files are allowed");
+    }
+
+    if (uploadedFile.size > SITE_ICON_MAX_BYTES) {
+      return jsonError(c, 400, "SITE_ICON_SIZE_ERROR", "File must be 256KB or smaller");
+    }
+
+    const arrayBuffer = await uploadedFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    await saveFile(SITE_ICON_STORAGE_PATH, buffer);
+
+    await upsertSiteSetting("siteIconStoragePath", SITE_ICON_STORAGE_PATH);
+    await upsertSiteSetting("siteIconContentType", uploadedFile.type);
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Error uploading site icon:", error);
+    return jsonError(c, 500, "SITE_ICON_UPLOAD_FAILED", "Failed to upload site icon");
+  }
+});
+
+adminRoutes.delete("/site-icon", async (c) => {
+  try {
+    await removeFile(SITE_ICON_STORAGE_PATH);
+
+    await deleteSiteSetting("siteIconStoragePath");
+    await deleteSiteSetting("siteIconContentType");
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting site icon:", error);
+    return jsonError(c, 500, "SITE_ICON_DELETE_FAILED", "Failed to delete site icon");
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Storage provider settings
+// ---------------------------------------------------------------------------
+
+const updateStorageSettingsSchema = z.object({
+  provider: z.enum(["local", "s3", "gcs"]).optional(),
+  localPath: z.string().max(500).nullable().optional(),
+  s3Endpoint: z.string().max(500).nullable().optional(),
+  s3Region: z.string().max(100).nullable().optional(),
+  s3Bucket: z.string().max(200).nullable().optional(),
+  s3AccessKey: z.string().max(500).nullable().optional(),
+  s3SecretKey: z.string().max(500).nullable().optional(),
+  s3ForcePathStyle: z.boolean().optional(),
+  gcsBucket: z.string().max(200).nullable().optional(),
+  gcsProjectId: z.string().max(200).nullable().optional(),
+  gcsKeyJson: z.string().max(10000).nullable().optional(),
+});
+
+adminRoutes.get("/storage-settings", async (c) => {
+  try {
+    const settings = await getStorageSettings();
+    return c.json({
+      ...settings,
+      s3SecretKey: settings.s3SecretKey ? "••••••••" : null,
+      gcsKeyJson: settings.gcsKeyJson ? "••••••••" : null,
+    });
+  } catch (error) {
+    console.error("Error fetching storage settings:", error);
+    return jsonError(c, 500, "ADMIN_STORAGE_SETTINGS_FETCH_FAILED", "Failed to fetch storage settings");
+  }
+});
+
+adminRoutes.put("/storage-settings", zValidator("json", updateStorageSettingsSchema), async (c) => {
+  const data = c.req.valid("json");
+  try {
+    const updated = await updateStorageSettings(data);
+
+    // Apply the new provider immediately
+    setStorageProvider(
+      createStorageProvider({
+        provider: updated.provider,
+        localPath: updated.localPath ?? undefined,
+        s3Endpoint: updated.s3Endpoint ?? undefined,
+        s3Region: updated.s3Region ?? undefined,
+        s3Bucket: updated.s3Bucket ?? undefined,
+        s3AccessKey: updated.s3AccessKey ?? undefined,
+        s3SecretKey: updated.s3SecretKey ?? undefined,
+        s3ForcePathStyle: updated.s3ForcePathStyle,
+        gcsBucket: updated.gcsBucket ?? undefined,
+        gcsProjectId: updated.gcsProjectId ?? undefined,
+        gcsKeyJson: updated.gcsKeyJson ?? undefined,
+      }),
+    );
+
+    return c.json({
+      ...updated,
+      s3SecretKey: updated.s3SecretKey ? "••••••••" : null,
+      gcsKeyJson: updated.gcsKeyJson ? "••••••••" : null,
+    });
+  } catch (error) {
+    console.error("Error updating storage settings:", error);
+    return jsonError(c, 500, "ADMIN_STORAGE_SETTINGS_UPDATE_FAILED", "Failed to update storage settings");
+  }
+});
+
+adminRoutes.post("/storage-settings/test", async (c) => {
+  try {
+    const settings = await getStorageSettings();
+    const testProvider = createStorageProvider({
+      provider: settings.provider,
+      localPath: settings.localPath ?? undefined,
+      s3Endpoint: settings.s3Endpoint ?? undefined,
+      s3Region: settings.s3Region ?? undefined,
+      s3Bucket: settings.s3Bucket ?? undefined,
+      s3AccessKey: settings.s3AccessKey ?? undefined,
+      s3SecretKey: settings.s3SecretKey ?? undefined,
+      s3ForcePathStyle: settings.s3ForcePathStyle,
+      gcsBucket: settings.gcsBucket ?? undefined,
+      gcsProjectId: settings.gcsProjectId ?? undefined,
+      gcsKeyJson: settings.gcsKeyJson ?? undefined,
+    });
+
+    const testPath = `_test/${crypto.randomUUID()}`;
+    const testData = Buffer.from("storage-provider-test");
+
+    await testProvider.save(testPath, testData);
+    const loaded = await testProvider.load(testPath);
+    await testProvider.remove(testPath);
+
+    if (loaded.toString() !== "storage-provider-test") {
+      return c.json({ ok: false, error: "Read-back verification failed" }, 502);
+    }
+
+    return c.json({ ok: true, provider: settings.provider });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return c.json({ ok: false, error: message }, 502);
+  }
+});

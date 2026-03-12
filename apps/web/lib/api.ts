@@ -6,8 +6,6 @@
 import type {
   AuthSessionDto,
   AuthMeResponseDto,
-  PasswordAuthResponse,
-  PasswordLoginRequest,
   PasswordRegistrationRequest,
   PasswordRegistrationResponse,
   BlockDto,
@@ -39,6 +37,7 @@ import type {
   LivekitTokenResponse,
   MeetingDto,
   PageDto,
+  SpaceDto,
   SuccessResponse,
   SummaryDto,
   TokenAuthResponse,
@@ -72,6 +71,7 @@ function normalizeApiBaseUrl(rawUrl: string | undefined) {
 }
 
 const API_BASE = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
+let refreshSessionPromise: Promise<boolean> | null = null;
 
 function buildApiUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -84,6 +84,7 @@ function buildApiUrl(path: string) {
 
 export type User = UserDto;
 export type Page = PageDto;
+export type Space = SpaceDto;
 export type Block = BlockDto;
 export type Meeting = MeetingDto;
 export type Transcript = TranscriptDto;
@@ -182,7 +183,7 @@ export interface CreateAgentRequest {
   systemPrompt: string;
   voiceProfile?: string | null;
   interventionStyle: string;
-  defaultProvider: "google";
+  defaultProvider: "google" | "vertex" | "zhipu";
   isActive?: boolean;
 }
 
@@ -273,6 +274,109 @@ export interface AdminPagePermissionsResponse {
   permissions: AdminPagePermissionRecord[];
 }
 
+export interface SiteSettings {
+  siteTitle: string;
+  siteTagline: string;
+  livekitMeetingSimulcast: boolean;
+  livekitMeetingDynacast: boolean;
+  livekitMeetingAdaptiveStream: boolean;
+  livekitCoworkingSimulcast: boolean;
+  livekitCoworkingDynacast: boolean;
+  livekitCoworkingAdaptiveStream: boolean;
+  hasSiteIcon: boolean;
+}
+
+export interface UpdateSiteSettingsRequest {
+  siteTitle?: string;
+  siteTagline?: string;
+  livekitMeetingSimulcast?: boolean;
+  livekitMeetingDynacast?: boolean;
+  livekitMeetingAdaptiveStream?: boolean;
+  livekitCoworkingSimulcast?: boolean;
+  livekitCoworkingDynacast?: boolean;
+  livekitCoworkingAdaptiveStream?: boolean;
+}
+
+export type EmailProvider = "none" | "resend" | "smtp";
+
+export interface EmailSettings {
+  provider: EmailProvider;
+  resendApiKey: string | null;
+  resendFrom: string | null;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpSecure: boolean;
+  smtpUser: string | null;
+  smtpPass: string | null;
+  smtpFrom: string | null;
+}
+
+export interface UpdateEmailSettingsRequest {
+  provider?: EmailProvider;
+  resendApiKey?: string | null;
+  resendFrom?: string | null;
+  smtpHost?: string | null;
+  smtpPort?: number | null;
+  smtpSecure?: boolean;
+  smtpUser?: string | null;
+  smtpPass?: string | null;
+  smtpFrom?: string | null;
+}
+
+export type LlmProvider = "google" | "vertex" | "zhipu";
+
+export interface LlmSettings {
+  provider: LlmProvider;
+  geminiApiKey: string | null;
+  geminiTextModel: string | null;
+  vertexProject: string | null;
+  vertexLocation: string | null;
+  vertexModel: string | null;
+  zhipuApiKey: string | null;
+  zhipuTextModel: string | null;
+}
+
+export interface UpdateLlmSettingsRequest {
+  provider?: LlmProvider;
+  geminiApiKey?: string | null;
+  geminiTextModel?: string | null;
+  vertexProject?: string | null;
+  vertexLocation?: string | null;
+  vertexModel?: string | null;
+  zhipuApiKey?: string | null;
+  zhipuTextModel?: string | null;
+}
+
+export type StorageProviderType = "local" | "s3" | "gcs";
+
+export interface StorageSettings {
+  provider: StorageProviderType;
+  localPath: string | null;
+  s3Endpoint: string | null;
+  s3Region: string | null;
+  s3Bucket: string | null;
+  s3AccessKey: string | null;
+  s3SecretKey: string | null;
+  s3ForcePathStyle: boolean;
+  gcsBucket: string | null;
+  gcsProjectId: string | null;
+  gcsKeyJson: string | null;
+}
+
+export interface UpdateStorageSettingsRequest {
+  provider?: StorageProviderType;
+  localPath?: string | null;
+  s3Endpoint?: string | null;
+  s3Region?: string | null;
+  s3Bucket?: string | null;
+  s3AccessKey?: string | null;
+  s3SecretKey?: string | null;
+  s3ForcePathStyle?: boolean;
+  gcsBucket?: string | null;
+  gcsProjectId?: string | null;
+  gcsKeyJson?: string | null;
+}
+
 export interface CreateAdminGroupRequest {
   name: string;
   description?: string;
@@ -299,6 +403,10 @@ export class ApiError extends Error {
   }
 }
 
+export function isApiErrorStatus(error: unknown, status: number) {
+  return error instanceof ApiError && error.status === status;
+}
+
 // ===========================================
 // API Response Types
 // ===========================================
@@ -307,27 +415,76 @@ export class ApiError extends Error {
 // Helper Functions
 // ===========================================
 
-async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
+async function parseApiError(response: Response) {
+  const error = await response
+    .json()
+    .catch(
+      (): ErrorResponse => ({ error: "Unknown error", code: "UNKNOWN_ERROR" })
+    );
+
+  return new ApiError(error.error || `HTTP error! status: ${response.status}`, {
+    status: response.status,
+    code: error.code,
+    detail: error.message,
+  });
+}
+
+function shouldAttemptSilentRefresh(path: string) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (!normalizedPath.startsWith("/auth/")) {
+    return true;
+  }
+
+  return normalizedPath === "/auth/me";
+}
+
+async function refreshPasswordSession() {
+  if (!refreshSessionPromise) {
+    refreshSessionPromise = fetch(
+      API_BASE.replace(/\/api$/, "") + "/api/auth/session",
+      { credentials: "include" },
+    )
+      .then(async (response) => {
+        if (!response.ok) return false;
+        const session = await response.json().catch(() => null);
+        return Boolean(session?.user);
+      })
+      .catch(() => false)
+      .finally(() => {
+        refreshSessionPromise = null;
+      });
+  }
+
+  return refreshSessionPromise;
+}
+
+async function executeApiRequest(path: string, options?: RequestInit, allowRefresh = true) {
   const response = await fetch(buildApiUrl(path), {
     ...options,
     credentials: "include",
     headers: {
-      "Content-Type": "application/json",
+      ...(options?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
       ...options?.headers,
     },
   });
 
+  if (
+    response.status === 401 &&
+    allowRefresh &&
+    shouldAttemptSilentRefresh(path) &&
+    (await refreshPasswordSession())
+  ) {
+    return executeApiRequest(path, options, false);
+  }
+
+  return response;
+}
+
+async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await executeApiRequest(path, options);
+
   if (!response.ok) {
-    const error = await response
-      .json()
-      .catch(
-        (): ErrorResponse => ({ error: "Unknown error", code: "UNKNOWN_ERROR" })
-      );
-    throw new ApiError(error.error || `HTTP error! status: ${response.status}`, {
-      status: response.status,
-      code: error.code,
-      detail: error.message,
-    });
+    throw await parseApiError(response);
   }
 
   return response.json();
@@ -379,11 +536,7 @@ export const usersApi = {
 
 export const authApi = {
   me: () => fetchApi<AuthMeResponse>("/auth/me"),
-  login: (data: PasswordLoginRequest) =>
-    fetchApi<PasswordAuthResponse>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+  registrationStatus: () => fetchApi<{ open: boolean }>("/auth/registration-status"),
   register: (data: PasswordRegistrationRequest) =>
     fetchApi<PasswordRegistrationResponse>("/auth/register", {
       method: "POST",
@@ -411,6 +564,14 @@ export const authApi = {
 // ===========================================
 
 export const wikiApi = {
+  listSpaces: () => fetchApi<{ spaces: Space[] }>("/wiki/spaces"),
+
+  getOrCreatePersonalSpace: () =>
+    fetchApi<{ space: Space }>("/wiki/spaces/personal", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
   listPages: () => fetchApi<ListPagesResponse>("/wiki"),
 
   searchPages: (query: string, options?: { semantic?: boolean }) => {
@@ -513,7 +674,7 @@ export const meetingsApi = {
       content: string;
       isPartial: boolean;
       segmentKey: string;
-      provider: "google";
+      provider: "google" | "zhipu";
       confidence?: number | null;
       startedAt: string;
       finalizedAt?: string | null;
@@ -585,6 +746,12 @@ export const adminApi = {
 
   listUsers: () => fetchApi<{ users: AdminUserRecord[] }>("/admin/users"),
 
+  updateUserRole: (id: string, role: "admin" | "member") =>
+    fetchApi<{ user: AdminUserRecord }>(`/admin/users/${id}/role`, {
+      method: "PUT",
+      body: JSON.stringify({ role }),
+    }),
+
   updateUserGroups: (id: string, groupIds: string[]) =>
     fetchApi<{ success: boolean; groupIds: string[] }>(`/admin/users/${id}/groups`, {
       method: "PUT",
@@ -624,6 +791,83 @@ export const adminApi = {
       method: "PUT",
       body: JSON.stringify(data),
     }),
+
+  getSiteSettings: () => fetchApi<SiteSettings>("/admin/settings"),
+
+  updateSiteSettings: (data: UpdateSiteSettingsRequest) =>
+    fetchApi<Partial<SiteSettings>>("/admin/settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  getEmailSettings: () => fetchApi<EmailSettings>("/admin/email-settings"),
+
+  updateEmailSettings: (data: UpdateEmailSettingsRequest) =>
+    fetchApi<EmailSettings>("/admin/email-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  getLlmSettings: () => fetchApi<LlmSettings>("/admin/llm-settings"),
+
+  updateLlmSettings: (data: UpdateLlmSettingsRequest) =>
+    fetchApi<LlmSettings>("/admin/llm-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  testLlmConnection: () =>
+    fetchApi<{ ok: boolean; reply?: string; error?: string }>("/admin/llm-settings/test", {
+      method: "POST",
+    }),
+
+  getStorageSettings: () => fetchApi<StorageSettings>("/admin/storage-settings"),
+
+  updateStorageSettings: (data: UpdateStorageSettingsRequest) =>
+    fetchApi<StorageSettings>("/admin/storage-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  testStorageConnection: () =>
+    fetchApi<{ ok: boolean; provider?: string; error?: string }>("/admin/storage-settings/test", {
+      method: "POST",
+    }),
+
+  uploadSiteIcon: async (file: File): Promise<{ success: boolean }> => {
+    const formData = new FormData();
+    formData.append("file", file, file.name);
+
+    const response = await executeApiRequest("/admin/site-icon", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw await parseApiError(response);
+    }
+
+    return response.json();
+  },
+
+  deleteSiteIcon: () =>
+    fetchApi<{ success: boolean }>("/admin/site-icon", {
+      method: "DELETE",
+    }),
+};
+
+// ===========================================
+// Site Settings API (public, no auth)
+// ===========================================
+
+export const siteSettingsApi = {
+  get: async (): Promise<SiteSettings> => {
+    const response = await fetch(buildApiUrl("/site-settings"), { credentials: "include" });
+    if (!response.ok) {
+      throw new ApiError("Failed to fetch site settings", { status: response.status });
+    }
+    return response.json();
+  },
 };
 
 // ===========================================
@@ -669,23 +913,13 @@ export const filesApi = {
     const formData = new FormData();
     formData.append("file", file, file.name);
 
-    const response = await fetch(buildApiUrl("/files/upload"), {
+    const response = await executeApiRequest("/files/upload", {
       method: "POST",
       body: formData,
-      credentials: "include",
     });
 
     if (!response.ok) {
-      const error = await response
-        .json()
-        .catch(
-          (): ErrorResponse => ({ error: "Unknown error", code: "UNKNOWN_ERROR" })
-        );
-      throw new ApiError(error.error || `HTTP error! status: ${response.status}`, {
-        status: response.status,
-        code: error.code,
-        detail: error.message,
-      });
+      throw await parseApiError(response);
     }
 
     return response.json();
@@ -696,6 +930,10 @@ export const filesApi = {
       method: "DELETE",
     }),
 };
+
+export function getSiteIconUrl() {
+  return buildApiUrl("/site-icon");
+}
 
 export function getWikiFileDownloadUrl(pageId: string, fileId: string) {
   return buildApiUrl(`/wiki/${encodeURIComponent(pageId)}/files/${encodeURIComponent(fileId)}/download`);
@@ -710,6 +948,7 @@ const queryKeys = {
   users: ["users"] as const,
   meetings: ["meetings"] as const,
   meeting: (id: string) => ["meetings", id] as const,
+  wikiSpaces: ["wiki", "spaces"] as const,
   wikiPages: ["wiki", "pages"] as const,
   wikiPage: (id: string) => ["wiki", "pages", id] as const,
 };
@@ -740,6 +979,13 @@ export function useCreateMeetingMutation() {
   });
 }
 
+export function useSpacesQuery() {
+  return useQuery({
+    queryKey: queryKeys.wikiSpaces,
+    queryFn: () => wikiApi.listSpaces(),
+  });
+}
+
 export function useWikiPagesQuery() {
   return useQuery({
     queryKey: queryKeys.wikiPages,
@@ -754,3 +1000,4 @@ export function useWikiPageQuery(id: string) {
     enabled: Boolean(id),
   });
 }
+

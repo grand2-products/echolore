@@ -7,6 +7,7 @@ import {
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "../../db/index.js";
+import { UserRole } from "@corp-internal/shared/contracts";
 import { pageInheritance, pagePermissions, pages, userGroupMemberships, type Page } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { canReadPage } from "../../policies/authorization-policy.js";
@@ -25,7 +26,7 @@ function buildPageSearchText(title: string, blockContents: string[]) {
 }
 
 export async function filterReadablePages(user: SessionUser, items: Page[]): Promise<Page[]> {
-  if (user.role === "admin") {
+  if (user.role === UserRole.Admin) {
     return items;
   }
 
@@ -137,6 +138,7 @@ export async function createPageWithAccessDefaultsTx(
   input: {
     id: string;
     title: string;
+    spaceId: string;
     parentId: string | null;
     authorId: string;
     createdAt: Date;
@@ -185,6 +187,7 @@ export async function createPageWithAccessDefaultsTx(
 export async function createPageWithAccessDefaults(input: {
   id: string;
   title: string;
+  spaceId: string;
   parentId: string | null;
   authorId: string;
   createdAt: Date;

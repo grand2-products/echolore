@@ -1,46 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { WikiSidebar, type PageNode } from "@/components/wiki";
-import { useWikiPagesQuery, wikiApi, type Page } from "@/lib/api";
+import { WikiSidebar } from "@/components/wiki";
+import { useWikiPagesQuery, useSpacesQuery, wikiApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useT } from "@/lib/i18n";
-
-function buildPageTree(flatPages: Page[]): PageNode[] {
-  const nodeMap = new Map<string, PageNode>();
-
-  for (const page of flatPages) {
-    nodeMap.set(page.id, {
-      id: page.id,
-      title: page.title,
-      parentId: page.parentId ?? undefined,
-      children: [],
-    });
-  }
-
-  const roots: PageNode[] = [];
-
-  for (const page of flatPages) {
-    const node = nodeMap.get(page.id);
-    if (!node) continue;
-
-    if (page.parentId) {
-      const parent = nodeMap.get(page.parentId);
-      if (parent) {
-        parent.children = parent.children ?? [];
-        parent.children.push(node);
-      } else {
-        roots.push(node);
-      }
-    } else {
-      roots.push(node);
-    }
-  }
-
-  return roots;
-}
+import { groupPagesBySpace } from "@/lib/wiki-tree";
 
 export default function WikiListPage() {
   const t = useT();
@@ -48,18 +15,34 @@ export default function WikiListPage() {
   const { number } = useFormatters();
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useWikiPagesQuery();
+  const { data: spacesData } = useSpacesQuery();
+  const [notice, setNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const pages = data?.pages ?? [];
-  const treePages = useMemo(() => buildPageTree(pages), [pages]);
+  const spaces = spacesData?.spaces ?? [];
+  const pagesBySpace = useMemo(() => groupPagesBySpace(pages, spaces), [pages, spaces]);
 
   const handleReparent = async (pageId: string, parentId: string | null) => {
-    await wikiApi.updatePage(pageId, { parentId });
-    await queryClient.invalidateQueries({ queryKey: ["wiki", "pages"] });
+    setNotice(null);
+    setActionError(null);
+    try {
+      await wikiApi.updatePage(pageId, { parentId });
+      await queryClient.invalidateQueries({ queryKey: ["wiki", "pages"] });
+      setNotice(t("wiki.list.reparentSuccess"));
+    } catch (reparentError) {
+      setActionError(getApiErrorMessage(reparentError, t("wiki.list.reparentError")));
+    }
   };
 
   return (
     <div className="flex h-full flex-col md:flex-row">
-      <WikiSidebar pages={treePages} onReparent={handleReparent} />
+      <WikiSidebar
+        spaces={spaces}
+        pagesBySpace={pagesBySpace}
+        activeId={undefined}
+        onReparent={handleReparent}
+      />
 
       <div className="flex-1 p-8">
         <div className="mx-auto max-w-4xl">
@@ -67,6 +50,16 @@ export default function WikiListPage() {
           <p className="mb-8 text-gray-600">
             {t("wiki.list.description")}
           </p>
+          {notice ? (
+            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+              {notice}
+            </div>
+          ) : null}
+          {actionError ? (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {actionError}
+            </div>
+          ) : null}
 
           <div className="mb-8 grid gap-4 md:grid-cols-3">
             <Link
@@ -99,9 +92,18 @@ export default function WikiListPage() {
             {isLoading ? (
               <p className="text-sm text-gray-500">{t("common.status.loading")}</p>
             ) : error ? (
-              <p className="text-sm text-red-600">
-                {getApiErrorMessage(error, t("wiki.list.loadError"))}
-              </p>
+              <div className="space-y-3">
+                <p className="text-sm text-red-600">
+                  {getApiErrorMessage(error, t("wiki.list.loadError"))}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void queryClient.invalidateQueries({ queryKey: ["wiki", "pages"] })}
+                  className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+                >
+                  {t("common.actions.retry")}
+                </button>
+              </div>
             ) : (
               <div className="space-y-2">
                 {pages.slice(0, 5).map((page) => (

@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { boolean, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 // Users table
@@ -98,10 +98,35 @@ export const userGroupMemberships = pgTable("user_group_memberships", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Wiki spaces table
+export const spaces = pgTable(
+  "spaces",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    type: text("type").notNull(), // "general" | "team" | "personal"
+    ownerUserId: text("owner_user_id").references(() => users.id, { onDelete: "cascade" }),
+    groupId: text("group_id").references(() => userGroups.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    personalOwnerUnique: uniqueIndex("spaces_personal_owner_unique")
+      .on(table.type, table.ownerUserId)
+      .where(sql`type = 'personal'`),
+    teamGroupUnique: uniqueIndex("spaces_team_group_unique")
+      .on(table.type, table.groupId)
+      .where(sql`type = 'team'`),
+  })
+);
+
 // Wiki pages table
 export const pages = pgTable("pages", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
+  spaceId: text("space_id")
+    .references(() => spaces.id)
+    .notNull(),
   parentId: text("parent_id"),
   authorId: text("author_id")
     .references(() => users.id)
@@ -260,7 +285,7 @@ export const files = pgTable("files", {
   filename: text("filename").notNull(),
   contentType: text("content_type"),
   size: integer("size"),
-  gcsPath: text("gcs_path").notNull(),
+  storagePath: text("storage_path").notNull(),
   uploaderId: text("uploader_id")
     .references(() => users.id)
     .notNull(),
@@ -278,6 +303,13 @@ export const auditLogs = pgTable("audit_logs", {
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Site settings (KVS)
+export const siteSettings = pgTable("site_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Relations
@@ -336,7 +368,23 @@ export const userGroupMembershipsRelations = relations(userGroupMemberships, ({ 
   }),
 }));
 
+export const spacesRelations = relations(spaces, ({ one, many }) => ({
+  ownerUser: one(users, {
+    fields: [spaces.ownerUserId],
+    references: [users.id],
+  }),
+  group: one(userGroups, {
+    fields: [spaces.groupId],
+    references: [userGroups.id],
+  }),
+  pages: many(pages),
+}));
+
 export const pagesRelations = relations(pages, ({ one, many }) => ({
+  space: one(spaces, {
+    fields: [pages.spaceId],
+    references: [spaces.id],
+  }),
   author: one(users, {
     fields: [pages.authorId],
     references: [users.id],
@@ -485,6 +533,8 @@ export type UserGroup = typeof userGroups.$inferSelect;
 export type NewUserGroup = typeof userGroups.$inferInsert;
 export type UserGroupMembership = typeof userGroupMemberships.$inferSelect;
 export type NewUserGroupMembership = typeof userGroupMemberships.$inferInsert;
+export type Space = typeof spaces.$inferSelect;
+export type NewSpace = typeof spaces.$inferInsert;
 export type Page = typeof pages.$inferSelect;
 export type NewPage = typeof pages.$inferInsert;
 export type Block = typeof blocks.$inferSelect;
@@ -511,3 +561,5 @@ export type File = typeof files.$inferSelect;
 export type NewFile = typeof files.$inferInsert;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
+export type SiteSetting = typeof siteSettings.$inferSelect;
+export type NewSiteSetting = typeof siteSettings.$inferInsert;

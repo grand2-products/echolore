@@ -5,6 +5,7 @@ import {
   getRoomAiWikiPageByMeetingId,
 } from "../../repositories/meeting/meeting-repository.js";
 import { createPageWithAccessDefaultsTx } from "../wiki/wiki-service.js";
+import { GENERAL_SPACE_ID } from "../wiki/space-service.js";
 
 export interface RoomAiPipelineResult {
   summary: Summary;
@@ -61,6 +62,7 @@ export async function createMeetingSummaryWikiArtifacts(
     const page = await createPageWithAccessDefaultsTx(tx, {
         id: pageId,
         title: pageTitle,
+        spaceId: GENERAL_SPACE_ID,
         parentId: null,
         authorId: meeting.creatorId,
         createdAt: now,

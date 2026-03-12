@@ -1,5 +1,25 @@
 export type ISODateString = string;
-export type AuthMode = "password" | "sso" | "bypass";
+export type AuthMode = "password" | "sso";
+
+export const UserRole = {
+  Admin: "admin",
+  Member: "member",
+} as const;
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
+export const GroupPermission = {
+  WikiRead: "wiki.read",
+  WikiWrite: "wiki.write",
+  WikiDelete: "wiki.delete",
+  MeetingCreate: "meeting.create",
+  MeetingJoin: "meeting.join",
+  FileUpload: "file.upload",
+  FileDownload: "file.download",
+} as const;
+export type GroupPermission = (typeof GroupPermission)[keyof typeof GroupPermission];
+export const ALL_GROUP_PERMISSIONS = Object.values(GroupPermission);
+
+export type SpaceType = "general" | "team" | "personal";
 
 export type MeetingStatus = "scheduled" | "active" | "ended";
 
@@ -23,7 +43,17 @@ export interface UserDto {
   email: string;
   name: string;
   avatarUrl: string | null;
-  role: string;
+  role: UserRole;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export interface SpaceDto {
+  id: string;
+  name: string;
+  type: SpaceType;
+  ownerUserId: string | null;
+  groupId: string | null;
   createdAt: ISODateString;
   updatedAt: ISODateString;
 }
@@ -31,6 +61,7 @@ export interface UserDto {
 export interface PageDto {
   id: string;
   title: string;
+  spaceId: string;
   parentId: string | null;
   authorId: string;
   createdAt: ISODateString;
@@ -117,6 +148,10 @@ export interface UpdateUserRequest {
   avatarUrl?: string;
 }
 
+export class ListSpacesResponse {
+  constructor(public spaces: SpaceDto[]) {}
+}
+
 export class ListPagesResponse {
   constructor(public pages: PageDto[]) {}
 }
@@ -131,13 +166,14 @@ export class GetPageResponse {
 export interface CreatePageRequest {
   title: string;
   parentId?: string;
+  spaceId?: string;
 }
 
 export interface SessionUserDto {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "member";
+  role: UserRole;
   avatarUrl?: string | null;
 }
 
@@ -154,6 +190,11 @@ export interface PasswordLoginRequest {
 export interface PasswordAuthResponse {
   user: SessionUserDto;
   authMode: "password";
+}
+
+export interface BrowserGoogleAuthResponse {
+  user: SessionUserDto;
+  authMode: "sso";
 }
 
 export interface AuthSessionDto {
@@ -203,6 +244,8 @@ export interface PasswordRegistrationRequest {
 
 export interface PasswordRegistrationResponse {
   success: true;
+  immediate: boolean;
+  user?: SessionUserDto;
 }
 
 export interface VerifyEmailRequest {

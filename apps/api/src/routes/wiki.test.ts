@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UserRole } from "@corp-internal/shared/contracts";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
 import { wikiRoutes } from "./wiki.js";
 
@@ -13,13 +14,17 @@ const {
   getFileByIdMock,
   getBlockByIdMock,
   getPageBlocksMock,
-  getSignedUrlMock,
+  loadFileMock,
   getPageByIdMock,
   listVisiblePagesMock,
   searchVisiblePagesMock,
   updateBlockMock,
   updatePageMock,
   writeAuditLogMock,
+  canAccessSpaceMock,
+  getOrCreatePersonalSpaceMock,
+  listVisibleSpacesMock,
+  getSpaceByIdMock,
 } = vi.hoisted(() => ({
   authorizePageResourceMock: vi.fn(),
   createBlockMock: vi.fn(),
@@ -30,23 +35,24 @@ const {
   getFileByIdMock: vi.fn(),
   getBlockByIdMock: vi.fn(),
   getPageBlocksMock: vi.fn(),
-  getSignedUrlMock: vi.fn(),
+  loadFileMock: vi.fn(),
   getPageByIdMock: vi.fn(),
   listVisiblePagesMock: vi.fn(),
   searchVisiblePagesMock: vi.fn(),
   updateBlockMock: vi.fn(),
   updatePageMock: vi.fn(),
   writeAuditLogMock: vi.fn(),
+  canAccessSpaceMock: vi.fn(),
+  getOrCreatePersonalSpaceMock: vi.fn(),
+  listVisibleSpacesMock: vi.fn(),
+  getSpaceByIdMock: vi.fn(),
 }));
 
-vi.mock("@google-cloud/storage", () => ({
-  Storage: vi.fn(() => ({
-    bucket: vi.fn(() => ({
-      file: vi.fn(() => ({
-        getSignedUrl: getSignedUrlMock,
-      })),
-    })),
-  })),
+vi.mock("../lib/file-storage.js", () => ({
+  loadFile: loadFileMock,
+  saveFile: vi.fn(),
+  removeFile: vi.fn(),
+  buildStoragePath: vi.fn((p: string) => p),
 }));
 
 vi.mock("../policies/authorization-policy.js", () => ({
@@ -79,6 +85,17 @@ vi.mock("../lib/audit.js", () => ({
   writeAuditLog: writeAuditLogMock,
 }));
 
+vi.mock("../services/wiki/space-service.js", () => ({
+  GENERAL_SPACE_ID: "00000000-0000-0000-0000-000000000001",
+  canAccessSpace: canAccessSpaceMock,
+  getOrCreatePersonalSpace: getOrCreatePersonalSpaceMock,
+  listVisibleSpaces: listVisibleSpacesMock,
+}));
+
+vi.mock("../repositories/wiki/space-repository.js", () => ({
+  getSpaceById: getSpaceByIdMock,
+}));
+
 function createApp(sessionUser: SessionUser) {
   const app = new Hono<AppEnv>();
 
@@ -102,13 +119,17 @@ describe("wikiRoutes", () => {
     getFileByIdMock.mockReset();
     getBlockByIdMock.mockReset();
     getPageBlocksMock.mockReset();
-    getSignedUrlMock.mockReset();
+    loadFileMock.mockReset();
     getPageByIdMock.mockReset();
     listVisiblePagesMock.mockReset();
     searchVisiblePagesMock.mockReset();
     updateBlockMock.mockReset();
     updatePageMock.mockReset();
     writeAuditLogMock.mockReset();
+    canAccessSpaceMock.mockReset();
+    getOrCreatePersonalSpaceMock.mockReset();
+    listVisibleSpacesMock.mockReset();
+    getSpaceByIdMock.mockReset();
   });
 
   it("returns page detail with blocks for authorized users", async () => {
@@ -116,7 +137,7 @@ describe("wikiRoutes", () => {
       id: "user_1",
       email: "owner@example.com",
       name: "Owner",
-      role: "member",
+      role: UserRole.Member,
     });
 
     getPageByIdMock.mockResolvedValue({
@@ -173,7 +194,7 @@ describe("wikiRoutes", () => {
       id: "user_2",
       email: "member@example.com",
       name: "Member",
-      role: "member",
+      role: UserRole.Member,
     });
 
     getPageByIdMock.mockResolvedValue({
@@ -189,7 +210,7 @@ describe("wikiRoutes", () => {
     const response = await app.request("http://localhost/api/wiki/page_1");
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
+    await expect(response.json()).resolves.toEqual({ code: "WIKI_PAGE_FORBIDDEN", error: "Forbidden" });
     expect(getPageBlocksMock).not.toHaveBeenCalled();
   });
 
@@ -198,9 +219,17 @@ describe("wikiRoutes", () => {
       id: "user_1",
       email: "owner@example.com",
       name: "Owner",
-      role: "member",
+      role: UserRole.Member,
     });
 
+    getSpaceByIdMock.mockResolvedValue({
+      id: "00000000-0000-0000-0000-000000000001",
+      name: "General",
+      type: "general",
+      ownerUserId: null,
+      groupId: null,
+    });
+    canAccessSpaceMock.mockResolvedValue(true);
     createPageWithAccessDefaultsMock.mockImplementation(async (input) => ({
       ...input,
       createdAt: input.createdAt,
@@ -235,7 +264,7 @@ describe("wikiRoutes", () => {
       id: "user_2",
       email: "member@example.com",
       name: "Member",
-      role: "member",
+      role: UserRole.Member,
     });
 
     getPageByIdMock.mockResolvedValue({
@@ -266,16 +295,16 @@ describe("wikiRoutes", () => {
       filename: "design.pdf",
       contentType: "application/pdf",
       size: 1234,
-      gcsPath: "gs://corp-internal-files-dev/uploads/file_1-design.pdf",
+      storagePath: "uploads/file_1-design.pdf",
       uploaderId: "user_1",
       createdAt: new Date("2026-03-11T09:01:00.000Z"),
     });
-    getSignedUrlMock.mockResolvedValue(["https://signed.example/file_1"]);
+    loadFileMock.mockResolvedValue(Buffer.from("pdf-content"));
 
     const response = await app.request("http://localhost/api/wiki/page_1/files/file_1/download");
 
-    expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("https://signed.example/file_1");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/pdf");
   });
 
   it("rejects attachment download when the file is not attached to the page", async () => {
@@ -283,7 +312,7 @@ describe("wikiRoutes", () => {
       id: "user_2",
       email: "member@example.com",
       name: "Member",
-      role: "member",
+      role: UserRole.Member,
     });
 
     getPageByIdMock.mockResolvedValue({
@@ -314,7 +343,7 @@ describe("wikiRoutes", () => {
       filename: "design.pdf",
       contentType: "application/pdf",
       size: 1234,
-      gcsPath: "gs://corp-internal-files-dev/uploads/file_1-design.pdf",
+      storagePath: "uploads/file_1-design.pdf",
       uploaderId: "user_1",
       createdAt: new Date("2026-03-11T09:01:00.000Z"),
     });
@@ -322,6 +351,6 @@ describe("wikiRoutes", () => {
     const response = await app.request("http://localhost/api/wiki/page_1/files/file_1/download");
 
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toEqual({ error: "File not attached to page" });
+    await expect(response.json()).resolves.toEqual({ code: "WIKI_FILE_NOT_ATTACHED", error: "File not attached to page" });
   });
 });

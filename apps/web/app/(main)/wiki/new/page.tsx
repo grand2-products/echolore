@@ -1,151 +1,156 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { WikiEditor, WikiSidebar, type PageNode } from "@/components/wiki";
-import { wikiApi, type Page } from "@/lib/api";
-import { useApiErrorMessage } from "@/lib/api-error-message";
+import { wikiApi, useSpacesQuery, type Space } from "@/lib/api";
 import { useT } from "@/lib/i18n";
-import { syncPageBlocks } from "@/lib/wiki-blocks";
 
-function buildPageTree(flatPages: Page[]): PageNode[] {
-  const nodeMap = new Map<string, PageNode>();
+const SPACE_ICON: Record<string, string> = { general: "G", team: "T", personal: "P" };
 
-  for (const page of flatPages) {
-    nodeMap.set(page.id, {
-      id: page.id,
-      title: page.title,
-      parentId: page.parentId ?? undefined,
-      children: [],
-    });
+function SpacePicker({
+  spaces,
+  isLoading,
+  onSelect,
+}: {
+  spaces: Space[];
+  isLoading: boolean;
+  onSelect: (spaceId: string) => void;
+}) {
+  const t = useT();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-gray-500">{t("common.status.loading")}</p>
+      </div>
+    );
   }
 
-  const roots: PageNode[] = [];
-
-  for (const page of flatPages) {
-    const node = nodeMap.get(page.id);
-    if (!node) continue;
-
-    if (page.parentId) {
-      const parent = nodeMap.get(page.parentId);
-      if (parent) {
-        parent.children = parent.children ?? [];
-        parent.children.push(node);
-      } else {
-        roots.push(node);
-      }
-    } else {
-      roots.push(node);
-    }
-  }
-
-  return roots;
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="w-full max-w-md">
+        <h1 className="mb-2 text-xl font-bold text-gray-900">
+          {t("wiki.newPage.pickSpaceTitle")}
+        </h1>
+        <p className="mb-6 text-sm text-gray-500">
+          {t("wiki.newPage.pickSpaceDescription")}
+        </p>
+        <div className="space-y-2">
+          {spaces.map((space) => (
+            <button
+              key={space.id}
+              type="button"
+              onClick={() => onSelect(space.id)}
+              className="flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 text-left transition hover:border-blue-500 hover:shadow-sm"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-sm font-medium text-gray-600">
+                {SPACE_ICON[space.type] ?? "?"}
+              </span>
+              <div>
+                <p className="font-medium text-gray-900">{space.name}</p>
+                <p className="text-xs text-gray-500">
+                  {t(`wiki.spaces.${space.type}`)}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+        <div className="mt-4">
+          <Link href="/wiki" className="text-sm text-gray-500 hover:text-gray-700">
+            {t("wiki.detail.backToWiki")}
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function NewWikiPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useT();
-  const getApiErrorMessage = useApiErrorMessage();
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pages, setPages] = useState<Page[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const creatingRef = useRef(false);
+
+  const spaceIdParam = searchParams.get("spaceId");
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string | undefined>(
+    spaceIdParam ?? undefined
+  );
+
+  const { data: spacesData, isLoading: spacesLoading } = useSpacesQuery();
+  const spaces = spacesData?.spaces ?? [];
+
+  const createInSpace = useCallback(
+    (spaceId: string) => {
+      if (creatingRef.current) return;
+      creatingRef.current = true;
+      setError(null);
+
+      wikiApi
+        .createPage({ title: "", spaceId })
+        .then((res) => {
+          router.replace(`/wiki/${res.page.id}`);
+        })
+        .catch(() => {
+          setError(t("wiki.newPage.createError"));
+          creatingRef.current = false;
+        });
+    },
+    [router, t]
+  );
 
   useEffect(() => {
-    const fetchPages = async () => {
-      try {
-        const pagesRes = await wikiApi.listPages();
-        setPages(pagesRes.pages);
-      } catch (loadError) {
-        console.error("Failed to fetch pages", loadError);
-        setError(getApiErrorMessage(loadError, t("wiki.list.loadError")));
-      }
-    };
-
-    void fetchPages();
-  }, [getApiErrorMessage, t]);
-
-  const treePages = useMemo(() => buildPageTree(pages), [pages]);
-
-  const handleSave = async () => {
-    if (!title.trim()) {
-      setError(t("wiki.newPage.titleRequired"));
-      return;
+    if (selectedSpaceId) {
+      createInSpace(selectedSpaceId);
     }
+  }, [selectedSpaceId, createInSpace]);
 
-    setIsSubmitting(true);
-    setError(null);
-
-    try {
-      const created = await wikiApi.createPage({ title });
-      await syncPageBlocks(created.page.id, [], content);
-      router.push(`/wiki/${created.page.id}`);
-    } catch (saveError) {
-      setError(getApiErrorMessage(saveError, t("wiki.newPage.createError")));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="flex h-full flex-col md:flex-row">
-      <WikiSidebar pages={treePages} />
-
-      <div className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-4xl p-8">
-          <div className="mb-6">
-            <div className="mb-4 flex items-center gap-2 text-sm text-gray-500">
-              <Link href="/wiki" className="hover:text-blue-600">
-                {t("wiki.list.title")}
-              </Link>
-              <span>/</span>
-              <span>{t("wiki.newPage.breadcrumb")}</span>
-            </div>
-
-            <input
-              type="text"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder={t("wiki.newPage.titlePlaceholder")}
-              className="w-full border-b-2 border-gray-200 pb-2 text-3xl font-bold text-gray-900 focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          {error ? (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          ) : null}
-
-          <div className="mb-6">
-            <WikiEditor
-              content={content}
-              onChange={setContent}
-              placeholder={t("wiki.newPage.editorPlaceholder")}
-              editable={true}
-            />
-          </div>
-
-          <div className="flex justify-end gap-3">
-            <Link
-              href="/wiki"
-              className="rounded-lg border border-gray-300 px-6 py-2 text-gray-700 hover:bg-gray-50"
-            >
-              {t("wiki.newPage.cancel")}
-            </Link>
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center">
+          <p className="mb-4 text-red-600">{error}</p>
+          <div className="flex justify-center gap-3">
             <button
               type="button"
-              onClick={handleSave}
-              disabled={isSubmitting || !title.trim()}
-              className="rounded-lg bg-blue-600 px-6 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => {
+                setError(null);
+                creatingRef.current = false;
+                if (!spaceIdParam) {
+                  setSelectedSpaceId(undefined);
+                }
+              }}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
             >
-              {isSubmitting ? t("wiki.newPage.saving") : t("wiki.newPage.save")}
+              {t("common.actions.retry")}
             </button>
+            <Link
+              href="/wiki"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+            >
+              {t("wiki.detail.backToWiki")}
+            </Link>
           </div>
         </div>
       </div>
+    );
+  }
+
+  // No spaceId provided and none selected yet → show picker
+  if (!spaceIdParam && !selectedSpaceId) {
+    return (
+      <SpacePicker
+        spaces={spaces}
+        isLoading={spacesLoading}
+        onSelect={setSelectedSpaceId}
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-full items-center justify-center">
+      <p className="text-gray-500">{t("common.status.loading")}</p>
     </div>
   );
 }

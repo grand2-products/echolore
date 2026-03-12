@@ -1,4 +1,3 @@
-import { Storage } from "@google-cloud/storage";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -6,6 +5,7 @@ import type { NewBlock } from "../db/schema.js";
 import { writeAuditLog } from "../lib/audit.js";
 import { jsonError } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
+import { loadFile } from "../lib/file-storage.js";
 import { authorizePageResource } from "../policies/authorization-policy.js";
 import { getFileById } from "../repositories/file/file-repository.js";
 import {
@@ -24,15 +24,20 @@ import {
   listVisiblePages,
   searchVisiblePages,
 } from "../services/wiki/wiki-service.js";
+import {
+  GENERAL_SPACE_ID,
+  canAccessSpace,
+  getOrCreatePersonalSpace,
+  listVisibleSpaces,
+} from "../services/wiki/space-service.js";
+import { getSpaceById } from "../repositories/wiki/space-repository.js";
 
 export const wikiRoutes = new Hono<AppEnv>();
-const storage = new Storage();
-const bucketName = process.env.GCS_BUCKET || "corp-internal-files-dev";
-const bucket = storage.bucket(bucketName);
 
 const createPageSchema = z.object({
-  title: z.string().min(1),
+  title: z.string(),
   parentId: z.string().optional(),
+  spaceId: z.string().optional(),
 });
 
 const updatePageSchema = z.object({
@@ -55,10 +60,6 @@ const updateBlockSchema = z.object({
   sortOrder: z.number().optional(),
 });
 
-function getGcsObjectPath(gcsPath: string) {
-  const pathMatch = gcsPath.match(/gs:\/\/[^/]+\/(.+)/);
-  return pathMatch?.[1] ?? null;
-}
 
 function pageHasFileAttachment(blocks: Awaited<ReturnType<typeof getPageBlocks>>, fileId: string) {
   return blocks.some((block) => {
@@ -71,12 +72,42 @@ function pageHasFileAttachment(blocks: Awaited<ReturnType<typeof getPageBlocks>>
   });
 }
 
+// Space routes
+wikiRoutes.get("/spaces", async (c) => {
+  const user = c.get("user");
+  try {
+    const spaces = await listVisibleSpaces(user);
+    return c.json({ spaces });
+  } catch (error) {
+    console.error("Error fetching spaces:", error);
+    return jsonError(c, 500, "WIKI_SPACES_LIST_FAILED", "Failed to fetch spaces");
+  }
+});
+
+wikiRoutes.post("/spaces/personal", async (c) => {
+  const user = c.get("user");
+  if (!user?.id) {
+    return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
+  }
+  try {
+    const space = await getOrCreatePersonalSpace(user);
+    return c.json({ space });
+  } catch (error) {
+    console.error("Error creating personal space:", error);
+    return jsonError(c, 500, "WIKI_SPACE_CREATE_FAILED", "Failed to create personal space");
+  }
+});
+
 wikiRoutes.get("/", async (c) => {
   const user = c.get("user");
+  const spaceId = c.req.query("spaceId");
 
   try {
     const visiblePages = await listVisiblePages(user);
-    return c.json({ pages: visiblePages });
+    const filtered = spaceId
+      ? visiblePages.filter((p) => p.spaceId === spaceId)
+      : visiblePages;
+    return c.json({ pages: filtered });
   } catch (error) {
     console.error("Error fetching pages:", error);
     return jsonError(c, 500, "WIKI_PAGES_LIST_FAILED", "Failed to fetch pages");
@@ -142,17 +173,15 @@ wikiRoutes.get("/:id/files/:fileId/download", async (c) => {
       return jsonError(c, 404, "WIKI_FILE_NOT_FOUND", "File not found");
     }
 
-    const gcsPath = getGcsObjectPath(fileRecord.gcsPath);
-    if (!gcsPath) {
-      return jsonError(c, 500, "WIKI_FILE_PATH_INVALID", "Invalid file path");
-    }
+    const buffer = await loadFile(fileRecord.storagePath);
 
-    const [signedUrl] = await bucket.file(gcsPath).getSignedUrl({
-      action: "read",
-      expires: Date.now() + 60 * 60 * 1000,
+    return new Response(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type": fileRecord.contentType || "application/octet-stream",
+        "Content-Disposition": `inline; filename="${encodeURIComponent(fileRecord.filename)}"`,
+        "Cache-Control": "private, max-age=3600",
+      },
     });
-
-    return c.redirect(signedUrl, 302);
   } catch (error) {
     console.error("Error resolving wiki file download:", error);
     return jsonError(c, 500, "WIKI_FILE_DOWNLOAD_RESOLVE_FAILED", "Failed to resolve wiki file download");
@@ -203,10 +232,22 @@ wikiRoutes.post("/", zValidator("json", createPageSchema), async (c) => {
   }
 
   try {
+    const targetSpaceId = data.spaceId || GENERAL_SPACE_ID;
+
+    // Verify user can access the target space
+    const space = await getSpaceById(targetSpaceId);
+    if (!space) {
+      return jsonError(c, 404, "WIKI_SPACE_NOT_FOUND", "Space not found");
+    }
+    if (!(await canAccessSpace(user, space))) {
+      return jsonError(c, 403, "WIKI_SPACE_FORBIDDEN", "Cannot create pages in this space");
+    }
+
     const now = new Date();
     const newPage: Parameters<typeof createPageWithAccessDefaults>[0] = {
       id: crypto.randomUUID(),
       title: data.title,
+      spaceId: targetSpaceId,
       parentId: data.parentId || null,
       authorId: user.id,
       createdAt: now,

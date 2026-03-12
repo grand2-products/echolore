@@ -6,6 +6,14 @@ export async function listPagesOrderedByUpdatedAt() {
   return db.select().from(pages).orderBy(desc(pages.updatedAt));
 }
 
+export async function listPagesBySpaceId(spaceId: string) {
+  return db
+    .select()
+    .from(pages)
+    .where(eq(pages.spaceId, spaceId))
+    .orderBy(desc(pages.updatedAt));
+}
+
 export async function getPageById(id: string) {
   const [page] = await db.select().from(pages).where(eq(pages.id, id));
   return page ?? null;
