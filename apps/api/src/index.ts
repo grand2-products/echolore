@@ -23,6 +23,8 @@ import { metricsRoutes } from "./routes/metrics.js";
 import { usersRoutes } from "./routes/users.js";
 import { startAutonomousAgentLoop } from "./services/meeting/autonomous-agent-service.js";
 import { wikiRoutes } from "./routes/wiki.js";
+import { wikiChatRoutes } from "./routes/wiki-chat.js";
+import { calendarRoutes } from "./routes/calendar.js";
 
 // ---------------------------------------------------------------------------
 // Required environment variable validation (fail-fast on startup)
@@ -50,6 +52,76 @@ const appTitle = process.env.APP_TITLE || "corp-internal";
 
 app.use("*", logger());
 app.use("*", prettyJSON());
+
+// Security headers middleware
+app.use("*", async (c, next) => {
+  await next();
+  c.res.headers.set("X-Frame-Options", "DENY");
+  c.res.headers.set("X-Content-Type-Options", "nosniff");
+  c.res.headers.set("X-XSS-Protection", "1; mode=block");
+  c.res.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  c.res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  c.res.headers.set("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()");
+});
+
+// CSRF protection via Origin header check
+const CSRF_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
+app.use("*", async (c, next) => {
+  if (!CSRF_METHODS.has(c.req.method.toUpperCase())) {
+    return next();
+  }
+
+  const path = c.req.path;
+
+  // Skip CSRF check for Auth.js routes (they have their own CSRF)
+  if (path.startsWith("/api/auth/")) {
+    return next();
+  }
+
+  // Skip CSRF check for LiveKit webhook routes (use HMAC auth)
+  if (path.startsWith("/api/livekit/webhook")) {
+    return next();
+  }
+
+  // Skip CSRF check for internal routes (use X-Room-AI-Worker-Secret)
+  if (path.startsWith("/api/internal/") || path.startsWith("/internal/")) {
+    return next();
+  }
+
+  // Skip CSRF check for requests with Bearer token (API/mobile clients)
+  const authHeader = c.req.header("Authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    return next();
+  }
+
+  // Check Origin or Referer against allowed CORS origin
+  const allowedOrigin = process.env.CORS_ORIGIN ?? (process.env.NODE_ENV === "production" ? "https://app.example.com" : "http://localhost:3000");
+  const origin = c.req.header("Origin");
+  const referer = c.req.header("Referer");
+
+  if (origin) {
+    if (origin !== allowedOrigin) {
+      return jsonError(c, 403, "CSRF_REJECTED", "Cross-origin request rejected");
+    }
+    return next();
+  }
+
+  if (referer) {
+    try {
+      const refererOrigin = new URL(referer).origin;
+      if (refererOrigin !== allowedOrigin) {
+        return jsonError(c, 403, "CSRF_REJECTED", "Cross-origin request rejected");
+      }
+      return next();
+    } catch {
+      return jsonError(c, 403, "CSRF_REJECTED", "Cross-origin request rejected");
+    }
+  }
+
+  // No Origin or Referer header on a state-changing request
+  return jsonError(c, 403, "CSRF_REJECTED", "Missing Origin header");
+});
+
 app.use(
   "*",
   cors({
@@ -157,10 +229,12 @@ app.use("/api/admin/*", async (c, next) => {
 app.get("/api/auth/me", (c) => c.json({ user: c.get("user") ?? null, authMode: c.get("authMode") ?? null }));
 
 app.route("/api/wiki", wikiRoutes);
+app.route("/api/wiki-chat", wikiChatRoutes);
 app.route("/api/meetings", meetingsRoutes);
 app.route("/api/users", usersRoutes);
 app.route("/api/files", filesRoutes);
 app.route("/api/livekit", livekitRoutes);
+app.route("/api/calendar", calendarRoutes);
 app.route("/api/admin", adminRoutes);
 app.route("/api/admin/metrics", metricsRoutes);
 

@@ -6,8 +6,8 @@ import { writeAuditLog } from "./audit.js";
 import { resolveAccessTokenSession } from "./local-auth.js";
 
 const ALLOWED_DOMAIN = (process.env.AUTH_ALLOWED_DOMAIN || "grand2-products.com").toLowerCase();
-const AUTH_SECRET = process.env.AUTH_SECRET || process.env.AUTH_SESSION_SECRET || "";
-if (!AUTH_SECRET && process.env.NODE_ENV !== "test") {
+const AUTH_SECRET = process.env.AUTH_SECRET || process.env.AUTH_SESSION_SECRET;
+if (!AUTH_SECRET) {
   throw new Error("AUTH_SECRET (or AUTH_SESSION_SECRET) must be set");
 }
 

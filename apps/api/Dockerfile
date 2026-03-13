@@ -24,11 +24,16 @@ WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
-COPY --from=builder /prod/api ./
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 apiuser
+
+COPY --from=builder --chown=apiuser:nodejs /prod/api ./
 
 ENV NODE_ENV=production
 ENV PORT=3001
 
 EXPOSE 3001
+
+USER apiuser
 
 CMD ["node", "dist/apps/api/src/index.js"]

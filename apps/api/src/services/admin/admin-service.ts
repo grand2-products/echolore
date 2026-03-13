@@ -346,7 +346,7 @@ export async function getEmailSettings(): Promise<EmailSettings> {
     resendFrom: map.emailResendFrom || null,
     smtpHost: map.emailSmtpHost || null,
     smtpPort: map.emailSmtpPort ? Number(map.emailSmtpPort) : null,
-    smtpSecure: map.emailSmtpSecure === "true",
+    smtpSecure: map.emailSmtpSecure !== "false",
     smtpUser: map.emailSmtpUser || null,
     smtpPass: map.emailSmtpPass || null,
     smtpFrom: map.emailSmtpFrom || null,

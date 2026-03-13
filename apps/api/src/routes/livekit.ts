@@ -63,14 +63,22 @@ livekitRoutes.get("/rooms", async (c) => {
 });
 
 // POST /api/livekit/rooms - Create a new room
+const createRoomSchema = z.object({
+  name: z.string().min(1).max(128),
+  emptyTimeout: z.number().int().min(60).max(3600).default(300),
+  maxParticipants: z.number().int().min(1).max(500).default(100),
+});
+
 livekitRoutes.post("/rooms", async (c) => {
   try {
     const body = await c.req.json();
-    const { name, emptyTimeout = 300, maxParticipants = 100 } = body;
+    const parsed = createRoomSchema.safeParse(body);
 
-    if (!name) {
-      return jsonError(c, 400, "LIVEKIT_ROOM_NAME_REQUIRED", "Room name is required");
+    if (!parsed.success) {
+      return jsonError(c, 400, "LIVEKIT_ROOM_VALIDATION_FAILED", parsed.error.errors.map((e) => e.message).join(", "));
     }
+
+    const { name, emptyTimeout, maxParticipants } = parsed.data;
 
     const room = await roomService.createRoom({
       name,

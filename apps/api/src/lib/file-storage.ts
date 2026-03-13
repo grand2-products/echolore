@@ -1,5 +1,6 @@
+import { realpathSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, normalize, resolve, isAbsolute } from "node:path";
+import path, { dirname, normalize, relative, resolve, isAbsolute } from "node:path";
 
 // ---------------------------------------------------------------------------
 // StorageProvider interface
@@ -40,8 +41,20 @@ class LocalStorageProvider implements StorageProvider {
   private resolveSafe(relativePath: string): string {
     const resolved = resolve(this.root, relativePath);
     const rootResolved = resolve(this.root);
-    if (!resolved.startsWith(rootResolved + "/") && resolved !== rootResolved) {
+    const rel = relative(rootResolved, resolved);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
       throw new Error("Path traversal is not allowed");
+    }
+    // Follow symlinks to verify the real path is still under root
+    try {
+      const realResolved = realpathSync(resolved);
+      const realRoot = realpathSync(rootResolved);
+      const realRel = relative(realRoot, realResolved);
+      if (realRel.startsWith('..') || path.isAbsolute(realRel)) {
+        throw new Error("Path traversal is not allowed");
+      }
+    } catch {
+      // Path may not exist yet (e.g., during creation); skip symlink check
     }
     return resolved;
   }
