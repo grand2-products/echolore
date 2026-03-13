@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { WikiSidebar } from "@/components/wiki";
+import { WikiSidebar, SpacePickerModal } from "@/components/wiki";
 import { useWikiPagesQuery, useSpacesQuery, wikiApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useT } from "@/lib/i18n";
@@ -18,6 +18,7 @@ export default function WikiListPage() {
   const { data: spacesData } = useSpacesQuery();
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showSpacePicker, setShowSpacePicker] = useState(false);
 
   const pages = data?.pages ?? [];
   const spaces = spacesData?.spaces ?? [];
@@ -61,15 +62,18 @@ export default function WikiListPage() {
             </div>
           ) : null}
 
+          <SpacePickerModal open={showSpacePicker} onClose={() => setShowSpacePicker(false)} />
+
           <div className="mb-8 grid gap-4 md:grid-cols-3">
-            <Link
-              href="/wiki/new"
-              className="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-blue-500 hover:shadow-md"
+            <button
+              type="button"
+              onClick={() => setShowSpacePicker(true)}
+              className="block rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-500 hover:shadow-md"
             >
               <div className="mb-2 text-2xl">+</div>
               <h3 className="font-medium text-gray-900">{t("wiki.list.createTitle")}</h3>
               <p className="text-sm text-gray-500">{t("wiki.list.createDescription")}</p>
-            </Link>
+            </button>
 
             <Link
               href="/search"

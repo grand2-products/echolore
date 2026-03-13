@@ -1,51 +1,41 @@
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UserRole } from "@corp-internal/shared/contracts";
 import type { AppEnv } from "../lib/auth.js";
 import { authRoutes } from "./auth.js";
 
 const {
   authenticatePasswordUserMock,
-  clearPasswordSessionCookiesMock,
   exchangeGoogleIdTokenMock,
-  getRefreshTokenFromCookieMock,
   getRequestIpMock,
   issueMobileTokenPairMock,
-  issuePasswordWebSessionMock,
   isRateLimitedMock,
   refreshAccessTokenMock,
   registerPasswordUserMock,
   revokeRefreshTokenMock,
-  setPasswordSessionCookiesMock,
   verifyEmailRegistrationTokenMock,
   writeAuditLogMock,
 } = vi.hoisted(() => ({
   authenticatePasswordUserMock: vi.fn(),
-  clearPasswordSessionCookiesMock: vi.fn(),
   exchangeGoogleIdTokenMock: vi.fn(),
-  getRefreshTokenFromCookieMock: vi.fn(),
   getRequestIpMock: vi.fn(),
   issueMobileTokenPairMock: vi.fn(),
-  issuePasswordWebSessionMock: vi.fn(),
   isRateLimitedMock: vi.fn(),
   refreshAccessTokenMock: vi.fn(),
   registerPasswordUserMock: vi.fn(),
   revokeRefreshTokenMock: vi.fn(),
-  setPasswordSessionCookiesMock: vi.fn(),
   verifyEmailRegistrationTokenMock: vi.fn(),
   writeAuditLogMock: vi.fn(),
 }));
 
 vi.mock("../lib/local-auth.js", () => ({
   authenticatePasswordUser: authenticatePasswordUserMock,
-  clearPasswordSessionCookies: clearPasswordSessionCookiesMock,
   exchangeGoogleIdToken: exchangeGoogleIdTokenMock,
-  getRefreshTokenFromCookie: getRefreshTokenFromCookieMock,
+  isRegistrationOpen: vi.fn().mockResolvedValue(true),
   issueMobileTokenPair: issueMobileTokenPairMock,
-  issuePasswordWebSession: issuePasswordWebSessionMock,
   refreshAccessToken: refreshAccessTokenMock,
   registerPasswordUser: registerPasswordUserMock,
   revokeRefreshToken: revokeRefreshTokenMock,
-  setPasswordSessionCookies: setPasswordSessionCookiesMock,
   verifyEmailRegistrationToken: verifyEmailRegistrationTokenMock,
 }));
 
@@ -67,21 +57,16 @@ function createApp() {
 describe("authRoutes", () => {
   beforeEach(() => {
     authenticatePasswordUserMock.mockReset();
-    clearPasswordSessionCookiesMock.mockReset();
     exchangeGoogleIdTokenMock.mockReset();
-    getRefreshTokenFromCookieMock.mockReset();
     getRequestIpMock.mockReset();
     issueMobileTokenPairMock.mockReset();
-    issuePasswordWebSessionMock.mockReset();
     isRateLimitedMock.mockReset();
     refreshAccessTokenMock.mockReset();
     registerPasswordUserMock.mockReset();
     revokeRefreshTokenMock.mockReset();
-    setPasswordSessionCookiesMock.mockReset();
     verifyEmailRegistrationTokenMock.mockReset();
     writeAuditLogMock.mockReset();
     getRequestIpMock.mockReturnValue("127.0.0.1");
-    getRefreshTokenFromCookieMock.mockReturnValue("cookie-refresh");
     isRateLimitedMock.mockResolvedValue(false);
   });
 
@@ -98,12 +83,12 @@ describe("authRoutes", () => {
     await expect(response.json()).resolves.toEqual({ success: true });
   });
 
-  it("verifies email and issues a web password session", async () => {
+  it("verifies email and returns user info", async () => {
     verifyEmailRegistrationTokenMock.mockResolvedValue({
       id: "user_1",
       email: "member@example.com",
       name: "Member",
-      role: "member",
+      role: UserRole.Member,
       avatarUrl: null,
     });
 
@@ -114,26 +99,10 @@ describe("authRoutes", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(issuePasswordWebSessionMock).toHaveBeenCalledWith(expect.anything(), "user_1");
-  });
-
-  it("logs in a password user and issues a web session", async () => {
-    authenticatePasswordUserMock.mockResolvedValue({
-      id: "user_1",
-      email: "admin@example.com",
-      name: "Admin",
-      role: "admin",
-      avatarUrl: null,
+    await expect(response.json()).resolves.toMatchObject({
+      user: { id: "user_1", email: "member@example.com" },
+      authMode: "password",
     });
-
-    const response = await createApp().request("http://localhost/api/auth/login", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "admin@example.com", password: "secret" }),
-    });
-
-    expect(response.status).toBe(200);
-    expect(issuePasswordWebSessionMock).toHaveBeenCalledWith(expect.anything(), "user_1");
   });
 
   it("issues mobile tokens", async () => {
@@ -141,7 +110,7 @@ describe("authRoutes", () => {
       id: "user_2",
       email: "mobile@example.com",
       name: "Mobile",
-      role: "member",
+      role: UserRole.Member,
       avatarUrl: null,
     });
     issueMobileTokenPairMock.mockResolvedValue({
@@ -152,7 +121,7 @@ describe("authRoutes", () => {
         id: "user_2",
         email: "mobile@example.com",
         name: "Mobile",
-        role: "member",
+        role: UserRole.Member,
         avatarUrl: null,
       },
       authMode: "password",
@@ -173,7 +142,7 @@ describe("authRoutes", () => {
         id: "user_2",
         email: "mobile@example.com",
         name: "Mobile",
-        role: "member",
+        role: UserRole.Member,
         avatarUrl: null,
       },
       authMode: "password",
@@ -189,7 +158,7 @@ describe("authRoutes", () => {
         id: "user_3",
         email: "sso@example.com",
         name: "SSO User",
-        role: "member",
+        role: UserRole.Member,
         avatarUrl: null,
       },
       authMode: "sso",
@@ -210,14 +179,14 @@ describe("authRoutes", () => {
         id: "user_3",
         email: "sso@example.com",
         name: "SSO User",
-        role: "member",
+        role: UserRole.Member,
         avatarUrl: null,
       },
       authMode: "sso",
     });
   });
 
-  it("refreshes web session cookies through token refresh", async () => {
+  it("refreshes mobile tokens through token refresh", async () => {
     refreshAccessTokenMock.mockResolvedValue({
       accessToken: "next-access",
       refreshToken: "next-refresh",
@@ -226,7 +195,7 @@ describe("authRoutes", () => {
         id: "user_2",
         email: "mobile@example.com",
         name: "Mobile",
-        role: "member",
+        role: UserRole.Member,
         avatarUrl: null,
       },
       authMode: "password",
@@ -235,17 +204,35 @@ describe("authRoutes", () => {
     const response = await createApp().request("http://localhost/api/auth/token/refresh", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ refreshToken: "mobile-refresh-token" }),
     });
 
     expect(response.status).toBe(200);
-    expect(setPasswordSessionCookiesMock).toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      accessToken: "next-access",
+      refreshToken: "next-refresh",
+    });
+    expect(refreshAccessTokenMock).toHaveBeenCalledWith({
+      refreshToken: "mobile-refresh-token",
+      clientType: "mobile",
+      deviceName: null,
+    });
   });
 
-  it("rejects rate-limited password logins", async () => {
+  it("rejects token/refresh without refreshToken in body", async () => {
+    const response = await createApp().request("http://localhost/api/auth/token/refresh", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("rejects rate-limited mobile token requests", async () => {
     isRateLimitedMock.mockResolvedValue(true);
 
-    const response = await createApp().request("http://localhost/api/auth/login", {
+    const response = await createApp().request("http://localhost/api/auth/token", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ email: "admin@example.com", password: "secret" }),
@@ -258,13 +245,12 @@ describe("authRoutes", () => {
     });
   });
 
-  it("clears web cookies and revokes refresh token on logout", async () => {
+  it("returns success on logout (no-op)", async () => {
     const response = await createApp().request("http://localhost/api/auth/logout", {
       method: "POST",
     });
 
     expect(response.status).toBe(200);
-    expect(revokeRefreshTokenMock).toHaveBeenCalledWith("cookie-refresh");
-    expect(clearPasswordSessionCookiesMock).toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({ success: true });
   });
 });

@@ -1,8 +1,9 @@
 import type { Context } from "hono";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 
 export function jsonError(
   c: Context,
-  status: number,
+  status: ContentfulStatusCode,
   code: string,
   error: string,
   message?: string
@@ -13,6 +14,6 @@ export function jsonError(
       code,
       ...(message ? { message } : {}),
     },
-    status as 200
+    status
   );
 }

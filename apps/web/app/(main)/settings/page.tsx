@@ -2,19 +2,22 @@
 
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAuthContext } from "@/lib/auth-context";
-import { useFormatters, useT } from "@/lib/i18n";
+import { supportedLocales, useFormatters, useLocale, useSetLocale, useT, type SupportedLocale } from "@/lib/i18n";
 import { useAuthActions } from "@/lib/use-auth-actions";
 import {
   useCurrentAuthSessions,
   useRevokeCurrentAuthSession,
 } from "@/lib/use-auth-session";
+import { buildLoginUrl } from "@/lib/return-to";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function SettingsPage() {
-  const { user, authMode, isLoading, isError } = useAuthContext();
+  const { user, authMode, isLoading, isError, refetch: refetchAuth } = useAuthContext();
   const t = useT();
   const formatters = useFormatters();
+  const locale = useLocale();
+  const setLocale = useSetLocale();
   const getApiErrorMessage = useApiErrorMessage();
   const router = useRouter();
   const { logout } = useAuthActions();
@@ -27,8 +30,8 @@ export default function SettingsPage() {
     try {
       await revokeSessionMutation.mutateAsync(sessionId);
       if (current) {
-        router.push("/login");
-        router.refresh();
+        await refetchAuth();
+        router.push(buildLoginUrl("/settings"));
       }
     } catch (error) {
       setRevokeError(getApiErrorMessage(error, t("settings.sessionsError")));
@@ -36,7 +39,7 @@ export default function SettingsPage() {
   };
 
   const handleLogout = async () => {
-    await logout(authMode);
+    await logout();
   };
 
   const sessionDescriptionKey =
@@ -58,9 +61,18 @@ export default function SettingsPage() {
           {isLoading ? (
             <p className="text-sm text-gray-500">{t("settings.loading")}</p>
           ) : isError || !user ? (
-            <p className="text-sm text-red-600">
-              {t("settings.error")}
-            </p>
+            <div className="space-y-3">
+              <p className="text-sm text-red-600">
+                {t("settings.error")}
+              </p>
+              <button
+                type="button"
+                onClick={() => void refetchAuth()}
+                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+              >
+                {t("common.actions.retry")}
+              </button>
+            </div>
           ) : (
             <div className="space-y-6">
               <div>
@@ -82,6 +94,24 @@ export default function SettingsPage() {
               </div>
 
               <div>
+                <h2 className="text-lg font-semibold text-gray-900">{t("settings.language")}</h2>
+                <p className="mt-2 text-sm text-gray-600">
+                  {t("settings.languageDescription")}
+                </p>
+                <select
+                  value={locale}
+                  onChange={(event) => setLocale(event.target.value as SupportedLocale)}
+                  className="mt-3 rounded-md border border-gray-300 px-3 py-2 text-sm"
+                >
+                  {supportedLocales.map((option) => (
+                    <option key={option} value={option}>
+                      {t(`common.language.${option}`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <h2 className="text-lg font-semibold text-gray-900">{t("settings.session")}</h2>
                 <p className="mt-2 text-sm text-gray-600">
                   {t(sessionDescriptionKey)}
@@ -95,9 +125,18 @@ export default function SettingsPage() {
                   {sessionsQuery.isLoading ? (
                     <p className="px-4 py-4 text-sm text-gray-500">{t("settings.sessionsLoading")}</p>
                   ) : sessionsQuery.isError ? (
-                    <p className="px-4 py-4 text-sm text-red-600">
-                      {getApiErrorMessage(sessionsQuery.error, t("settings.sessionsError"))}
-                    </p>
+                    <div className="space-y-3 px-4 py-4">
+                      <p className="text-sm text-red-600">
+                        {getApiErrorMessage(sessionsQuery.error, t("settings.sessionsError"))}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void sessionsQuery.refetch()}
+                        className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+                      >
+                        {t("common.actions.retry")}
+                      </button>
+                    </div>
                   ) : sessionsQuery.data?.sessions.length ? (
                     <ul className="divide-y divide-gray-200">
                       {sessionsQuery.data.sessions.map((session) => (

@@ -28,7 +28,7 @@ High-level project overview lives in `README.md`.
 ## Local Runtime
 - Web: `http://localhost:17720`
 - API: `http://localhost:17721`
-- OAuth2 Proxy: `http://localhost:17726`
+- Auth: Auth.js sessions managed by API at `http://localhost:17721/api/auth/*`
 - LiveKit: `http://localhost:17722`
 - PostgreSQL: `localhost:17724`
 
@@ -38,7 +38,7 @@ High-level project overview lives in `README.md`.
   - or `pnpm dev:daily`
 - `dev.ps1` starts middleware (`db`, `valkey`, `livekit`) in Docker and then runs `web`, `api`, and `worker` through Turborepo in the current shell.
 - `dev.ps1` begins with `pnpm install --frozen-lockfile` so workspace dependencies are aligned before any app starts.
-- After PostgreSQL becomes healthy, `dev.ps1` applies the schema before starting app processes. It prefers `pnpm db:migrate`, and falls back to `pnpm db:push` when Drizzle migration artifacts are not present in `apps/api/drizzle/meta/_journal.json`.
+- After PostgreSQL becomes healthy, `dev.ps1` applies the schema before starting app processes. It prefers `pnpm db:migrate`, falls back to `db:push --force` when Drizzle migration artifacts are not present in `apps/api/drizzle/meta/_journal.json`, and also uses that `db:push --force` path when the local database already has application tables but no `__drizzle_migrations` history table.
 - Turborepo uses `stream` UI so terminal output stays copyable in regular shells.
 - `dev.ps1` only loads root `.env` for orchestration overrides such as shared local ports.
 - Each app dev script loads its own `.env` and `.env.local` via `dotenv-cli`.
@@ -47,6 +47,7 @@ High-level project overview lives in `README.md`.
 - `dev.ps1` is orchestration only. It does not rewrite app connection targets before `turbo run dev`.
 - App branding can be overridden in `apps/api/.env` and `apps/web/.env.local` via `APP_TITLE`, `NEXT_PUBLIC_APP_TITLE`, and `NEXT_PUBLIC_APP_TAGLINE`.
 - Password registration and sign-in are available at `/login`.
+- Registration is open only when no users exist in the database. The first registered user (password or Google SSO) is automatically promoted to `admin`. After that, self-registration is closed and new users must be added by an admin.
 - Local development writes email verification links to the API log. `APP_BASE_URL` in `apps/api/.env` controls the generated verification URL.
 - Shared environments can send verification mail through Resend by setting `RESEND_API_KEY` and `RESEND_FROM`.
 - If Resend is not configured, the API falls back to SMTP via `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM`.
@@ -105,6 +106,9 @@ High-level project overview lives in `README.md`.
 - Local env values start from `.env.example`.
 - Secrets must not be committed.
 - Runtime release variables such as `API_IMAGE` and `WEB_IMAGE` are injected by workflows, not set manually for standard local development.
+- `TEXT_GENERATION_PROVIDER` selects the LLM backend for the AI agent (`vertex-ai` or `zhipu`; defaults to `vertex-ai`).
+- `ZHIPU_API_KEY` is the API key for Z.ai GLM-5 when `TEXT_GENERATION_PROVIDER=zhipu`.
+- `ZHIPU_TEXT_MODEL` overrides the default Z.ai model name (optional).
 
 ## Release and Infra Notes
 - Standard release path is GitHub Actions only.

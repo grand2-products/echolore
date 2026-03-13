@@ -20,7 +20,7 @@ export async function createFile(input: {
   filename: string;
   contentType: string;
   size: number;
-  gcsPath: string;
+  storagePath: string;
   uploaderId: string;
   createdAt: Date;
 }) {

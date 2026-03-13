@@ -1,6 +1,6 @@
 # Next Tasks
 
-Last updated: 2026-03-11
+Last updated: 2026-03-13
 
 This document summarizes the current follow-up areas after the `plan/` cleanup.
 
@@ -8,9 +8,7 @@ This document summarizes the current follow-up areas after the `plan/` cleanup.
 - release rollout hardening
 
 ## Primary Tracking Files
-- remaining status gates: `../plan/implementation-status-master.md`
-- execution backlog: `../plan/todo-master.md`
-- deployment-specific backlog: `../plan/deployment.md`
+- release gates and open decisions: `../plan/README.md`
 
 ## Current Follow-up Themes
 

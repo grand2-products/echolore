@@ -1,36 +1,25 @@
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UserRole } from "@corp-internal/shared/contracts";
 import { authGuard, type AppEnv } from "../lib/auth.js";
 import { usersRoutes } from "./users.js";
 
 const {
-  clearPasswordSessionCookiesMock,
-  getAccessTokenFromCookieMock,
-  getRefreshTokenFromCookieMock,
   getUserByIdMock,
   listAuthSessionsForUserMock,
-  reconcileGoogleIdentityMock,
   resolveAccessTokenSessionMock,
   revokeAuthSessionByIdMock,
   writeAuditLogMock,
 } = vi.hoisted(() => ({
-  clearPasswordSessionCookiesMock: vi.fn(),
-  getAccessTokenFromCookieMock: vi.fn(),
-  getRefreshTokenFromCookieMock: vi.fn(),
   getUserByIdMock: vi.fn(),
   listAuthSessionsForUserMock: vi.fn(),
-  reconcileGoogleIdentityMock: vi.fn(),
   resolveAccessTokenSessionMock: vi.fn(),
   revokeAuthSessionByIdMock: vi.fn(),
   writeAuditLogMock: vi.fn(),
 }));
 
 vi.mock("../lib/local-auth.js", () => ({
-  clearPasswordSessionCookies: clearPasswordSessionCookiesMock,
-  getAccessTokenFromCookie: getAccessTokenFromCookieMock,
-  getRefreshTokenFromCookie: getRefreshTokenFromCookieMock,
   listAuthSessionsForUser: listAuthSessionsForUserMock,
-  reconcileGoogleIdentity: reconcileGoogleIdentityMock,
   resolveAccessTokenSession: resolveAccessTokenSessionMock,
   revokeAuthSessionById: revokeAuthSessionByIdMock,
 }));
@@ -62,12 +51,8 @@ function createApp() {
 
 describe("usersRoutes", () => {
   beforeEach(() => {
-    clearPasswordSessionCookiesMock.mockReset();
-    getAccessTokenFromCookieMock.mockReset();
-    getRefreshTokenFromCookieMock.mockReset();
     getUserByIdMock.mockReset();
     listAuthSessionsForUserMock.mockReset();
-    reconcileGoogleIdentityMock.mockReset();
     resolveAccessTokenSessionMock.mockReset();
     revokeAuthSessionByIdMock.mockReset();
     writeAuditLogMock.mockReset();
@@ -79,7 +64,7 @@ describe("usersRoutes", () => {
         id: "user_1",
         email: "member@example.com",
         name: "Member",
-        role: "member",
+        role: UserRole.Member,
         avatarUrl: null,
       },
       authMode: "password",
@@ -89,7 +74,7 @@ describe("usersRoutes", () => {
       email: "member@example.com",
       name: "Member",
       avatarUrl: null,
-      role: "member",
+      role: UserRole.Member,
       emailVerifiedAt: new Date("2026-03-12T00:00:00.000Z"),
       tokenVersion: 1,
       createdAt: new Date("2026-03-12T00:00:00.000Z"),
@@ -109,7 +94,7 @@ describe("usersRoutes", () => {
         email: "member@example.com",
         name: "Member",
         avatarUrl: null,
-        role: "member",
+        role: UserRole.Member,
         emailVerifiedAt: "2026-03-12T00:00:00.000Z",
         tokenVersion: 1,
         createdAt: "2026-03-12T00:00:00.000Z",
@@ -124,22 +109,21 @@ describe("usersRoutes", () => {
         id: "user_1",
         email: "member@example.com",
         name: "Member",
-        role: "member",
+        role: UserRole.Member,
         avatarUrl: null,
       },
       authMode: "password",
     });
-    getRefreshTokenFromCookieMock.mockReturnValue("cookie-refresh");
     listAuthSessionsForUserMock.mockResolvedValue([
       {
         id: "rt_1",
-        clientType: "web",
+        clientType: "mobile",
         authMode: "password",
-        deviceName: "Chrome on Windows",
+        deviceName: "iPhone",
         createdAt: new Date("2026-03-12T00:00:00.000Z"),
         lastSeenAt: new Date("2026-03-12T00:10:00.000Z"),
         expiresAt: new Date("2026-04-11T00:00:00.000Z"),
-        current: true,
+        current: false,
       },
     ]);
 
@@ -154,42 +138,29 @@ describe("usersRoutes", () => {
       sessions: [
         {
           id: "rt_1",
-          clientType: "web",
+          clientType: "mobile",
           authMode: "password",
-          deviceName: "Chrome on Windows",
+          deviceName: "iPhone",
           createdAt: "2026-03-12T00:00:00.000Z",
           lastSeenAt: "2026-03-12T00:10:00.000Z",
           expiresAt: "2026-04-11T00:00:00.000Z",
-          current: true,
+          current: false,
         },
       ],
     });
   });
 
-  it("revokes the current session and clears cookies", async () => {
+  it("revokes a session by id", async () => {
     resolveAccessTokenSessionMock.mockResolvedValue({
       user: {
         id: "user_1",
         email: "member@example.com",
         name: "Member",
-        role: "member",
+        role: UserRole.Member,
         avatarUrl: null,
       },
       authMode: "password",
     });
-    getRefreshTokenFromCookieMock.mockReturnValue("cookie-refresh");
-    listAuthSessionsForUserMock.mockResolvedValue([
-      {
-        id: "rt_current",
-        clientType: "web",
-        authMode: "password",
-        deviceName: "Chrome on Windows",
-        createdAt: new Date("2026-03-12T00:00:00.000Z"),
-        lastSeenAt: new Date("2026-03-12T00:10:00.000Z"),
-        expiresAt: new Date("2026-04-11T00:00:00.000Z"),
-        current: true,
-      },
-    ]);
     revokeAuthSessionByIdMock.mockResolvedValue(true);
 
     const response = await createApp().request("http://localhost/api/users/me/sessions/rt_current", {
@@ -205,6 +176,5 @@ describe("usersRoutes", () => {
       userId: "user_1",
       sessionId: "rt_current",
     });
-    expect(clearPasswordSessionCookiesMock).toHaveBeenCalled();
   });
 });

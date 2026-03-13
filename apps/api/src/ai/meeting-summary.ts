@@ -1,6 +1,8 @@
+import { HumanMessage } from "@langchain/core/messages";
 import type { Transcript } from "../db/schema.js";
-
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta";
+import { getLlmSettings } from "../services/admin/admin-service.js";
+import { createChatModel, isTextGenerationEnabled, resolveTextProvider } from "./llm/index.js";
+import type { LlmOverrides } from "./llm/index.js";
 
 const clip = (value: string, max = 12000) => value.slice(0, max);
 
@@ -26,10 +28,19 @@ export async function generateMeetingSummary(
   meetingTitle: string,
   transcripts: Array<Pick<Transcript, "speakerId" | "content" | "timestamp">>,
 ): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_TEXT_MODEL || "gemini-1.5-flash";
+  const dbSettings = await getLlmSettings();
+  const overrides: LlmOverrides = {
+    geminiApiKey: dbSettings.geminiApiKey,
+    geminiTextModel: dbSettings.geminiTextModel,
+    vertexProject: dbSettings.vertexProject,
+    vertexLocation: dbSettings.vertexLocation,
+    vertexModel: dbSettings.vertexModel,
+    zhipuApiKey: dbSettings.zhipuApiKey,
+    zhipuTextModel: dbSettings.zhipuTextModel,
+  };
+  const provider = resolveTextProvider(dbSettings.provider);
 
-  if (!apiKey) {
+  if (!isTextGenerationEnabled(provider, overrides)) {
     return fallbackSummary(transcripts);
   }
 
@@ -57,28 +68,11 @@ export async function generateMeetingSummary(
   ].join("\n");
 
   try {
-    const response = await fetch(
-      `${GEMINI_API_URL}/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.2,
-          },
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      return fallbackSummary(transcripts);
-    }
-
-    const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    const model = createChatModel({ provider, temperature: 0.2, overrides });
+    const response = await model.invoke([new HumanMessage(prompt)]);
+    const text = typeof response.content === "string"
+      ? response.content.trim()
+      : String(response.content).trim();
     if (!text) return fallbackSummary(transcripts);
     return text;
   } catch {

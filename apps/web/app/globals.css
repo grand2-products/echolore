@@ -18,25 +18,33 @@ body {
   font-family: var(--font-noto-sans-jp), system-ui, sans-serif;
 }
 
-/* TipTap Editor Styles */
-.ProseMirror {
-  outline: none;
+/* BlockNote Editor Adjustments */
+.notion-editor .bn-editor {
+  font-family: var(--font-noto-sans-jp), system-ui, sans-serif;
 }
 
-.ProseMirror p.is-editor-empty:first-child::before {
-  color: #adb5bd;
-  content: attr(data-placeholder);
-  float: left;
-  height: 0;
-  pointer-events: none;
+.notion-editor .bn-block-group > .bn-block-outer:first-child {
+  margin-top: 0;
 }
 
-.ProseMirror .is-empty::before {
-  color: #adb5bd;
-  content: attr(data-placeholder);
-  float: left;
-  height: 0;
-  pointer-events: none;
+/* Reaction float animation */
+@keyframes reaction-float {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-180px) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-260px) scale(0.8);
+  }
+}
+
+.animate-reaction-float {
+  animation: reaction-float 3s ease-out forwards;
 }
 
 /* LiveKit Component Styles */

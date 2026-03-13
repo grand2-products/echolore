@@ -1,9 +1,9 @@
 "use client";
 
 import type { AuthMeResponse, SessionUser } from "@/lib/api";
-import { appTitle } from "@/lib/app-config";
 import { getVisibleNavigationItems } from "@/components/layout/navigation";
-import { supportedLocales, useLocale, useSetLocale, useT, type SupportedLocale } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
+import { useSiteTitle } from "@/lib/site-settings-context";
 import { useAuthActions } from "@/lib/use-auth-actions";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -14,13 +14,12 @@ interface HeaderProps {
   authMode?: AuthMeResponse["authMode"];
 }
 
-export function Header({ user, authMode }: HeaderProps) {
+export function Header({ user }: HeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const locale = useLocale();
-  const setLocale = useSetLocale();
   const t = useT();
+  const siteTitle = useSiteTitle();
   const { logout } = useAuthActions();
   const [query, setQuery] = useState("");
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -47,7 +46,7 @@ export function Header({ user, authMode }: HeaderProps) {
   };
 
   const handleLogout = async () => {
-    await logout(authMode ?? null);
+    await logout();
   };
 
   return (
@@ -66,7 +65,7 @@ export function Header({ user, authMode }: HeaderProps) {
           </button>
 
           <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold text-blue-600">{appTitle}</span>
+            <span className="text-xl font-bold text-blue-600">{siteTitle}</span>
           </Link>
         </div>
 
@@ -97,21 +96,6 @@ export function Header({ user, authMode }: HeaderProps) {
         </form>
 
         <div className="flex items-center gap-3">
-          <label className="hidden items-center gap-2 text-sm text-gray-600 md:flex">
-            <span>{t("common.language.label")}</span>
-            <select
-              value={locale}
-              onChange={(event) => setLocale(event.target.value as SupportedLocale)}
-              className="rounded-md border border-gray-300 px-2 py-1 text-sm"
-            >
-              {supportedLocales.map((option) => (
-                <option key={option} value={option}>
-                  {t(`common.language.${option}`)}
-                </option>
-              ))}
-            </select>
-          </label>
-
           <div className="relative">
           <button
             type="button"
@@ -169,20 +153,6 @@ export function Header({ user, authMode }: HeaderProps) {
           </form>
 
           <nav className="space-y-1">
-            <label className="mb-3 block text-sm text-gray-600">
-              {t("common.language.label")}
-              <select
-                value={locale}
-                onChange={(event) => setLocale(event.target.value as SupportedLocale)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-              >
-                {supportedLocales.map((option) => (
-                  <option key={option} value={option}>
-                    {t(`common.language.${option}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
             {mobileNavItems.map((item) => {
               const isActive =
                 pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));

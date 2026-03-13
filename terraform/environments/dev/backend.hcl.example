@@ -1,2 +1,0 @@
-bucket = "your-tf-state-bucket"
-prefix = "corp-internal/dev"

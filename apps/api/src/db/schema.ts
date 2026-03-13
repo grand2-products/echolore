@@ -188,6 +188,25 @@ export const meetings = pgTable("meetings", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Meeting recordings table
+export const meetingRecordings = pgTable("meeting_recordings", {
+  id: text("id").primaryKey(),
+  meetingId: text("meeting_id")
+    .references(() => meetings.id, { onDelete: "cascade" })
+    .notNull(),
+  egressId: text("egress_id").notNull().unique(),
+  status: text("status").notNull(), // starting, recording, stopping, completed, failed
+  initiatedBy: text("initiated_by").references(() => users.id),
+  storagePath: text("storage_path"),
+  fileSize: integer("file_size"),
+  durationMs: integer("duration_ms"),
+  contentType: text("content_type"),
+  startedAt: timestamp("started_at"),
+  endedAt: timestamp("ended_at"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Meeting transcripts table
 export const transcripts = pgTable("transcripts", {
   id: text("id").primaryKey(),
@@ -239,6 +258,8 @@ export const agents = pgTable("agents", {
   interventionStyle: text("intervention_style").notNull(),
   defaultProvider: text("default_provider").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
+  autonomousEnabled: boolean("autonomous_enabled").default(false).notNull(),
+  autonomousCooldownSec: integer("autonomous_cooldown_sec").default(120).notNull(),
   createdBy: text("created_by")
     .references(() => users.id)
     .notNull(),
@@ -259,6 +280,7 @@ export const meetingAgentSessions = pgTable("meeting_agent_sessions", {
   invokedByUserId: text("invoked_by_user_id")
     .references(() => users.id)
     .notNull(),
+  lastAutoEvalSegmentId: text("last_auto_eval_segment_id"),
   joinedAt: timestamp("joined_at"),
   leftAt: timestamp("left_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -433,6 +455,18 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
   transcriptSegments: many(meetingTranscriptSegments),
   agentSessions: many(meetingAgentSessions),
   agentEvents: many(meetingAgentEvents),
+  recordings: many(meetingRecordings),
+}));
+
+export const meetingRecordingsRelations = relations(meetingRecordings, ({ one }) => ({
+  meeting: one(meetings, {
+    fields: [meetingRecordings.meetingId],
+    references: [meetings.id],
+  }),
+  initiator: one(users, {
+    fields: [meetingRecordings.initiatedBy],
+    references: [users.id],
+  }),
 }));
 
 export const transcriptsRelations = relations(transcripts, ({ one }) => ({
@@ -563,3 +597,5 @@ export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
 export type SiteSetting = typeof siteSettings.$inferSelect;
 export type NewSiteSetting = typeof siteSettings.$inferInsert;
+export type MeetingRecording = typeof meetingRecordings.$inferSelect;
+export type NewMeetingRecording = typeof meetingRecordings.$inferInsert;

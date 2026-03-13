@@ -1,6 +1,6 @@
 # Wiki Implementation
 
-Last updated: 2026-03-11
+Last updated: 2026-03-13
 
 This document describes the currently implemented Wiki behavior.
 
@@ -17,8 +17,9 @@ This document describes the currently implemented Wiki behavior.
 - Wiki list: `apps/web/app/(main)/wiki/page.tsx`
 - Wiki detail: `apps/web/app/(main)/wiki/[id]/page.tsx`
 - Wiki create: `apps/web/app/(main)/wiki/new/page.tsx`
-- Editor: `apps/web/components/wiki/WikiEditor.tsx`
-- Page tree: `apps/web/components/wiki/PageTree.tsx`
+- Editor: `apps/web/components/wiki/NotionEditor.tsx` (Notion-style BlockNote editor, dynamically imported)
+- Editor inner: `apps/web/components/wiki/NotionEditorInner.tsx`
+- Serializer: `apps/web/lib/wiki-serializer.ts` (BlockNote ↔ BlockDto conversion)
 - API client: `apps/web/lib/api.ts`
 
 ### Backend
@@ -69,6 +70,5 @@ This document describes the currently implemented Wiki behavior.
 - page HTML rendering applies escaping in detail view
 
 ## Related Files
-- `../plan/todo-master.md`
 - `../docs/release-workflows.md`
-- `../plan/implementation-status-master.md`
+- `../docs/site-map.md`

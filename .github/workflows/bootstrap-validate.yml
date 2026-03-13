@@ -18,46 +18,40 @@ jobs:
     if: inputs.environment == 'dev'
     permissions:
       contents: read
-      id-token: write
     env:
-      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID_DEV }}
-      INSTANCE_NAME: wiki-dev
-      ZONE: asia-northeast1-a
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST_DEV }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER_DEV }}
     steps:
       - uses: actions/checkout@v4
-
-      - uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - uses: google-github-actions/setup-gcloud@v2
 
       - name: Write validation env (dev)
         shell: bash
         run: |
           cat > ./.bootstrap.dev.env <<EOF
-          ${{ secrets.GCE_ENV_FILE_DEV }}
+          ${{ secrets.RUNTIME_ENV_DEV }}
           EOF
+
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known_hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
 
       - name: Copy bootstrap validation files to instance (dev)
         shell: bash
         run: |
-          gcloud compute scp \
+          scp \
             docker-compose.bootstrap-check.yml \
             scripts/release/remote-bootstrap-validate.sh \
             ./.bootstrap.dev.env \
-            "${{ env.INSTANCE_NAME }}:/tmp/" \
-            --project="${{ env.PROJECT_ID }}" \
-            --zone="${{ env.ZONE }}"
+            "${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:/tmp/"
 
       - name: Run bootstrap validation on instance (dev)
         shell: bash
         run: |
           export RUN_ID="${GITHUB_RUN_ID}"
-          gcloud compute ssh "${{ env.INSTANCE_NAME }}" \
-            --project="${{ env.PROJECT_ID }}" \
-            --zone="${{ env.ZONE }}" \
-            --command="set -euo pipefail
+          ssh "${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}" \
+            "set -euo pipefail
               chmod +x /tmp/remote-bootstrap-validate.sh
               /tmp/remote-bootstrap-validate.sh ${RUN_ID} /tmp/.bootstrap.dev.env
             "
@@ -68,46 +62,40 @@ jobs:
     if: inputs.environment == 'prod'
     permissions:
       contents: read
-      id-token: write
     env:
-      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID_PROD }}
-      INSTANCE_NAME: wiki-prod
-      ZONE: asia-northeast1-a
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST_PROD }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER_PROD }}
     steps:
       - uses: actions/checkout@v4
-
-      - uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - uses: google-github-actions/setup-gcloud@v2
 
       - name: Write validation env (prod)
         shell: bash
         run: |
           cat > ./.bootstrap.prod.env <<EOF
-          ${{ secrets.GCE_ENV_FILE_PROD }}
+          ${{ secrets.RUNTIME_ENV_PROD }}
           EOF
+
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          known_hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
 
       - name: Copy bootstrap validation files to instance (prod)
         shell: bash
         run: |
-          gcloud compute scp \
+          scp \
             docker-compose.bootstrap-check.yml \
             scripts/release/remote-bootstrap-validate.sh \
             ./.bootstrap.prod.env \
-            "${{ env.INSTANCE_NAME }}:/tmp/" \
-            --project="${{ env.PROJECT_ID }}" \
-            --zone="${{ env.ZONE }}"
+            "${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:/tmp/"
 
       - name: Run bootstrap validation on instance (prod)
         shell: bash
         run: |
           export RUN_ID="${GITHUB_RUN_ID}"
-          gcloud compute ssh "${{ env.INSTANCE_NAME }}" \
-            --project="${{ env.PROJECT_ID }}" \
-            --zone="${{ env.ZONE }}" \
-            --command="set -euo pipefail
+          ssh "${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}" \
+            "set -euo pipefail
               chmod +x /tmp/remote-bootstrap-validate.sh
               /tmp/remote-bootstrap-validate.sh ${RUN_ID} /tmp/.bootstrap.prod.env
             "

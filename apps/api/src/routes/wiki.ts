@@ -35,7 +35,7 @@ import { getSpaceById } from "../repositories/wiki/space-repository.js";
 export const wikiRoutes = new Hono<AppEnv>();
 
 const createPageSchema = z.object({
-  title: z.string(),
+  title: z.string().min(1).max(500),
   parentId: z.string().optional(),
   spaceId: z.string().optional(),
 });

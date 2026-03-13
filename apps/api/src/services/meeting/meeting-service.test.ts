@@ -1,13 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Meeting, blocks, summaries } from "../../db/schema.js";
-import { createMeetingSummaryWikiArtifacts } from "./meeting-service.js";
+import { createMeetingSummaryWikiArtifacts, MEETING_NOTES_PAGE_ID } from "./meeting-service.js";
 
-const { dbMock, createPageWithAccessDefaultsTxMock } = vi.hoisted(() => ({
-  dbMock: {
-    transaction: vi.fn(),
-  },
-  createPageWithAccessDefaultsTxMock: vi.fn(),
-}));
+const { dbMock, createPageWithAccessDefaultsTxMock } = vi.hoisted(() => {
+  const selectFromWhereMock = vi.fn();
+  return {
+    dbMock: {
+      transaction: vi.fn(),
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: selectFromWhereMock,
+        })),
+      })),
+      insert: vi.fn(() => ({
+        values: vi.fn(async () => undefined),
+      })),
+      _selectFromWhereMock: selectFromWhereMock,
+    },
+    createPageWithAccessDefaultsTxMock: vi.fn(),
+  };
+});
 
 vi.mock("../../db/index.js", () => ({
   db: dbMock,
@@ -20,8 +32,13 @@ vi.mock("../wiki/wiki-service.js", () => ({
 describe("meeting-service", () => {
   beforeEach(() => {
     dbMock.transaction.mockReset();
+    dbMock.select.mockClear();
+    dbMock.insert.mockClear();
+    dbMock._selectFromWhereMock.mockReset();
     createPageWithAccessDefaultsTxMock.mockReset();
     vi.restoreAllMocks();
+    // Default: Meeting Notes page already exists
+    dbMock._selectFromWhereMock.mockResolvedValue([{ id: MEETING_NOTES_PAGE_ID }]);
   });
 
   it("creates summary, wiki page, and blocks in a single transaction", async () => {
@@ -34,7 +51,7 @@ describe("meeting-service", () => {
     const pageRecord = {
       id: "page_1",
       title: "Planning - AI Summary",
-      parentId: null,
+      parentId: MEETING_NOTES_PAGE_ID,
       authorId: "user_1",
       createdAt: new Date("2026-03-11T00:00:00.000Z"),
       updatedAt: new Date("2026-03-11T00:00:00.000Z"),

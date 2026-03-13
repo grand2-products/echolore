@@ -3,6 +3,7 @@ import { db } from "../../db/index.js";
 import {
   pageInheritance,
   pagePermissions,
+  siteSettings,
   userGroupMemberships,
   userGroups,
   users,
@@ -96,4 +97,39 @@ export async function deletePagePermission(pageId: string, groupId: string) {
     .where(and(eq(pagePermissions.pageId, pageId), eq(pagePermissions.groupId, groupId)))
     .returning();
   return permission ?? null;
+}
+
+export async function getSiteSetting(key: string) {
+  const [row] = await db.select().from(siteSettings).where(eq(siteSettings.key, key));
+  return row ?? null;
+}
+
+export async function updateUserRole(userId: string, role: string) {
+  const [user] = await db
+    .update(users)
+    .set({ role, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning();
+  return user ?? null;
+}
+
+export async function upsertSiteSetting(key: string, value: string) {
+  const now = new Date();
+  const [row] = await db
+    .insert(siteSettings)
+    .values({ key, value, updatedAt: now })
+    .onConflictDoUpdate({
+      target: siteSettings.key,
+      set: { value, updatedAt: now },
+    })
+    .returning();
+  return row ?? null;
+}
+
+export async function deleteSiteSetting(key: string) {
+  const [row] = await db
+    .delete(siteSettings)
+    .where(eq(siteSettings.key, key))
+    .returning();
+  return row ?? null;
 }

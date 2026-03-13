@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, ne } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
   agents,
@@ -138,4 +138,83 @@ export async function listMeetingAgentEvents(meetingId: string) {
 export async function createMeetingAgentEvent(input: typeof meetingAgentEvents.$inferInsert) {
   const [event] = await db.insert(meetingAgentEvents).values(input).returning();
   return event ?? null;
+}
+
+export async function listFinalSegmentsAfter(
+  meetingId: string,
+  afterSegmentId: string | null,
+  limit = 50
+) {
+  const conditions = [
+    eq(meetingTranscriptSegments.meetingId, meetingId),
+    eq(meetingTranscriptSegments.isPartial, false),
+  ];
+
+  if (afterSegmentId) {
+    // Get the createdAt of the cursor segment, then fetch segments at or after it
+    // (excluding the cursor itself to handle same-timestamp rows)
+    const [cursor] = await db
+      .select({ createdAt: meetingTranscriptSegments.createdAt })
+      .from(meetingTranscriptSegments)
+      .where(eq(meetingTranscriptSegments.id, afterSegmentId))
+      .limit(1);
+
+    if (cursor) {
+      conditions.push(gte(meetingTranscriptSegments.createdAt, cursor.createdAt));
+      conditions.push(ne(meetingTranscriptSegments.id, afterSegmentId));
+    }
+  }
+
+  return db
+    .select()
+    .from(meetingTranscriptSegments)
+    .where(and(...conditions))
+    .orderBy(asc(meetingTranscriptSegments.createdAt))
+    .limit(limit);
+}
+
+export async function listAutonomousActiveSessions() {
+  return db
+    .select({
+      session: meetingAgentSessions,
+      agent: agents,
+    })
+    .from(meetingAgentSessions)
+    .innerJoin(agents, eq(meetingAgentSessions.agentId, agents.id))
+    .where(
+      and(
+        eq(meetingAgentSessions.state, "active"),
+        eq(agents.autonomousEnabled, true),
+        eq(agents.isActive, true)
+      )
+    );
+}
+
+export async function updateSessionEvalCursor(sessionId: string, segmentId: string) {
+  const [session] = await db
+    .update(meetingAgentSessions)
+    .set({ lastAutoEvalSegmentId: segmentId })
+    .where(eq(meetingAgentSessions.id, sessionId))
+    .returning();
+  return session ?? null;
+}
+
+export async function getLastAutonomousEventTime(
+  meetingId: string,
+  agentId: string
+): Promise<Date | null> {
+  const [event] = await db
+    .select({ createdAt: meetingAgentEvents.createdAt })
+    .from(meetingAgentEvents)
+    .where(
+      and(
+        eq(meetingAgentEvents.meetingId, meetingId),
+        eq(meetingAgentEvents.agentId, agentId),
+        eq(meetingAgentEvents.eventType, "response.autonomous")
+      )
+    )
+    .orderBy(desc(meetingAgentEvents.createdAt))
+    .limit(1);
+
+  return event?.createdAt ?? null;
 }

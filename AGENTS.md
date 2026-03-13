@@ -5,16 +5,16 @@
 - Purpose: internal collaboration platform for grand2 Products
 - Main domains:
   - Google SSO and email/password access with email-based identity reconciliation
-  - block-based Wiki
+  - Notion-style Wiki
   - Meetings with LiveKit
-  - Room AI flow from transcript to summary to Wiki
+  - AI agent (LangChain) for meeting transcript summarization and Wiki integration
 
 ## Monorepo Structure
 - `apps/web`: Next.js frontend
 - `apps/api`: Hono API
 - `packages/shared`: shared contracts/types
 - `packages/ui`: shared UI package
-- `terraform/`: infrastructure definitions for `dev` and `prod`
+- `scripts/setup/`: VPS initial setup scripts
 - `plan/`: planning and architecture documents
 - `docs/`: operational notes and runbooks
 
@@ -24,17 +24,18 @@
 - Database: PostgreSQL
 - Realtime: LiveKit
 - Cache/broker: Valkey
-- Auth gateway: OAuth2 Proxy for browser Google SSO, plus API-issued access/refresh tokens for email/password and mobile Google token exchange
-- Infra baseline: GCE + GCS + Docker Compose
-- Network baseline: explicit per-environment VPC/subnet/firewall in Terraform
+- Auth: Auth.js (JWT) for browser Google SSO and password login, plus API-issued access/refresh tokens for mobile Google token exchange
+- AI: LangChain + Google Cloud Speech APIs
+- File storage: pluggable StorageProvider (Local / S3 / GCS), configured via admin settings
+- Infra baseline: any Linux VPS + Docker Compose
+- Container registry: GHCR (ghcr.io)
 
 ## Release Policy
 - Release path is GitHub Actions workflow only.
 - Do not treat manual SSH deployment as the standard path.
 - Main workflows:
   - `CI`: lint, typecheck, build, test
-  - `Terraform`: infra validate/plan/apply
-  - `App Release`: image build/push and host rollout
+  - `App Release`: image build/push to GHCR and host rollout via SSH
   - `App Rollback`: workflow-driven rollback
   - `Bootstrap Validate`: isolated clean-host runtime validation
 - Runtime deploy uses prebuilt images, not host-side source builds.
@@ -43,8 +44,8 @@
 - `develop` is the integration branch for `dev`.
 - `main` is the release branch for `prod`.
 - Expected automatic path:
-  - `develop` -> `CI` -> `Terraform` to `dev` -> `App Release` to `dev`
-  - `main` -> `CI` -> `Terraform` to `dev` and `prod` -> `App Release` to `dev` and `prod`
+  - `develop` -> `CI` -> `App Release` to `dev`
+  - `main` -> `CI` -> `App Release` to `dev` and `prod`
 
 ## Compose Policy
 - `docker-compose.yml`: runtime/staging/production compose
@@ -62,12 +63,11 @@
   - `WEB_IMAGE`
   - `RELEASE_SHA`
 - Core GitHub Secrets:
-  - `TF_STATE_BUCKET`
-  - `GCP_SA_KEY`
-  - `GCP_PROJECT_ID_DEV`
-  - `GCP_PROJECT_ID_PROD`
-  - `GCE_ENV_FILE_DEV`
-  - `GCE_ENV_FILE_PROD`
+  - `DEPLOY_SSH_KEY`
+  - `DEPLOY_KNOWN_HOSTS`
+  - `DEPLOY_HOST_DEV` / `DEPLOY_HOST_PROD`
+  - `DEPLOY_USER_DEV` / `DEPLOY_USER_PROD`
+  - `RUNTIME_ENV_DEV` / `RUNTIME_ENV_PROD`
 
 ## Naming Conventions
 - Environment-specific names should end with `_DEV` or `_PROD` for GitHub Secrets.
@@ -75,7 +75,6 @@
 - Shared DTO and contract types should use explicit suffixes such as `Dto`, `Request`, `Response`.
 - Workflow names should reflect responsibility directly:
   - `CI`
-  - `Terraform`
   - `App Release`
 - Plan and status documents should prefer explicit names over temporary notes.
 
@@ -83,18 +82,24 @@
 - API identity must be server-authoritative.
 - Do not accept actor identity such as `authorId`, `creatorId`, or `uploaderId` from clients for business writes.
 - Authorization is enforced in API routes for wiki, meetings, files, and users.
-- Frontend auth state still needs to be sourced from real session user consistently.
+- Frontend auth state is sourced from real session user via Auth.js session.
 
 ## Security-Sensitive Paths
 - `apps/api/src/lib/auth.ts`
-- `apps/api/src/lib/authorization.ts`
+- `apps/api/src/lib/authjs-config.ts`
+- `apps/api/src/lib/local-auth.ts`
+- `apps/api/src/lib/password-auth-guard.ts`
+- `apps/api/src/lib/internal-auth.ts`
+- `apps/api/src/routes/auth.ts`
+- `apps/api/src/routes/admin.ts`
 - `apps/api/src/routes/wiki.ts`
 - `apps/api/src/routes/meetings.ts`
 - `apps/api/src/routes/files.ts`
 - `apps/api/src/routes/users.ts`
+- `apps/api/src/routes/livekit.ts`
+- `apps/api/src/routes/internal-room-ai.ts`
 - `.github/workflows/`
 - `docker-compose.yml`
-- `terraform/`
 - Changes in these areas should be reviewed for trust boundary, privilege scope, and rollback impact.
 
 ## API Contract Rules
@@ -134,8 +139,7 @@
 - Secrets belong in GitHub Secrets or runtime env injection, never committed files.
 - Break-glass host operations are exceptions and should not replace workflow-based release behavior.
 - Changes to auth, authz, release, or infra should be reviewed with rollback and trust-boundary impact in mind.
-- GCE hosts should use explicit VPC/subnet resources and minimal service-account scopes instead of default network or `cloud-platform`.
-- Runtime service accounts and bucket object access should be Terraform-managed per environment.
+- Deploy hosts should use SSH key authentication with minimal privileges.
 
 ## Code Review Focus
 - Prioritize:
@@ -148,13 +152,12 @@
 - For API changes, review both input ownership and resource authorization, not only type correctness.
 
 ## Infra Change Rules
-- Infra changes should be expressed in `terraform/` first.
 - Do not rely on manual host mutation as the durable fix.
 - If release/runtime behavior changes, update these together:
   - `.github/workflows/`
   - `scripts/release/`
   - `docker-compose.yml`
-  - `plan/deployment.md`
+  - `DEPLOYMENT.md`
   - `docs/ops-runbook.md`
   - `AGENTS.md`
 
@@ -176,10 +179,8 @@
 ## Decision Logging
 - Durable architecture or release decisions should be reflected in:
   - `AGENTS.md` for stable repository rules
-  - `docs/release-workflows.md` for implemented deployment behavior
-  - `plan/deployment.md` for remaining deployment work
-  - `plan/implementation-status-master.md` for remaining gates and incomplete status only
-  - `plan/todo-master.md` for follow-up work
+  - `docs/` for implemented behavior and operational procedures
+  - `plan/` for remaining work and open decisions only
 - Do not leave important operational decisions only in ad hoc chat, PR text, or temporary handover notes.
 - If a previous default changes, update the old source of truth in the same change rather than adding a contradictory note elsewhere.
 
@@ -187,7 +188,7 @@
 - `apps/api`: backend behavior, authz enforcement, DB access
 - `apps/web`: UI behavior and session-driven frontend integration
 - `packages/shared`: API contract ownership boundary
-- `.github/workflows/` and `terraform/`: release and infrastructure control plane
+- `.github/workflows/` and `scripts/`: release and infrastructure control plane
 - `plan/` and `docs/`: repository operating knowledge
 
 ## Definition Of Done
@@ -213,22 +214,14 @@
 - DB migrate: `pnpm db:migrate`
 
 ## Source of Truth
-- Implementation status gates: `plan/implementation-status-master.md`
-- Implemented product overview: `docs/product-overview.md`
-- Implemented system architecture: `docs/system-architecture.md`
-- Delivery history: `docs/delivery-history.md`
-- Implemented release flow: `docs/release-workflows.md`
-- Implemented frontend app mapping: `docs/frontend-app-implementation.md`
-- Adopted technical baseline: `docs/technical-baseline.md`
-- Deployment backlog: `plan/deployment.md`
-- Execution backlog: `plan/todo-master.md`
-- Ops procedure: `docs/ops-runbook.md`
+- `AGENTS.md`: stable repository rules and conventions
+- `docs/`: implemented behavior,仕様、operational procedures — 仕様の正本
+- `plan/`: remaining work and open decisions only
 
 ## Working Rules
 - Prefer updating `AGENTS.md` only for stable project rules and conventions.
 - Put volatile task lists and one-off handover notes in `plan/` or `docs/`, not here.
-- When implemented deployment behavior changes, update `AGENTS.md`, `docs/release-workflows.md`, and related workflows together.
-- When deployment backlog changes, update `plan/deployment.md`.
+- When implemented behavior changes, update `AGENTS.md` and relevant `docs/` together.
 - When branch/release behavior changes, update both `AGENTS.md` and workflow files in `.github/workflows/`.
 - If implementation is complete and the explanation is durable, put it in `docs/`, not `plan/`.
 - Before merging documentation-heavy changes, check whether any `plan/*.md` file became implementation history and should be deleted or trimmed.

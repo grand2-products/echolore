@@ -54,20 +54,15 @@ RELEASE_SHA=$ReleaseSha
 DB_PASSWORD=wiki_password
 GOOGLE_CLIENT_ID=bootstrap-local-client
 GOOGLE_CLIENT_SECRET=bootstrap-local-secret
-COOKIE_SECRET=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+AUTH_SECRET=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
 AUTH_ALLOWED_DOMAIN=grand2-products.com
-AUTH_BYPASS=false
-GOOGLE_CLOUD_PROJECT=local-bootstrap
-GCS_BUCKET=corp-internal-files-local
-GOOGLE_APPLICATION_CREDENTIALS_HOST=./credentials.json
+FILE_STORAGE_PATH=/data/files
 NEXT_PUBLIC_API_URL=http://api:3001
 NEXT_PUBLIC_LIVEKIT_URL=ws://livekit:7880
 LIVEKIT_HOST=http://livekit:7880
 LIVEKIT_API_KEY=devkey
 LIVEKIT_API_SECRET=secret
-CORS_ORIGIN=http://oauth2-proxy:4180
-OAUTH_REDIRECT_URL=http://localhost:4180/oauth2/callback
-OAUTH_COOKIE_SECURE=false
+CORS_ORIGIN=http://web:3000
 GEMINI_API_KEY=
 "@
   Set-Content -Path $envPath -Value $envContent -NoNewline
@@ -86,7 +81,6 @@ GEMINI_API_KEY=
     Invoke-Step "docker pull postgres:17-alpine"
     Invoke-Step "docker pull valkey/valkey:8-alpine"
     Invoke-Step "docker pull livekit/livekit-server:latest"
-    Invoke-Step "docker pull quay.io/oauth2-proxy/oauth2-proxy:v7.7.1"
     Invoke-Step "docker compose -p $projectName -f `"$composePath`" up -d --wait --remove-orphans --pull never"
     Invoke-Step "docker compose -p $projectName -f `"$composePath`" ps"
     Invoke-Step "docker compose -p $projectName -f `"$composePath`" exec -T api wget --no-verbose --tries=1 --spider http://localhost:3001/health"

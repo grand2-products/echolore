@@ -116,9 +116,6 @@ export default function MeetingsPage() {
             <p className="mt-1 text-gray-600">{t("meetings.list.description")}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/meetings/coworking" className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-blue-700 hover:bg-blue-100">
-              {t("meetings.list.coworking")}
-            </Link>
             <button
               type="button"
               onClick={() => setShowCreateModal(true)}
@@ -132,8 +129,19 @@ export default function MeetingsPage() {
         {message && <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">{message}</div>}
 
         {error && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {getApiErrorMessage(error, t("meetings.list.loadError"))}
+          <div className="mb-6 space-y-3">
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              {getApiErrorMessage(error, t("meetings.list.loadError"))}
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+              >
+                {t("common.actions.retry")}
+              </button>
+            </div>
           </div>
         )}
 
@@ -164,7 +172,7 @@ export default function MeetingsPage() {
                   <button
                     type="button"
                     onClick={() => runRoomAi(meeting.id)}
-                    disabled={runningMeetingId === meeting.id}
+                    disabled={runningMeetingId !== null}
                     className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-100 disabled:opacity-60"
                   >
                     {runningMeetingId === meeting.id

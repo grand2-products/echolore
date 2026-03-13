@@ -1,4 +1,5 @@
 param(
+  [string]$Command,
   [switch]$SkipDocker,
   [switch]$SkipApi,
   [switch]$SkipWeb,
@@ -92,20 +93,36 @@ function Test-DrizzleMigrationsPresent {
   return Test-Path $journalPath
 }
 
+function Get-PostgresScalar {
+  param(
+    [string]$Sql
+  )
+
+  $result = docker exec corp-internal-db psql -U wiki -d wiki -t -A -c $Sql 2>$null
+  if ($LASTEXITCODE -ne 0) {
+    return $null
+  }
+
+  return ($result | Out-String).Trim()
+}
+
+function Test-DrizzleHistoryApplied {
+  $historyTable = Get-PostgresScalar -Sql "select to_regclass('public.__drizzle_migrations');"
+  return -not [string]::IsNullOrWhiteSpace($historyTable)
+}
+
+function Test-PublicTablesPresent {
+  $tableCount = Get-PostgresScalar -Sql "select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE';"
+  if ([string]::IsNullOrWhiteSpace($tableCount)) {
+    return $false
+  }
+
+  return [int]$tableCount -gt 0
+}
+
 Import-OptionalEnvFiles -Paths @(
   (Join-Path $repoRoot ".env")
 )
-
-Write-Step "Installing workspace dependencies"
-Push-Location $repoRoot
-try {
-  pnpm install --frozen-lockfile
-  if ($LASTEXITCODE -ne 0) {
-    throw "Failed to install dependencies."
-  }
-} finally {
-  Pop-Location
-}
 
 Set-DefaultEnv -Name "DB_PASSWORD" -Value "wiki_password"
 Set-DefaultEnv -Name "WEB_PORT" -Value "17720"
@@ -114,15 +131,95 @@ Set-DefaultEnv -Name "LIVEKIT_PORT" -Value "17722"
 Set-DefaultEnv -Name "LIVEKIT_SIGNAL_PORT" -Value "17723"
 Set-DefaultEnv -Name "DB_PORT" -Value "17724"
 Set-DefaultEnv -Name "VALKEY_PORT" -Value "17725"
-Set-DefaultEnv -Name "OAUTH_PROXY_PORT" -Value "17726"
 Set-DefaultEnv -Name "LIVEKIT_RTC_PORT_RANGE" -Value "17730-17930"
-Set-DefaultEnv -Name "COOKIE_SECRET" -Value "local-dev-cookie-secret"
+Set-DefaultEnv -Name "AUTH_SECRET" -Value "local-dev-auth-secret"
 Set-DefaultEnv -Name "GOOGLE_CLIENT_ID" -Value "local-dev-client-id"
 Set-DefaultEnv -Name "GOOGLE_CLIENT_SECRET" -Value "local-dev-client-secret"
 
-if (-not $SkipDocker) {
+# ---------------------------------------------------------------------------
+# Port conflict check
+# ---------------------------------------------------------------------------
+
+function Test-PortAvailable {
+  param([int]$Port)
+  $listener = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
+    Where-Object { $_.State -eq "Listen" }
+  return -not $listener
+}
+
+function Assert-PortsFree {
+  $portVars = @(
+    @{ Name = "WEB_PORT";            Label = "Web" },
+    @{ Name = "API_PORT";            Label = "API" },
+    @{ Name = "LIVEKIT_PORT";        Label = "LiveKit" },
+    @{ Name = "LIVEKIT_SIGNAL_PORT"; Label = "LiveKit Signal" },
+    @{ Name = "DB_PORT";             Label = "PostgreSQL" },
+    @{ Name = "VALKEY_PORT";         Label = "Valkey" }
+  )
+
+  $conflicts = @()
+  foreach ($pv in $portVars) {
+    $port = [int][Environment]::GetEnvironmentVariable($pv.Name, "Process")
+    if (-not (Test-PortAvailable -Port $port)) {
+      $proc = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue |
+        Where-Object { $_.State -eq "Listen" } | Select-Object -First 1
+      $ownerPid = $proc.OwningProcess
+      $procName = (Get-Process -Id $ownerPid -ErrorAction SilentlyContinue).ProcessName
+      $conflicts += "  $($pv.Label) port $port is in use by $procName (PID $ownerPid)"
+    }
+  }
+
+  if ($conflicts.Count -gt 0) {
+    Write-Host ""
+    Write-Host "Port conflicts detected:" -ForegroundColor Red
+    $conflicts | ForEach-Object { Write-Host $_ -ForegroundColor Yellow }
+    Write-Host ""
+    Write-Host "  k) Kill conflicting processes and continue" -ForegroundColor Cyan
+    Write-Host "  q) Quit" -ForegroundColor Cyan
+    Write-Host ""
+    $answer = Read-Host "Select action"
+
+    if ($answer.Trim().ToLower() -in "k", "kill") {
+      foreach ($pv in $portVars) {
+        $port = [int][Environment]::GetEnvironmentVariable($pv.Name, "Process")
+        $listeners = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue |
+          Where-Object { $_.State -eq "Listen" }
+        foreach ($l in $listeners) {
+          $ownerPid = $l.OwningProcess
+          $procName = (Get-Process -Id $ownerPid -ErrorAction SilentlyContinue).ProcessName
+          Write-Step "Stopping $procName (PID $ownerPid) on port $port"
+          Stop-Process -Id $ownerPid -Force -ErrorAction SilentlyContinue
+        }
+      }
+      Write-Step "Conflicting processes stopped"
+    } else {
+      throw "Aborted by user."
+    }
+  }
+
+  Write-Step "All ports available"
+}
+
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
+
+function Invoke-InstallDependencies {
+  Write-Step "Installing workspace dependencies"
+  Push-Location $repoRoot
+  try {
+    pnpm install --frozen-lockfile
+    if ($LASTEXITCODE -ne 0) {
+      throw "Failed to install dependencies."
+    }
+  } finally {
+    Pop-Location
+  }
+}
+
+function Invoke-EnsureDocker {
   if (-not (Test-DockerAvailable)) {
-    throw "Docker daemon is not available. Start Docker Desktop first, then run ./dev.ps1 again. If you want to start only the app processes, run ./dev.ps1 -SkipDocker."
+    throw "Docker daemon is not available. Start Docker Desktop first."
   }
 
   Write-Step "Starting middleware containers (db, valkey, livekit)"
@@ -138,10 +235,15 @@ if (-not $SkipDocker) {
 
   Write-Step "Waiting for PostgreSQL health"
   Wait-ForContainerHealth -ContainerName "corp-internal-db"
+}
 
+function Invoke-ApplySchema {
   $apiDir = Join-Path $repoRoot "apps/api"
   $dbSetupCommand = "pnpm db:migrate"
   if (-not (Test-DrizzleMigrationsPresent -ApiDir $apiDir)) {
+    $dbSetupCommand = "pnpm db:push"
+  } elseif (-not (Test-DrizzleHistoryApplied) -and (Test-PublicTablesPresent)) {
+    Write-Step "Detected an existing local schema without Drizzle migration history; using pnpm db:push to reconcile"
     $dbSetupCommand = "pnpm db:push"
   }
 
@@ -151,7 +253,7 @@ if (-not $SkipDocker) {
     if ($dbSetupCommand -eq "pnpm db:migrate") {
       pnpm db:migrate
     } else {
-      pnpm db:push
+      pnpm --filter @corp-internal/api exec drizzle-kit push --force
     }
     if ($LASTEXITCODE -ne 0) {
       throw "Failed to apply database schema."
@@ -161,43 +263,113 @@ if (-not $SkipDocker) {
   }
 }
 
-$devFilters = @()
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
 
-if (-not $SkipApi) {
-  $devFilters += "--filter=@corp-internal/api"
-}
+function Invoke-Start {
+  Assert-PortsFree
+  Invoke-InstallDependencies
 
-if (-not $SkipWeb) {
-  $devFilters += "--filter=@corp-internal/web"
-}
+  if (-not $SkipDocker) {
+    Invoke-EnsureDocker
+    Invoke-ApplySchema
+  }
 
-if (-not $SkipWorker) {
-  $devFilters += "--filter=@corp-internal/worker"
-}
+  $devFilters = @()
 
-if ($devFilters.Count -eq 0) {
-Write-Host ""
-Write-Host "Daily dev environment started." -ForegroundColor Green
-Write-Host ("Web: http://localhost:" + [Environment]::GetEnvironmentVariable("WEB_PORT", "Process"))
-Write-Host ("API: http://localhost:" + [Environment]::GetEnvironmentVariable("API_PORT", "Process"))
-Write-Host ("LiveKit: http://localhost:" + [Environment]::GetEnvironmentVariable("LIVEKIT_PORT", "Process"))
-Write-Host ("PostgreSQL: localhost:" + [Environment]::GetEnvironmentVariable("DB_PORT", "Process"))
+  if (-not $SkipApi) {
+    $devFilters += "--filter=@corp-internal/api"
+  }
+
+  if (-not $SkipWeb) {
+    $devFilters += "--filter=@corp-internal/web"
+  }
+
+  if (-not $SkipWorker) {
+    $devFilters += "--filter=@corp-internal/worker"
+  }
+
+  if ($devFilters.Count -eq 0) {
+    Write-Host ""
+    Write-Host "Daily dev environment started." -ForegroundColor Green
+    Write-Host ("Web: http://localhost:" + [Environment]::GetEnvironmentVariable("WEB_PORT", "Process"))
+    Write-Host ("API: http://localhost:" + [Environment]::GetEnvironmentVariable("API_PORT", "Process"))
+    Write-Host ("LiveKit: http://localhost:" + [Environment]::GetEnvironmentVariable("LIVEKIT_PORT", "Process"))
+    Write-Host ("PostgreSQL: localhost:" + [Environment]::GetEnvironmentVariable("DB_PORT", "Process"))
+    Write-Host ""
+    Write-Host "Stop middleware with: docker compose stop db valkey livekit"
+    return
+  }
+
   Write-Host ""
-  Write-Host "Stop middleware with: docker compose stop db valkey livekit"
-  return
+  Write-Host "Middleware ready. Starting app dev processes with Turborepo..." -ForegroundColor Green
+  Write-Host "Stop middleware later with: docker compose stop db valkey livekit"
+  Write-Host ("Web: http://localhost:" + [Environment]::GetEnvironmentVariable("WEB_PORT", "Process"))
+  Write-Host ("API: http://localhost:" + [Environment]::GetEnvironmentVariable("API_PORT", "Process"))
+  Write-Host ""
+
+  Push-Location $repoRoot
+  try {
+    & pnpm turbo run dev @devFilters
+    exit $LASTEXITCODE
+  } finally {
+    Pop-Location
+  }
 }
 
-Write-Host ""
-Write-Host "Middleware ready. Starting app dev processes with Turborepo..." -ForegroundColor Green
-Write-Host "Stop middleware later with: docker compose stop db valkey livekit"
-Write-Host ("Web: http://localhost:" + [Environment]::GetEnvironmentVariable("WEB_PORT", "Process"))
-Write-Host ("API: http://localhost:" + [Environment]::GetEnvironmentVariable("API_PORT", "Process"))
-Write-Host ""
+function Invoke-DbReset {
+  Invoke-EnsureDocker
 
-Push-Location $repoRoot
-try {
-  & pnpm turbo run dev @devFilters
-  exit $LASTEXITCODE
-} finally {
-  Pop-Location
+  Write-Step "Dropping all tables in public schema"
+  $dropSql = @"
+DO `$`$ DECLARE r RECORD;
+BEGIN
+  FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public') LOOP
+    EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(r.tablename) || ' CASCADE';
+  END LOOP;
+END `$`$;
+"@
+  docker exec corp-internal-db psql -U wiki -d wiki -c $dropSql
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to drop tables."
+  }
+  Write-Step "All tables dropped"
+
+  Invoke-InstallDependencies
+  Invoke-ApplySchema
+
+  Write-Host ""
+  Write-Host "Database has been reset successfully." -ForegroundColor Green
+}
+
+# ---------------------------------------------------------------------------
+# Interactive menu / CLI dispatch
+# ---------------------------------------------------------------------------
+
+function Show-Menu {
+  Write-Host ""
+  Write-Host "=== corp-internal dev tools ===" -ForegroundColor Cyan
+  Write-Host "  1) start      - Start dev environment"
+  Write-Host "  2) db:reset   - Drop all tables and re-apply schema"
+  Write-Host "  q) quit"
+  Write-Host ""
+}
+
+if ($Command) {
+  switch ($Command.ToLower()) {
+    { $_ -in "start", "1" } { Invoke-Start; return }
+    { $_ -in "db:reset", "2" } { Invoke-DbReset; return }
+    default { throw "Unknown command: $Command. Available: start, db:reset" }
+  }
+}
+
+Show-Menu
+$choice = Read-Host "Select command"
+
+switch ($choice.Trim().ToLower()) {
+  { $_ -in "1", "start" }    { Invoke-Start }
+  { $_ -in "2", "db:reset" } { Invoke-DbReset }
+  { $_ -in "q", "quit" }     { Write-Host "Bye."; return }
+  default { throw "Unknown selection: $choice" }
 }

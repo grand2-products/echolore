@@ -1,17 +1,17 @@
 import { randomBytes, createHash, createHmac, timingSafeEqual, scrypt as scryptCallback } from "node:crypto";
 import { promisify } from "node:util";
 import { OAuth2Client } from "google-auth-library";
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, count, desc, eq, gt, isNull } from "drizzle-orm";
+import { UserRole } from "@corp-internal/shared/contracts";
 import { db } from "../../db/index.js";
 import { authIdentities, authRefreshTokens, emailVerificationTokens, users } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
-import { sendPasswordVerificationEmail } from "../../lib/email.js";
 
 const scrypt = promisify(scryptCallback);
 
 export const ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 export const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
-const EMAIL_VERIFICATION_TTL_MS = 1000 * 60 * 30;
+const REFRESH_TOKEN_GRACE_SECONDS = 30;
 const PASSWORD_PROVIDER = "password";
 const GOOGLE_PROVIDER = "google";
 const googleClient = new OAuth2Client();
@@ -49,6 +49,15 @@ export type AuthSessionRecord = {
   current: boolean;
 };
 
+async function getUserCount() {
+  const [row] = await db.select({ value: count() }).from(users);
+  return row?.value ?? 0;
+}
+
+export async function isRegistrationOpen() {
+  return (await getUserCount()) === 0;
+}
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -59,10 +68,6 @@ function getSessionSecret() {
     throw new Error("AUTH_SESSION_SECRET is required when password authentication is enabled");
   }
   return secret;
-}
-
-function getAppBaseUrl() {
-  return process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:17720";
 }
 
 function getGoogleAudiences() {
@@ -91,7 +96,7 @@ function toSessionUser(user: typeof users.$inferSelect): SessionUser {
     id: user.id,
     email: user.email,
     name: user.name,
-    role: user.role === "admin" ? "admin" : "member",
+    role: user.role === UserRole.Admin ? UserRole.Admin : UserRole.Member,
     avatarUrl: user.avatarUrl ?? null,
   };
 }
@@ -156,17 +161,35 @@ async function findUserById(id: string) {
 
 async function findActiveRefreshToken(rawRefreshToken: string) {
   const now = new Date();
-  const [refreshToken] = await db
+  const tokenHash = hashValue(rawRefreshToken);
+
+  // First try: non-revoked token
+  const [active] = await db
     .select()
     .from(authRefreshTokens)
     .where(
       and(
-        eq(authRefreshTokens.tokenHash, hashValue(rawRefreshToken)),
+        eq(authRefreshTokens.tokenHash, tokenHash),
         isNull(authRefreshTokens.revokedAt),
         gt(authRefreshTokens.expiresAt, now)
       )
     );
-  return refreshToken ?? null;
+  if (active) return active;
+
+  // Grace period: accept recently-revoked tokens for concurrent request tolerance.
+  // Only valid if revoked within REFRESH_TOKEN_GRACE_SECONDS and not yet expired.
+  const graceThreshold = new Date(now.getTime() - REFRESH_TOKEN_GRACE_SECONDS * 1000);
+  const [graced] = await db
+    .select()
+    .from(authRefreshTokens)
+    .where(
+      and(
+        eq(authRefreshTokens.tokenHash, tokenHash),
+        gt(authRefreshTokens.revokedAt, graceThreshold),
+        gt(authRefreshTokens.expiresAt, now)
+      )
+    );
+  return graced ?? null;
 }
 
 function buildAccessToken(user: typeof users.$inferSelect, authMode: SupportedAuthMode) {
@@ -214,6 +237,10 @@ export async function reconcileGoogleIdentity(input: { email: string; name: stri
     let [user] = await tx.select().from(users).where(eq(users.email, email));
 
     if (!user) {
+      const [countRow] = await tx.select({ value: count() }).from(users);
+      if ((countRow?.value ?? 0) !== 0) {
+        throw new Error("Registration is closed");
+      }
       [user] = await tx
         .insert(users)
         .values({
@@ -223,7 +250,7 @@ export async function reconcileGoogleIdentity(input: { email: string; name: stri
           avatarUrl: null,
           emailVerifiedAt: now,
           tokenVersion: 1,
-          role: "member",
+          role: UserRole.Admin,
           createdAt: now,
           updatedAt: now,
         })
@@ -268,18 +295,25 @@ export async function reconcileGoogleIdentity(input: { email: string; name: stri
 }
 
 export async function registerPasswordUser(input: { email: string; name: string; password: string }) {
+  const isFirstUser = await isRegistrationOpen();
+  if (!isFirstUser) {
+    throw new Error("Registration is closed");
+  }
+
   const email = normalizeEmail(input.email);
+  const allowedDomain = (process.env.AUTH_ALLOWED_DOMAIN || "").toLowerCase();
+  if (allowedDomain && !email.endsWith(`@${allowedDomain}`)) {
+    throw new Error("Email domain is not allowed");
+  }
   const name = input.name.trim();
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + EMAIL_VERIFICATION_TTL_MS);
-  const pendingPasswordHash = await hashPassword(input.password);
-  const verificationToken = randomBytes(32).toString("base64url");
-  const tokenHash = hashValue(verificationToken);
-  const existingUser = await findUserByEmail(email);
+  const passwordHash = await hashPassword(input.password);
 
   if (!name) {
     throw new Error("Name is required");
   }
+
+  const existingUser = await findUserByEmail(email);
 
   const [existingPasswordIdentity] = existingUser
     ? await db
@@ -292,36 +326,39 @@ export async function registerPasswordUser(input: { email: string; name: string;
     throw new Error("Password login is already configured for this email address");
   }
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(emailVerificationTokens)
-      .set({ usedAt: now })
-      .where(
-        and(
-          eq(emailVerificationTokens.email, email),
-          eq(emailVerificationTokens.purpose, "password-registration"),
-          isNull(emailVerificationTokens.usedAt)
-        )
-      );
+  // First user: create admin immediately without email verification
+  const user = await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(users)
+      .values({
+        id: `user_${crypto.randomUUID()}`,
+        email,
+        name,
+        avatarUrl: null,
+        emailVerifiedAt: now,
+        tokenVersion: 1,
+        role: UserRole.Admin,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
 
-    await tx.insert(emailVerificationTokens).values({
-      id: `evt_${crypto.randomUUID()}`,
-      userId: existingUser?.id ?? null,
-      email,
-      tokenHash,
-      purpose: "password-registration",
-      pendingName: existingUser ? null : name,
-      pendingPasswordHash,
-      expiresAt,
-      usedAt: null,
+    if (!created) throw new Error("Failed to create initial admin user");
+
+    await tx.insert(authIdentities).values({
+      id: `auth_${crypto.randomUUID()}`,
+      userId: created.id,
+      provider: PASSWORD_PROVIDER,
+      providerUserId: email,
+      passwordHash,
       createdAt: now,
+      updatedAt: now,
     });
+
+    return created;
   });
 
-  const verificationUrl = `${getAppBaseUrl()}/login?verify=${encodeURIComponent(verificationToken)}`;
-  await sendPasswordVerificationEmail({ email, verificationUrl, expiresAt });
-
-  return { expiresAt };
+  return { user: toSessionUser(user), immediate: true as const };
 }
 
 export async function verifyEmailRegistrationToken(token: string) {
@@ -353,6 +390,11 @@ export async function verifyEmailRegistrationToken(token: string) {
     }
 
     if (!user) {
+      const [countRow] = await tx.select({ value: count() }).from(users);
+      const isFirstUser = (countRow?.value ?? 0) === 0;
+      if (!isFirstUser) {
+        return null;
+      }
       const [createdUser] = await tx
         .insert(users)
         .values({
@@ -362,7 +404,7 @@ export async function verifyEmailRegistrationToken(token: string) {
           avatarUrl: null,
           emailVerifiedAt: now,
           tokenVersion: 1,
-          role: "member",
+          role: UserRole.Admin,
           createdAt: now,
           updatedAt: now,
         })
@@ -442,17 +484,6 @@ export async function authenticatePasswordUser(email: string, password: string) 
   return toSessionUser(record.user);
 }
 
-export async function issuePasswordWebTokenSet(userId: string): Promise<IssuedTokenSet> {
-  const user = await findUserById(userId);
-  if (!user) {
-    throw new Error("User not found");
-  }
-
-  const { accessToken, expiresAt } = buildAccessToken(user, "password");
-  const refreshToken = await issueRefreshToken({ userId, clientType: "web", authMode: "password" });
-  return { accessToken, refreshToken, expiresAt };
-}
-
 export async function issueMobileTokenPair(input: {
   userId: string;
   deviceName?: string | null;
@@ -480,23 +511,7 @@ export async function issueMobileTokenPair(input: {
 }
 
 export async function exchangeGoogleIdToken(input: { idToken: string; deviceName?: string | null }) {
-  const ticket = await googleClient.verifyIdToken({
-    idToken: input.idToken,
-    audience: getGoogleAudiences(),
-  });
-  const payload = ticket.getPayload();
-  if (!payload) {
-    throw new Error("Google token payload is missing");
-  }
-
-  const email = payload?.email?.trim().toLowerCase();
-  const name = payload?.name?.trim() || email?.split("@")[0] || "User";
-
-  if (!email || payload.email_verified !== true) {
-    throw new Error("Verified Google email is required");
-  }
-
-  const user = await reconcileGoogleIdentity({ email, name });
+  const user = await resolveGoogleUserFromIdToken(input.idToken);
   const persistedUser = await findUserById(user.id);
   if (!persistedUser) {
     throw new Error("User not found after Google identity reconciliation");
@@ -519,11 +534,39 @@ export async function exchangeGoogleIdToken(input: { idToken: string; deviceName
   };
 }
 
+async function resolveGoogleUserFromIdToken(idToken: string) {
+  const ticket = await googleClient.verifyIdToken({
+    idToken,
+    audience: getGoogleAudiences(),
+  });
+  const payload = ticket.getPayload();
+  if (!payload) {
+    throw new Error("Google token payload is missing");
+  }
+
+  const email = payload?.email?.trim().toLowerCase();
+  const name = payload?.name?.trim() || email?.split("@")[0] || "User";
+
+  if (!email || payload.email_verified !== true) {
+    throw new Error("Verified Google email is required");
+  }
+
+  return reconcileGoogleIdentity({ email, name });
+}
+
+export type RefreshResult = {
+  accessToken: string;
+  refreshToken: string | null;
+  expiresAt: Date;
+  user: SessionUser;
+  authMode: SupportedAuthMode;
+};
+
 export async function refreshAccessToken(input: {
   refreshToken: string;
   clientType: RefreshClientType;
   deviceName?: string | null;
-}) {
+}): Promise<RefreshResult | null> {
   const refreshRecord = await findActiveRefreshToken(input.refreshToken);
   if (!refreshRecord || refreshRecord.clientType !== input.clientType) {
     return null;
@@ -534,16 +577,46 @@ export async function refreshAccessToken(input: {
     return null;
   }
 
+  const authMode = refreshRecord.authMode as SupportedAuthMode;
+
+  // Grace period hit: token was already revoked and rotated.
+  // Return a fresh access token but reuse the already-issued successor
+  // refresh token instead of creating another one.
+  if (refreshRecord.revokedAt) {
+    const { accessToken, expiresAt } = buildAccessToken(user, authMode);
+    const [successor] = await db
+      .select()
+      .from(authRefreshTokens)
+      .where(
+        and(
+          eq(authRefreshTokens.rotatedFromId, refreshRecord.id),
+          isNull(authRefreshTokens.revokedAt)
+        )
+      );
+    // If successor was already revoked/missing, reject — the chain moved on
+    if (!successor) {
+      return null;
+    }
+    return {
+      accessToken,
+      refreshToken: null,
+      expiresAt,
+      user: toSessionUser(user),
+      authMode,
+    };
+  }
+
+  // Normal path: revoke old token and issue a new pair
   await db
     .update(authRefreshTokens)
     .set({ revokedAt: new Date(), lastSeenAt: new Date() })
     .where(eq(authRefreshTokens.id, refreshRecord.id));
 
-  const { accessToken, expiresAt } = buildAccessToken(user, refreshRecord.authMode as SupportedAuthMode);
+  const { accessToken, expiresAt } = buildAccessToken(user, authMode);
   const nextRefreshToken = await issueRefreshToken({
     userId: user.id,
     clientType: input.clientType,
-    authMode: refreshRecord.authMode as SupportedAuthMode,
+    authMode,
     deviceName: input.deviceName ?? refreshRecord.deviceName ?? null,
     rotatedFromId: refreshRecord.id,
   });
@@ -553,7 +626,7 @@ export async function refreshAccessToken(input: {
     refreshToken: nextRefreshToken,
     expiresAt,
     user: toSessionUser(user),
-    authMode: refreshRecord.authMode as SupportedAuthMode,
+    authMode,
   };
 }
 
@@ -563,7 +636,7 @@ export async function revokeRefreshToken(rawRefreshToken: string | null | undefi
   }
 
   const refreshRecord = await findActiveRefreshToken(rawRefreshToken);
-  if (!refreshRecord) {
+  if (!refreshRecord || refreshRecord.revokedAt) {
     return;
   }
 
@@ -583,14 +656,6 @@ export async function resolveAccessTokenSession(input: { accessToken?: string | 
   if (!user || user.tokenVersion !== payload.ver) return null;
 
   return { user: toSessionUser(user), authMode: payload.am };
-}
-
-export async function getPasswordSessionUser(input: { accessToken?: string | null }) {
-  const session = await resolveAccessTokenSession(input);
-  if (!session || session.authMode !== "password") {
-    return null;
-  }
-  return session.user;
 }
 
 export async function listAuthSessionsForUser(input: { userId: string; currentRefreshToken?: string | null }) {

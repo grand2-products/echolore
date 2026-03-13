@@ -1,12 +1,19 @@
+import { UserRole } from "@corp-internal/shared/contracts";
+import { HumanMessage } from "@langchain/core/messages";
+import { createChatModel, isTextGenerationEnabled, resolveTextProvider } from "../../ai/llm/index.js";
+import type { LlmOverrides } from "../../ai/llm/index.js";
+import { createMeetingAgent } from "../../ai/agent/create-meeting-agent.js";
+import { createAgentTools } from "../../ai/tools/index.js";
 import { createSpeechGatewayBundle } from "../../ai/gateway/index.js";
+import type { SessionUser } from "../../lib/auth.js";
+import { getLlmSettings } from "../admin/admin-service.js";
 import {
   createMeetingAgentEvent,
   getActiveMeetingAgentSession,
   getAgentById,
   listFinalTranscriptSegmentsByMeeting,
 } from "../../repositories/meeting/meeting-realtime-repository.js";
-
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta";
+import { getUserById } from "../../repositories/user/user-repository.js";
 
 function buildFallbackResponse(agentName: string, prompt: string, transcriptLines: string[]) {
   return [
@@ -26,57 +33,73 @@ function buildFallbackResponse(agentName: string, prompt: string, transcriptLine
 }
 
 async function generateAgentTextResponse(input: {
+  meetingId: string;
   agentName: string;
   systemPrompt: string;
   interventionStyle: string;
   prompt: string;
   transcriptLines: string[];
+  defaultProvider?: string;
+  triggeredByUserId: string;
 }) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_TEXT_MODEL || "gemini-1.5-flash";
-  if (!apiKey) {
+  const dbSettings = await getLlmSettings();
+  const overrides: LlmOverrides = {
+    geminiApiKey: dbSettings.geminiApiKey,
+    geminiTextModel: dbSettings.geminiTextModel,
+    vertexProject: dbSettings.vertexProject,
+    vertexLocation: dbSettings.vertexLocation,
+    vertexModel: dbSettings.vertexModel,
+    zhipuApiKey: dbSettings.zhipuApiKey,
+    zhipuTextModel: dbSettings.zhipuTextModel,
+  };
+  const provider = resolveTextProvider(input.defaultProvider ?? dbSettings.provider);
+  if (!isTextGenerationEnabled(provider, overrides)) {
     return buildFallbackResponse(input.agentName, input.prompt, input.transcriptLines);
   }
 
-  const prompt = [
-    `You are ${input.agentName}, an internal AI employee participating in a meeting.`,
-    `Intervention style: ${input.interventionStyle}`,
-    `System prompt: ${input.systemPrompt}`,
-    "",
-    `User request: ${input.prompt}`,
-    "",
-    "Recent transcript:",
-    input.transcriptLines.join("\n") || "(no transcript)",
-    "",
-    "Respond in concise markdown suitable for in-meeting use.",
-  ].join("\n");
-
   try {
-    const response = await fetch(
-      `${GEMINI_API_URL}/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.4,
-          },
-        }),
-      }
-    );
+    const chatModel = createChatModel({ provider, temperature: 0.4, overrides });
 
-    if (!response.ok) {
-      return buildFallbackResponse(input.agentName, input.prompt, input.transcriptLines);
-    }
+    const triggerUser = await getUserById(input.triggeredByUserId);
+    const user: SessionUser = triggerUser
+      ? {
+          id: triggerUser.id,
+          email: triggerUser.email,
+          name: triggerUser.name,
+          role: triggerUser.role as UserRole,
+          avatarUrl: triggerUser.avatarUrl,
+        }
+      : {
+          id: input.triggeredByUserId,
+          email: "unknown@corp.internal",
+          name: "Unknown User",
+          role: UserRole.Member,
+        };
 
-    const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-    return (
-      data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ??
-      buildFallbackResponse(input.agentName, input.prompt, input.transcriptLines)
-    );
+    const tools = createAgentTools({
+      meetingId: input.meetingId,
+      user,
+    });
+
+    const executor = createMeetingAgent({
+      agentName: input.agentName,
+      systemPrompt: input.systemPrompt,
+      interventionStyle: input.interventionStyle,
+      chatModel,
+      tools,
+    });
+
+    const contextBlock = input.transcriptLines.length > 0
+      ? `\n\nRecent transcript:\n${input.transcriptLines.join("\n")}`
+      : "";
+
+    const result = await executor.invoke({
+      messages: [new HumanMessage(`${input.prompt}${contextBlock}`)],
+    });
+
+    const lastMessage = result.messages[result.messages.length - 1];
+    const text = typeof lastMessage?.content === "string" ? lastMessage.content.trim() : "";
+    return text || buildFallbackResponse(input.agentName, input.prompt, input.transcriptLines);
   } catch {
     return buildFallbackResponse(input.agentName, input.prompt, input.transcriptLines);
   }
@@ -88,6 +111,7 @@ export async function generateMeetingAgentResponse(input: {
   prompt: string;
   triggeredByUserId: string;
   languageCode?: string;
+  triggerMode?: "manual" | "autonomous";
 }) {
   const [agent, session, transcriptSegments] = await Promise.all([
     getAgentById(input.agentId),
@@ -103,39 +127,51 @@ export async function generateMeetingAgentResponse(input: {
     .reverse()
     .map((segment) => `${segment.speakerLabel}: ${segment.content}`);
   const responseText = await generateAgentTextResponse({
+    meetingId: input.meetingId,
     agentName: agent.name,
     systemPrompt: agent.systemPrompt,
     interventionStyle: agent.interventionStyle,
     prompt: input.prompt,
     transcriptLines,
+    defaultProvider: agent.defaultProvider,
+    triggeredByUserId: input.triggeredByUserId,
   });
 
+  // Skip TTS for autonomous interventions (text-only, displayed in timeline)
   let audio: { mimeType: string; base64: string } | null = null;
-  try {
-    const gateways = createSpeechGatewayBundle(agent.defaultProvider);
-    const synthesized = await gateways.tts.synthesize({
-      text: responseText,
-      languageCode: input.languageCode ?? "ja-JP",
-      voice: agent.voiceProfile ?? undefined,
-    });
-    audio = {
-      mimeType: synthesized.mimeType,
-      base64: synthesized.audio.toString("base64"),
-    };
-  } catch {
-    audio = null;
+  if (input.triggerMode !== "autonomous") {
+    try {
+      const speechProvider = agent.defaultProvider === "zhipu" ? "google" : agent.defaultProvider;
+      const gateways = createSpeechGatewayBundle(speechProvider);
+      const synthesized = await gateways.tts.synthesize({
+        text: responseText,
+        languageCode: input.languageCode ?? "ja-JP",
+        voice: agent.voiceProfile ?? undefined,
+      });
+      audio = {
+        mimeType: synthesized.mimeType,
+        base64: synthesized.audio.toString("base64"),
+      };
+    } catch {
+      audio = null;
+    }
   }
+
+  const eventType = input.triggerMode === "autonomous"
+    ? "response.autonomous"
+    : "response.generated";
 
   await createMeetingAgentEvent({
     id: crypto.randomUUID(),
     meetingId: input.meetingId,
     agentId: input.agentId,
-    eventType: "response.generated",
+    eventType,
     payload: {
       sessionId: session.id,
       prompt: input.prompt,
       responseText,
       audioAvailable: Boolean(audio),
+      triggerMode: input.triggerMode ?? "manual",
     },
     triggeredByUserId: input.triggeredByUserId,
     createdAt: new Date(),

@@ -1,22 +1,17 @@
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UserRole } from "@corp-internal/shared/contracts";
 import { authGuard, type AppEnv } from "./auth.js";
 
 const {
-  getAccessTokenFromCookieMock,
-  reconcileGoogleIdentityMock,
   resolveAccessTokenSessionMock,
   writeAuditLogMock,
 } = vi.hoisted(() => ({
-  getAccessTokenFromCookieMock: vi.fn(),
-  reconcileGoogleIdentityMock: vi.fn(),
   resolveAccessTokenSessionMock: vi.fn(),
   writeAuditLogMock: vi.fn(),
 }));
 
 vi.mock("./local-auth.js", () => ({
-  getAccessTokenFromCookie: getAccessTokenFromCookieMock,
-  reconcileGoogleIdentity: reconcileGoogleIdentityMock,
   resolveAccessTokenSession: resolveAccessTokenSessionMock,
 }));
 
@@ -26,8 +21,6 @@ vi.mock("./audit.js", () => ({
 
 describe("authGuard", () => {
   beforeEach(() => {
-    getAccessTokenFromCookieMock.mockReset();
-    reconcileGoogleIdentityMock.mockReset();
     resolveAccessTokenSessionMock.mockReset();
     writeAuditLogMock.mockReset();
   });
@@ -38,7 +31,7 @@ describe("authGuard", () => {
         id: "user_1",
         email: "member@example.com",
         name: "Member",
-        role: "member",
+        role: UserRole.Member,
         avatarUrl: null,
       },
       authMode: "password",
@@ -66,7 +59,7 @@ describe("authGuard", () => {
         id: "user_1",
         email: "member@example.com",
         name: "Member",
-        role: "member",
+        role: UserRole.Member,
         avatarUrl: null,
       },
       authMode: "password",

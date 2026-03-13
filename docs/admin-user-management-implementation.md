@@ -1,6 +1,6 @@
 # Admin User Management Implementation
 
-Last updated: 2026-03-11
+Last updated: 2026-03-13
 
 This document describes the currently implemented admin user management behavior.
 
@@ -51,14 +51,18 @@ This document describes the currently implemented admin user management behavior
 - page permission decisions are used by Wiki authorization paths
 
 ## Current Frontend
+- Admin layout (tab navigation): `apps/web/app/(main)/admin/layout.tsx`
+- Admin index (redirects to users): `apps/web/app/(main)/admin/page.tsx`
+- Users screen (user list, role management): `apps/web/app/(main)/admin/users/page.tsx`
 - KPI screen: `apps/web/app/(main)/admin/kpi/page.tsx`
 - Access management screen: `apps/web/app/(main)/admin/access/page.tsx`
 - AI agent screen: `apps/web/app/(main)/admin/agents/page.tsx`
+- Settings screen (site config, providers, video quality): `apps/web/app/(main)/admin/settings/page.tsx`
 
 ## Known Gaps
 - broader regression test coverage is missing
 - operational guidance should stay in `docs/`, not in planning docs
 
 ## Related Files
-- `../plan/todo-master.md`
-- `../plan/implementation-status-master.md`
+- `../docs/site-map.md`
+- `../docs/frontend-app-implementation.md`

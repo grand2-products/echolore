@@ -1,26 +1,16 @@
-import type { AuthMeResponse } from "./api";
-import { authApi } from "./api";
-import { buildAuthGatewayUrl } from "./auth-gateway";
+import { normalizeReturnTo } from "./return-to";
 
-export function getGoogleSignInUrl() {
-  return buildAuthGatewayUrl("/oauth2/start");
-}
+const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
 
-export function getSsoSignOutUrl() {
-  return buildAuthGatewayUrl("/oauth2/sign_out");
-}
-
-export async function logoutCurrentUser(
-  authMode: AuthMeResponse["authMode"],
-  options?: {
-    onSignedOut?: () => void | Promise<void>;
-  },
-) {
-  if (authMode === "sso") {
-    window.location.assign(getSsoSignOutUrl());
-    return;
+export function getGoogleSignInUrl(returnTo?: string | null) {
+  const url = new URL(`${apiBase}/api/auth/signin/google`);
+  const safeReturnTo = normalizeReturnTo(returnTo);
+  if (safeReturnTo && typeof window !== "undefined") {
+    url.searchParams.set("callbackUrl", new URL(safeReturnTo, window.location.origin).toString());
   }
+  return url.toString();
+}
 
-  await authApi.logout().catch(() => undefined);
-  await options?.onSignedOut?.();
+export async function logoutCurrentUser() {
+  window.location.assign(`${apiBase}/api/auth/signout`);
 }

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UserRole } from "@corp-internal/shared/contracts";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
 import { requireRole } from "../lib/auth.js";
 import { adminRoutes } from "./admin.js";
@@ -52,7 +53,7 @@ function createApp(sessionUser: SessionUser) {
     c.set("user", sessionUser);
     await next();
   });
-  app.use("/api/admin/*", requireRole("admin"));
+  app.use("/api/admin/*", requireRole(UserRole.Admin));
   app.route("/api/admin", adminRoutes);
 
   return app;
@@ -110,14 +111,14 @@ describe("adminRoutes", () => {
       id: "user_1",
       email: "member@example.com",
       name: "Member",
-      role: "member",
+      role: UserRole.Member,
     });
 
     const { url, init } = request();
     const response = await app.request(url, init);
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
+    await expect(response.json()).resolves.toEqual({ code: "FORBIDDEN", error: "Forbidden" });
     expect(listGroupsWithMemberCountsMock).not.toHaveBeenCalled();
     expect(createGroupMock).not.toHaveBeenCalled();
     expect(addGroupMembersMock).not.toHaveBeenCalled();

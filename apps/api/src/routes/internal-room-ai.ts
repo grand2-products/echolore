@@ -20,7 +20,7 @@ const transcribeAudioSchema = z.object({
   audioBase64: z.string().min(1),
   mimeType: z.string().min(1),
   languageCode: z.string().min(2),
-  provider: z.enum(["google"]).optional(),
+  provider: z.enum(["google", "vertex", "zhipu"]).optional(),
   participantIdentity: z.string().min(1),
   speakerUserId: z.string().nullable().optional(),
   speakerLabel: z.string().optional(),

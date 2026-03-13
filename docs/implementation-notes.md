@@ -1,6 +1,6 @@
 # Implementation Notes
 
-Last updated: 2026-03-11
+Last updated: 2026-03-13
 
 This document captures durable implementation notes that do not belong in short-term planning files.
 
@@ -20,6 +20,12 @@ This document captures durable implementation notes that do not belong in short-
 - `docs/admin-user-management-implementation.md`
 - `docs/release-workflows.md`
 - `docs/ops-runbook.md`
+- `docs/site-map.md`
+- `docs/observability-architecture.md`
+- `docs/rollback-recovery-architecture.md`
+- `docs/architecture-review-2026-03-11.md`
+- `docs/next-tasks.md`
+- `DEPLOYMENT.md`
 
 ## Current Implementation Notes
 - backend routes are consolidated under `apps/api/src/index.ts`
@@ -32,6 +38,4 @@ This document captures durable implementation notes that do not belong in short-
 - remaining plan files should focus on gaps, next decisions, and backlog state
 
 ## Related Planning Files
-- `plan/implementation-status-master.md`
-- `plan/todo-master.md`
-- `plan/deployment.md`
+- `../plan/README.md`

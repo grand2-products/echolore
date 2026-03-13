@@ -1,34 +1,33 @@
 services:
-  oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
-    container_name: corp-internal-oauth2-proxy
+  traefik:
+    image: traefik:v3.3
+    container_name: corp-internal-traefik
+    restart: unless-stopped
     command:
-      - --provider=google
-      - --http-address=0.0.0.0:4180
-      - --upstream=http://web:3000/
-      - --email-domain=${AUTH_ALLOWED_DOMAIN:-grand2-products.com}
-      - --cookie-secret=${COOKIE_SECRET}
-      - --cookie-secure=${OAUTH_COOKIE_SECURE:-true}
-      - --cookie-samesite=lax
-      - --set-xauthrequest=true
-      - --pass-authorization-header=true
-      - --set-authorization-header=true
-      - --scope=openid email profile
-      - --client-id=${GOOGLE_CLIENT_ID}
-      - --client-secret=${GOOGLE_CLIENT_SECRET}
-      - --redirect-url=${OAUTH_REDIRECT_URL:-http://localhost:4180/oauth2/callback}
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
     ports:
-      - "${OAUTH_PROXY_PORT:-4180}:4180"
-    depends_on:
-      - web
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
 
   db:
     image: postgres:17-alpine
     container_name: corp-internal-db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: wiki
       POSTGRES_USER: wiki
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-wiki_password}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -42,14 +41,16 @@ services:
   valkey:
     image: valkey/valkey:8-alpine
     container_name: corp-internal-valkey
+    restart: unless-stopped
     volumes:
       - valkey_data:/data
     ports:
       - "${VALKEY_PORT:-6379}:6379"
 
   livekit:
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server:v1.8
     container_name: corp-internal-livekit
+    restart: unless-stopped
     environment:
       LIVEKIT_CONFIG: |
         port: 7880
@@ -58,40 +59,77 @@ services:
           port_range_end: 50200
           use_external_ip: true
         keys:
-          ${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}
+          ${LIVEKIT_API_KEY:?LIVEKIT_API_KEY must be set}: ${LIVEKIT_API_SECRET:?LIVEKIT_API_SECRET must be set}
         room:
           auto_create: true
           empty_timeout: 300
           max_participants: 100
         redis:
           address: valkey:6379
+        webhook:
+          urls:
+            - http://api:3001/api/livekit/webhook
+          api_key: ${LIVEKIT_API_KEY:?LIVEKIT_API_KEY must be set}
         logging:
           level: info
     ports:
-      - "${LIVEKIT_PORT:-7880}:7880"
-      - "${LIVEKIT_SIGNAL_PORT:-7881}:7881"
+      # RTC media — UDP, must be exposed directly (not routable through Traefik)
       - "${LIVEKIT_RTC_PORT_RANGE:-50000-50200}:50000-50200/udp"
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.livekit.rule: "Host(`${DOMAIN}`) && PathPrefix(`/rtc`)"
+      traefik.http.routers.livekit.entrypoints: websecure
+      traefik.http.routers.livekit.tls.certresolver: le
+      traefik.http.services.livekit.loadbalancer.server.port: "7880"
+      traefik.http.routers.livekit.priority: "300"
     depends_on:
       - valkey
 
+  livekit-egress:
+    image: livekit/egress:latest
+    container_name: corp-internal-livekit-egress
+    restart: unless-stopped
+    environment:
+      EGRESS_CONFIG: |
+        api_key: ${LIVEKIT_API_KEY:?LIVEKIT_API_KEY must be set}
+        api_secret: ${LIVEKIT_API_SECRET:?LIVEKIT_API_SECRET must be set}
+        ws_url: ws://livekit:7880
+        redis:
+          address: valkey:6379
+        log_level: info
+    depends_on:
+      - livekit
+      - valkey
+    cap_add:
+      - SYS_ADMIN
+
   api:
-    image: ${API_IMAGE:-gcr.io/local-dev/corp-internal-api:latest}
+    image: ${API_IMAGE:-ghcr.io/grand2-products/corp-internal/api:latest}
     container_name: corp-internal-api
+    restart: unless-stopped
     environment:
       NODE_ENV: ${API_NODE_ENV:-production}
       PORT: 3001
-      DATABASE_URL: postgresql://wiki:${DB_PASSWORD:-wiki_password}@db:5432/wiki
-      GCS_BUCKET: ${GCS_BUCKET:-corp-internal-files-dev}
-      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
+      DATABASE_URL: postgresql://wiki:${DB_PASSWORD:?DB_PASSWORD must be set}@db:5432/wiki
+      FILE_STORAGE_PATH: /data/files
       LIVEKIT_HOST: ${LIVEKIT_HOST:-http://livekit:7880}
-      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
-      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:4180}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?LIVEKIT_API_KEY must be set}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?LIVEKIT_API_SECRET must be set}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
       AUTH_ALLOWED_DOMAIN: ${AUTH_ALLOWED_DOMAIN:-grand2-products.com}
-      AUTH_BYPASS: ${AUTH_BYPASS:-false}
-      AUTH_VERIFY_URL: ${AUTH_VERIFY_URL:-http://oauth2-proxy:4180/oauth2/auth}
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET must be set}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GOOGLE_APPLICATION_CREDENTIALS: /app/credentials.json
+    volumes:
+      - file_storage:/data/files
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api.rule: "Host(`${DOMAIN}`) && PathPrefix(`/api`)"
+      traefik.http.routers.api.entrypoints: websecure
+      traefik.http.routers.api.tls.certresolver: le
+      traefik.http.services.api.loadbalancer.server.port: "3001"
+      traefik.http.routers.api.priority: "200"
     ports:
       - "${API_PORT:-3001}:3001"
     depends_on:
@@ -101,8 +139,6 @@ services:
         condition: service_started
       livekit:
         condition: service_started
-    volumes:
-      - ${GOOGLE_APPLICATION_CREDENTIALS_HOST:-/dev/null}:/app/credentials.json:ro
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
       interval: 30s
@@ -111,14 +147,22 @@ services:
       start_period: 20s
 
   web:
-    image: ${WEB_IMAGE:-gcr.io/local-dev/corp-internal-web:latest}
+    image: ${WEB_IMAGE:-ghcr.io/grand2-products/corp-internal/web:latest}
     container_name: corp-internal-web
+    restart: unless-stopped
     environment:
       NODE_ENV: ${WEB_NODE_ENV:-production}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
-      NEXT_PUBLIC_LIVEKIT_URL: ${NEXT_PUBLIC_LIVEKIT_URL:-ws://localhost:7880}
-    expose:
-      - "3000"
+      NEXT_PUBLIC_LIVEKIT_URL: ${NEXT_PUBLIC_LIVEKIT_URL:-wss://${DOMAIN}}
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.web.rule: "Host(`${DOMAIN}`)"
+      traefik.http.routers.web.entrypoints: websecure
+      traefik.http.routers.web.tls.certresolver: le
+      traefik.http.services.web.loadbalancer.server.port: "3000"
+      traefik.http.routers.web.priority: "100"
+    ports:
+      - "${WEB_PORT:-3000}:3000"
     depends_on:
       api:
         condition: service_healthy
@@ -132,3 +176,5 @@ services:
 volumes:
   postgres_data:
   valkey_data:
+  letsencrypt:
+  file_storage:

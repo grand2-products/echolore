@@ -54,6 +54,20 @@ export const navigationItems: NavigationItem[] = [
     ),
   },
   {
+    label: "Coworking",
+    href: "/meetings/coworking",
+    icon: (
+      <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+        />
+      </svg>
+    ),
+  },
+  {
     label: "Search",
     href: "/search",
     icon: (
@@ -68,8 +82,8 @@ export const navigationItems: NavigationItem[] = [
     ),
   },
   {
-    label: "Access",
-    href: "/admin/access",
+    label: "Admin",
+    href: "/admin",
     adminOnly: true,
     icon: (
       <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -77,33 +91,9 @@ export const navigationItems: NavigationItem[] = [
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeWidth={2}
-          d="M12 14a3 3 0 100-6 3 3 0 000 6zm7 6H5a2 2 0 01-2-2 5 5 0 015-5h8a5 5 0 015 5 2 2 0 01-2 2zm-7-11V4m0 0L9 7m3-3l3 3"
+          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z"
         />
-      </svg>
-    ),
-  },
-  {
-    label: "KPI",
-    href: "/admin/kpi",
-    adminOnly: true,
-    icon: (
-      <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20V10m5 10V4m5 16v-7M4 20h16" />
-      </svg>
-    ),
-  },
-  {
-    label: "Agents",
-    href: "/admin/agents",
-    adminOnly: true,
-    icon: (
-      <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9.75 3a3.75 3.75 0 013.75 3.75v.19a5.5 5.5 0 012.94 4.88V13a3 3 0 013 3v3H4v-3a3 3 0 013-3v-1.18a5.5 5.5 0 012.75-4.77v-.3A3.75 3.75 0 019.75 3zm0 2A1.75 1.75 0 008 6.75v1.02l-.55.29A3.5 3.5 0 005.5 11.82V15H18.5v-3a1 1 0 00-1-1h-1v-1.18a3.5 3.5 0 00-2.12-3.22l-.63-.27v-.58A1.75 1.75 0 0012 5h-2.25z"
-        />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     ),
   },

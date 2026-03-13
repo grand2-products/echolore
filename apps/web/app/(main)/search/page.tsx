@@ -123,7 +123,22 @@ export default function SearchPage() {
           </label>
         </form>
 
-        {error && <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+        {error ? (
+          <div className="mb-6 space-y-3">
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              {error}
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => void runSearch(query, semanticSearch)}
+                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+              >
+                {t("common.actions.retry")}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {isLoading ? (
           <div className="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">

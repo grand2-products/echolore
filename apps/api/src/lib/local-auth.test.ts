@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UserRole } from "@corp-internal/shared/contracts";
 import { authIdentities, users } from "../db/schema.js";
 
 const { dbMock } = vi.hoisted(() => ({
@@ -70,7 +71,7 @@ describe("local-auth identity linking", () => {
       name: "Member",
       avatarUrl: null,
       emailVerifiedAt: new Date("2026-03-12T00:00:00.000Z"),
-      role: "member",
+      role: UserRole.Member,
       createdAt: new Date("2026-03-12T00:00:00.000Z"),
       updatedAt: new Date("2026-03-12T00:00:00.000Z"),
     };
@@ -104,7 +105,7 @@ describe("local-auth identity linking", () => {
       name: "Member",
       avatarUrl: null,
       emailVerifiedAt: new Date("2026-03-12T00:00:00.000Z"),
-      role: "member",
+      role: UserRole.Member,
       createdAt: new Date("2026-03-12T00:00:00.000Z"),
       updatedAt: new Date("2026-03-12T00:00:00.000Z"),
     };

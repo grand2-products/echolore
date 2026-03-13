@@ -1,9 +1,11 @@
 "use client";
 
+import { authApi, siteSettingsApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { appTitle } from "@/lib/app-config";
 import { useAuthContext } from "@/lib/auth-context";
 import { useLocale, type SupportedLocale } from "@/lib/i18n";
+import { normalizeReturnTo } from "@/lib/return-to";
 import { useAuthActions } from "@/lib/use-auth-actions";
 import { usePasswordAuth } from "@/lib/use-password-auth";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -33,6 +35,7 @@ type LoginCopy = {
   registrationHint: string;
   createAccount: string;
   creatingAccount: string;
+  registrationClosed: string;
 };
 
 const loginCopy: Record<SupportedLocale, LoginCopy> = {
@@ -45,7 +48,7 @@ const loginCopy: Record<SupportedLocale, LoginCopy> = {
     tabRegister: "登録",
     continueGoogle: "Google で続行",
     verifyInProgress: "メールを確認しています...",
-    verifySuccess: "メール確認が完了しました。サインインしています...",
+    verifySuccess: "メール確認が完了しました。パスワードでサインインしてください。",
     verifyError: "メール確認に失敗しました。",
     signInError: "サインインに失敗しました。",
     registerError: "アカウント登録に失敗しました。",
@@ -60,6 +63,7 @@ const loginCopy: Record<SupportedLocale, LoginCopy> = {
       "登録はメール確認後に完了します。ローカル開発では確認リンクが API ログに出力されます。",
     createAccount: "アカウント登録",
     creatingAccount: "アカウント登録中...",
+    registrationClosed: "新規登録は現在受け付けていません。管理者にお問い合わせください。",
   },
   en: {
     loading: "Loading...",
@@ -70,7 +74,7 @@ const loginCopy: Record<SupportedLocale, LoginCopy> = {
     tabRegister: "Register",
     continueGoogle: "Continue with Google",
     verifyInProgress: "Verifying your email...",
-    verifySuccess: "Email verified. Signing you in...",
+    verifySuccess: "Email verified. Please sign in with your password.",
     verifyError: "Failed to verify email.",
     signInError: "Failed to sign in.",
     registerError: "Failed to register account.",
@@ -85,6 +89,7 @@ const loginCopy: Record<SupportedLocale, LoginCopy> = {
       "Registration completes after email verification. In local development the link is written to the API log.",
     createAccount: "Create account",
     creatingAccount: "Creating account...",
+    registrationClosed: "Registration is currently closed. Please contact an administrator.",
   },
   "zh-CN": {
     loading: "加载中...",
@@ -95,7 +100,7 @@ const loginCopy: Record<SupportedLocale, LoginCopy> = {
     tabRegister: "注册",
     continueGoogle: "使用 Google 继续",
     verifyInProgress: "正在验证邮箱...",
-    verifySuccess: "邮箱验证完成，正在为您登录...",
+    verifySuccess: "邮箱验证完成。请使用密码登录。",
     verifyError: "邮箱验证失败。",
     signInError: "登录失败。",
     registerError: "注册账户失败。",
@@ -109,6 +114,7 @@ const loginCopy: Record<SupportedLocale, LoginCopy> = {
       "注册会在邮箱验证后完成。在本地开发环境中，验证链接会写入 API 日志。",
     createAccount: "创建账户",
     creatingAccount: "正在创建账户...",
+    registrationClosed: "当前不接受新注册。请联系管理员。",
   },
   ko: {
     loading: "불러오는 중...",
@@ -119,7 +125,7 @@ const loginCopy: Record<SupportedLocale, LoginCopy> = {
     tabRegister: "등록",
     continueGoogle: "Google로 계속하기",
     verifyInProgress: "이메일을 확인하는 중...",
-    verifySuccess: "이메일 확인이 완료되었습니다. 로그인하는 중...",
+    verifySuccess: "이메일 확인이 완료되었습니다. 비밀번호로 로그인해 주세요.",
     verifyError: "이메일 확인에 실패했습니다.",
     signInError: "로그인에 실패했습니다.",
     registerError: "계정 등록에 실패했습니다.",
@@ -133,6 +139,7 @@ const loginCopy: Record<SupportedLocale, LoginCopy> = {
       "등록은 이메일 확인 후 완료됩니다. 로컬 개발 환경에서는 확인 링크가 API 로그에 기록됩니다.",
     createAccount: "계정 만들기",
     creatingAccount: "계정 생성 중...",
+    registrationClosed: "현재 신규 등록을 받지 않습니다. 관리자에게 문의해 주세요.",
   },
 };
 
@@ -141,8 +148,9 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const { user, isLoading } = useAuthContext();
   const locale = useLocale();
-  const { googleSignInUrl } = useAuthActions();
-  const passwordAuth = usePasswordAuth();
+  const returnTo = normalizeReturnTo(searchParams.get("returnTo"));
+  const { googleSignInUrl } = useAuthActions({ returnTo });
+  const { signIn, register, verifyEmail } = usePasswordAuth();
   const getApiErrorMessage = useApiErrorMessage();
   const [view, setView] = useState<AuthView>("signin");
   const [signinEmail, setSigninEmail] = useState("");
@@ -154,13 +162,20 @@ export default function LoginPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState<boolean | null>(null);
+  const [siteTitle, setSiteTitle] = useState(appTitle);
   const copy: LoginCopy = loginCopy[locale as SupportedLocale] ?? loginCopy.en;
 
   useEffect(() => {
     if (user) {
-      router.replace("/");
+      router.replace(returnTo ?? "/");
     }
-  }, [user, router]);
+  }, [returnTo, router, user]);
+
+  useEffect(() => {
+    void authApi.registrationStatus().then((res) => setRegistrationOpen(res.open)).catch(() => setRegistrationOpen(false));
+    void siteSettingsApi.get().then((s) => setSiteTitle(s.siteTitle || appTitle)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const token = searchParams.get("verify");
@@ -171,8 +186,7 @@ export default function LoginPage() {
     setError(null);
     setMessage(copy.verifyInProgress);
 
-    void passwordAuth
-      .verifyEmail(token)
+    void verifyEmail(token, returnTo)
       .then(() => {
         if (cancelled) return;
         setMessage(copy.verifySuccess);
@@ -196,8 +210,9 @@ export default function LoginPage() {
     copy.verifyInProgress,
     copy.verifySuccess,
     getApiErrorMessage,
-    passwordAuth,
+    returnTo,
     searchParams,
+    verifyEmail,
   ]);
 
   const handleSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -207,7 +222,7 @@ export default function LoginPage() {
     setMessage(null);
 
     try {
-      await passwordAuth.signIn({ email: signinEmail, password: signinPassword });
+      await signIn({ email: signinEmail, password: signinPassword }, returnTo);
     } catch (submitError) {
       setError(getApiErrorMessage(submitError, copy.signInError));
     } finally {
@@ -222,11 +237,12 @@ export default function LoginPage() {
     setMessage(null);
 
     try {
-      await passwordAuth.register({
-        name: registerName,
-        email: registerEmail,
-        password: registerPassword,
-      });
+      const result = await register(
+        { name: registerName, email: registerEmail, password: registerPassword },
+        returnTo,
+      );
+      // immediate registration (first admin) auto-signs in via the hook
+      if (result.immediate) return;
       setMessage(copy.registerStarted);
       setView("signin");
     } catch (submitError) {
@@ -247,40 +263,46 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-6 py-16">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">{appTitle}</p>
+        <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">{siteTitle}</p>
         <h1 className="mt-3 text-2xl font-semibold text-slate-900">
           {view === "signin" ? copy.titleSignin : copy.titleRegister}
         </h1>
         <p className="mt-2 text-sm text-slate-600">{copy.intro}</p>
 
-        <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() => {
-              setView("signin");
-              setError(null);
-              setMessage(null);
-            }}
-            className={`rounded-lg px-4 py-2 text-sm font-medium ${
-              view === "signin" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
-            }`}
-          >
-            {copy.tabSignin}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setView("register");
-              setError(null);
-              setMessage(null);
-            }}
-            className={`rounded-lg px-4 py-2 text-sm font-medium ${
-              view === "register" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
-            }`}
-          >
-            {copy.tabRegister}
-          </button>
-        </div>
+        {registrationOpen ? (
+          <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setView("signin");
+                setError(null);
+                setMessage(null);
+              }}
+              className={`rounded-lg px-4 py-2 text-sm font-medium ${
+                view === "signin" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
+              }`}
+            >
+              {copy.tabSignin}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setView("register");
+                setError(null);
+                setMessage(null);
+              }}
+              className={`rounded-lg px-4 py-2 text-sm font-medium ${
+                view === "register" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
+              }`}
+            >
+              {copy.tabRegister}
+            </button>
+          </div>
+        ) : registrationOpen === false ? (
+          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            {copy.registrationClosed}
+          </div>
+        ) : null}
 
         <div className="mt-6 space-y-3">
           <a
@@ -302,7 +324,7 @@ export default function LoginPage() {
           </div>
         ) : null}
 
-        {view === "signin" ? (
+        {view === "signin" || !registrationOpen ? (
           <form onSubmit={handleSignIn} className="mt-6 space-y-4 border-t border-slate-200 pt-6">
             <div>
               <label htmlFor="signin-email" className="mb-1 block text-sm font-medium text-slate-700">

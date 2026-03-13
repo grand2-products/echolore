@@ -1,6 +1,6 @@
 # Meeting Tool Implementation
 
-Last updated: 2026-03-12
+Last updated: 2026-03-13
 
 This document describes the currently implemented meeting tool behavior.
 
@@ -74,5 +74,5 @@ This document describes the currently implemented meeting tool behavior.
 - voice synthesis still depends on configured Google Cloud auth at runtime
 
 ## Related Files
-- `../plan/todo-master.md`
-- `../plan/implementation-status-master.md`
+- `../docs/site-map.md`
+- `../docs/product-overview.md`

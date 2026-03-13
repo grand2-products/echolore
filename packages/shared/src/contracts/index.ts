@@ -106,6 +106,20 @@ export interface SummaryDto {
   createdAt: ISODateString;
 }
 
+export type RecordingStatus = "starting" | "recording" | "stopping" | "completed" | "failed";
+
+export interface RecordingDto {
+  id: string;
+  meetingId: string;
+  egressId: string;
+  status: RecordingStatus;
+  storagePath: string | null;
+  durationMs: number | null;
+  startedAt: ISODateString | null;
+  endedAt: ISODateString | null;
+  createdAt: ISODateString;
+}
+
 export interface FileMetadataDto {
   id: string;
   filename: string;
@@ -129,7 +143,7 @@ export class SuccessResponse {
 }
 
 export class ListUsersResponse {
-  constructor(public users: UserDto[]) {}
+  constructor(public users: UserDto[], public total?: number) {}
 }
 
 export class GetUserResponse {
@@ -232,6 +246,15 @@ export interface TokenAuthResponse {
   authMode: "password" | "sso";
 }
 
+export interface TokenRefreshResponse {
+  accessToken: string;
+  /** Omitted during grace period — client should keep its existing refresh token. */
+  refreshToken?: string;
+  expiresAt: ISODateString;
+  user: SessionUserDto;
+  authMode: "password" | "sso";
+}
+
 export class ListAuthSessionsResponse {
   constructor(public sessions: AuthSessionDto[]) {}
 }
@@ -282,7 +305,7 @@ export class CreateBlockResponse {
 }
 
 export class ListMeetingsResponse {
-  constructor(public meetings: MeetingDto[]) {}
+  constructor(public meetings: MeetingDto[], public total?: number) {}
 }
 
 export class GetMeetingResponse {
@@ -326,7 +349,7 @@ export class CreateSummaryResponse {
 }
 
 export class ListFilesResponse {
-  constructor(public files: FileMetadataDto[]) {}
+  constructor(public files: FileMetadataDto[], public total?: number) {}
 }
 
 export class GetFileResponse {

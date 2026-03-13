@@ -1,6 +1,6 @@
 # Observability Architecture
 
-Last updated: 2026-03-12
+Last updated: 2026-03-13
 
 This document describes the currently implemented observability baseline for `corp-internal`.
 
@@ -18,6 +18,8 @@ This document describes the currently implemented observability baseline for `co
   - `authz.denied`
   - resource-view and pipeline audit events
 - runtime container status: `docker compose ps`
+- Traefik access logs: routing errors, TLS handshake failures
+- TLS certificate status: Let's Encrypt auto-renewal via Traefik (90-day cycle)
 
 ## Current Monitoring Shape
 - workflow release validates API and web reachability after rollout
@@ -28,6 +30,7 @@ This document describes the currently implemented observability baseline for `co
 ## Known Limits
 - no separate metrics backend is documented yet
 - alert delivery transport is not yet described as durable infrastructure
+- TLS certificate expiry alerting relies on Traefik auto-renewal; no external monitoring yet
 - realtime transcript/media quality metrics are still minimal
 
 ## Related Files

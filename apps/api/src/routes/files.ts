@@ -1,7 +1,8 @@
-import { Storage } from "@google-cloud/storage";
+import { UserRole } from "@corp-internal/shared/contracts";
 import { Hono } from "hono";
 import type { AppEnv } from "../lib/auth.js";
 import { jsonError } from "../lib/api-error.js";
+import { buildStoragePath, loadFile, removeFile, saveFile } from "../lib/file-storage.js";
 import { authorizeOwnerResource } from "../policies/authorization-policy.js";
 import {
   createFile,
@@ -11,18 +12,16 @@ import {
   listFilesByUploader,
 } from "../repositories/file/file-repository.js";
 
-export const filesRoutes = new Hono<AppEnv>();
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
-const storage = new Storage();
-const bucketName = process.env.GCS_BUCKET || "corp-internal-files-dev";
-const bucket = storage.bucket(bucketName);
+export const filesRoutes = new Hono<AppEnv>();
 
 // GET /api/files - List all files
 filesRoutes.get("/", async (c) => {
   const user = c.get("user");
 
   try {
-    const allFiles = user.role === "admin" ? await listFiles() : await listFilesByUploader(user.id);
+    const allFiles = user.role === UserRole.Admin ? await listFiles() : await listFilesByUploader(user.id);
     return c.json({ files: allFiles });
   } catch (error) {
     console.error("Error fetching files:", error);
@@ -67,6 +66,11 @@ filesRoutes.post("/upload", async (c) => {
       return jsonError(c, 400, "FILE_MULTIPART_REQUIRED", "Multipart form data required");
     }
 
+    const contentLength = Number(c.req.header("content-length") || "0");
+    if (contentLength > MAX_FILE_SIZE_BYTES) {
+      return jsonError(c, 413, "FILE_TOO_LARGE", `File exceeds maximum size of ${MAX_FILE_SIZE_BYTES / 1024 / 1024} MB`);
+    }
+
     const body = await c.req.parseBody();
     const uploadedFile = body.file as File;
 
@@ -74,28 +78,31 @@ filesRoutes.post("/upload", async (c) => {
       return jsonError(c, 400, "FILE_REQUIRED", "File is required");
     }
 
+    if (uploadedFile.size > MAX_FILE_SIZE_BYTES) {
+      return jsonError(c, 413, "FILE_TOO_LARGE", `File exceeds maximum size of ${MAX_FILE_SIZE_BYTES / 1024 / 1024} MB`);
+    }
+
     const fileId = crypto.randomUUID();
-    const filename = `${fileId}-${uploadedFile.name}`;
-    const gcsPath = `uploads/${filename}`;
+    // Sanitize original filename: strip path separators and control characters
+    const safeName = uploadedFile.name
+      .replace(/[/\\]/g, "_")
+      .replace(/[\x00-\x1f\x7f]/g, "")
+      .replace(/\.{2,}/g, ".")
+      || "file";
+    const filename = `${fileId}-${safeName}`;
+    const storagePath = buildStoragePath(`uploads/${filename}`);
 
     const arrayBuffer = await uploadedFile.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const gcsFile = bucket.file(gcsPath);
-    await gcsFile.save(buffer, {
-      contentType: uploadedFile.type,
-      metadata: {
-        originalName: uploadedFile.name,
-        uploaderId: user.id,
-      },
-    });
+    await saveFile(storagePath, buffer);
 
     const newFile = await createFile({
       id: fileId,
       filename: uploadedFile.name,
       contentType: uploadedFile.type,
       size: uploadedFile.size,
-      gcsPath: `gs://${bucketName}/${gcsPath}`,
+      storagePath,
       uploaderId: user.id,
       createdAt: new Date(),
     });
@@ -107,7 +114,7 @@ filesRoutes.post("/upload", async (c) => {
   }
 });
 
-// GET /api/files/:id/download - Get signed URL for download
+// GET /api/files/:id/download - Download file
 filesRoutes.get("/:id/download", async (c) => {
   const { id } = c.req.param();
 
@@ -123,23 +130,18 @@ filesRoutes.get("/:id/download", async (c) => {
       return jsonError(c, 403, "FORBIDDEN", "Forbidden");
     }
 
-    const pathMatch = fileRecord.gcsPath.match(/gs:\/\/[^/]+\/(.+)/);
-    if (!pathMatch?.[1]) {
-      return jsonError(c, 500, "FILE_PATH_INVALID", "Invalid file path");
-    }
+    const buffer = await loadFile(fileRecord.storagePath);
 
-    const gcsPath = pathMatch[1];
-    const gcsFile = bucket.file(gcsPath);
-
-    const [signedUrl] = await gcsFile.getSignedUrl({
-      action: "read",
-      expires: Date.now() + 60 * 60 * 1000,
+    return new Response(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type": fileRecord.contentType || "application/octet-stream",
+        "Content-Disposition": `attachment; filename="${encodeURIComponent(fileRecord.filename)}"`,
+        "Cache-Control": "private, max-age=3600",
+      },
     });
-
-    return c.json({ url: signedUrl });
   } catch (error) {
-    console.error("Error generating download URL:", error);
-    return jsonError(c, 500, "FILE_DOWNLOAD_URL_FAILED", "Failed to generate download URL");
+    console.error("Error downloading file:", error);
+    return jsonError(c, 500, "FILE_DOWNLOAD_FAILED", "Failed to download file");
   }
 });
 
@@ -159,11 +161,7 @@ filesRoutes.delete("/:id", async (c) => {
       return jsonError(c, 403, "FORBIDDEN", "Forbidden");
     }
 
-    const pathMatch = fileRecord.gcsPath.match(/gs:\/\/[^/]+\/(.+)/);
-    if (pathMatch?.[1]) {
-      const gcsPath = pathMatch[1];
-      await bucket.file(gcsPath).delete();
-    }
+    await removeFile(fileRecord.storagePath);
 
     await deleteFile(id);
 

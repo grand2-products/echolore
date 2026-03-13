@@ -26,7 +26,26 @@ cd "${RUNTIME_DIR}"
 
 grep '^RELEASE_SHA=' .env >/dev/null
 docker compose config >/dev/null
+
+# Authenticate to GHCR if credentials are available
+if grep -q '^GHCR_TOKEN=' .env 2>/dev/null; then
+  GHCR_TOKEN=$(grep '^GHCR_TOKEN=' .env | cut -d= -f2-)
+  GHCR_USER=$(grep '^GHCR_USER=' .env | cut -d= -f2- || echo "")
+  echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER:-deploy}" --password-stdin
+fi
+
 docker compose pull
+
+# Start DB first and run migrations before bringing up the full stack
+docker compose up -d db
+echo "Waiting for database to become healthy..."
+until docker compose exec -T db pg_isready -U wiki -d wiki >/dev/null 2>&1; do
+  sleep 2
+done
+
+echo "Running database migrations..."
+docker compose run --rm -T --no-deps api node dist/apps/api/src/db/migrate.js
+
 docker compose up -d --remove-orphans
 docker compose ps
 curl --fail --retry 10 --retry-delay 5 http://localhost:3001/health

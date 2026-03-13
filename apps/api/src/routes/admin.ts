@@ -74,6 +74,8 @@ const createAgentSchema = z.object({
   interventionStyle: z.string().min(1),
   defaultProvider: z.enum(["google", "vertex", "zhipu"]).default("google"),
   isActive: z.boolean().optional(),
+  autonomousEnabled: z.boolean().optional(),
+  autonomousCooldownSec: z.number().int().min(10).max(3600).optional(),
 });
 const updateAgentSchema = createAgentSchema.partial();
 
@@ -104,7 +106,10 @@ const setPagePermissionsSchema = z.object({
 
 adminRoutes.get("/groups", async (c) => {
   try {
-    return c.json({ groups: await listGroupsWithMemberCounts() });
+    const limit = Math.min(Number(c.req.query("limit")) || 100, 500);
+    const offset = Math.max(Number(c.req.query("offset")) || 0, 0);
+    const all = await listGroupsWithMemberCounts();
+    return c.json({ groups: all.slice(offset, offset + limit), total: all.length });
   } catch (error) {
     console.error("Error fetching groups:", error);
     return jsonError(c, 500, "ADMIN_GROUPS_LIST_FAILED", "Failed to fetch groups");
@@ -280,7 +285,10 @@ adminRoutes.delete("/groups/:id/members/:userId", async (c) => {
 
 adminRoutes.get("/users", async (c) => {
   try {
-    return c.json({ users: await listUsersWithGroups() });
+    const limit = Math.min(Number(c.req.query("limit")) || 100, 500);
+    const offset = Math.max(Number(c.req.query("offset")) || 0, 0);
+    const all = await listUsersWithGroups();
+    return c.json({ users: all.slice(offset, offset + limit), total: all.length });
   } catch (error) {
     console.error("Error fetching users:", error);
     return jsonError(c, 500, "ADMIN_USERS_LIST_FAILED", "Failed to fetch users");
@@ -434,6 +442,9 @@ adminRoutes.get("/email-settings", async (c) => {
 adminRoutes.put("/email-settings", zValidator("json", updateEmailSettingsSchema), async (c) => {
   const data = c.req.valid("json");
   try {
+    // Strip masked placeholder values so we don't overwrite real secrets
+    if (data.resendApiKey === "••••••••") delete data.resendApiKey;
+    if (data.smtpPass === "••••••••") delete data.smtpPass;
     const updated = await updateEmailSettings(data);
     return c.json({
       ...updated,
@@ -478,6 +489,9 @@ adminRoutes.get("/llm-settings", async (c) => {
 adminRoutes.put("/llm-settings", zValidator("json", updateLlmSettingsSchema), async (c) => {
   const data = c.req.valid("json");
   try {
+    // Strip masked placeholder values so we don't overwrite real secrets
+    if (data.geminiApiKey === "••••••••") delete data.geminiApiKey;
+    if (data.zhipuApiKey === "••••••••") delete data.zhipuApiKey;
     const updated = await updateLlmSettings(data);
     return c.json({
       ...updated,
@@ -515,8 +529,8 @@ adminRoutes.post("/llm-settings/test", async (c) => {
 
     return c.json({ ok: true, reply: text });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return c.json({ ok: false, error: message }, 502);
+    console.error("LLM test failed:", error);
+    return c.json({ ok: false, error: "LLM connection test failed" }, 502);
   }
 });
 
@@ -618,6 +632,9 @@ adminRoutes.get("/storage-settings", async (c) => {
 adminRoutes.put("/storage-settings", zValidator("json", updateStorageSettingsSchema), async (c) => {
   const data = c.req.valid("json");
   try {
+    // Strip masked placeholder values so we don't overwrite real secrets
+    if (data.s3SecretKey === "••••••••") delete data.s3SecretKey;
+    if (data.gcsKeyJson === "••••••••") delete data.gcsKeyJson;
     const updated = await updateStorageSettings(data);
 
     // Apply the new provider immediately
@@ -678,7 +695,7 @@ adminRoutes.post("/storage-settings/test", async (c) => {
 
     return c.json({ ok: true, provider: settings.provider });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return c.json({ ok: false, error: message }, 502);
+    console.error("Storage test failed:", error);
+    return c.json({ ok: false, error: "Storage connection test failed" }, 502);
   }
 });

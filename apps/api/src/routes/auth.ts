@@ -8,14 +8,11 @@ import { getRequestIp, isRateLimited } from "../lib/password-auth-guard.js";
 import {
   authenticatePasswordUser,
   exchangeGoogleIdToken,
-  clearPasswordSessionCookies,
-  getRefreshTokenFromCookie,
+  isRegistrationOpen,
   issueMobileTokenPair,
-  issuePasswordWebSession,
   refreshAccessToken,
   registerPasswordUser,
   revokeRefreshToken,
-  setPasswordSessionCookies,
   verifyEmailRegistrationToken,
 } from "../lib/local-auth.js";
 
@@ -23,11 +20,6 @@ const registerSchema = z.object({
   email: z.string().email(),
   name: z.string().trim().min(1),
   password: z.string().min(8),
-});
-
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
 });
 
 const verifyEmailSchema = z.object({
@@ -46,15 +38,20 @@ const googleTokenAuthSchema = z.object({
 });
 
 const tokenRefreshSchema = z.object({
-  refreshToken: z.string().min(1).optional(),
+  refreshToken: z.string().min(1),
   deviceName: z.string().trim().min(1).max(120).optional(),
 });
 
 const tokenRevokeSchema = z.object({
-  refreshToken: z.string().min(1).optional(),
+  refreshToken: z.string().min(1),
 });
 
 export const authRoutes = new Hono<AppEnv>();
+
+authRoutes.get("/registration-status", async (c) => {
+  const open = await isRegistrationOpen();
+  return c.json({ open });
+});
 
 authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
   const payload = c.req.valid("json");
@@ -79,28 +76,37 @@ authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
   }
 
   try {
-    await registerPasswordUser(payload);
+    const result = await registerPasswordUser(payload);
     await writeAuditLog({
       actorEmail: payload.email,
       action: "auth.password.register_attempt",
       resourceType: "auth",
-      metadata: { authMode: "password" },
+      metadata: { authMode: "password", immediate: result.immediate },
       ipAddress,
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return c.json({ success: true as const }, 201);
+    return c.json({ success: true as const, immediate: result.immediate, user: result.user }, 201);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to register account";
-    const status = message.includes("already configured") ? 409 : 400;
+    const rawMessage = error instanceof Error ? error.message : "";
+    // Only expose known safe error messages to the client
+    const KNOWN_MESSAGES: Record<string, { status: 400 | 403 | 409; message: string }> = {
+      "Registration is closed": { status: 403, message: "Registration is closed" },
+      "Password login is already configured for this email address": { status: 409, message: "Password login is already configured for this email address" },
+      "Name is required": { status: 400, message: "Name is required" },
+      "Email domain is not allowed": { status: 400, message: "Email domain is not allowed" },
+    };
+    const known = Object.entries(KNOWN_MESSAGES).find(([key]) => rawMessage.includes(key));
+    const status = known ? known[1].status : 400;
+    const clientMessage = known ? known[1].message : "Failed to register account";
     await writeAuditLog({
       actorEmail: payload.email,
       action: "auth.password.register_rejected",
       resourceType: "auth",
-      metadata: { reason: message },
+      metadata: { reason: rawMessage },
       ipAddress,
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return jsonError(c, status, "REGISTER_REJECTED", message);
+    return jsonError(c, status, "REGISTER_REJECTED", clientMessage);
   }
 });
 
@@ -130,14 +136,14 @@ authRoutes.post("/verify-email", zValidator("json", verifyEmailSchema), async (c
     return jsonError(c, 400, "INVALID_TOKEN", "Invalid or expired verification token");
   }
 
-  await issuePasswordWebSession(c, user.id);
+  // Email verified — return user info; user must manually sign in via Auth.js Credentials
   await writeAuditLog({
     actorUserId: user.id,
     actorEmail: user.email,
     action: "auth.password.verified",
     resourceType: "auth",
     resourceId: user.id,
-    metadata: { authMode: "password", transport: "cookie" },
+    metadata: { authMode: "password" },
     ipAddress,
     userAgent: c.req.header("user-agent") ?? null,
   });
@@ -145,60 +151,14 @@ authRoutes.post("/verify-email", zValidator("json", verifyEmailSchema), async (c
   return c.json({ user, authMode: "password" as const });
 });
 
-authRoutes.post("/login", zValidator("json", loginSchema), async (c) => {
-  const { email, password } = c.req.valid("json");
-  const ipAddress = getRequestIp(c.req.raw.headers);
-  const rateLimited = await isRateLimited({
-    action: "auth.password.login_failed",
-    email,
-    ipAddress,
-    windowMs: 15 * 60 * 1000,
-    maxAttempts: 5,
-  });
-
-  if (rateLimited) {
-    await writeAuditLog({
-      actorEmail: email,
-      action: "auth.password.login_rate_limited",
-      resourceType: "auth",
-      ipAddress,
-      userAgent: c.req.header("user-agent") ?? null,
-    });
-    return jsonError(c, 429, "RATE_LIMITED", "Too many sign-in attempts. Try again later.");
-  }
-
-  const user = await authenticatePasswordUser(email, password);
-  if (!user) {
-    await writeAuditLog({
-      actorEmail: email,
-      action: "auth.password.login_failed",
-      resourceType: "auth",
-      metadata: { reason: "invalid-password-credentials", authMode: "password", transport: "cookie" },
-      ipAddress,
-      userAgent: c.req.header("user-agent") ?? null,
-    });
-    return jsonError(c, 401, "INVALID_CREDENTIALS", "Invalid email or password");
-  }
-
-  await issuePasswordWebSession(c, user.id);
-  await writeAuditLog({
-    actorUserId: user.id,
-    actorEmail: user.email,
-    action: "auth.password.login",
-    resourceType: "auth",
-    resourceId: user.id,
-    metadata: { transport: "cookie" },
-    ipAddress,
-    userAgent: c.req.header("user-agent") ?? null,
-  });
-  return c.json({ user, authMode: "password" as const });
-});
+// Legacy browser login/google routes removed — Auth.js handles browser sign-in
 
 authRoutes.post("/logout", async (c) => {
-  await revokeRefreshToken(getRefreshTokenFromCookie(c));
-  clearPasswordSessionCookies(c);
+  // Browser logout is handled by Auth.js signout; this endpoint is a no-op.
   return c.json({ success: true });
 });
+
+// Mobile token routes — unchanged
 
 authRoutes.post("/token", zValidator("json", tokenAuthSchema), async (c) => {
   const { email, password, deviceName } = c.req.valid("json");
@@ -274,39 +234,54 @@ authRoutes.post("/token/google", zValidator("json", googleTokenAuthSchema), asyn
       authMode: tokenSet.authMode,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Google sign-in failed";
+    const rawMessage = error instanceof Error ? error.message : "Google sign-in failed";
     await writeAuditLog({
       action: "auth.sso.mobile_token_rejected",
       resourceType: "auth",
-      metadata: { provider: "google", reason: message },
+      metadata: { provider: "google", reason: rawMessage },
       ipAddress,
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return jsonError(c, 401, "GOOGLE_TOKEN_INVALID", message);
+    return jsonError(c, 401, "GOOGLE_TOKEN_INVALID", "Google sign-in failed");
   }
 });
 
 authRoutes.post("/token/refresh", zValidator("json", tokenRefreshSchema), async (c) => {
+  const ipAddress = getRequestIp(c.req.raw.headers);
+  const rateLimited = await isRateLimited({
+    action: "auth.token.refresh_failed",
+    ipAddress,
+    windowMs: 15 * 60 * 1000,
+    maxAttempts: 30,
+  });
+
+  if (rateLimited) {
+    return jsonError(c, 429, "RATE_LIMITED", "Too many refresh attempts. Try again later.");
+  }
+
   const { refreshToken, deviceName } = c.req.valid("json");
-  const isMobile = Boolean(refreshToken);
   const tokenSet = await refreshAccessToken({
-    refreshToken: refreshToken ?? getRefreshTokenFromCookie(c) ?? "",
-    clientType: isMobile ? "mobile" : "web",
+    refreshToken,
+    clientType: "mobile",
     deviceName: deviceName ?? null,
   });
 
   if (!tokenSet) {
+    await writeAuditLog({
+      action: "auth.token.refresh_failed",
+      resourceType: "auth",
+      metadata: { reason: "invalid-refresh-token" },
+      ipAddress,
+      userAgent: c.req.header("user-agent") ?? null,
+    });
     return jsonError(c, 401, "INVALID_REFRESH_TOKEN", "Invalid refresh token");
-  }
-
-  if (!isMobile) {
-    clearPasswordSessionCookies(c);
-    setPasswordSessionCookies(c, tokenSet);
   }
 
   return c.json({
     accessToken: tokenSet.accessToken,
-    refreshToken: tokenSet.refreshToken,
+    // refreshToken is null during grace period — client should keep its
+    // existing refresh token from the previous (first) rotation response.
+    ...(tokenSet.refreshToken ? { refreshToken: tokenSet.refreshToken } : {}),
     expiresAt: tokenSet.expiresAt.toISOString(),
     user: tokenSet.user,
     authMode: tokenSet.authMode,
@@ -315,9 +290,6 @@ authRoutes.post("/token/refresh", zValidator("json", tokenRefreshSchema), async 
 
 authRoutes.post("/token/revoke", zValidator("json", tokenRevokeSchema), async (c) => {
   const { refreshToken } = c.req.valid("json");
-  await revokeRefreshToken(refreshToken ?? getRefreshTokenFromCookie(c));
-  if (!refreshToken) {
-    clearPasswordSessionCookies(c);
-  }
+  await revokeRefreshToken(refreshToken);
   return c.json({ success: true });
 });

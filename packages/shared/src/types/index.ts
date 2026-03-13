@@ -1,10 +1,12 @@
+import type { UserRole } from "../contracts/index.js";
+
 // User types
 export interface User {
   id: string;
   email: string;
   name: string;
   avatarUrl?: string;
-  role: "admin" | "member";
+  role: UserRole;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,10 +38,12 @@ export type BlockType =
   | "heading2"
   | "heading3"
   | "bulletList"
+  | "orderedList"
   | "numberedList"
   | "image"
   | "file"
   | "code"
+  | "codeBlock"
   | "quote"
   | "divider";
 

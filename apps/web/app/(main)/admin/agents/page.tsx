@@ -14,6 +14,8 @@ const emptyForm: CreateAgentRequest = {
   interventionStyle: "facilitator",
   defaultProvider: "google",
   isActive: true,
+  autonomousEnabled: false,
+  autonomousCooldownSec: 120,
 };
 
 export default function AdminAgentsPage() {
@@ -26,6 +28,7 @@ export default function AdminAgentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const loadAgents = useStableEvent(async () => {
     setIsLoading(true);
@@ -50,8 +53,10 @@ export default function AdminAgentsPage() {
     try {
       if (editingId) {
         await adminApi.updateAgent(editingId, form);
+        setNotice(t("admin.agents.updated"));
       } else {
         await adminApi.createAgent(form);
+        setNotice(t("admin.agents.created"));
       }
       setForm(emptyForm);
       setEditingId(null);
@@ -64,19 +69,24 @@ export default function AdminAgentsPage() {
   };
 
   return (
-    <div className="p-8">
-      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <section className="rounded-xl border border-gray-200 bg-white p-6">
-          <div className="mb-4">
-            <h1 className="text-3xl font-bold text-gray-900">{t("admin.agents.title")}</h1>
-            <p className="mt-1 text-sm text-gray-600">
-              {t("admin.agents.description")}
-            </p>
-          </div>
 
           {error ? (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              {error}
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => void loadAgents()}
+                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+              >
+                {t("common.actions.retry")}
+              </button>
+            </div>
+          ) : null}
+          {notice ? (
+            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+              {notice}
             </div>
           ) : null}
 
@@ -91,6 +101,7 @@ export default function AdminAgentsPage() {
                   key={agent.id}
                   type="button"
                   onClick={() => {
+                    setNotice(null);
                     setEditingId(agent.id);
                     setForm({
                       name: agent.name,
@@ -98,8 +109,10 @@ export default function AdminAgentsPage() {
                       systemPrompt: agent.systemPrompt,
                       voiceProfile: agent.voiceProfile,
                       interventionStyle: agent.interventionStyle,
-                      defaultProvider: "google",
+                      defaultProvider: (["google", "vertex", "zhipu"].includes(agent.defaultProvider) ? agent.defaultProvider : "google") as CreateAgentRequest["defaultProvider"],
                       isActive: agent.isActive,
+                      autonomousEnabled: agent.autonomousEnabled,
+                      autonomousCooldownSec: agent.autonomousCooldownSec,
                     });
                   }}
                   className="w-full rounded-lg border border-gray-200 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50"
@@ -111,15 +124,22 @@ export default function AdminAgentsPage() {
                         {agent.description || t("admin.agents.noDescription")}
                       </div>
                     </div>
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs ${
-                        agent.isActive
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {agent.isActive ? t("admin.agents.active") : t("admin.agents.inactive")}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {agent.autonomousEnabled ? (
+                        <span className="rounded-full bg-purple-100 px-2 py-1 text-xs text-purple-700">
+                          {t("admin.agents.autonomous")}
+                        </span>
+                      ) : null}
+                      <span
+                        className={`rounded-full px-2 py-1 text-xs ${
+                          agent.isActive
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {agent.isActive ? t("admin.agents.active") : t("admin.agents.inactive")}
+                      </span>
+                    </div>
                   </div>
                     <div className="mt-3 text-xs text-gray-500">
                       {t("admin.agents.meta", {
@@ -142,6 +162,7 @@ export default function AdminAgentsPage() {
               <button
                 type="button"
                 onClick={() => {
+                  setNotice(null);
                   setEditingId(null);
                   setForm(emptyForm);
                 }}
@@ -198,6 +219,24 @@ export default function AdminAgentsPage() {
             </label>
 
             <label className="block text-sm text-gray-700">
+              {t("admin.agents.providerLabel")}
+              <select
+                value={form.defaultProvider}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    defaultProvider: event.target.value as CreateAgentRequest["defaultProvider"],
+                  }))
+                }
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
+              >
+                <option value="google">{formatters.provider("google")}</option>
+                <option value="vertex">{formatters.provider("vertex")}</option>
+                <option value="zhipu">{formatters.provider("zhipu")}</option>
+              </select>
+            </label>
+
+            <label className="block text-sm text-gray-700">
               {t("admin.agents.systemPrompt")}
               <textarea
                 value={form.systemPrompt}
@@ -220,6 +259,36 @@ export default function AdminAgentsPage() {
               {t("admin.agents.activeLabel")}
             </label>
 
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={form.autonomousEnabled ?? false}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, autonomousEnabled: event.target.checked }))
+                }
+              />
+              {t("admin.agents.autonomousEnabled")}
+            </label>
+
+            {form.autonomousEnabled ? (
+              <label className="block text-sm text-gray-700">
+                {t("admin.agents.autonomousCooldown")}
+                <input
+                  type="number"
+                  min={10}
+                  max={3600}
+                  value={form.autonomousCooldownSec ?? 120}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      autonomousCooldownSec: Number(event.target.value) || 120,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
+            ) : null}
+
             <button
               type="button"
               onClick={submit}
@@ -235,6 +304,5 @@ export default function AdminAgentsPage() {
           </div>
         </section>
       </div>
-    </div>
   );
 }

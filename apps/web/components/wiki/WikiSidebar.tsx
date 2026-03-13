@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useT } from "@/lib/i18n";
 import { PageTree, type PageNode } from "./PageTree";
-import type { Space } from "@/lib/api";
+import { SpacePickerModal } from "./SpacePickerModal";
+import { wikiApi, type Space } from "@/lib/api";
 
 interface WikiSidebarProps {
   spaces?: Space[];
@@ -41,6 +42,21 @@ function SpaceSection({
   t: (key: string) => string;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const router = useRouter();
+  const creatingRef = useRef(false);
+
+  const handleNewPage = useCallback(() => {
+    if (creatingRef.current) return;
+    creatingRef.current = true;
+    wikiApi
+      .createPage({ title: "", spaceId: space.id })
+      .then((res) => {
+        router.push(`/wiki/${res.page.id}`);
+      })
+      .catch(() => {
+        creatingRef.current = false;
+      });
+  }, [router, space.id]);
 
   return (
     <div className="mb-3">
@@ -54,12 +70,13 @@ function SpaceSection({
           <span className="text-[10px] text-gray-400">{spaceIcon(space.type)}</span>
           <span>{spaceLabel(space.type, space.name, t)}</span>
         </button>
-        <Link
-          href={`/wiki/new?spaceId=${space.id}`}
+        <button
+          type="button"
+          onClick={handleNewPage}
           className="rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-50"
         >
           {t("wiki.spaces.newPage")}
-        </Link>
+        </button>
       </div>
       {!collapsed && (
         <div className="mt-1 ml-2">
@@ -76,6 +93,7 @@ function SpaceSection({
 
 export function WikiSidebar({ spaces, pagesBySpace, pages, activeId, onReparent }: WikiSidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [showSpacePicker, setShowSpacePicker] = useState(false);
   const t = useT();
 
   // If spaces are provided, use space-grouped view; otherwise fallback to flat view
@@ -98,13 +116,15 @@ export function WikiSidebar({ spaces, pagesBySpace, pages, activeId, onReparent 
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-500">{t("wiki.sidebar.pages")}</h2>
-        <Link
-          href="/wiki/new"
+        <button
+          type="button"
+          onClick={() => setShowSpacePicker(true)}
           className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700"
         >
           {t("wiki.sidebar.new")}
-        </Link>
+        </button>
       </div>
+      <SpacePickerModal open={showSpacePicker} onClose={() => setShowSpacePicker(false)} />
       <PageTree pages={pages ?? []} activeId={activeId} onReparent={onReparent} />
     </div>
   );

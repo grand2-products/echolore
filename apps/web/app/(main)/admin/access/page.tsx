@@ -11,7 +11,16 @@ import {
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 import { useStableEvent } from "@/lib/use-stable-event";
+import { ALL_GROUP_PERMISSIONS, type GroupPermission } from "@corp-internal/shared/contracts";
 import { useEffect, useState } from "react";
+
+/** Map "wiki.read" → "permWikiRead" for i18n key lookup */
+function permI18nKey(perm: GroupPermission): string {
+  return `admin.access.perm${perm
+    .split(".")
+    .map((s) => (s[0] ?? "").toUpperCase() + s.slice(1))
+    .join("")}`;
+}
 
 type GroupFormState = CreateAdminGroupRequest;
 
@@ -29,17 +38,6 @@ const emptyGroupForm: GroupFormState = {
   permissions: [],
 };
 
-function parsePermissions(value: string) {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function formatPermissions(value: string[]) {
-  return value.join(", ");
-}
-
 export default function AdminAccessPage() {
   const t = useT();
   const getApiErrorMessage = useApiErrorMessage();
@@ -50,7 +48,7 @@ export default function AdminAccessPage() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
   const [groupForm, setGroupForm] = useState<GroupFormState>(emptyGroupForm);
-  const [permissionText, setPermissionText] = useState("");
+  const [showGroupForm, setShowGroupForm] = useState(false);
   const [membershipDraft, setMembershipDraft] = useState<string[]>([]);
   const [permissionRows, setPermissionRows] = useState<PermissionDraftRow[]>([]);
   const [inheritFromParent, setInheritFromParent] = useState(true);
@@ -118,7 +116,6 @@ export default function AdminAccessPage() {
   useEffect(() => {
     if (!selectedGroup) {
       setGroupForm(emptyGroupForm);
-      setPermissionText("");
       return;
     }
 
@@ -127,7 +124,6 @@ export default function AdminAccessPage() {
       description: selectedGroup.description ?? "",
       permissions: selectedGroup.permissions,
     });
-    setPermissionText(formatPermissions(selectedGroup.permissions));
   }, [selectedGroup]);
 
   useEffect(() => {
@@ -170,7 +166,6 @@ export default function AdminAccessPage() {
       const payload = {
         ...groupForm,
         description: groupForm.description?.trim() || "",
-        permissions: parsePermissions(permissionText),
       };
 
       if (selectedGroup && !selectedGroup.isSystem) {
@@ -182,6 +177,7 @@ export default function AdminAccessPage() {
         setNotice(t("admin.access.groupCreated"));
       }
 
+      setShowGroupForm(false);
       await refreshGroupsAndUsers();
     } catch (saveError) {
       setError(getApiErrorMessage(saveError, t("admin.access.groupSaveError")));
@@ -209,7 +205,7 @@ export default function AdminAccessPage() {
       await adminApi.deleteGroup(selectedGroup.id);
       setSelectedGroupId(null);
       setGroupForm(emptyGroupForm);
-      setPermissionText("");
+      setShowGroupForm(false);
       await refreshGroupsAndUsers();
       setNotice(t("admin.access.groupDeleted"));
     } catch (deleteError) {
@@ -264,18 +260,17 @@ export default function AdminAccessPage() {
   };
 
   return (
-    <div className="p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t("admin.access.title")}</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            {t("admin.access.description")}
-          </p>
-        </div>
-
+    <div className="space-y-6">
         {error ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => void loadAdminData()}
+              className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+            >
+              {t("common.actions.retry")}
+            </button>
           </div>
         ) : null}
 
@@ -302,7 +297,7 @@ export default function AdminAccessPage() {
                   onClick={() => {
                     setSelectedGroupId(null);
                     setGroupForm(emptyGroupForm);
-                    setPermissionText("");
+                    setShowGroupForm(true);
                   }}
                   className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
@@ -315,7 +310,10 @@ export default function AdminAccessPage() {
                   <button
                     key={group.id}
                     type="button"
-                    onClick={() => setSelectedGroupId(group.id)}
+                    onClick={() => {
+                      setSelectedGroupId(group.id);
+                      setShowGroupForm(true);
+                    }}
                     className={`w-full rounded-lg border p-3 text-left transition ${
                       group.id === selectedGroupId
                         ? "border-blue-300 bg-blue-50"
@@ -338,12 +336,23 @@ export default function AdminAccessPage() {
                 ))}
               </div>
 
+              {showGroupForm ? (
               <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                <h3 className="font-semibold text-gray-900">
-                  {selectedGroup
-                    ? t("admin.access.editGroup", { name: selectedGroup.name })
-                    : t("admin.access.createGroup")}
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-900">
+                    {selectedGroup
+                      ? t("admin.access.editGroup", { name: selectedGroup.name })
+                      : t("admin.access.createGroup")}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowGroupForm(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                    aria-label="Close"
+                  >
+                    ✕
+                  </button>
+                </div>
 
                 <label className="block text-sm text-gray-700">
                   {t("admin.access.name")}
@@ -369,16 +378,34 @@ export default function AdminAccessPage() {
                   />
                 </label>
 
-                <label className="block text-sm text-gray-700">
-                  {t("admin.access.permissionLabels")}
-                  <input
-                    value={permissionText}
-                    onChange={(event) => setPermissionText(event.target.value)}
-                    disabled={selectedGroup?.isSystem}
-                    placeholder={t("admin.access.permissionPlaceholder")}
-                    className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100"
-                  />
-                </label>
+                <fieldset className="text-sm text-gray-700" disabled={selectedGroup?.isSystem}>
+                  <legend className="mb-2 font-medium">{t("admin.access.permissionLabels")}</legend>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {ALL_GROUP_PERMISSIONS.map((perm) => (
+                      <label
+                        key={perm}
+                        className="flex items-center gap-2 rounded border border-gray-200 px-2.5 py-2 text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={groupForm.permissions.includes(perm)}
+                          onChange={(event) =>
+                            setGroupForm((current) => ({
+                              ...current,
+                              permissions: event.target.checked
+                                ? [...current.permissions, perm]
+                                : current.permissions.filter((p) => p !== perm),
+                            }))
+                          }
+                        />
+                        <span>
+                          <span className="font-medium text-gray-900">{t(permI18nKey(perm))}</span>
+                          <span className="ml-1.5 text-gray-400">{perm}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
 
                 <div className="flex gap-3">
                   <button
@@ -407,6 +434,7 @@ export default function AdminAccessPage() {
                   ) : null}
                 </div>
               </div>
+              ) : null}
             </section>
 
             <section className="rounded-xl border border-gray-200 bg-white p-6">
@@ -640,7 +668,6 @@ export default function AdminAccessPage() {
             </section>
           </div>
         )}
-      </div>
     </div>
   );
 }

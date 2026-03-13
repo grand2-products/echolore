@@ -2,15 +2,19 @@ import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "../../db/index.js";
 import { pageInheritance, pagePermissions, userGroupMemberships } from "../../db/schema.js";
+import type { StorageProviderType } from "../../lib/file-storage.js";
 import {
   getGroupById,
   getPageInheritance,
+  getSiteSetting,
   listGroups,
   listMemberships,
   listMembershipsByGroup,
   listPagePermissions,
   listUsersForAdmin,
   listUsersWithIds,
+  updateUserRole,
+  upsertSiteSetting,
 } from "../../repositories/admin/admin-repository.js";
 import {
   createAgent,
@@ -101,6 +105,8 @@ export async function createAgentDefinition(input: {
   interventionStyle: string;
   defaultProvider: string;
   isActive?: boolean;
+  autonomousEnabled?: boolean;
+  autonomousCooldownSec?: number;
   createdBy: string;
 }) {
   const now = new Date();
@@ -113,6 +119,8 @@ export async function createAgentDefinition(input: {
     interventionStyle: input.interventionStyle,
     defaultProvider: input.defaultProvider,
     isActive: input.isActive ?? true,
+    autonomousEnabled: input.autonomousEnabled ?? false,
+    autonomousCooldownSec: input.autonomousCooldownSec ?? 120,
     createdBy: input.createdBy,
     createdAt: now,
     updatedAt: now,
@@ -129,6 +137,8 @@ export async function updateAgentDefinition(
     interventionStyle?: string;
     defaultProvider?: string;
     isActive?: boolean;
+    autonomousEnabled?: boolean;
+    autonomousCooldownSec?: number;
   }
 ) {
   const agent = await getAgentById(id);
@@ -229,6 +239,216 @@ export async function replacePagePermissions(
   });
 }
 
+export async function getSiteSettings() {
+  const [
+    title, tagline,
+    meetingSimulcast, meetingDynacast, meetingAdaptiveStream,
+    coworkingSimulcast, coworkingDynacast, coworkingAdaptiveStream,
+    siteIconPath,
+  ] = await Promise.all([
+    getSiteSetting("siteTitle"),
+    getSiteSetting("siteTagline"),
+    getSiteSetting("livekitMeetingSimulcast"),
+    getSiteSetting("livekitMeetingDynacast"),
+    getSiteSetting("livekitMeetingAdaptiveStream"),
+    getSiteSetting("livekitCoworkingSimulcast"),
+    getSiteSetting("livekitCoworkingDynacast"),
+    getSiteSetting("livekitCoworkingAdaptiveStream"),
+    getSiteSetting("siteIconGcsPath"),
+  ]);
+  return {
+    siteTitle: title?.value ?? null,
+    siteTagline: tagline?.value ?? null,
+    livekitMeetingSimulcast: meetingSimulcast?.value !== "false",
+    livekitMeetingDynacast: meetingDynacast?.value !== "false",
+    livekitMeetingAdaptiveStream: meetingAdaptiveStream?.value !== "false",
+    livekitCoworkingSimulcast: coworkingSimulcast?.value !== "false",
+    livekitCoworkingDynacast: coworkingDynacast?.value !== "false",
+    livekitCoworkingAdaptiveStream: coworkingAdaptiveStream?.value !== "false",
+    hasSiteIcon: Boolean(siteIconPath?.value),
+  };
+}
+
+export async function updateSiteSettings(input: {
+  siteTitle?: string;
+  siteTagline?: string;
+  livekitMeetingSimulcast?: boolean;
+  livekitMeetingDynacast?: boolean;
+  livekitMeetingAdaptiveStream?: boolean;
+  livekitCoworkingSimulcast?: boolean;
+  livekitCoworkingDynacast?: boolean;
+  livekitCoworkingAdaptiveStream?: boolean;
+}) {
+  const results: Record<string, string | boolean> = {};
+  if (input.siteTitle !== undefined) {
+    await upsertSiteSetting("siteTitle", input.siteTitle);
+    results.siteTitle = input.siteTitle;
+  }
+  if (input.siteTagline !== undefined) {
+    await upsertSiteSetting("siteTagline", input.siteTagline);
+    results.siteTagline = input.siteTagline;
+  }
+  const boolKeys = [
+    "livekitMeetingSimulcast", "livekitMeetingDynacast", "livekitMeetingAdaptiveStream",
+    "livekitCoworkingSimulcast", "livekitCoworkingDynacast", "livekitCoworkingAdaptiveStream",
+  ] as const;
+  for (const key of boolKeys) {
+    if (input[key] !== undefined) {
+      await upsertSiteSetting(key, String(input[key]));
+      results[key] = input[key]!;
+    }
+  }
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// Email provider settings
+// ---------------------------------------------------------------------------
+
+export type EmailProvider = "none" | "resend" | "smtp";
+
+export interface EmailSettings {
+  provider: EmailProvider;
+  resendApiKey: string | null;
+  resendFrom: string | null;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpSecure: boolean;
+  smtpUser: string | null;
+  smtpPass: string | null;
+  smtpFrom: string | null;
+}
+
+const EMAIL_SETTING_KEYS = [
+  "emailProvider",
+  "emailResendApiKey",
+  "emailResendFrom",
+  "emailSmtpHost",
+  "emailSmtpPort",
+  "emailSmtpSecure",
+  "emailSmtpUser",
+  "emailSmtpPass",
+  "emailSmtpFrom",
+] as const;
+
+export async function getEmailSettings(): Promise<EmailSettings> {
+  const entries = await Promise.all(
+    EMAIL_SETTING_KEYS.map(async (key) => {
+      const row = await getSiteSetting(key);
+      return [key, row?.value ?? null] as const;
+    }),
+  );
+  const map = Object.fromEntries(entries) as Record<string, string | null>;
+
+  return {
+    provider: (map.emailProvider as EmailProvider) || "none",
+    resendApiKey: map.emailResendApiKey || null,
+    resendFrom: map.emailResendFrom || null,
+    smtpHost: map.emailSmtpHost || null,
+    smtpPort: map.emailSmtpPort ? Number(map.emailSmtpPort) : null,
+    smtpSecure: map.emailSmtpSecure === "true",
+    smtpUser: map.emailSmtpUser || null,
+    smtpPass: map.emailSmtpPass || null,
+    smtpFrom: map.emailSmtpFrom || null,
+  };
+}
+
+export async function updateEmailSettings(input: Partial<EmailSettings>) {
+  const keyMap: Record<string, string | undefined> = {
+    emailProvider: input.provider,
+    emailResendApiKey: input.resendApiKey ?? undefined,
+    emailResendFrom: input.resendFrom ?? undefined,
+    emailSmtpHost: input.smtpHost ?? undefined,
+    emailSmtpPort: input.smtpPort != null ? String(input.smtpPort) : undefined,
+    emailSmtpSecure: input.smtpSecure != null ? String(input.smtpSecure) : undefined,
+    emailSmtpUser: input.smtpUser ?? undefined,
+    emailSmtpPass: input.smtpPass ?? undefined,
+    emailSmtpFrom: input.smtpFrom ?? undefined,
+  };
+
+  for (const [key, value] of Object.entries(keyMap)) {
+    if (value !== undefined) {
+      await upsertSiteSetting(key, value);
+    }
+  }
+
+  return getEmailSettings();
+}
+
+// ---------------------------------------------------------------------------
+// LLM provider settings
+// ---------------------------------------------------------------------------
+
+export type LlmProvider = "google" | "vertex" | "zhipu";
+
+export interface LlmSettings {
+  provider: LlmProvider;
+  geminiApiKey: string | null;
+  geminiTextModel: string | null;
+  vertexProject: string | null;
+  vertexLocation: string | null;
+  vertexModel: string | null;
+  zhipuApiKey: string | null;
+  zhipuTextModel: string | null;
+}
+
+const LLM_SETTING_KEYS = [
+  "llmProvider",
+  "llmGeminiApiKey",
+  "llmGeminiTextModel",
+  "llmVertexProject",
+  "llmVertexLocation",
+  "llmVertexModel",
+  "llmZhipuApiKey",
+  "llmZhipuTextModel",
+] as const;
+
+export async function getLlmSettings(): Promise<LlmSettings> {
+  const entries = await Promise.all(
+    LLM_SETTING_KEYS.map(async (key) => {
+      const row = await getSiteSetting(key);
+      return [key, row?.value ?? null] as const;
+    }),
+  );
+  const map = Object.fromEntries(entries) as Record<string, string | null>;
+
+  return {
+    provider: (map.llmProvider as LlmProvider) || "google",
+    geminiApiKey: map.llmGeminiApiKey || null,
+    geminiTextModel: map.llmGeminiTextModel || null,
+    vertexProject: map.llmVertexProject || null,
+    vertexLocation: map.llmVertexLocation || null,
+    vertexModel: map.llmVertexModel || null,
+    zhipuApiKey: map.llmZhipuApiKey || null,
+    zhipuTextModel: map.llmZhipuTextModel || null,
+  };
+}
+
+export async function updateLlmSettings(input: Partial<LlmSettings>) {
+  const keyMap: Record<string, string | undefined> = {
+    llmProvider: input.provider,
+    llmGeminiApiKey: input.geminiApiKey ?? undefined,
+    llmGeminiTextModel: input.geminiTextModel ?? undefined,
+    llmVertexProject: input.vertexProject ?? undefined,
+    llmVertexLocation: input.vertexLocation ?? undefined,
+    llmVertexModel: input.vertexModel ?? undefined,
+    llmZhipuApiKey: input.zhipuApiKey ?? undefined,
+    llmZhipuTextModel: input.zhipuTextModel ?? undefined,
+  };
+
+  for (const [key, value] of Object.entries(keyMap)) {
+    if (value !== undefined) {
+      await upsertSiteSetting(key, value);
+    }
+  }
+
+  return getLlmSettings();
+}
+
+export async function changeUserRole(userId: string, role: string) {
+  return updateUserRole(userId, role);
+}
+
 export async function replacePageInheritance(pageId: string, inheritFromParent: boolean) {
   await db.transaction(async (tx) => {
     await tx.delete(pageInheritance).where(eq(pageInheritance.pageId, pageId));
@@ -239,4 +459,84 @@ export async function replacePageInheritance(pageId: string, inheritFromParent: 
       createdAt: new Date(),
     });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Storage provider settings
+// ---------------------------------------------------------------------------
+
+export interface StorageSettings {
+  provider: StorageProviderType;
+  localPath: string | null;
+  s3Endpoint: string | null;
+  s3Region: string | null;
+  s3Bucket: string | null;
+  s3AccessKey: string | null;
+  s3SecretKey: string | null;
+  s3ForcePathStyle: boolean;
+  gcsBucket: string | null;
+  gcsProjectId: string | null;
+  gcsKeyJson: string | null;
+}
+
+const STORAGE_SETTING_KEYS = [
+  "storageProvider",
+  "storageLocalPath",
+  "storageS3Endpoint",
+  "storageS3Region",
+  "storageS3Bucket",
+  "storageS3AccessKey",
+  "storageS3SecretKey",
+  "storageS3ForcePathStyle",
+  "storageGcsBucket",
+  "storageGcsProjectId",
+  "storageGcsKeyJson",
+] as const;
+
+export async function getStorageSettings(): Promise<StorageSettings> {
+  const entries = await Promise.all(
+    STORAGE_SETTING_KEYS.map(async (key) => {
+      const row = await getSiteSetting(key);
+      return [key, row?.value ?? null] as const;
+    }),
+  );
+  const map = Object.fromEntries(entries) as Record<string, string | null>;
+
+  return {
+    provider: (map.storageProvider as StorageProviderType) || "local",
+    localPath: map.storageLocalPath || null,
+    s3Endpoint: map.storageS3Endpoint || null,
+    s3Region: map.storageS3Region || null,
+    s3Bucket: map.storageS3Bucket || null,
+    s3AccessKey: map.storageS3AccessKey || null,
+    s3SecretKey: map.storageS3SecretKey || null,
+    s3ForcePathStyle: map.storageS3ForcePathStyle === "false" ? false : true,
+    gcsBucket: map.storageGcsBucket || null,
+    gcsProjectId: map.storageGcsProjectId || null,
+    gcsKeyJson: map.storageGcsKeyJson || null,
+  };
+}
+
+export async function updateStorageSettings(input: Partial<StorageSettings>) {
+  const keyMap: Record<string, string | undefined> = {
+    storageProvider: input.provider,
+    storageLocalPath: input.localPath ?? undefined,
+    storageS3Endpoint: input.s3Endpoint ?? undefined,
+    storageS3Region: input.s3Region ?? undefined,
+    storageS3Bucket: input.s3Bucket ?? undefined,
+    storageS3AccessKey: input.s3AccessKey ?? undefined,
+    storageS3SecretKey: input.s3SecretKey ?? undefined,
+    storageS3ForcePathStyle: input.s3ForcePathStyle !== undefined ? String(input.s3ForcePathStyle) : undefined,
+    storageGcsBucket: input.gcsBucket ?? undefined,
+    storageGcsProjectId: input.gcsProjectId ?? undefined,
+    storageGcsKeyJson: input.gcsKeyJson ?? undefined,
+  };
+
+  for (const [key, value] of Object.entries(keyMap)) {
+    if (value !== undefined) {
+      await upsertSiteSetting(key, value);
+    }
+  }
+
+  return getStorageSettings();
 }

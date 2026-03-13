@@ -172,6 +172,8 @@ export interface AgentDefinition {
   interventionStyle: string;
   defaultProvider: string;
   isActive: boolean;
+  autonomousEnabled: boolean;
+  autonomousCooldownSec: number;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -185,6 +187,8 @@ export interface CreateAgentRequest {
   interventionStyle: string;
   defaultProvider: "google" | "vertex" | "zhipu";
   isActive?: boolean;
+  autonomousEnabled?: boolean;
+  autonomousCooldownSec?: number;
 }
 
 export interface UpdateAgentRequest extends Partial<CreateAgentRequest> {}
@@ -896,6 +900,23 @@ export const livekitApi = {
 
   listParticipants: (roomName: string) =>
     fetchApi<{ participants: unknown[] }>(`/livekit/rooms/${roomName}/participants`),
+
+  startRecording: (roomName: string, meetingId: string) =>
+    fetchApi<{ egressId: string; recording: unknown }>(`/livekit/rooms/${roomName}/start-recording`, {
+      method: "POST",
+      body: JSON.stringify({ meetingId }),
+    }),
+
+  stopRecording: (roomName: string, egressId: string) =>
+    fetchApi<{ success: boolean }>(`/livekit/rooms/${roomName}/stop-recording`, {
+      method: "POST",
+      body: JSON.stringify({ egressId }),
+    }),
+
+  getRecordingStatus: (roomName: string, meetingId: string) =>
+    fetchApi<{ recordings: Array<{ id: string; egressId: string; status: string; startedAt: string | null }> }>(
+      `/livekit/rooms/${roomName}/recording-status?meetingId=${meetingId}`,
+    ),
 };
 
 // ===========================================

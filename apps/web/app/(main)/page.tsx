@@ -1,22 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { appTagline, appTitle } from "@/lib/app-config";
 import { useMeetingsQuery, useWikiPagesQuery } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
+import { useSiteTagline, useSiteTitle } from "@/lib/site-settings-context";
 
 export default function HomePage() {
   const t = useT();
   const { date } = useFormatters();
+  const siteTitle = useSiteTitle();
+  const siteTagline = useSiteTagline();
   const {
     data: meetingsData,
     error: meetingsError,
     isLoading: isMeetingsLoading,
+    refetch: refetchMeetings,
   } = useMeetingsQuery();
   const {
     data: pagesData,
     error: pagesError,
     isLoading: isPagesLoading,
+    refetch: refetchPages,
   } = useWikiPagesQuery();
 
   const pages = pagesData?.pages ?? [];
@@ -44,8 +48,8 @@ export default function HomePage() {
   return (
     <div className="p-8">
       <div className="mx-auto max-w-4xl">
-        <h1 className="mb-4 text-3xl font-bold text-gray-900">{appTitle}</h1>
-        <p className="text-gray-600">{t("home.tagline") || appTagline}</p>
+        <h1 className="mb-4 text-3xl font-bold text-gray-900">{siteTitle}</h1>
+        <p className="text-gray-600">{siteTagline}</p>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <Link
@@ -71,8 +75,18 @@ export default function HomePage() {
             <div className="text-sm text-gray-600">{t("common.status.loading")}</div>
           )}
           {(pagesError || meetingsError) && (
-            <div className="mb-3 text-sm text-red-600">
-              {t("home.loadError")}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <span>{t("home.loadError")}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  void refetchPages();
+                  void refetchMeetings();
+                }}
+                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+              >
+                {t("common.actions.retry")}
+              </button>
             </div>
           )}
           {!isPagesLoading && !isMeetingsLoading && !pagesError && !meetingsError && (

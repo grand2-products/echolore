@@ -1,4 +1,5 @@
 import type { MeetingDto, SummaryDto, TranscriptDto } from "@contracts/index";
+import { UserRole } from "@corp-internal/shared/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -98,7 +99,7 @@ const realtimeTranscriptSchema = z.object({
   content: z.string().min(1),
   isPartial: z.boolean(),
   segmentKey: z.string().min(1),
-  provider: z.enum(["google"]),
+  provider: z.enum(["google", "vertex", "zhipu"]),
   confidence: z.number().nullable().optional(),
   startedAt: z.string().refine((v) => !Number.isNaN(Date.parse(v)), {
     message: "Invalid ISO timestamp",
@@ -121,10 +122,15 @@ meetingsRoutes.get("/", async (c) => {
   const user = c.get("user");
 
   try {
+    const limit = Math.min(Number(c.req.query("limit")) || 100, 500);
+    const offset = Math.max(Number(c.req.query("offset")) || 0, 0);
     const allMeetings =
-      user.role === "admin" ? await listAllMeetings() : await listMeetingsByUser(user.id);
+      user.role === UserRole.Admin ? await listAllMeetings() : await listMeetingsByUser(user.id);
 
-    return c.json({ meetings: allMeetings.map(toMeetingDto) });
+    return c.json({
+      meetings: allMeetings.slice(offset, offset + limit).map(toMeetingDto),
+      total: allMeetings.length,
+    });
   } catch (error) {
     console.error("Error fetching meetings:", error);
     return jsonError(c, 500, "MEETINGS_LIST_FAILED", "Failed to fetch meetings");
@@ -370,7 +376,20 @@ meetingsRoutes.post("/:id/pipeline/run", zValidator("json", runPipelineSchema), 
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
 
-    const meetingTranscripts = await getMeetingTranscripts(id);
+    let meetingTranscripts = await getMeetingTranscripts(id);
+
+    // If no transcripts exist, try to transcribe from a completed recording
+    if (meetingTranscripts.length === 0) {
+      try {
+        const { maybeTranscribeCompletedRecording } = await import(
+          "../services/meeting/recording-transcription-service.js"
+        );
+        await maybeTranscribeCompletedRecording(id);
+        meetingTranscripts = await getMeetingTranscripts(id);
+      } catch {
+        // transcription failed, continue with empty check below
+      }
+    }
 
     if (meetingTranscripts.length === 0) {
       return jsonError(

@@ -1,20 +1,20 @@
 # Delivery History
 
-Last updated: 2026-03-11
+Last updated: 2026-03-13
 
 This document records the implementation history and milestone view that were previously kept in planning timeline notes.
 
 ## Historical Shape
 - the repository started from a broad product plan covering wiki, meetings, authentication, infra, and AI features
 - implementation progressed unevenly, with core API and UI capability landing before release hardening and test coverage
-- the current source of truth for release readiness is `plan/implementation-status-master.md`
+- the current source of truth for release gates is `plan/README.md`
 
 ## Implemented Milestone Pattern
 
 ### Foundation
 - monorepo structure exists
 - API and web applications exist
-- Terraform and workflow-based release paths exist
+- workflow-based release path exists (GitHub Actions + Docker Compose on VPS)
 
 ### Product Core
 - wiki CRUD and search are implemented
@@ -36,7 +36,5 @@ This document records the implementation history and milestone view that were pr
 - release readiness: partial
 
 ## Related Files
-- `../plan/todo-master.md`
-- `../plan/implementation-status-master.md`
-- `../plan/todo-master.md`
+- `../plan/README.md`
 - `../docs/release-workflows.md`

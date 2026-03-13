@@ -75,6 +75,12 @@ export function formatAgentProvider(value: string, locale: SupportedLocale) {
   if (value === "google") {
     return translateEnum(locale, "common.providerGoogle", value);
   }
+  if (value === "vertex") {
+    return translateEnum(locale, "common.providerVertex", value);
+  }
+  if (value === "zhipu") {
+    return translateEnum(locale, "common.providerZhipu", value);
+  }
   return value;
 }
 
@@ -94,6 +100,9 @@ export function formatMeetingAgentEventType(value: string, locale: SupportedLoca
   }
   if (value === "response.generated") {
     return translateEnum(locale, "common.eventResponseGenerated", value);
+  }
+  if (value === "response.autonomous") {
+    return translateEnum(locale, "common.eventResponseAutonomous", value);
   }
   return value;
 }

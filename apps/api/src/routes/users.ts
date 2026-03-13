@@ -1,11 +1,10 @@
 import { zValidator } from "@hono/zod-validator";
+import { UserRole } from "@corp-internal/shared/contracts";
 import { Hono } from "hono";
 import { z } from "zod";
 import { jsonError } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import {
-  clearPasswordSessionCookies,
-  getRefreshTokenFromCookie,
   listAuthSessionsForUser,
   revokeAuthSessionById,
 } from "../lib/local-auth.js";
@@ -46,8 +45,10 @@ usersRoutes.get("/", async (c) => {
   }
 
   try {
+    const limit = Math.min(Number(c.req.query("limit")) || 100, 500);
+    const offset = Math.max(Number(c.req.query("offset")) || 0, 0);
     const allUsers = await listUsers();
-    return c.json({ users: allUsers });
+    return c.json({ users: allUsers.slice(offset, offset + limit), total: allUsers.length });
   } catch (error) {
     console.error("Error fetching users:", error);
     return jsonError(c, 500, "USERS_LIST_FAILED", "Failed to fetch users");
@@ -100,7 +101,6 @@ usersRoutes.get("/me/sessions", async (c) => {
   try {
     const sessions = await listAuthSessionsForUser({
       userId: sessionUser.id,
-      currentRefreshToken: getRefreshTokenFromCookie(c),
     });
     return c.json({
       sessions: sessions.map((session) => ({
@@ -125,10 +125,6 @@ usersRoutes.delete("/me/sessions/:id", zValidator("param", revokeSessionSchema),
   const { id } = c.req.valid("param");
 
   try {
-    const currentSessions = await listAuthSessionsForUser({
-      userId: sessionUser.id,
-      currentRefreshToken: getRefreshTokenFromCookie(c),
-    });
     const revoked = await revokeAuthSessionById({
       userId: sessionUser.id,
       sessionId: id,
@@ -136,10 +132,6 @@ usersRoutes.delete("/me/sessions/:id", zValidator("param", revokeSessionSchema),
 
     if (!revoked) {
       return jsonError(c, 404, "AUTH_SESSION_NOT_FOUND", "Session not found");
-    }
-
-    if (currentSessions.some((session) => session.id === id && session.current)) {
-      clearPasswordSessionCookies(c);
     }
 
     return c.json({ success: true });
@@ -186,7 +178,7 @@ usersRoutes.get("/email/:email", async (c) => {
   }
 
   try {
-    const user = await getUserByEmail(decodeURIComponent(email));
+    const user = await getUserByEmail(normalizedEmail);
 
     if (!user) {
       return jsonError(c, 404, "USER_NOT_FOUND", "User not found");
@@ -215,7 +207,7 @@ usersRoutes.post("/", zValidator("json", createUserSchema), async (c) => {
       email: data.email,
       name: data.name,
       avatarUrl: data.avatarUrl || null,
-      role: "member",
+      role: UserRole.Member,
       createdAt: now,
       updatedAt: now,
     });

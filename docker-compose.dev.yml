@@ -9,7 +9,6 @@ services:
     environment:
       API_NODE_ENV: development
       NODE_ENV: development
-      AUTH_BYPASS: ${AUTH_BYPASS:-true}
       GOOGLE_APPLICATION_CREDENTIALS_HOST: ${GOOGLE_APPLICATION_CREDENTIALS:-/dev/null}
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
@@ -23,6 +22,21 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
+
+  livekit-egress:
+    environment:
+      EGRESS_CONFIG: |
+        api_key: devkey
+        api_secret: secret
+        ws_url: ws://livekit:7880
+        redis:
+          address: valkey:6379
+        file_output:
+          local: true
+          base_directory: /data/files/recordings
+        log_level: debug
+    volumes:
+      - file_storage:/data/files
 
   web:
     image: node:22-alpine

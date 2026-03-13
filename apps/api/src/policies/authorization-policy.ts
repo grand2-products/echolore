@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { Context } from "hono";
+import { UserRole } from "@corp-internal/shared/contracts";
 import { db } from "../db/index.js";
 import { pageInheritance, pagePermissions, pages, userGroupMemberships } from "../db/schema.js";
 import { writeAuditLog } from "../lib/audit.js";
@@ -40,24 +41,31 @@ async function logAuthorizationDecision(
 }
 
 function evaluateOwnerOrAdmin(user: SessionUser, ownerUserId: string): AuthorizationResult {
-  if (user.role === "admin") return { allowed: true, reason: "admin" };
+  if (user.role === UserRole.Admin) return { allowed: true, reason: "admin" };
   if (ownerUserId === user.id) return { allowed: true, reason: "owner" };
   return { allowed: false, reason: "not-owner" };
 }
 
 function evaluateSelfOrAdmin(user: SessionUser, targetUserId: string): AuthorizationResult {
-  if (user.role === "admin") return { allowed: true, reason: "admin" };
+  if (user.role === UserRole.Admin) return { allowed: true, reason: "admin" };
   if (user.id === targetUserId) return { allowed: true, reason: "self" };
   return { allowed: false, reason: "not-self" };
 }
 
 function evaluateAdminOnly(user: SessionUser): AuthorizationResult {
-  if (user.role === "admin") return { allowed: true, reason: "admin" };
+  if (user.role === UserRole.Admin) return { allowed: true, reason: "admin" };
   return { allowed: false, reason: "admin-required" };
 }
 
+const MAX_INHERITANCE_DEPTH = 20;
+
 async function getEffectivePagePermissions(pageId: string, visited = new Set<string>()) {
   if (visited.has(pageId)) {
+    console.warn(`[authz] Cycle detected in page inheritance at pageId=${pageId}`);
+    return [];
+  }
+  if (visited.size >= MAX_INHERITANCE_DEPTH) {
+    console.warn(`[authz] Max inheritance depth (${MAX_INHERITANCE_DEPTH}) reached at pageId=${pageId}`);
     return [];
   }
   visited.add(pageId);

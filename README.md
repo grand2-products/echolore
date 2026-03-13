@@ -13,7 +13,7 @@ Internal collaboration platform for grand2 Products.
 - `apps/api`: Hono API
 - `packages/shared`: shared contracts and DTOs
 - `packages/ui`: shared UI package
-- `terraform/`: infrastructure for `dev` and `prod`
+- `scripts/setup/`: VPS initial setup
 
 ## Runtime Stack
 - Web: Next.js
@@ -21,9 +21,11 @@ Internal collaboration platform for grand2 Products.
 - DB: PostgreSQL
 - Realtime: LiveKit
 - Cache/broker: Valkey
-- Auth gateway: OAuth2 Proxy
+- Auth: Auth.js (JWT sessions via @hono/auth-js)
 - Mobile-ready auth: API-issued bearer access tokens with refresh rotation for email/password and Google token exchange
-- Infra baseline: GCE + GCS + Docker Compose
+- File storage: pluggable (Local / S3 / GCS)
+- Infra baseline: any Linux VPS + Docker Compose + Traefik
+- Container registry: GHCR (ghcr.io)
 
 ## Local Development
 1. Install dependencies
@@ -34,8 +36,10 @@ Internal collaboration platform for grand2 Products.
    - copy `apps/worker/.env.example` to `apps/worker/.env`
    - copy `.env.example` to `.env` only if you need root orchestration overrides
    - keep app env files explicit: if you change a local port, update the related localhost URL values in the same file as well
-   - when browser Google SSO is enabled locally, set `NEXT_PUBLIC_AUTH_GATEWAY_URL` to the OAuth2 Proxy origin, for example `http://localhost:17726`
+   - set `AUTH_SECRET` in `apps/api/.env` (required for Auth.js JWT signing)
+   - set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `apps/api/.env` for browser Google SSO
    - app dev scripts read their own `.env` files directly
+   - local development uses the real auth flow; there is no API-side auth bypass user
    - password registration and sign-in are available at `/login`
    - local development writes email verification links to the API log; `APP_BASE_URL` controls the generated link target
    - shared environments can send verification mail by setting `RESEND_API_KEY` and `RESEND_FROM`, or fall back to `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM` in `apps/api/.env`
@@ -46,7 +50,7 @@ Internal collaboration platform for grand2 Products.
    - or `pnpm dev:daily`
    - this starts `web`, `api`, and `worker` after middleware boot
    - the script first runs `pnpm install --frozen-lockfile`
-   - after PostgreSQL becomes healthy, the script runs `pnpm db:migrate`, or falls back to `pnpm db:push` when migration artifacts are not present
+   - after PostgreSQL becomes healthy, the script runs `pnpm db:migrate`, or falls back to non-interactive `db:push --force` when migration artifacts are not present or the local database already has tables but no Drizzle migration history
    - default local ports use the `17720` range and can be overridden in `.env`
 4. Run typecheck
    - `pnpm typecheck`
@@ -66,7 +70,6 @@ Internal collaboration platform for grand2 Products.
 - Standard release path is GitHub Actions only.
 - Main workflows:
   - `CI`
-  - `Terraform`
   - `App Release`
   - `App Rollback`
 - `Bootstrap Validate`
@@ -88,6 +91,7 @@ Internal collaboration platform for grand2 Products.
 - Implemented Wiki behavior: `docs/wiki-implementation.md`
 - Implemented meeting tool behavior: `docs/meeting-tool-implementation.md`
 - Implemented admin behavior: `docs/admin-user-management-implementation.md`
+- Deployment guide (日本語): `DEPLOYMENT.md`
 - Deployment backlog: `plan/deployment.md`
 - Execution backlog: `plan/todo-master.md`
 - Remaining status gates: `plan/implementation-status-master.md`

@@ -1,37 +1,22 @@
-# Plan Directory
+# Plan
 
-`plan/` is for temporary planning artifacts.
+Temporary planning artifacts. Implemented behavior belongs in `docs/`.
 
-## Purpose
-- execution backlog
-- incomplete status gates
-- open design decisions
-- near-term task breakdown for unfinished work
+## Release Gates
 
-## Maintenance Rule
-- `plan/` is not the long-term home for implemented behavior.
-- When implementation is complete and the content becomes durable, write or move the implementation-facing description into `docs/`.
-- After that, keep the corresponding `plan/` entry short, status-oriented, or remove it if it no longer helps execution.
-- Do not keep implemented-reality mirrors such as `Current State Summary` in `plan/`.
+- [ ] Clean-host bootstrap validation (`docker compose pull && up -d`) in both `dev` and `prod`
+- [ ] Let's Encrypt certificate provisioning E2E verification
 
-## Retained Files
-- `todo-master.md`: active execution backlog
-- `implementation-status-master.md`: remaining gates only
-- `deployment.md`: release/deployment-specific remaining work
+## Open Decisions
 
-## Directory Split
-- `plan/`: future-facing and status-oriented
-- `docs/`: implemented reality and operational knowledge
-- `AGENTS.md`: stable repository-wide rules
+- clean-host validation procedure
+- migration rollback strategy for destructive schema changes (column drops)
 
-## Examples
-- Active remediation backlog: keep in `plan/`
-- Current release gap tracking: keep in `plan/`
-- Actual release procedure after implementation: keep in `docs/`
-- Actual runtime and operator behavior: keep in `docs/`
+## Docs Reference
 
-## Related Files
-- `../AGENTS.md`
-- `../docs/ops-runbook.md`
-- `./implementation-status-master.md`
-- `./todo-master.md`
+- [Product Overview](../docs/product-overview.md)
+- [System Architecture](../docs/system-architecture.md)
+- [Technical Baseline](../docs/technical-baseline.md)
+- [Release Workflows](../docs/release-workflows.md)
+- [Ops Runbook](../docs/ops-runbook.md)
+- [Architecture Review 2026-03-11](../docs/architecture-review-2026-03-11.md)

@@ -3,7 +3,7 @@
 Last updated: 2026-03-11
 
 This document preserves the architecture-review remediation snapshot from 2026-03-11.
-Active execution tracking has moved to `plan/todo-master.md`.
+Active execution tracking has moved to `plan/README.md`.
 
 ## Review Goals
 - close security trust-boundary gaps
@@ -48,6 +48,5 @@ Active execution tracking has moved to `plan/todo-master.md`.
 - M3: P2 config hygiene, QA, and observability
 
 ## Current Canonical Sources
-- current execution backlog: `../plan/todo-master.md`
-- current implementation state: `../plan/implementation-status-master.md`
+- release gates and open decisions: `../plan/README.md`
 - current release flow: `./release-workflows.md`

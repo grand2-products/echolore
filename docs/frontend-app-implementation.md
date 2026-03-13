@@ -1,6 +1,6 @@
 # Frontend App Implementation
 
-Last updated: 2026-03-12
+Last updated: 2026-03-13
 
 This document describes the currently implemented frontend app structure in `apps/web`.
 
@@ -22,17 +22,25 @@ This document describes the currently implemented frontend app structure in `app
 - `/meetings`: meetings list
 - `/meetings/[id]`: meeting room
 - `/meetings/coworking`: shared coworking room
+- `/admin`: admin index (redirects to `/admin/users`)
+- `/admin/users`: admin user management
 - `/admin/access`: admin access management
 - `/admin/kpi`: admin KPI screen
 - `/admin/agents`: admin AI agent management
+- `/admin/settings`: admin site settings (providers, video quality)
 - `/settings`: account summary and active session management
 
 ## Current Frontend Structure
 - `apps/web/app`: App Router screens
-- `apps/web/components/wiki`: wiki UI
-- `apps/web/components/meetings`: meetings UI
-- `apps/web/components/layout`: shared shell
+- `apps/web/components/wiki`: wiki UI (Notion-style BlockNote editor)
+- `apps/web/components/livekit`: LiveKit UI components (background effects, media toggle)
+- `apps/web/components/layout`: shared shell (sidebar, header, navigation)
+- `apps/web/components/DynamicFavicon.tsx`: dynamic favicon from site settings
 - `apps/web/lib/api.ts`: centralized API client
+- `apps/web/lib/site-settings-context.tsx`: global site settings context (title, tagline, LiveKit quality)
+- `apps/web/lib/wiki-serializer.ts`: BlockNote ↔ BlockDto conversion
+- `apps/web/lib/return-to.ts`: post-auth redirect URL management with security guards
+- `apps/web/lib/background-processor.ts`: virtual background effect management for LiveKit
 
 ## Implemented Shell Behavior
 - desktop primary navigation is sidebar-led
@@ -55,7 +63,6 @@ This document describes the currently implemented frontend app structure in `app
 - dedicated sitemap and screen inventory should be kept in `docs/site-map.md`
 
 ## Related Files
-- `../plan/todo-master.md`
 - `../docs/site-map.md`
 - `../docs/wiki-implementation.md`
 - `../docs/meeting-tool-implementation.md`

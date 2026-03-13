@@ -1,33 +1,31 @@
 import type { Context, MiddlewareHandler } from "hono";
+import { getToken } from "@auth/core/jwt";
+import { UserRole } from "@corp-internal/shared/contracts";
 import { jsonError } from "./api-error.js";
 import { writeAuditLog } from "./audit.js";
-import { getAccessTokenFromCookie, reconcileGoogleIdentity, resolveAccessTokenSession } from "./local-auth.js";
-import { isSameOriginRequest } from "./password-auth-guard.js";
+import { resolveAccessTokenSession } from "./local-auth.js";
 
 const ALLOWED_DOMAIN = (process.env.AUTH_ALLOWED_DOMAIN || "grand2-products.com").toLowerCase();
-const AUTH_BYPASS = process.env.AUTH_BYPASS === "true";
-const AUTH_VERIFY_URL = process.env.AUTH_VERIFY_URL || "http://oauth2-proxy:4180/oauth2/auth";
-const PASSWORD_AUTH_ALLOWED_ORIGINS = [
-  process.env.APP_BASE_URL,
-  process.env.CORS_ORIGIN,
-  process.env.NEXT_PUBLIC_API_URL,
-].filter((value): value is string => Boolean(value));
+const AUTH_SECRET = process.env.AUTH_SECRET || process.env.AUTH_SESSION_SECRET || "";
+if (!AUTH_SECRET && process.env.NODE_ENV !== "test") {
+  throw new Error("AUTH_SECRET (or AUTH_SESSION_SECRET) must be set");
+}
 
 export type SessionUser = {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "member";
+  role: UserRole;
   avatarUrl?: string | null;
 };
 
-export type SessionAuthMode = "password" | "sso" | "bypass";
+export type SessionAuthMode = "password" | "sso";
 
 export type AppEnv = {
   Variables: {
     user: SessionUser;
     authMode: SessionAuthMode;
-    authTransport: "cookie" | "bearer" | "proxy" | "bypass";
+    authTransport: "bearer" | "authjs";
   };
 };
 
@@ -48,79 +46,58 @@ const getBearerToken = (c: Context): string | null => {
   return token.trim();
 };
 
-const verifySessionWithProxy = async (
-  c: Context
-): Promise<{ email: string; name: string } | null> => {
-  const cookie = c.req.header("cookie");
-  if (!cookie) return null;
-
+async function resolveAuthjsSession(c: Context): Promise<{ user: SessionUser; authMode: SessionAuthMode } | null> {
   try {
-    const verifyResponse = await fetch(AUTH_VERIFY_URL, {
-      method: "GET",
-      headers: {
-        cookie,
-        "x-forwarded-uri": c.req.path,
-        "x-forwarded-method": c.req.method,
-      },
+    const token = await getToken({
+      req: new Request(c.req.url, { headers: c.req.raw.headers }),
+      secret: AUTH_SECRET,
+      secureCookie: process.env.NODE_ENV === "production",
+      salt:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-authjs.session-token"
+          : "authjs.session-token",
     });
+    if (!token) return null;
 
-    if (!verifyResponse.ok) {
-      return null;
-    }
+    const userId = token.userId as string | undefined;
+    const email = token.email as string | undefined;
+    const name = token.name as string | undefined;
+    const role = token.role as string | undefined;
+    const avatarUrl = token.avatarUrl as string | null | undefined;
+    const authMode = token.authMode as string | undefined;
 
-    const email = verifyResponse.headers.get("x-auth-request-email")?.trim() ?? "";
-    const name = verifyResponse.headers.get("x-auth-request-user")?.trim() ?? "Unknown";
-    if (!email) return null;
+    if (!userId || !email) return null;
 
-    return { email, name };
-  } catch (error) {
-    console.error("Auth proxy verification failed:", error);
+    return {
+      user: {
+        id: userId,
+        email,
+        name: name || email.split("@")[0] || "User",
+        role: role === UserRole.Admin ? UserRole.Admin : UserRole.Member,
+        avatarUrl: avatarUrl ?? null,
+      },
+      authMode: authMode === "password" ? "password" : "sso",
+    };
+  } catch {
     return null;
   }
-};
-
-const parseUserFromHeaders = async (c: Context): Promise<SessionUser | null> => {
-  const verifiedUser = await verifySessionWithProxy(c);
-  if (!verifiedUser) return null;
-
-  const email = verifiedUser.email;
-  const name = verifiedUser.name;
-
-  const [, domain = ""] = email.toLowerCase().split("@");
-  if (domain !== ALLOWED_DOMAIN) return null;
-
-  return reconcileGoogleIdentity({ email, name });
-};
+}
 
 export const authGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
-  if (AUTH_BYPASS) {
-    c.set("user", {
-      id: "dev_user",
-      email: `dev@${ALLOWED_DOMAIN}`,
-      name: "Dev User",
-      role: "admin",
-      avatarUrl: null,
-    });
-    c.set("authMode", "bypass");
-    c.set("authTransport", "bypass");
-    await next();
-    return;
-  }
-
+  // 1. Bearer token (mobile)
   const bearerToken = getBearerToken(c);
-  const accessToken = bearerToken ?? getAccessTokenFromCookie(c);
-  const tokenSession = await resolveAccessTokenSession({ accessToken });
+  const tokenSession = await resolveAccessTokenSession({ accessToken: bearerToken });
   if (tokenSession) {
     c.set("user", tokenSession.user);
     c.set("authMode", tokenSession.authMode);
-    c.set("authTransport", bearerToken ? "bearer" : "cookie");
+    c.set("authTransport", "bearer");
     await writeAuditLog({
       actorUserId: tokenSession.user.id,
       actorEmail: tokenSession.user.email,
       action: "auth.authenticated",
       resourceType: "auth",
       resourceId: tokenSession.user.id,
-      metadata: { authMode: tokenSession.authMode, transport: bearerToken ? "bearer" : "cookie" },
+      metadata: { authMode: tokenSession.authMode, transport: "bearer" },
       ipAddress: getClientIp(c),
       userAgent: c.req.header("user-agent") ?? null,
     });
@@ -128,84 +105,49 @@ export const authGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
     return;
   }
 
-  const sessionUser = await parseUserFromHeaders(c);
-  if (!sessionUser) {
+  // 2. Auth.js JWT session (browser)
+  const authjsResult = await resolveAuthjsSession(c);
+  if (authjsResult) {
+    c.set("user", authjsResult.user);
+    c.set("authMode", authjsResult.authMode);
+    c.set("authTransport", "authjs");
     await writeAuditLog({
-      actorEmail: getHeader(c, ["x-auth-request-email", "x-forwarded-email"]),
-      action: "auth.rejected",
+      actorUserId: authjsResult.user.id,
+      actorEmail: authjsResult.user.email,
+      action: "auth.authenticated",
       resourceType: "auth",
-      metadata: { reason: "missing-or-invalid-domain", allowedDomain: ALLOWED_DOMAIN },
+      resourceId: authjsResult.user.id,
+      metadata: { authMode: authjsResult.authMode, transport: "authjs" },
       ipAddress: getClientIp(c),
       userAgent: c.req.header("user-agent") ?? null,
     });
-    return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
+    await next();
+    return;
   }
 
-  c.set("user", sessionUser);
-  c.set("authMode", "sso");
-  c.set("authTransport", "proxy");
+  // 3. Unauthorized
   await writeAuditLog({
-    actorUserId: sessionUser.id,
-    actorEmail: sessionUser.email,
-    action: "auth.authenticated",
+    actorEmail: null,
+    action: "auth.rejected",
     resourceType: "auth",
-    resourceId: sessionUser.id,
-    metadata: { authMode: "sso" },
+    metadata: { reason: "no-valid-session", allowedDomain: ALLOWED_DOMAIN },
     ipAddress: getClientIp(c),
     userAgent: c.req.header("user-agent") ?? null,
   });
-  await next();
+  return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
 };
 
-export const requireRole = (role: "admin" | "member"): MiddlewareHandler<AppEnv> => async (c, next) => {
+export const requireRole = (role: UserRole): MiddlewareHandler<AppEnv> => async (c, next) => {
   const sessionUser = c.get("user");
   if (!sessionUser) return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
 
-  if (role === "admin" && sessionUser.role !== "admin") {
+  if (role === UserRole.Admin && sessionUser.role !== UserRole.Admin) {
     await writeAuditLog({
       actorUserId: sessionUser.id,
       actorEmail: sessionUser.email,
       action: "authz.denied",
       resourceType: "role",
       metadata: { requiredRole: role, actualRole: sessionUser.role, path: c.req.path },
-      ipAddress: getClientIp(c),
-      userAgent: c.req.header("user-agent") ?? null,
-    });
-    return jsonError(c, 403, "FORBIDDEN", "Forbidden");
-  }
-
-  await next();
-};
-
-export const passwordCsrfGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
-  const method = c.req.method.toUpperCase();
-  if (["GET", "HEAD", "OPTIONS"].includes(method)) {
-    await next();
-    return;
-  }
-
-  const authMode = c.get("authMode");
-  const authTransport = c.get("authTransport");
-  if (authMode !== "password" || authTransport !== "cookie") {
-    await next();
-    return;
-  }
-
-  const isAllowed = isSameOriginRequest({
-    origin: c.req.header("origin"),
-    referer: c.req.header("referer"),
-    allowedOrigins: PASSWORD_AUTH_ALLOWED_ORIGINS,
-  });
-
-  if (!isAllowed) {
-    const sessionUser = c.get("user");
-    await writeAuditLog({
-      actorUserId: sessionUser?.id ?? null,
-      actorEmail: sessionUser?.email ?? null,
-      action: "auth.password.csrf_rejected",
-      resourceType: "auth",
-      resourceId: sessionUser?.id ?? null,
-      metadata: { path: c.req.path, method },
       ipAddress: getClientIp(c),
       userAgent: c.req.header("user-agent") ?? null,
     });

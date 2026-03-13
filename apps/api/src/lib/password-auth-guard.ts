@@ -40,41 +40,20 @@ export async function isRateLimited(input: RateLimitInput) {
   return Number(result?.count ?? 0) >= input.maxAttempts;
 }
 
+/**
+ * Extract the client IP from proxy headers.
+ * When behind a reverse proxy (e.g. Traefik, nginx), x-forwarded-for may contain
+ * a comma-separated list of IPs. We take only the first (leftmost) entry,
+ * which is the original client IP set by the outermost trusted proxy.
+ * Ensure your reverse proxy overwrites (not appends) x-forwarded-for
+ * to prevent IP spoofing by untrusted clients.
+ */
 export function getRequestIp(headers: { get(name: string): string | null | undefined }) {
-  return headers.get("x-forwarded-for") ?? headers.get("x-real-ip") ?? null;
-}
-
-export function isSameOriginRequest(input: {
-  origin?: string | null;
-  referer?: string | null;
-  allowedOrigins: string[];
-}) {
-  const allowed = new Set(
-    input.allowedOrigins
-      .map((origin) => {
-        try {
-          return new URL(origin).origin;
-        } catch {
-          return null;
-        }
-      })
-      .filter((value): value is string => Boolean(value))
-  );
-
-  const candidates = [input.origin, input.referer]
-    .filter((value): value is string => Boolean(value))
-    .map((value) => {
-      try {
-        return new URL(value).origin;
-      } catch {
-        return null;
-      }
-    })
-    .filter((value): value is string => Boolean(value));
-
-  if (candidates.length === 0) {
-    return false;
+  const xff = headers.get("x-forwarded-for");
+  if (xff) {
+    const firstIp = xff.split(",")[0]?.trim();
+    if (firstIp) return firstIp;
   }
-
-  return candidates.some((origin) => allowed.has(origin));
+  return headers.get("x-real-ip") ?? null;
 }
+

@@ -1,6 +1,6 @@
 # Site Map
 
-Last updated: 2026-03-12
+Last updated: 2026-03-13
 
 This document maps the currently implemented frontend routes in `apps/web`.
 
@@ -32,6 +32,12 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - AI employee invocation and active-session controls
 - `/meetings/coworking`
   - shared coworking room
+- `/admin`
+  - admin index (redirects to `/admin/users`)
+  - shared admin layout with tab navigation (users / access / agents / kpi / settings)
+- `/admin/users`
+  - admin user list with role and group info
+  - role change (admin ↔ member)
 - `/admin/kpi`
   - admin KPI dashboard
   - security metrics included
@@ -41,6 +47,12 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - admin wiki page permission management
 - `/admin/agents`
   - admin AI agent definition management
+- `/admin/settings`
+  - site info (title, tagline, favicon)
+  - email provider (SMTP / Resend)
+  - LLM provider (Google Gemini / Vertex AI / Zhipu)
+  - storage provider (Local / S3 / GCS) with connection test
+  - video quality settings per meeting/coworking
 - `/settings`
   - authenticated account summary
   - active app session list and revoke actions
@@ -52,12 +64,10 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - `/wiki`
   - `/meetings`
   - `/search`
-  - `/admin/access` for admin only
-  - `/admin/kpi` for admin only
-  - `/admin/agents` for admin only
+  - `/admin` for admin only (tab nav: users, access, agents, kpi, settings)
 - Header account menu:
   - `/settings`
-  - OAuth2 Proxy sign-out
+  - Auth.js sign-out
 - Local wiki navigation:
   - page tree in `/wiki`, `/wiki/new`, `/wiki/[id]`
 - Meetings navigation:
@@ -65,7 +75,7 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - room pages return to `/meetings`
 
 ## Access Model
-- Main app routes are intended for authenticated users behind OAuth2 Proxy.
+- Main app routes are intended for authenticated users with Auth.js sessions or API-issued tokens.
 - Admin routes are hidden in the sidebar for non-admin users and enforced server-side by API authorization.
 - Wiki and meeting detail routes are further scoped by backend resource authorization.
 
@@ -80,9 +90,11 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - `/meetings` -> `/meetings/coworking`
   - `/meetings/[id]` -> AI employee actions -> Room AI summary to Wiki
 - Admin flow:
+  - `/admin` -> `/admin/users`
   - `/admin/access`
   - `/admin/kpi`
   - `/admin/agents`
+  - `/admin/settings`
 
 ## Source Files
 - `apps/web/app/(main)/layout.tsx`
@@ -95,7 +107,11 @@ This document maps the currently implemented frontend routes in `apps/web`.
 - `apps/web/app/(main)/meetings/page.tsx`
 - `apps/web/app/(main)/meetings/[id]/page.tsx`
 - `apps/web/app/(main)/meetings/coworking/page.tsx`
+- `apps/web/app/(main)/admin/layout.tsx`
+- `apps/web/app/(main)/admin/page.tsx`
+- `apps/web/app/(main)/admin/users/page.tsx`
 - `apps/web/app/(main)/admin/access/page.tsx`
 - `apps/web/app/(main)/admin/kpi/page.tsx`
 - `apps/web/app/(main)/admin/agents/page.tsx`
+- `apps/web/app/(main)/admin/settings/page.tsx`
 - `apps/web/components/layout/Sidebar.tsx`

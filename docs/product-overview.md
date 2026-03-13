@@ -1,6 +1,6 @@
 # Product Overview
 
-Last updated: 2026-03-12
+Last updated: 2026-03-13
 
 This document describes the currently implemented product shape of `corp-internal`.
 
@@ -34,20 +34,28 @@ This document describes the currently implemented product shape of `corp-interna
 ### Files
 - file upload metadata and protected access paths
 - server-side uploader attribution
+- pluggable storage backend: local filesystem (default), S3-compatible, or Google Cloud Storage — switchable from admin settings
+
+### AI Agent
+- tool-calling agent powered by LangChain.js
+- available tools: wiki search, meeting transcript retrieval, user lookup
+- LLM provider is configurable (Google Gemini, Z.ai GLM-5)
 
 ### Administration
 - admin-protected backend routes
 - group, membership, and page permission APIs
 - access-management, KPI, and AI agent screens on the frontend
+- site settings management: site title/tagline, site icon, email provider, LLM provider, storage provider (Local/S3/GCS), and video quality configuration
 
 ### Account
+- zero-user bootstrap: registration is open only when no users exist; the first user is auto-promoted to admin
 - email verification for password registration
 - active app session visibility and revocation from settings
 
 ## Current Operational Shape
 - web frontend in `apps/web`
 - API backend in `apps/api`
-- runtime deployment on GCE with Docker Compose
+- runtime deployment on any Linux VPS with Docker Compose
 - release path through GitHub Actions workflows
 
 ## Known Gaps
@@ -55,7 +63,6 @@ This document describes the currently implemented product shape of `corp-interna
 - regression test coverage still needs to reach release-grade expectations
 
 ## Related Files
-- `../plan/todo-master.md`
 - `../docs/frontend-app-implementation.md`
 - `../docs/wiki-implementation.md`
 - `../docs/meeting-tool-implementation.md`

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UserRole } from "@corp-internal/shared/contracts";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
 import { meetingsRoutes } from "./meetings.js";
 
@@ -123,7 +124,7 @@ describe("meetingsRoutes", () => {
       id: "user_1",
       email: "owner@example.com",
       name: "Owner",
-      role: "member",
+      role: UserRole.Member,
     });
 
     getMeetingByIdMock.mockResolvedValue({
@@ -195,7 +196,7 @@ describe("meetingsRoutes", () => {
       id: "user_2",
       email: "member@example.com",
       name: "Member",
-      role: "member",
+      role: UserRole.Member,
     });
 
     getMeetingByIdMock.mockResolvedValue({
@@ -212,7 +213,7 @@ describe("meetingsRoutes", () => {
     const response = await app.request("http://localhost/api/meetings/meeting_1");
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
+    await expect(response.json()).resolves.toEqual({ code: "MEETING_FORBIDDEN", error: "Forbidden" });
     expect(getMeetingTranscriptsMock).not.toHaveBeenCalled();
     expect(getMeetingSummariesMock).not.toHaveBeenCalled();
   });
@@ -222,7 +223,7 @@ describe("meetingsRoutes", () => {
       id: "user_1",
       email: "owner@example.com",
       name: "Owner",
-      role: "member",
+      role: UserRole.Member,
     });
 
     createMeetingMock.mockImplementation(async (input) => ({
@@ -259,7 +260,7 @@ describe("meetingsRoutes", () => {
       id: "user_1",
       email: "owner@example.com",
       name: "Owner",
-      role: "member",
+      role: UserRole.Member,
     });
 
     getMeetingByIdMock.mockResolvedValue({
@@ -309,7 +310,7 @@ describe("meetingsRoutes", () => {
       id: "user_2",
       email: "member@example.com",
       name: "Member",
-      role: "member",
+      role: UserRole.Member,
     });
 
     getMeetingByIdMock.mockResolvedValue({
@@ -326,7 +327,7 @@ describe("meetingsRoutes", () => {
     const response = await app.request("http://localhost/api/meetings/meeting_1/agents/active");
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
+    await expect(response.json()).resolves.toEqual({ code: "MEETING_FORBIDDEN", error: "Forbidden" });
     expect(listActiveAgentSessionsMock).not.toHaveBeenCalled();
   });
 
@@ -335,7 +336,7 @@ describe("meetingsRoutes", () => {
       id: "user_2",
       email: "member@example.com",
       name: "Member",
-      role: "member",
+      role: UserRole.Member,
     });
 
     getMeetingByIdMock.mockResolvedValue({
@@ -356,7 +357,7 @@ describe("meetingsRoutes", () => {
     });
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: "Forbidden" });
+    await expect(response.json()).resolves.toEqual({ code: "MEETING_FORBIDDEN", error: "Forbidden" });
     expect(invokeMeetingAgentMock).not.toHaveBeenCalled();
   });
 
@@ -365,7 +366,7 @@ describe("meetingsRoutes", () => {
       id: "user_1",
       email: "owner@example.com",
       name: "Owner",
-      role: "member",
+      role: UserRole.Member,
     });
 
     getMeetingByIdMock.mockResolvedValue({

@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { getEmailSettings, type EmailSettings } from "../services/admin/admin-service.js";
 
 type PasswordVerificationEmailInput = {
   email: string;
@@ -6,63 +7,47 @@ type PasswordVerificationEmailInput = {
   expiresAt: Date;
 };
 
-function getSmtpConfig() {
-  const host = process.env.SMTP_HOST?.trim();
-  const from = process.env.SMTP_FROM?.trim();
-  if (!host || !from) {
-    return null;
-  }
+function buildSmtpConfig(settings: EmailSettings) {
+  if (!settings.smtpHost || !settings.smtpFrom) return null;
 
-  const port = Number(process.env.SMTP_PORT || "587");
-  const secure = process.env.SMTP_SECURE === "true" || port === 465;
-  const user = process.env.SMTP_USER?.trim();
-  const pass = process.env.SMTP_PASS?.trim();
+  const port = settings.smtpPort ?? 587;
+  const secure = settings.smtpSecure || port === 465;
 
   return {
-    host,
-    from,
+    host: settings.smtpHost,
+    from: settings.smtpFrom,
     port,
     secure,
-    auth: user && pass ? { user, pass } : undefined,
+    auth: settings.smtpUser && settings.smtpPass
+      ? { user: settings.smtpUser, pass: settings.smtpPass }
+      : undefined,
   };
 }
 
-function getResendConfig() {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-  const from = process.env.RESEND_FROM?.trim();
-  if (!apiKey || !from) {
-    return null;
-  }
-
-  return {
-    apiKey,
-    from,
-    audience: process.env.RESEND_AUDIENCE?.trim() || undefined,
-  };
+function buildResendConfig(settings: EmailSettings) {
+  if (!settings.resendApiKey || !settings.resendFrom) return null;
+  return { apiKey: settings.resendApiKey, from: settings.resendFrom };
 }
 
-async function sendWithResend(input: PasswordVerificationEmailInput) {
-  const resend = getResendConfig();
-  if (!resend) {
-    return false;
-  }
-
+async function sendWithResend(
+  config: { apiKey: string; from: string },
+  input: PasswordVerificationEmailInput,
+) {
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${resend.apiKey}`,
+      Authorization: `Bearer ${config.apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: resend.from,
+      from: config.from,
       to: [input.email],
-      subject: "Verify your corp-internal account",
+      subject: "Verify your account",
       text: [
         "Complete your account verification.",
         `Verification link: ${input.verificationUrl}`,
         `This link expires at: ${input.expiresAt.toISOString()}`,
       ].join("\n"),
-      tags: resend.audience ? [{ name: "audience", value: resend.audience }] : undefined,
     }),
   });
 
@@ -70,52 +55,57 @@ async function sendWithResend(input: PasswordVerificationEmailInput) {
     const body = await response.text();
     throw new Error(`Resend delivery failed: ${response.status} ${body}`);
   }
-
-  return true;
 }
 
-async function sendWithSmtp(input: PasswordVerificationEmailInput) {
-  const smtp = getSmtpConfig();
-  if (!smtp) {
-    return false;
-  }
-
+async function sendWithSmtp(
+  config: ReturnType<typeof buildSmtpConfig> & {},
+  input: PasswordVerificationEmailInput,
+) {
   const transport = nodemailer.createTransport({
-    host: smtp.host,
-    port: smtp.port,
-    secure: smtp.secure,
-    auth: smtp.auth,
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: config.auth,
   });
 
   await transport.sendMail({
-    from: smtp.from,
+    from: config.from,
     to: input.email,
-    subject: "Verify your corp-internal account",
+    subject: "Verify your account",
     text: [
       "Complete your account verification.",
       `Verification link: ${input.verificationUrl}`,
       `This link expires at: ${input.expiresAt.toISOString()}`,
     ].join("\n"),
   });
-
-  return true;
 }
 
 export async function sendPasswordVerificationEmail(input: PasswordVerificationEmailInput) {
-  if (await sendWithResend(input)) {
-    return;
+  const settings = await getEmailSettings();
+
+  if (settings.provider === "resend") {
+    const config = buildResendConfig(settings);
+    if (config) {
+      await sendWithResend(config, input);
+      return;
+    }
   }
 
-  if (await sendWithSmtp(input)) {
-    return;
+  if (settings.provider === "smtp") {
+    const config = buildSmtpConfig(settings);
+    if (config) {
+      await sendWithSmtp(config, input);
+      return;
+    }
   }
 
-    console.info(
-      "[AUTH_EMAIL_VERIFICATION]",
-      JSON.stringify({
-        email: input.email,
-        verificationUrl: input.verificationUrl,
-        expiresAt: input.expiresAt.toISOString(),
-      })
-    );
+  // No provider configured — log to console for development
+  console.info(
+    "[AUTH_EMAIL_VERIFICATION]",
+    JSON.stringify({
+      email: input.email,
+      verificationUrl: input.verificationUrl,
+      expiresAt: input.expiresAt.toISOString(),
+    }),
+  );
 }

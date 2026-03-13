@@ -1,39 +1,46 @@
 # Ops Runbook
 
-Last updated: 2026-03-11
+Last updated: 2026-03-13
 
 ## Scope
 - API health: `http://localhost:3001/health`
 - Web container health: `docker compose exec -T web wget --no-verbose --tries=1 --spider http://127.0.0.1:3000`
-- OAuth2 Proxy: `http://localhost:4180`
+- Auth: Auth.js (JWT sessions via API)
 - LiveKit: `http://localhost:7880`
 
 ## Release Rule
 - Standard release path is GitHub Actions only.
 - Primary workflows:
-  - `Terraform`
-  - `App Release`
+  - `CI` → `App Release`
 - SSH is break-glass only.
 - Host-side workflow behavior is defined in `scripts/release/remote-runtime-apply.sh` and `scripts/release/remote-bootstrap-validate.sh`.
+
+## Initial Bootstrap (Zero-User Setup)
+- When the `users` table is empty, the system is in bootstrap mode.
+- Registration (both password and Google SSO) is open only while zero users exist.
+- The first user to complete registration is automatically promoted to `admin`.
+- Once the first user exists, self-registration is permanently closed.
+- Subsequent users must be added by an admin through the admin management API.
+- The registration gate status is exposed at `GET /api/auth/registration-status` (`{ "open": true | false }`).
+- The login page automatically hides the registration form when the gate is closed.
 
 ## Normal Release Procedure
 1. Merge to `develop` or `main`, or run workflow dispatch.
 2. Confirm `CI` succeeded.
-3. Confirm `Terraform` succeeded.
-4. Confirm `App Release` succeeded.
+3. Confirm `App Release` succeeded (triggers from CI).
 5. Validate:
    - `curl http://localhost:3001/health`
    - `docker compose exec -T web wget --no-verbose --tries=1 --spider http://127.0.0.1:3000`
    - `docker compose ps`
-   - `curl http://localhost:4180/oauth2/auth` from inside the host if auth validation is needed
+   - `curl http://localhost:3001/api/auth/session` from inside the host if auth validation is needed
 
 ## Initial Triage
 1. `docker compose ps`
 2. `curl http://localhost:3001/health`
 3. `docker compose exec -T web wget --no-verbose --tries=1 --spider http://127.0.0.1:3000`
-4. `docker compose logs --tail=200 api`
-5. `docker compose logs --tail=200 web`
-6. `docker compose logs --tail=200 oauth2-proxy`
+4. `docker compose logs --tail=200 traefik`
+5. `docker compose logs --tail=200 api`
+6. `docker compose logs --tail=200 web`
 7. `docker compose logs --tail=200 livekit`
 8. `docker compose logs --tail=200 db`
 
@@ -41,14 +48,21 @@ Last updated: 2026-03-11
 
 ### API health fails
 - Check DB readiness and `DATABASE_URL`
-- Check mounted credentials path
+- Check `FILE_STORAGE_PATH` is writable and mounted correctly
+- Check Traefik routing: `docker compose logs --tail=50 traefik`
 - Restart only API first: `docker compose restart api`
 
+### File storage errors
+- Check which provider is active: `GET /api/admin/storage-settings` (admin only)
+- For local provider: verify `FILE_STORAGE_PATH` is writable and the Docker volume is mounted
+- For S3: verify endpoint, bucket, and credentials in admin settings; run "Test Connection" from admin UI
+- For GCS: verify bucket, project ID, and service account key in admin settings; run "Test Connection" from admin UI
+- Storage provider is restored from `site_settings` on API startup; check API logs for `Storage provider initialized:` message
+
 ### Login/auth rejected (401)
-- Verify forwarded headers from oauth2-proxy:
-  - `x-auth-request-email`
-  - `x-auth-request-user`
-- Verify `AUTH_ALLOWED_DOMAIN`
+- Verify Auth.js session: `curl http://localhost:3001/api/auth/session`
+- Verify `AUTH_ALLOWED_DOMAIN` and `AUTH_SECRET` are set
+- Verify `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are configured
 - Verify `/api/auth/me`
 
 ### Admin API forbidden (403)

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { UserRole } from "@corp-internal/shared/contracts";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
 import {
   authorizeAdminResource,
@@ -47,7 +48,7 @@ describe("authorization-policy", () => {
       id: "user_1",
       email: "owner@example.com",
       name: "Owner",
-      role: "member",
+      role: UserRole.Member,
     };
 
     const result = await authorizeOwnerResource(
@@ -78,7 +79,7 @@ describe("authorization-policy", () => {
       id: "user_1",
       email: "member@example.com",
       name: "Member",
-      role: "member",
+      role: UserRole.Member,
     };
 
     const result = await authorizeUserResource(createContext(user) as never, "user_2", "delete");
@@ -102,7 +103,7 @@ describe("authorization-policy", () => {
       id: "admin_1",
       email: "admin@example.com",
       name: "Admin",
-      role: "admin",
+      role: UserRole.Admin,
     };
 
     const result = await authorizeAdminResource(

@@ -27,9 +27,10 @@ This document describes the current rollback and recovery shape for `corp-intern
 ## Known Limits
 - clean-host bootstrap success still needs to be proven in both environments
 - rollback still assumes image tags are known and available
+- rollback runs forward-only DB migrations; destructive schema changes (column drops) require manual intervention before rolling back to an older image
 - no separate disaster-recovery topology is documented beyond single-host runtime recovery
 
 ## Related Files
 - `./release-workflows.md`
 - `./ops-runbook.md`
-- `../plan/deployment.md`
+- `../DEPLOYMENT.md`
