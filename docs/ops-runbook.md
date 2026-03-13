@@ -42,7 +42,8 @@ Last updated: 2026-03-13
 5. `docker compose logs --tail=200 api`
 6. `docker compose logs --tail=200 web`
 7. `docker compose logs --tail=200 livekit`
-8. `docker compose logs --tail=200 db`
+8. `docker compose logs --tail=200 livekit-egress`
+9. `docker compose logs --tail=200 db`
 
 ## Incident Patterns
 
@@ -76,6 +77,15 @@ Last updated: 2026-03-13
 - Treat `authz.denied >= 10` in the selected window as warning
 - Treat `authz.denied >= 50` in the selected window as critical
 - Investigate spikes together with audit log samples and recent auth/release changes
+
+### Recording / Egress fails
+- Check `livekit-egress` is running: `docker compose ps livekit-egress`
+- Check egress logs: `docker compose logs --tail=100 livekit-egress`
+- Verify Redis connectivity: egress requires `valkey` for job coordination
+- Verify `SYS_ADMIN` capability is granted (required for Chrome-based compositing)
+- Check webhook delivery: `docker compose logs --tail=50 api | grep webhook`
+- For GCS/S3 upload failures: verify storage credentials in admin settings
+- For local storage: verify `file_storage` volume is mounted and writable
 
 ### Workflow release failed
 - Check image tags written to `/opt/wiki/.env`

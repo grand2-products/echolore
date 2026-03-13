@@ -87,6 +87,8 @@ export interface MeetingDto {
   status: MeetingStatus;
   startedAt: ISODateString | null;
   endedAt: ISODateString | null;
+  scheduledAt: ISODateString | null;
+  googleCalendarEventId: string | null;
   createdAt: ISODateString;
 }
 
@@ -362,6 +364,51 @@ export class UploadFileResponse {
 
 export class GetFileDownloadUrlResponse {
   constructor(public url: string) {}
+}
+
+// Wiki Chat
+export type WikiChatVisibility = "team" | "private";
+export type WikiChatMessageRole = "user" | "assistant";
+
+export interface WikiChatCitationDto {
+  pageId: string;
+  pageTitle: string;
+  snippet?: string;
+}
+
+export interface WikiChatConversationDto {
+  id: string;
+  title: string;
+  creatorId: string;
+  creatorName?: string | null;
+  visibility: WikiChatVisibility;
+  messageCount?: number;
+  lastMessagePreview?: string | null;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export interface WikiChatMessageDto {
+  id: string;
+  conversationId: string;
+  role: WikiChatMessageRole;
+  content: string;
+  citations: WikiChatCitationDto[] | null;
+  createdAt: ISODateString;
+}
+
+export interface CreateWikiChatConversationRequest {
+  title?: string;
+  visibility?: WikiChatVisibility;
+}
+
+export interface UpdateWikiChatConversationRequest {
+  title?: string;
+  visibility?: WikiChatVisibility;
+}
+
+export interface SendWikiChatMessageRequest {
+  content: string;
 }
 
 export interface LivekitTokenRequest {

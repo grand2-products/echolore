@@ -1,5 +1,6 @@
 "use client";
 
+import { calendarApi, useCalendarStatusQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAuthContext } from "@/lib/auth-context";
 import { supportedLocales, useFormatters, useLocale, useSetLocale, useT, type SupportedLocale } from "@/lib/i18n";
@@ -10,7 +11,7 @@ import {
 } from "@/lib/use-auth-session";
 import { buildLoginUrl } from "@/lib/return-to";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export default function SettingsPage() {
   const { user, authMode, isLoading, isError, refetch: refetchAuth } = useAuthContext();
@@ -22,8 +23,56 @@ export default function SettingsPage() {
   const router = useRouter();
   const { logout } = useAuthActions();
   const [revokeError, setRevokeError] = useState<string | null>(null);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
   const sessionsQuery = useCurrentAuthSessions(Boolean(user));
   const revokeSessionMutation = useRevokeCurrentAuthSession();
+  const calendarStatus = useCalendarStatusQuery(Boolean(user));
+  const [calendarDisconnecting, setCalendarDisconnecting] = useState(false);
+  const [calendarMessage, setCalendarMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotifPermission(Notification.permission);
+    } else {
+      setNotifPermission("unsupported");
+    }
+  }, []);
+
+  // Handle calendar callback redirect
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const calendarParam = params.get("calendar");
+    if (calendarParam === "connected") {
+      setCalendarMessage(t("settings.calendar.connected"));
+      void calendarStatus.refetch();
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (calendarParam === "error") {
+      setCalendarMessage(t("settings.calendar.connectError"));
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  const handleCalendarDisconnect = async () => {
+    setCalendarDisconnecting(true);
+    setCalendarMessage(null);
+    try {
+      await calendarApi.disconnect();
+      setCalendarMessage(t("settings.calendar.disconnected"));
+      void calendarStatus.refetch();
+    } catch {
+      setCalendarMessage(t("settings.calendar.disconnectError"));
+    } finally {
+      setCalendarDisconnecting(false);
+    }
+  };
+
+  const handleEnableNotifications = useCallback(async () => {
+    if (!("Notification" in window)) return;
+    const permission = await Notification.requestPermission();
+    setNotifPermission(permission);
+  }, []);
 
   const handleRevokeSession = async (sessionId: string, current: boolean) => {
     setRevokeError(null);
@@ -182,6 +231,66 @@ export default function SettingsPage() {
                 >
                   {t("common.nav.logout")}
                 </button>
+              </div>
+
+              {notifPermission !== "unsupported" && (
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">{t("settings.notifications")}</h2>
+                  <p className="mt-2 text-sm text-gray-600">
+                    {t("settings.notificationsDescription")}
+                  </p>
+                  <div className="mt-3">
+                    {notifPermission === "granted" ? (
+                      <p className="text-sm text-emerald-600">{t("settings.notificationsEnabled")}</p>
+                    ) : notifPermission === "denied" ? (
+                      <p className="text-sm text-red-600">{t("settings.notificationsBlocked")}</p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void handleEnableNotifications()}
+                        className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                      >
+                        {t("settings.notificationsEnable")}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">{t("settings.calendar.title")}</h2>
+                <p className="mt-2 text-sm text-gray-600">
+                  {t("settings.calendar.description")}
+                </p>
+                {calendarMessage && (
+                  <p className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                    {calendarMessage}
+                  </p>
+                )}
+                <div className="mt-3">
+                  {calendarStatus.isLoading ? (
+                    <p className="text-sm text-gray-500">{t("common.status.loading")}</p>
+                  ) : calendarStatus.data?.connected ? (
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-emerald-600">{t("settings.calendar.statusConnected")}</span>
+                      <button
+                        type="button"
+                        onClick={() => void handleCalendarDisconnect()}
+                        disabled={calendarDisconnecting}
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+                      >
+                        {t("settings.calendar.disconnect")}
+                      </button>
+                    </div>
+                  ) : (
+                    <a
+                      href={calendarApi.getConnectUrl()}
+                      className="inline-flex rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                    >
+                      {t("settings.calendar.connect")}
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           )}

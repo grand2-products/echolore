@@ -7,6 +7,7 @@ export interface ActiveReaction {
   id: string;
   emoji: string;
   x: number; // 5-95, random horizontal %
+  createdAt: number; // Date.now() when added
 }
 
 interface ReactionMessage {
@@ -47,7 +48,7 @@ export function useReactions(senderName: string) {
         );
         setReactions((prev) => [
           ...prev,
-          { id: parsed.id, emoji: parsed.emoji, x: randomX() },
+          { id: parsed.id, emoji: parsed.emoji, x: randomX(), createdAt: Date.now() },
         ]);
       } catch {
         // ignore malformed messages
@@ -76,7 +77,7 @@ export function useReactions(senderName: string) {
       // Show locally immediately (onMessage only fires for remote)
       setReactions((prev) => [
         ...prev,
-        { id: msg.id, emoji: msg.emoji, x: randomX() },
+        { id: msg.id, emoji: msg.emoji, x: randomX(), createdAt: now },
       ]);
     },
     [send, senderName],
@@ -86,14 +87,18 @@ export function useReactions(senderName: string) {
     setReactions((prev) => prev.filter((r) => r.id !== id));
   }, []);
 
-  // Safety cleanup: remove reactions older than 4 seconds
+  // Safety cleanup: remove reactions older than 4 seconds (timestamp-based)
   useEffect(() => {
     if (reactions.length === 0) return;
-    const timer = setTimeout(() => {
-      setReactions((prev) => (prev.length > 20 ? prev.slice(-20) : prev));
-    }, 4000);
-    return () => clearTimeout(timer);
-  }, [reactions.length]);
+    const timer = setInterval(() => {
+      const cutoff = Date.now() - 4000;
+      setReactions((prev) => {
+        const filtered = prev.filter((r) => r.createdAt > cutoff);
+        return filtered.length === prev.length ? prev : filtered;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [reactions.length > 0]); // only re-run when transitioning 0 <-> non-zero
 
   return { reactions, sendReaction, removeReaction };
 }

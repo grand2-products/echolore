@@ -26,6 +26,12 @@ export async function transcribeRecording(
   meetingId: string,
   storagePath: string,
 ): Promise<{ segmentCount: number }> {
+  // Guard against path traversal — storagePath comes from DB but validate anyway
+  if (!storagePath || storagePath.includes("..")) {
+    console.error("[recording-transcription] Rejected unsafe storage path:", storagePath);
+    return { segmentCount: 0 };
+  }
+
   const dbSettings = await getLlmSettings();
   const overrides: LlmOverrides = {
     geminiApiKey: dbSettings.geminiApiKey,

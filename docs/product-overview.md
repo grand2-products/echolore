@@ -30,6 +30,9 @@ This document describes the currently implemented product shape of `corp-interna
 - room-oriented meeting workflow
 - summary generation path tied to meeting records
 - wiki save flow for generated output
+- stamps/reactions: emoji reactions broadcast to all participants via WebRTC data channel
+- screen share annotations: real-time annotation overlay with markers drawn on shared screens
+- recording: LiveKit Egress captures room to MP4, Gemini multimodal STT produces transcription, AI summary pipeline consumes the result
 
 ### Files
 - file upload metadata and protected access paths

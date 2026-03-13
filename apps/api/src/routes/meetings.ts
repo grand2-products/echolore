@@ -22,6 +22,8 @@ import {
   updateMeeting,
 } from "../repositories/meeting/meeting-repository.js";
 import { generateMeetingAgentResponse } from "../services/meeting/meeting-agent-runtime-service.js";
+import { getRecordingStatus } from "../services/meeting/recording-service.js";
+import { loadFile } from "../lib/file-storage.js";
 import {
   invokeMeetingAgent,
   leaveMeetingAgent,
@@ -34,6 +36,7 @@ import {
   createMeetingSummaryWikiArtifacts,
   getExistingRoomAiPipelineResult,
 } from "../services/meeting/meeting-service.js";
+import { syncMeetingToCalendar, updateCalendarEvent, deleteCalendarEvent } from "../services/calendar/google-calendar-sync-service.js";
 
 export const meetingsRoutes = new Hono<AppEnv>();
 
@@ -47,6 +50,8 @@ const toMeetingDto = (meeting: typeof meetings.$inferSelect): MeetingDto => ({
   status: meeting.status as MeetingDto["status"],
   startedAt: toIso(meeting.startedAt),
   endedAt: toIso(meeting.endedAt),
+  scheduledAt: toIso(meeting.scheduledAt),
+  googleCalendarEventId: meeting.googleCalendarEventId,
   createdAt: meeting.createdAt.toISOString(),
 });
 
@@ -204,11 +209,19 @@ meetingsRoutes.post("/", zValidator("json", createMeetingSchema), async (c) => {
       creatorId: user.id,
       roomName,
       status: "scheduled",
+      scheduledAt: data.scheduledAt ? new Date(data.scheduledAt) : null,
       createdAt: now,
     });
 
     if (!newMeeting) {
       return jsonError(c, 500, "MEETING_CREATE_FAILED", "Failed to create meeting");
+    }
+
+    // Best-effort calendar sync
+    try {
+      await syncMeetingToCalendar(id, user.id);
+    } catch {
+      // Calendar sync is optional
     }
 
     return c.json({ meeting: toMeetingDto(newMeeting) }, 201);
@@ -222,6 +235,7 @@ meetingsRoutes.post("/", zValidator("json", createMeetingSchema), async (c) => {
 meetingsRoutes.put("/:id", zValidator("json", updateMeetingSchema), async (c) => {
   const { id } = c.req.param();
   const data = c.req.valid("json");
+  const user = c.get("user");
 
   try {
     const meeting = await getMeetingById(id);
@@ -252,6 +266,13 @@ meetingsRoutes.put("/:id", zValidator("json", updateMeetingSchema), async (c) =>
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
+    // Best-effort calendar sync
+    try {
+      await updateCalendarEvent(id, user.id);
+    } catch {
+      // Calendar sync is optional
+    }
+
     return c.json({ meeting: toMeetingDto(updatedMeeting) });
   } catch (error) {
     console.error("Error updating meeting:", error);
@@ -262,6 +283,7 @@ meetingsRoutes.put("/:id", zValidator("json", updateMeetingSchema), async (c) =>
 // DELETE /api/meetings/:id - Delete meeting
 meetingsRoutes.delete("/:id", async (c) => {
   const { id } = c.req.param();
+  const user = c.get("user");
 
   try {
     const meeting = await getMeetingById(id);
@@ -272,6 +294,13 @@ meetingsRoutes.delete("/:id", async (c) => {
     const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "delete");
     if (!authz.allowed) {
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+    }
+
+    // Best-effort calendar sync
+    try {
+      await deleteCalendarEvent(id, user.id);
+    } catch {
+      // Calendar sync is optional
     }
 
     const deletedMeeting = await deleteMeeting(id);
@@ -663,3 +692,76 @@ meetingsRoutes.post(
     }
   }
 );
+
+// GET /api/meetings/:id/recordings - List recordings for a meeting
+meetingsRoutes.get("/:id/recordings", async (c) => {
+  const { id } = c.req.param();
+
+  try {
+    const meeting = await getMeetingById(id);
+    if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
+    if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+
+    const recordings = await getRecordingStatus(id);
+
+    return c.json({
+      recordings: recordings.map((r) => ({
+        id: r.id,
+        status: r.status,
+        storagePath: r.storagePath,
+        fileSize: r.fileSize,
+        durationMs: r.durationMs,
+        contentType: r.contentType,
+        startedAt: toIso(r.startedAt),
+        endedAt: toIso(r.endedAt),
+        createdAt: r.createdAt.toISOString(),
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching recordings:", error);
+    return jsonError(c, 500, "MEETING_RECORDINGS_FETCH_FAILED", "Failed to fetch recordings");
+  }
+});
+
+// GET /api/meetings/:id/recordings/:recordingId/download - Download a recording file
+meetingsRoutes.get("/:id/recordings/:recordingId/download", async (c) => {
+  const { id, recordingId } = c.req.param();
+
+  try {
+    const meeting = await getMeetingById(id);
+    if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
+    if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+
+    const recordings = await getRecordingStatus(id);
+    const recording = recordings.find((r) => r.id === recordingId);
+
+    if (!recording || recording.status !== "completed" || !recording.storagePath) {
+      return jsonError(c, 404, "RECORDING_NOT_FOUND", "Recording not found or not completed");
+    }
+
+    if (recording.storagePath.includes("..")) {
+      return jsonError(c, 400, "INVALID_PATH", "Invalid recording path");
+    }
+
+    const fileBuffer = await loadFile(recording.storagePath);
+    const contentType = recording.contentType || "video/mp4";
+    const safeId = recordingId.replace(/[^a-z0-9-]/gi, "");
+    const filename = `recording-${safeId}.mp4`;
+
+    return new Response(new Uint8Array(fileBuffer), {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": String(fileBuffer.length),
+      },
+    });
+  } catch (error) {
+    console.error("Error downloading recording:", error);
+    return jsonError(c, 500, "RECORDING_DOWNLOAD_FAILED", "Failed to download recording");
+  }
+});

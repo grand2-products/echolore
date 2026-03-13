@@ -5,6 +5,7 @@ import {
   type MeetingAgentEvent,
   type MeetingAgentSession,
   type MeetingAgentResponse,
+  type MeetingRecording,
   type RealtimeTranscriptSegment,
   adminApi,
   livekitApi,
@@ -75,6 +76,7 @@ function AgentPanel(props: {
   const [isResponding, setIsResponding] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (!props.open) return;
@@ -126,12 +128,23 @@ function AgentPanel(props: {
       setResponse(result);
       setNotice(t("meetings.room.respondSuccess"));
       if (result.audio) {
-        const audio = new Audio(`data:${result.audio.mimeType};base64,${result.audio.base64}`);
-        try {
-          await audio.play();
-          setVoiceStatus(t("meetings.room.voicePlaying"));
-        } catch {
-          setVoiceStatus(t("meetings.room.voiceBlocked"));
+        // Clean up previous audio element
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.src = "";
+        }
+        const ALLOWED_AUDIO_TYPES = ["audio/mp3", "audio/mpeg", "audio/wav", "audio/webm", "audio/ogg"];
+        if (!ALLOWED_AUDIO_TYPES.includes(result.audio.mimeType)) {
+          setVoiceStatus(t("meetings.room.voiceUnavailable"));
+        } else {
+          const audio = new Audio(`data:${result.audio.mimeType};base64,${result.audio.base64}`);
+          audioRef.current = audio;
+          try {
+            await audio.play();
+            setVoiceStatus(t("meetings.room.voicePlaying"));
+          } catch {
+            setVoiceStatus(t("meetings.room.voiceBlocked"));
+          }
         }
       } else {
         setVoiceStatus(t("meetings.room.voiceUnavailable"));
@@ -439,6 +452,98 @@ function TranscriptPanel({ segments, open, onClose }: { segments: RealtimeTransc
   );
 }
 
+/* ─── Recordings List ─── */
+
+function RecordingsList({ meetingId }: { meetingId: string }) {
+  const t = useT();
+  const [recordings, setRecordings] = useState<MeetingRecording[]>([]);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchRecordings = async () => {
+      try {
+        const result = await meetingsApi.listRecordings(meetingId);
+        setRecordings(result.recordings.filter((r) => r.status === "completed"));
+      } catch {
+        // ignore fetch errors
+      }
+    };
+    void fetchRecordings();
+    const timer = window.setInterval(() => void fetchRecordings(), 15000);
+    return () => window.clearInterval(timer);
+  }, [meetingId]);
+
+  if (recordings.length === 0) return null;
+
+  const formatDuration = (ms: number | null) => {
+    if (ms == null) return "--:--";
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60).toString().padStart(2, "0");
+    const s = (totalSec % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  const formatSize = (bytes: number | null) => {
+    if (bytes == null) return "—";
+    return (bytes / (1024 * 1024)).toFixed(1);
+  };
+
+  return (
+    <div className="border-t border-gray-800 bg-gray-900/60 px-4 py-3">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+        {t("meetings.room.recordingsTitle")}
+      </h3>
+      <div className="space-y-2">
+        {recordings.map((rec) => (
+          <div key={rec.id}>
+            <div className="flex items-center justify-between rounded-lg bg-gray-800/80 px-3 py-2">
+              <div className="flex items-center gap-4 text-sm text-gray-300">
+                <span>{t("meetings.room.recordingDuration", { value: formatDuration(rec.durationMs) })}</span>
+                <span>{t("meetings.room.recordingSize", { value: formatSize(rec.fileSize) })}</span>
+                <span className="text-xs text-gray-500">
+                  {t("meetings.room.recordingDate", {
+                    value: rec.endedAt
+                      ? new Date(rec.endedAt).toLocaleString()
+                      : new Date(rec.createdAt).toLocaleString(),
+                  })}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPlayingId(playingId === rec.id ? null : rec.id)}
+                  className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-500"
+                >
+                  {playingId === rec.id
+                    ? t("meetings.room.recordingClose")
+                    : t("meetings.room.recordingPlay")}
+                </button>
+                <a
+                  href={meetingsApi.getRecordingDownloadUrl(meetingId, rec.id)}
+                  className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-500"
+                  download
+                >
+                  {t("meetings.room.recordingDownload")}
+                </a>
+              </div>
+            </div>
+            {playingId === rec.id && (
+              <div className="mt-1 rounded-lg bg-gray-800/60 p-2">
+                <video
+                  src={meetingsApi.getRecordingDownloadUrl(meetingId, rec.id)}
+                  controls
+                  autoPlay
+                  className="w-full rounded"
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Participant Video Card ─── */
 
 function ParticipantTile({ trackRef }: { trackRef: TrackReferenceOrPlaceholder }) {
@@ -523,8 +628,10 @@ function RoomBody(props: {
   const [recordingEgressId, setRecordingEgressId] = useState<string | null>(null);
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
   const [recordingElapsed, setRecordingElapsed] = useState(0);
+  const [recordingPending, setRecordingPending] = useState(false);
+  const recordingStartTimeRef = useRef<number | null>(null);
 
-  // Poll recording status
+  // Poll recording status — stable deps (no recordingStartTime)
   useEffect(() => {
     const poll = async () => {
       try {
@@ -535,12 +642,15 @@ function RoomBody(props: {
         if (active) {
           setIsRecording(true);
           setRecordingEgressId(active.egressId);
-          if (active.startedAt && !recordingStartTime) {
-            setRecordingStartTime(new Date(active.startedAt).getTime());
+          if (active.startedAt && !recordingStartTimeRef.current) {
+            const ts = new Date(active.startedAt).getTime();
+            recordingStartTimeRef.current = ts;
+            setRecordingStartTime(ts);
           }
         } else {
           setIsRecording(false);
           setRecordingEgressId(null);
+          recordingStartTimeRef.current = null;
           setRecordingStartTime(null);
         }
       } catch {
@@ -550,7 +660,7 @@ function RoomBody(props: {
     void poll();
     const timer = window.setInterval(poll, 5000);
     return () => window.clearInterval(timer);
-  }, [props.roomName, props.meetingId, recordingStartTime]);
+  }, [props.roomName, props.meetingId]);
 
   // Elapsed timer
   useEffect(() => {
@@ -565,26 +675,28 @@ function RoomBody(props: {
   }, [recordingStartTime]);
 
   const toggleRecording = useCallback(async () => {
-    if (isRecording && recordingEgressId) {
-      try {
+    if (recordingPending) return; // Prevent concurrent calls
+    setRecordingPending(true);
+    try {
+      if (isRecording && recordingEgressId) {
         await livekitApi.stopRecording(props.roomName, recordingEgressId);
         setIsRecording(false);
         setRecordingEgressId(null);
+        recordingStartTimeRef.current = null;
         setRecordingStartTime(null);
-      } catch {
-        // ignore
-      }
-    } else {
-      try {
+      } else {
         const result = await livekitApi.startRecording(props.roomName, props.meetingId);
         setIsRecording(true);
         setRecordingEgressId(result.egressId);
+        recordingStartTimeRef.current = Date.now();
         setRecordingStartTime(Date.now());
-      } catch {
-        // ignore
       }
+    } catch {
+      // ignore
+    } finally {
+      setRecordingPending(false);
     }
-  }, [isRecording, recordingEgressId, props.roomName, props.meetingId]);
+  }, [isRecording, recordingEgressId, recordingPending, props.roomName, props.meetingId]);
 
   const formatElapsed = (secs: number) => {
     const m = Math.floor(secs / 60).toString().padStart(2, "0");
@@ -732,7 +844,8 @@ function RoomBody(props: {
             <button
               type="button"
               onClick={() => void toggleRecording()}
-              className={`inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
+              disabled={recordingPending}
+              className={`inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors disabled:opacity-50 ${
                 isRecording
                   ? "bg-red-600 text-white hover:bg-red-500"
                   : "bg-gray-700/80 text-white hover:bg-gray-600"
@@ -773,6 +886,9 @@ function RoomBody(props: {
           </div>
         </div>
       </div>
+
+      {/* ─── Recordings ─── */}
+      <RecordingsList meetingId={props.meetingId} />
 
       {/* ─── Drawers ─── */}
       <TranscriptPanel

@@ -36,6 +36,22 @@ services:
     depends_on:
       - valkey
 
+  livekit-egress:
+    image: livekit/egress:latest
+    environment:
+      EGRESS_CONFIG: |
+        api_key: ${LIVEKIT_API_KEY:-devkey}
+        api_secret: ${LIVEKIT_API_SECRET:-secret}
+        ws_url: ws://livekit:7880
+        redis:
+          address: valkey:6379
+        log_level: info
+    depends_on:
+      - livekit
+      - valkey
+    cap_add:
+      - SYS_ADMIN
+
   api:
     image: ${API_IMAGE:-ghcr.io/grand2-products/corp-internal/api:latest}
     environment:

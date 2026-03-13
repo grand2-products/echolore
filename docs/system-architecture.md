@@ -9,6 +9,7 @@ This document describes the currently implemented system architecture of `corp-i
 - `apps/api`: Hono API
 - PostgreSQL: primary database
 - LiveKit: realtime meeting infrastructure
+- `livekit-egress`: LiveKit Egress service for room composite recording (MP4 output)
 - Valkey: LiveKit support service
 - File storage: pluggable provider (Local filesystem / S3-compatible / GCS), selectable from admin settings
 - Traefik: ingress and TLS termination (Let's Encrypt ACME)
@@ -70,6 +71,18 @@ This document describes the currently implemented system architecture of `corp-i
 - the agent is equipped with tools (`apps/api/src/ai/tools/`) for wiki search, meeting transcript retrieval, and user lookup
 - tool invocations are managed by LangGraph's agent executor, which handles the LLM-tool call loop automatically
 - Speech Gateway (`apps/api/src/ai/gateway/`) integrates Google Cloud Speech-to-Text and Text-to-Speech for realtime meeting transcript ingest and voice synthesis
+
+## LiveKit Data Channel Architecture
+- the meeting room UI uses LiveKit's built-in data channel API for ephemeral P2P messaging between participants
+- each message type is isolated by topic: `"reaction"` for emoji stamps, `"screen-annotation"` for annotation strokes
+- messages are broadcast to all room participants; the server does not store or relay them beyond the LiveKit SFU
+
+## Recording & Transcription Webhook Flow
+- LiveKit Egress records room audio/video as MP4 files
+- on egress completion, LiveKit sends a webhook to `POST /api/livekit/webhook`
+- the webhook handler updates the `meetingRecordings` row status and triggers the auto-transcription pipeline
+- `recording-transcription-service.ts` sends the MP4 to Gemini multimodal STT and persists the resulting transcript segments
+- the AI summary pipeline uses these STT transcripts as a fallback when no realtime transcript segments exist for a meeting
 
 ## Known Gaps
 - LiveKit WebSocket signaling (port 7880) is not yet routed through Traefik for TLS; clients currently use ws:// not wss:// on local dev

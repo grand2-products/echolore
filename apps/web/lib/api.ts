@@ -214,6 +214,18 @@ export interface MeetingAgentSession {
   createdAt: string;
 }
 
+export interface MeetingRecording {
+  id: string;
+  status: string;
+  storagePath: string | null;
+  fileSize: number | null;
+  durationMs: number | null;
+  contentType: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+}
+
 export interface MeetingAgentResponse {
   agent: {
     id: string;
@@ -623,6 +635,70 @@ export const wikiApi = {
 };
 
 // ===========================================
+// Wiki Chat API
+// ===========================================
+
+export interface WikiChatConversation {
+  id: string;
+  title: string;
+  creatorId: string;
+  creatorName?: string | null;
+  visibility: "team" | "private";
+  messageCount?: number;
+  lastMessagePreview?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WikiChatMessage {
+  id: string;
+  conversationId: string;
+  role: "user" | "assistant";
+  content: string;
+  citations: Array<{ pageId: string; pageTitle: string; snippet?: string }> | null;
+  createdAt: string;
+}
+
+export const wikiChatApi = {
+  listConversations: (opts?: { mine?: boolean; query?: string }) => {
+    const params = new URLSearchParams();
+    if (opts?.mine) params.set("mine", "1");
+    if (opts?.query) params.set("q", opts.query);
+    const qs = params.toString();
+    return fetchApi<{ conversations: WikiChatConversation[] }>(`/wiki-chat${qs ? `?${qs}` : ""}`);
+  },
+
+  createConversation: (data?: { title?: string; visibility?: "team" | "private" }) =>
+    fetchApi<{ conversation: WikiChatConversation }>("/wiki-chat", {
+      method: "POST",
+      body: JSON.stringify(data ?? {}),
+    }),
+
+  getConversation: (id: string) =>
+    fetchApi<{ conversation: WikiChatConversation; messages: WikiChatMessage[] }>(`/wiki-chat/${id}`),
+
+  updateConversation: (id: string, data: { title?: string; visibility?: "team" | "private" }) =>
+    fetchApi<{ conversation: WikiChatConversation }>(`/wiki-chat/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  deleteConversation: (id: string) =>
+    fetchApi<{ success: boolean }>(`/wiki-chat/${id}`, {
+      method: "DELETE",
+    }),
+
+  sendMessage: (conversationId: string, content: string) =>
+    fetchApi<{ userMessage: WikiChatMessage; assistantMessage: WikiChatMessage }>(
+      `/wiki-chat/${conversationId}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify({ content }),
+      }
+    ),
+};
+
+// ===========================================
 // Meetings API
 // ===========================================
 
@@ -718,6 +794,46 @@ export const meetingsApi = {
     fetchApi<MeetingAgentResponse>(`/meetings/${id}/agents/${agentId}/respond`, {
       method: "POST",
       body: JSON.stringify(data),
+    }),
+
+  listRecordings: (id: string) =>
+    fetchApi<{ recordings: MeetingRecording[] }>(`/meetings/${id}/recordings`),
+
+  getRecordingDownloadUrl: (meetingId: string, recordingId: string) =>
+    buildApiUrl(`/meetings/${encodeURIComponent(meetingId)}/recordings/${encodeURIComponent(recordingId)}/download`),
+};
+
+// ===========================================
+// Calendar API
+// ===========================================
+
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  start: string;
+  end: string;
+  description: string | null;
+  htmlLink: string | null;
+}
+
+export const calendarApi = {
+  status: () => fetchApi<{ connected: boolean }>("/calendar/status"),
+
+  getConnectUrl: () => buildApiUrl("/calendar/connect"),
+
+  disconnect: () =>
+    fetchApi<{ success: boolean }>("/calendar/disconnect", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
+  listEvents: (days?: number) =>
+    fetchApi<{ events: CalendarEvent[] }>(`/calendar/events${days ? `?days=${days}` : ""}`),
+
+  importEvent: (eventId: string) =>
+    fetchApi<{ meeting: Meeting }>(`/calendar/events/${encodeURIComponent(eventId)}/import`, {
+      method: "POST",
+      body: JSON.stringify({}),
     }),
 };
 
@@ -972,6 +1088,8 @@ const queryKeys = {
   wikiSpaces: ["wiki", "spaces"] as const,
   wikiPages: ["wiki", "pages"] as const,
   wikiPage: (id: string) => ["wiki", "pages", id] as const,
+  wikiChatConversations: ["wiki-chat", "conversations"] as const,
+  wikiChatConversation: (id: string) => ["wiki-chat", "conversations", id] as const,
 };
 
 export function useAuthMeQuery() {
@@ -1019,6 +1137,60 @@ export function useWikiPageQuery(id: string) {
     queryKey: queryKeys.wikiPage(id),
     queryFn: () => wikiApi.getPage(id),
     enabled: Boolean(id),
+  });
+}
+
+export function useWikiChatConversationsQuery(opts?: { mine?: boolean; query?: string }) {
+  return useQuery({
+    queryKey: [...queryKeys.wikiChatConversations, opts],
+    queryFn: () => wikiChatApi.listConversations(opts),
+  });
+}
+
+export function useWikiChatConversationQuery(id: string) {
+  return useQuery({
+    queryKey: queryKeys.wikiChatConversation(id),
+    queryFn: () => wikiChatApi.getConversation(id),
+    enabled: Boolean(id),
+  });
+}
+
+export function useCreateWikiChatConversationMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: wikiChatApi.createConversation,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.wikiChatConversations });
+    },
+  });
+}
+
+export function useCalendarStatusQuery(enabled = true) {
+  return useQuery({
+    queryKey: ["calendar", "status"] as const,
+    queryFn: () => calendarApi.status(),
+    enabled,
+  });
+}
+
+export function useCalendarEventsQuery(days?: number, enabled = true) {
+  return useQuery({
+    queryKey: ["calendar", "events", days] as const,
+    queryFn: () => calendarApi.listEvents(days),
+    enabled,
+  });
+}
+
+export function useSendWikiChatMessageMutation(conversationId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (content: string) => wikiChatApi.sendMessage(conversationId, content),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.wikiChatConversation(conversationId),
+      });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.wikiChatConversations });
+    },
   });
 }
 

@@ -111,6 +111,7 @@ export async function handleEgressWebhook(event: {
       status = "failed";
       break;
     default:
+      console.warn(`[recording] Unknown egress status: ${egressStatus} for egress ${egressId}`);
       return;
   }
 
@@ -142,10 +143,11 @@ export async function handleEgressWebhook(event: {
     .set(updates)
     .where(eq(meetingRecordings.egressId, egressId));
 
-  // Trigger transcription on completion (fire-and-forget)
+  // Trigger transcription and notification on completion (fire-and-forget)
   if (status === "completed") {
     const recording = await db.query.meetingRecordings.findFirst({
       where: eq(meetingRecordings.egressId, egressId),
+      with: { meeting: true },
     });
     if (recording?.storagePath) {
       import("./recording-transcription-service.js")
@@ -154,6 +156,20 @@ export async function handleEgressWebhook(event: {
         )
         .catch((err) =>
           console.error("[recording] Auto-transcription failed:", err),
+        );
+    }
+    // Email notification
+    if (recording) {
+      import("../notification/notification-service.js")
+        .then(({ notifyRecordingComplete }) =>
+          notifyRecordingComplete(
+            recording.meetingId,
+            recording.meeting?.title ?? "Untitled Meeting",
+            recording.initiatedBy,
+          ),
+        )
+        .catch((err) =>
+          console.error("[recording] Notification failed:", err),
         );
     }
   }

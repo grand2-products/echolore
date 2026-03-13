@@ -137,7 +137,21 @@ export default function ScreenShareAnnotationOverlay({
     ],
   );
 
-  // Render loop
+  // Keep marks in a ref so the render loop always sees the latest without re-creating the effect
+  const marksRef = useRef(marks);
+  marksRef.current = marks;
+  const fadeStartRef = useRef(fadeStart);
+  fadeStartRef.current = fadeStart;
+  const fadeEndRef = useRef(fadeEnd);
+  fadeEndRef.current = fadeEnd;
+
+  // Prune marks on a stable interval (outside the render loop to avoid state updates during draw)
+  useEffect(() => {
+    const timer = setInterval(pruneMarks, 1000);
+    return () => clearInterval(timer);
+  }, [pruneMarks]);
+
+  // Render loop + ResizeObserver — stable deps, no re-creation on marks change
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -156,16 +170,18 @@ export default function ScreenShareAnnotationOverlay({
 
     const draw = () => {
       const now = Date.now();
-      pruneMarks();
+      const currentMarks = marksRef.current;
+      const fStart = fadeStartRef.current;
+      const fEnd = fadeEndRef.current;
       const w = canvas.width;
       const h = canvas.height;
       ctx.clearRect(0, 0, w, h);
 
-      for (const mark of marks) {
+      for (const mark of currentMarks) {
         const age = now - mark.createdAt;
         let opacity = 1;
-        if (age > fadeStart) {
-          opacity = Math.max(0, 1 - (age - fadeStart) / (fadeEnd - fadeStart));
+        if (age > fStart) {
+          opacity = Math.max(0, 1 - (age - fStart) / (fEnd - fStart));
         }
         if (opacity <= 0) continue;
 
@@ -216,7 +232,7 @@ export default function ScreenShareAnnotationOverlay({
       cancelAnimationFrame(rafRef.current);
       resizeObserver.disconnect();
     };
-  }, [marks, pruneMarks, fadeStart, fadeEnd]);
+  }, []); // stable — reads from refs
 
   return (
     <div
