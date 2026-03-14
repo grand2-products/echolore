@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
-import { jsonError } from "../lib/api-error.js";
+import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import { requireRoomAiWorker } from "../lib/internal-auth.js";
 import {
   getMeetingById,
@@ -78,140 +78,115 @@ const meetingStatusSyncSchema = z.object({
 
 internalRoomAiRoutes.use("*", requireRoomAiWorker);
 
-internalRoomAiRoutes.get("/meetings/by-room/:roomName", async (c) => {
+internalRoomAiRoutes.get("/meetings/by-room/:roomName", withErrorHandler(async (c) => {
   const { roomName } = c.req.param();
 
-  try {
-    const meeting = await getMeetingByRoomName(roomName);
-    if (!meeting) {
-      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-    }
-
-    return c.json({ meeting });
-  } catch (error) {
-    console.error("Error resolving meeting by room name:", error);
-    return jsonError(c, 500, "ROOM_AI_MEETING_RESOLVE_FAILED", "Failed to resolve meeting by room name");
+  const meeting = await getMeetingByRoomName(roomName);
+  if (!meeting) {
+    return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
   }
-});
 
-internalRoomAiRoutes.get("/meetings", async (c) => {
+  return c.json({ meeting });
+}, "ROOM_AI_MEETING_RESOLVE_FAILED", "Failed to resolve meeting by room name"));
+
+internalRoomAiRoutes.get("/meetings", withErrorHandler(async (c) => {
   const status = c.req.query("status");
 
-  try {
-    if (status) {
-      const meetings = await listMeetingsByStatus(status);
-      return c.json({ meetings });
-    }
-
-    return jsonError(c, 400, "ROOM_AI_STATUS_QUERY_REQUIRED", "status query is required");
-  } catch (error) {
-    console.error("Error listing meetings for room AI worker:", error);
-    return jsonError(c, 500, "ROOM_AI_MEETINGS_LIST_FAILED", "Failed to list meetings");
+  if (status) {
+    const meetings = await listMeetingsByStatus(status);
+    return c.json({ meetings });
   }
-});
+
+  return jsonError(c, 400, "ROOM_AI_STATUS_QUERY_REQUIRED", "status query is required");
+}, "ROOM_AI_MEETINGS_LIST_FAILED", "Failed to list meetings"));
 
 internalRoomAiRoutes.post(
   "/meetings/:id/transcribe",
   zValidator("json", transcribeAudioSchema),
-  async (c) => {
+  withErrorHandler(async (c) => {
     const { id } = c.req.param();
     const data = c.req.valid("json");
 
-    try {
-      const meeting = await getMeetingById(id);
-      if (!meeting) {
-        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-      }
-
-      const segment = await transcribeMeetingAudioSegment({
-        meetingId: id,
-        audioBase64: data.audioBase64,
-        mimeType: data.mimeType,
-        languageCode: data.languageCode,
-        provider: data.provider,
-        participantIdentity: data.participantIdentity,
-        speakerUserId: data.speakerUserId ?? null,
-        speakerLabel: data.speakerLabel,
-        segmentKey: data.segmentKey,
-        startedAt: new Date(data.startedAt),
-        finalizedAt: data.finalizedAt ? new Date(data.finalizedAt) : null,
-      });
-
-      if (!segment) {
-        return jsonError(c, 422, "ROOM_AI_TRANSCRIPT_NOT_RECOGNIZED", "No transcript recognized");
-      }
-
-      return c.json({ segment }, 201);
-    } catch (error) {
-      console.error("Error transcribing meeting audio segment:", error);
-      return jsonError(c, 500, "ROOM_AI_TRANSCRIBE_FAILED", "Failed to transcribe meeting audio segment");
+    const meeting = await getMeetingById(id);
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
-  }
+
+    const segment = await transcribeMeetingAudioSegment({
+      meetingId: id,
+      audioBase64: data.audioBase64,
+      mimeType: data.mimeType,
+      languageCode: data.languageCode,
+      provider: data.provider,
+      participantIdentity: data.participantIdentity,
+      speakerUserId: data.speakerUserId ?? null,
+      speakerLabel: data.speakerLabel,
+      segmentKey: data.segmentKey,
+      startedAt: new Date(data.startedAt),
+      finalizedAt: data.finalizedAt ? new Date(data.finalizedAt) : null,
+    });
+
+    if (!segment) {
+      return jsonError(c, 422, "ROOM_AI_TRANSCRIPT_NOT_RECOGNIZED", "No transcript recognized");
+    }
+
+    return c.json({ segment }, 201);
+  }, "ROOM_AI_TRANSCRIBE_FAILED", "Failed to transcribe meeting audio segment")
 );
 
 internalRoomAiRoutes.post(
   "/meetings/:id/transcript-segments",
   zValidator("json", transcriptSegmentSchema),
-  async (c) => {
+  withErrorHandler(async (c) => {
     const { id } = c.req.param();
     const data = c.req.valid("json");
 
-    try {
-      const meeting = await getMeetingById(id);
-      if (!meeting) {
-        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-      }
-
-      const segment = await upsertTranscriptSegment({
-        meetingId: id,
-        participantIdentity: data.participantIdentity,
-        speakerUserId: data.speakerUserId ?? null,
-        speakerLabel: data.speakerLabel,
-        content: data.content,
-        isPartial: data.isPartial,
-        segmentKey: data.segmentKey,
-        provider: data.provider,
-        confidence: data.confidence ?? null,
-        startedAt: new Date(data.startedAt),
-        finalizedAt: data.finalizedAt ? new Date(data.finalizedAt) : null,
-      });
-
-      return c.json({ segment }, 201);
-    } catch (error) {
-      console.error("Error ingesting meeting transcript segment:", error);
-      return jsonError(c, 500, "ROOM_AI_TRANSCRIPT_INGEST_FAILED", "Failed to ingest meeting transcript segment");
+    const meeting = await getMeetingById(id);
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
-  }
+
+    const segment = await upsertTranscriptSegment({
+      meetingId: id,
+      participantIdentity: data.participantIdentity,
+      speakerUserId: data.speakerUserId ?? null,
+      speakerLabel: data.speakerLabel,
+      content: data.content,
+      isPartial: data.isPartial,
+      segmentKey: data.segmentKey,
+      provider: data.provider,
+      confidence: data.confidence ?? null,
+      startedAt: new Date(data.startedAt),
+      finalizedAt: data.finalizedAt ? new Date(data.finalizedAt) : null,
+    });
+
+    return c.json({ segment }, 201);
+  }, "ROOM_AI_TRANSCRIPT_INGEST_FAILED", "Failed to ingest meeting transcript segment")
 );
 
 internalRoomAiRoutes.patch(
   "/meetings/:id/status",
   zValidator("json", meetingStatusSyncSchema),
-  async (c) => {
+  withErrorHandler(async (c) => {
     const { id } = c.req.param();
     const data = c.req.valid("json");
 
-    try {
-      const meeting = await getMeetingById(id);
-      if (!meeting) {
-        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-      }
-
-      const nextMeeting = await updateMeeting(id, {
-        status: data.status,
-        startedAt:
-          meeting.startedAt ?? (data.startedAt ? new Date(data.startedAt) : meeting.startedAt),
-        endedAt: data.endedAt
-          ? new Date(data.endedAt)
-          : data.status === "ended"
-            ? new Date()
-            : null,
-      });
-
-      return c.json({ meeting: nextMeeting });
-    } catch (error) {
-      console.error("Error syncing meeting status:", error);
-      return jsonError(c, 500, "ROOM_AI_STATUS_SYNC_FAILED", "Failed to sync meeting status");
+    const meeting = await getMeetingById(id);
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
-  }
+
+    const nextMeeting = await updateMeeting(id, {
+      status: data.status,
+      startedAt:
+        meeting.startedAt ?? (data.startedAt ? new Date(data.startedAt) : meeting.startedAt),
+      endedAt: data.endedAt
+        ? new Date(data.endedAt)
+        : data.status === "ended"
+          ? new Date()
+          : null,
+    });
+
+    return c.json({ meeting: nextMeeting });
+  }, "ROOM_AI_STATUS_SYNC_FAILED", "Failed to sync meeting status")
 );

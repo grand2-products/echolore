@@ -1,17 +1,92 @@
 "use client";
 
-import type { AuthMeResponse, SessionUser } from "@/lib/api";
+import type { AuthMeResponse, Page, SessionUser, Space } from "@/lib/api";
+import { useSpacesQuery, wikiApi } from "@/lib/api";
 import { getVisibleNavigationItems } from "@/components/layout/navigation";
 import { useT } from "@/lib/i18n";
 import { useSiteTitle } from "@/lib/site-settings-context";
 import { useAuthActions } from "@/lib/use-auth-actions";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface HeaderProps {
   user?: SessionUser | null;
   authMode?: AuthMeResponse["authMode"];
+}
+
+function formatRelativeDate(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "now";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d`;
+  const months = Math.floor(days / 30);
+  return `${months}mo`;
+}
+
+function SearchSuggestions({
+  results,
+  isLoading,
+  query,
+  onSelect,
+  spaceMap,
+}: {
+  results: Page[];
+  isLoading: boolean;
+  query: string;
+  onSelect: () => void;
+  spaceMap: Record<string, Space>;
+}) {
+  const t = useT();
+
+  if (isLoading) {
+    return (
+      <div className="px-4 py-3 text-sm text-gray-500">{t("search.searching")}</div>
+    );
+  }
+
+  if (results.length === 0) {
+    return (
+      <div className="px-4 py-3 text-sm text-gray-500">{t("search.empty")}</div>
+    );
+  }
+
+  return (
+    <>
+      {results.slice(0, 8).map((page) => {
+        const space = spaceMap[page.spaceId];
+        return (
+          <Link
+            key={page.id}
+            href={`/wiki/${page.id}`}
+            onClick={onSelect}
+            className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100"
+          >
+            <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span className="min-w-0 flex-1 truncate text-gray-700">
+              {page.title || t("wiki.newPage.defaultTitle")}
+            </span>
+            <span className="shrink-0 text-xs text-gray-400">
+              {space ? space.name : ""}{space ? " · " : ""}{formatRelativeDate(page.updatedAt)}
+            </span>
+          </Link>
+        );
+      })}
+      <Link
+        href={`/search?q=${encodeURIComponent(query)}`}
+        onClick={onSelect}
+        className="block border-t border-gray-100 px-4 py-2 text-center text-xs text-blue-600 hover:bg-gray-50"
+      >
+        {t("search.viewAll")}
+      </Link>
+    </>
+  );
 }
 
 export function Header({ user }: HeaderProps) {
@@ -26,6 +101,23 @@ export function Header({ user }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const mobileNavItems = getVisibleNavigationItems(user);
 
+  // Space map for search suggestions
+  const { data: spacesData } = useSpacesQuery();
+  const spaceMap = useMemo(() => {
+    const map: Record<string, Space> = {};
+    for (const s of spacesData?.spaces ?? []) map[s.id] = s;
+    return map;
+  }, [spacesData]);
+
+  // Search suggestions state
+  const [suggestions, setSuggestions] = useState<Page[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
     setIsUserMenuOpen(false);
     setIsMobileMenuOpen(false);
@@ -39,15 +131,103 @@ export function Header({ user }: HeaderProps) {
     setQuery("");
   }, [pathname, searchParams]);
 
+  // Close suggestions on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        searchContainerRef.current && !searchContainerRef.current.contains(target) &&
+        mobileSearchContainerRef.current && !mobileSearchContainerRef.current.contains(target)
+      ) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  const fetchSuggestions = useCallback(async (value: string) => {
+    const normalized = value.trim();
+    if (!normalized) {
+      setSuggestions([]);
+      setSuggestionsLoading(false);
+      setShowSuggestions(false);
+      return;
+    }
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setSuggestionsLoading(true);
+    setShowSuggestions(true);
+    try {
+      const res = await wikiApi.searchPages(normalized, { semantic: false });
+      if (!controller.signal.aborted) {
+        setSuggestions(res.pages);
+        setSuggestionsLoading(false);
+      }
+    } catch {
+      if (!controller.signal.aborted) {
+        setSuggestions([]);
+        setSuggestionsLoading(false);
+      }
+    }
+  }, []);
+
+  const handleQueryChange = (value: string) => {
+    setQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!value.trim()) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    debounceRef.current = setTimeout(() => void fetchSuggestions(value), 300);
+  };
+
+  const closeSuggestions = () => {
+    setShowSuggestions(false);
+  };
+
+  const navigateToSearch = useCallback(
+    (value: string) => {
+      const normalized = value.trim();
+      setShowSuggestions(false);
+      router.push(normalized ? `/search?q=${encodeURIComponent(normalized)}` : "/search");
+    },
+    [router],
+  );
+
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const normalizedQuery = query.trim();
-    router.push(normalizedQuery ? `/search?q=${encodeURIComponent(normalizedQuery)}` : "/search");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    navigateToSearch(query);
   };
 
   const handleLogout = async () => {
     await logout();
   };
+
+  const suggestionsDropdown = showSuggestions && query.trim() && (
+    <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+      <SearchSuggestions
+        results={suggestions}
+        isLoading={suggestionsLoading}
+        query={query.trim()}
+        spaceMap={spaceMap}
+        onSelect={closeSuggestions}
+      />
+    </div>
+  );
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
@@ -70,11 +250,12 @@ export function Header({ user }: HeaderProps) {
         </div>
 
         <form onSubmit={handleSearchSubmit} className="hidden min-w-0 flex-1 justify-center px-4 md:flex">
-          <div className="relative w-full max-w-md">
+          <div ref={searchContainerRef} className="relative w-full max-w-md">
             <input
               type="text"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => handleQueryChange(event.target.value)}
+              onFocus={() => { if (query.trim() && suggestions.length > 0) setShowSuggestions(true); }}
               placeholder={t("search.placeholder")}
               className="w-full rounded-lg border border-gray-300 px-4 py-2 pl-10 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
@@ -92,6 +273,7 @@ export function Header({ user }: HeaderProps) {
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
+            {suggestionsDropdown}
           </div>
         </form>
 
@@ -143,13 +325,17 @@ export function Header({ user }: HeaderProps) {
       {isMobileMenuOpen && (
         <div className="border-t border-gray-200 bg-white px-4 py-4 md:hidden">
           <form onSubmit={handleSearchSubmit} className="mb-4">
-            <input
-              type="text"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("search.placeholder")}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
+            <div ref={mobileSearchContainerRef} className="relative">
+              <input
+                type="text"
+                value={query}
+                onChange={(event) => handleQueryChange(event.target.value)}
+                onFocus={() => { if (query.trim() && suggestions.length > 0) setShowSuggestions(true); }}
+                placeholder={t("search.placeholder")}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              {suggestionsDropdown}
+            </div>
           </form>
 
           <nav className="space-y-1">
@@ -165,7 +351,7 @@ export function Header({ user }: HeaderProps) {
                     isActive ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-gray-100"
                   }`}
                 >
-                  {t(`common.nav.${item.label.toLowerCase()}`)}
+                  {t(`common.nav.${item.label}`)}
                 </Link>
               );
             })}

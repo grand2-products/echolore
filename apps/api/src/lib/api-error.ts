@@ -17,3 +17,31 @@ export function jsonError(
     status
   );
 }
+
+/**
+ * Wraps a route handler with a standard try-catch that logs the error and
+ * returns a JSON error response.  Use this to eliminate the duplicated
+ * `try { … } catch { console.error(…); return jsonError(…); }` pattern
+ * across route files.
+ *
+ * The generic parameter preserves the exact handler signature so Hono's
+ * type inference (including `zValidator` augmented context types) continues
+ * to work correctly.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function withErrorHandler<H extends (c: any) => Promise<Response>>(
+  handler: H,
+  errorCode: string,
+  errorMessage: string,
+  statusCode: ContentfulStatusCode = 500
+): H {
+  const wrapped = async (c: Parameters<H>[0]) => {
+    try {
+      return await handler(c);
+    } catch (error) {
+      console.error(`${errorMessage}:`, error);
+      return jsonError(c, statusCode, errorCode, errorMessage);
+    }
+  };
+  return wrapped as unknown as H;
+}

@@ -16,7 +16,7 @@ export function isEmbeddingEnabled() {
 }
 
 export function getEmbeddingModel() {
-  return process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-001";
+  return process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-002";
 }
 
 export function vectorToJson(values: number[]) {

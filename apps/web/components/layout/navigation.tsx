@@ -4,6 +4,7 @@ import type { SessionUser } from "@/lib/api";
 import React, { type ReactNode } from "react";
 
 export interface NavigationItem {
+  /** i18n key under common.nav (e.g. "wikiChat" → t("common.nav.wikiChat")) */
   label: string;
   href: string;
   icon: ReactNode;
@@ -12,7 +13,7 @@ export interface NavigationItem {
 
 export const navigationItems: NavigationItem[] = [
   {
-    label: "Home",
+    label: "home",
     href: "/",
     icon: (
       <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -26,7 +27,7 @@ export const navigationItems: NavigationItem[] = [
     ),
   },
   {
-    label: "Wiki",
+    label: "wiki",
     href: "/wiki",
     icon: (
       <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -40,7 +41,21 @@ export const navigationItems: NavigationItem[] = [
     ),
   },
   {
-    label: "Meetings",
+    label: "wikiChat",
+    href: "/wiki-chat",
+    icon: (
+      <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+        />
+      </svg>
+    ),
+  },
+  {
+    label: "meetings",
     href: "/meetings",
     icon: (
       <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -54,8 +69,8 @@ export const navigationItems: NavigationItem[] = [
     ),
   },
   {
-    label: "Coworking",
-    href: "/meetings/coworking",
+    label: "coworking",
+    href: "/coworking",
     icon: (
       <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -68,7 +83,7 @@ export const navigationItems: NavigationItem[] = [
     ),
   },
   {
-    label: "Search",
+    label: "search",
     href: "/search",
     icon: (
       <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,7 +97,7 @@ export const navigationItems: NavigationItem[] = [
     ),
   },
   {
-    label: "Admin",
+    label: "admin",
     href: "/admin",
     adminOnly: true,
     icon: (

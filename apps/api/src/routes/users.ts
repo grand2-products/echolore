@@ -2,8 +2,9 @@ import { zValidator } from "@hono/zod-validator";
 import { UserRole } from "@corp-internal/shared/contracts";
 import { Hono } from "hono";
 import { z } from "zod";
-import { jsonError } from "../lib/api-error.js";
+import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
+import { parsePaginationParams } from "../lib/pagination.js";
 import {
   listAuthSessionsForUser,
   revokeAuthSessionById,
@@ -44,102 +45,78 @@ usersRoutes.get("/", async (c) => {
     return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
-  try {
-    const limit = Math.min(Number(c.req.query("limit")) || 100, 500);
-    const offset = Math.max(Number(c.req.query("offset")) || 0, 0);
+  return withErrorHandler(async (c) => {
+    const { limit, offset } = parsePaginationParams(c);
     const allUsers = await listUsers();
     return c.json({ users: allUsers.slice(offset, offset + limit), total: allUsers.length });
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    return jsonError(c, 500, "USERS_LIST_FAILED", "Failed to fetch users");
-  }
+  }, "USERS_LIST_FAILED", "Failed to fetch users")(c);
 });
 
 // GET /api/users/me - Get current session user profile
-usersRoutes.get("/me", async (c) => {
+usersRoutes.get("/me", withErrorHandler(async (c) => {
   const sessionUser = c.get("user");
 
-  try {
-    const user = await getUserById(sessionUser.id);
+  const user = await getUserById(sessionUser.id);
 
-    if (!user) {
-      return jsonError(c, 404, "USER_NOT_FOUND", "User not found");
-    }
-
-    return c.json({ user });
-  } catch (error) {
-    console.error("Error fetching current user:", error);
-    return jsonError(c, 500, "CURRENT_USER_FETCH_FAILED", "Failed to fetch current user");
+  if (!user) {
+    return jsonError(c, 404, "USER_NOT_FOUND", "User not found");
   }
-});
+
+  return c.json({ user });
+}, "CURRENT_USER_FETCH_FAILED", "Failed to fetch current user"));
 
 // PUT /api/users/me - Update current session user profile
-usersRoutes.put("/me", zValidator("json", updateUserSchema), async (c) => {
+usersRoutes.put("/me", zValidator("json", updateUserSchema), withErrorHandler(async (c) => {
   const sessionUser = c.get("user");
   const data = c.req.valid("json");
 
-  try {
-    const updatedUser = await updateUser(sessionUser.id, {
-      ...data,
-      updatedAt: new Date(),
-    });
+  const updatedUser = await updateUser(sessionUser.id, {
+    ...data,
+    updatedAt: new Date(),
+  });
 
-    if (!updatedUser) {
-      return jsonError(c, 404, "USER_NOT_FOUND", "User not found");
-    }
-
-    return c.json({ user: updatedUser });
-  } catch (error) {
-    console.error("Error updating current user:", error);
-    return jsonError(c, 500, "CURRENT_USER_UPDATE_FAILED", "Failed to update current user");
+  if (!updatedUser) {
+    return jsonError(c, 404, "USER_NOT_FOUND", "User not found");
   }
-});
 
-usersRoutes.get("/me/sessions", async (c) => {
+  return c.json({ user: updatedUser });
+}, "CURRENT_USER_UPDATE_FAILED", "Failed to update current user"));
+
+usersRoutes.get("/me/sessions", withErrorHandler(async (c) => {
   const sessionUser = c.get("user");
 
-  try {
-    const sessions = await listAuthSessionsForUser({
-      userId: sessionUser.id,
-    });
-    return c.json({
-      sessions: sessions.map((session) => ({
-        id: session.id,
-        clientType: session.clientType,
-        authMode: session.authMode,
-        deviceName: session.deviceName,
-        createdAt: session.createdAt.toISOString(),
-        lastSeenAt: session.lastSeenAt?.toISOString() ?? null,
-        expiresAt: session.expiresAt.toISOString(),
-        current: session.current,
-      })),
-    });
-  } catch (error) {
-    console.error("Error fetching auth sessions:", error);
-    return jsonError(c, 500, "AUTH_SESSIONS_FETCH_FAILED", "Failed to fetch auth sessions");
-  }
-});
+  const sessions = await listAuthSessionsForUser({
+    userId: sessionUser.id,
+  });
+  return c.json({
+    sessions: sessions.map((session) => ({
+      id: session.id,
+      clientType: session.clientType,
+      authMode: session.authMode,
+      deviceName: session.deviceName,
+      createdAt: session.createdAt.toISOString(),
+      lastSeenAt: session.lastSeenAt?.toISOString() ?? null,
+      expiresAt: session.expiresAt.toISOString(),
+      current: session.current,
+    })),
+  });
+}, "AUTH_SESSIONS_FETCH_FAILED", "Failed to fetch auth sessions"));
 
-usersRoutes.delete("/me/sessions/:id", zValidator("param", revokeSessionSchema), async (c) => {
+usersRoutes.delete("/me/sessions/:id", zValidator("param", revokeSessionSchema), withErrorHandler(async (c) => {
   const sessionUser = c.get("user");
   const { id } = c.req.valid("param");
 
-  try {
-    const revoked = await revokeAuthSessionById({
-      userId: sessionUser.id,
-      sessionId: id,
-    });
+  const revoked = await revokeAuthSessionById({
+    userId: sessionUser.id,
+    sessionId: id,
+  });
 
-    if (!revoked) {
-      return jsonError(c, 404, "AUTH_SESSION_NOT_FOUND", "Session not found");
-    }
-
-    return c.json({ success: true });
-  } catch (error) {
-    console.error("Error revoking auth session:", error);
-    return jsonError(c, 500, "AUTH_SESSION_REVOKE_FAILED", "Failed to revoke auth session");
+  if (!revoked) {
+    return jsonError(c, 404, "AUTH_SESSION_NOT_FOUND", "Session not found");
   }
-});
+
+  return c.json({ success: true });
+}, "AUTH_SESSION_REVOKE_FAILED", "Failed to revoke auth session"));
 
 // GET /api/users/:id - Get user by ID
 usersRoutes.get("/:id", async (c) => {
@@ -149,7 +126,8 @@ usersRoutes.get("/:id", async (c) => {
     return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
-  try {
+  return withErrorHandler(async (c) => {
+    const { id } = c.req.param();
     const user = await getUserById(id);
 
     if (!user) {
@@ -157,10 +135,7 @@ usersRoutes.get("/:id", async (c) => {
     }
 
     return c.json({ user });
-  } catch (error) {
-    console.error("Error fetching user:", error);
-    return jsonError(c, 500, "USER_FETCH_FAILED", "Failed to fetch user");
-  }
+  }, "USER_FETCH_FAILED", "Failed to fetch user")(c);
 });
 
 // GET /api/users/email/:email - Get user by email
@@ -177,7 +152,9 @@ usersRoutes.get("/email/:email", async (c) => {
     return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
-  try {
+  return withErrorHandler(async (c) => {
+    const { email } = c.req.param();
+    const normalizedEmail = decodeURIComponent(email).toLowerCase();
     const user = await getUserByEmail(normalizedEmail);
 
     if (!user) {
@@ -185,21 +162,18 @@ usersRoutes.get("/email/:email", async (c) => {
     }
 
     return c.json({ user });
-  } catch (error) {
-    console.error("Error fetching user:", error);
-    return jsonError(c, 500, "USER_FETCH_FAILED", "Failed to fetch user");
-  }
+  }, "USER_FETCH_FAILED", "Failed to fetch user")(c);
 });
 
 // POST /api/users - Create user
 usersRoutes.post("/", zValidator("json", createUserSchema), async (c) => {
-  const data = c.req.valid("json");
   const authz = await authorizeAdminResource(c, "/users", "write");
   if (!authz.allowed) {
     return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
-  try {
+  return withErrorHandler(async (c) => {
+    const data = c.req.valid("json");
     const now = new Date();
 
     const newUser = await createUser({
@@ -213,22 +187,20 @@ usersRoutes.post("/", zValidator("json", createUserSchema), async (c) => {
     });
 
     return c.json({ user: newUser }, 201);
-  } catch (error) {
-    console.error("Error creating user:", error);
-    return jsonError(c, 500, "USER_CREATE_FAILED", "Failed to create user");
-  }
+  }, "USER_CREATE_FAILED", "Failed to create user")(c);
 });
 
 // PUT /api/users/:id - Update user
 usersRoutes.put("/:id", zValidator("json", updateUserSchema), async (c) => {
   const { id } = c.req.param();
-  const data = c.req.valid("json");
   const authz = await authorizeUserResource(c, id, "write");
   if (!authz.allowed) {
     return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
-  try {
+  return withErrorHandler(async (c) => {
+    const { id } = c.req.param();
+    const data = c.req.valid("json");
     const updatedUser = await updateUser(id, {
       ...data,
       updatedAt: new Date(),
@@ -239,10 +211,7 @@ usersRoutes.put("/:id", zValidator("json", updateUserSchema), async (c) => {
     }
 
     return c.json({ user: updatedUser });
-  } catch (error) {
-    console.error("Error updating user:", error);
-    return jsonError(c, 500, "USER_UPDATE_FAILED", "Failed to update user");
-  }
+  }, "USER_UPDATE_FAILED", "Failed to update user")(c);
 });
 
 // DELETE /api/users/:id - Delete user
@@ -253,7 +222,8 @@ usersRoutes.delete("/:id", async (c) => {
     return jsonError(c, 403, "FORBIDDEN", "Forbidden");
   }
 
-  try {
+  return withErrorHandler(async (c) => {
+    const { id } = c.req.param();
     const deletedUser = await deleteUser(id);
 
     if (!deletedUser) {
@@ -261,8 +231,5 @@ usersRoutes.delete("/:id", async (c) => {
     }
 
     return c.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting user:", error);
-    return jsonError(c, 500, "USER_DELETE_FAILED", "Failed to delete user");
-  }
+  }, "USER_DELETE_FAILED", "Failed to delete user")(c);
 });

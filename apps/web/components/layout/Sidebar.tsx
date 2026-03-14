@@ -17,12 +17,12 @@ export function Sidebar({ children, user }: SidebarProps) {
   const visibleNavItems = getVisibleNavigationItems(user);
 
   return (
-    <aside className="hidden w-16 flex-col border-r border-gray-200 bg-white md:flex">
+    <aside className="relative z-30 hidden w-16 flex-col border-r border-gray-200 bg-white md:flex">
       <nav className="flex flex-1 flex-col items-center gap-1 py-4">
         {visibleNavItems.map((item) => {
           const isActive =
             pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-          const label = t(`common.nav.${item.label.toLowerCase()}`);
+          const label = t(`common.nav.${item.label}`);
 
           return (
             <Link
@@ -37,7 +37,7 @@ export function Sidebar({ children, user }: SidebarProps) {
             >
               {item.icon}
               {/* Tooltip */}
-              <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+              <span className="pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                 {label}
               </span>
             </Link>

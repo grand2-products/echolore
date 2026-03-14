@@ -135,6 +135,7 @@ Set-DefaultEnv -Name "LIVEKIT_RTC_PORT_RANGE" -Value "17730-17930"
 Set-DefaultEnv -Name "AUTH_SECRET" -Value "local-dev-auth-secret"
 Set-DefaultEnv -Name "GOOGLE_CLIENT_ID" -Value "local-dev-client-id"
 Set-DefaultEnv -Name "GOOGLE_CLIENT_SECRET" -Value "local-dev-client-secret"
+Set-DefaultEnv -Name "FILE_STORAGE_PATH" -Value "$repoRoot/data/files"
 
 # ---------------------------------------------------------------------------
 # Port conflict check
@@ -208,7 +209,7 @@ function Invoke-InstallDependencies {
   Write-Step "Installing workspace dependencies"
   Push-Location $repoRoot
   try {
-    pnpm install --frozen-lockfile
+    pnpm install
     if ($LASTEXITCODE -ne 0) {
       throw "Failed to install dependencies."
     }
@@ -222,10 +223,10 @@ function Invoke-EnsureDocker {
     throw "Docker daemon is not available. Start Docker Desktop first."
   }
 
-  Write-Step "Starting middleware containers (db, valkey, livekit)"
+  Write-Step "Starting middleware containers (db, valkey, livekit, livekit-egress)"
   Push-Location $repoRoot
   try {
-    docker compose up -d --remove-orphans db valkey livekit
+    docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --remove-orphans db valkey livekit livekit-egress
     if ($LASTEXITCODE -ne 0) {
       throw "Failed to start middleware containers. If a previous Redis container is still present, run 'docker compose down --remove-orphans' once and try again."
     }
@@ -298,13 +299,13 @@ function Invoke-Start {
     Write-Host ("LiveKit: http://localhost:" + [Environment]::GetEnvironmentVariable("LIVEKIT_PORT", "Process"))
     Write-Host ("PostgreSQL: localhost:" + [Environment]::GetEnvironmentVariable("DB_PORT", "Process"))
     Write-Host ""
-    Write-Host "Stop middleware with: docker compose stop db valkey livekit"
+    Write-Host "Stop middleware with: docker compose stop db valkey livekit livekit-egress"
     return
   }
 
   Write-Host ""
   Write-Host "Middleware ready. Starting app dev processes with Turborepo..." -ForegroundColor Green
-  Write-Host "Stop middleware later with: docker compose stop db valkey livekit"
+  Write-Host "Stop middleware later with: docker compose stop db valkey livekit livekit-egress"
   Write-Host ("Web: http://localhost:" + [Environment]::GetEnvironmentVariable("WEB_PORT", "Process"))
   Write-Host ("API: http://localhost:" + [Environment]::GetEnvironmentVariable("API_PORT", "Process"))
   Write-Host ""

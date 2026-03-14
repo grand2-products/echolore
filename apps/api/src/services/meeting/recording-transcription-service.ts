@@ -41,6 +41,7 @@ export async function transcribeRecording(
     vertexModel: dbSettings.vertexModel,
     zhipuApiKey: dbSettings.zhipuApiKey,
     zhipuTextModel: dbSettings.zhipuTextModel,
+    zhipuUseCodingPlan: dbSettings.zhipuUseCodingPlan,
   };
   const provider = resolveTextProvider(dbSettings.provider);
 

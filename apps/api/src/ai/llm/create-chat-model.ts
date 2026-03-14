@@ -13,6 +13,7 @@ export interface LlmOverrides {
   vertexModel?: string | null;
   zhipuApiKey?: string | null;
   zhipuTextModel?: string | null;
+  zhipuUseCodingPlan?: boolean;
 }
 
 export function resolveTextProvider(provider?: string): TextProvider {
@@ -74,16 +75,21 @@ export function createChatModel(opts?: {
           projectId: overrides?.vertexProject || process.env.VERTEX_PROJECT || undefined,
         },
       });
-    case "zhipu":
+    case "zhipu": {
+      const useCodingPlan = overrides?.zhipuUseCodingPlan ?? process.env.ZHIPU_USE_CODING_PLAN === "true";
+      const zhipuBaseURL = useCodingPlan
+        ? "https://api.z.ai/api/coding/paas/v4/"
+        : "https://api.z.ai/api/paas/v4/";
       return new ChatOpenAI({
         apiKey: overrides?.zhipuApiKey || process.env.ZHIPU_API_KEY,
         model: overrides?.zhipuTextModel || process.env.ZHIPU_TEXT_MODEL || "glm-5",
         temperature,
         ...(maxTokens != null ? { maxTokens } : {}),
         configuration: {
-          baseURL: "https://api.z.ai/api/paas/v4/",
+          baseURL: zhipuBaseURL,
         },
       });
+    }
     default:
       throw new Error(`Unsupported text provider: ${provider}`);
   }

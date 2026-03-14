@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useLocale } from "./translate";
 import { translate, type TranslationValues } from "./translate";
 import type { SupportedLocale } from "./messages";
@@ -110,17 +111,20 @@ export function formatMeetingAgentEventType(value: string, locale: SupportedLoca
 export function useFormatters() {
   const locale = useLocale();
 
-  return {
-    locale,
-    date: (value: string | number | Date) => formatDate(value, locale),
-    dateTime: (value: string | number | Date) => formatDateTime(value, locale),
-    time: (value: string | number | Date) => formatTime(value, locale),
-    number: (value: number) => formatNumber(value, locale),
-    role: (value: string) => formatUserRole(value, locale),
-    clientType: (value: string) => formatSessionClientType(value, locale),
-    authMode: (value: string | null) => formatAuthMode(value, locale),
-    provider: (value: string) => formatAgentProvider(value, locale),
-    interventionStyle: (value: string) => formatInterventionStyle(value, locale),
-    eventType: (value: string) => formatMeetingAgentEventType(value, locale),
-  };
+  return useMemo(
+    () => ({
+      locale,
+      date: (value: string | number | Date) => formatDate(value, locale),
+      dateTime: (value: string | number | Date) => formatDateTime(value, locale),
+      time: (value: string | number | Date) => formatTime(value, locale),
+      number: (value: number) => formatNumber(value, locale),
+      role: (value: string) => formatUserRole(value, locale),
+      clientType: (value: string) => formatSessionClientType(value, locale),
+      authMode: (value: string | null) => formatAuthMode(value, locale),
+      provider: (value: string) => formatAgentProvider(value, locale),
+      interventionStyle: (value: string) => formatInterventionStyle(value, locale),
+      eventType: (value: string) => formatMeetingAgentEventType(value, locale),
+    }),
+    [locale],
+  );
 }

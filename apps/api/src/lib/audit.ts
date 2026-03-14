@@ -1,5 +1,27 @@
+import type { Context } from "hono";
 import { db } from "../db/index.js";
 import { auditLogs } from "../db/schema.js";
+import type { AppEnv } from "./auth.js";
+
+export function extractRequestMeta(c: Context<AppEnv>) {
+  return {
+    ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? null,
+    userAgent: c.req.header("user-agent") ?? null,
+  };
+}
+
+export function auditAction(c: Context<AppEnv>, action: string, resourceType: string, resourceId: string, metadata?: Record<string, unknown>) {
+  const user = c.get("user");
+  return writeAuditLog({
+    actorUserId: user?.id ?? null,
+    actorEmail: user?.email ?? null,
+    action,
+    resourceType,
+    resourceId,
+    metadata: metadata ?? {},
+    ...extractRequestMeta(c),
+  });
+}
 
 export interface AuditLogInput {
   actorUserId?: string | null;

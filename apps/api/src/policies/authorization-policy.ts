@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Context } from "hono";
 import { UserRole } from "@corp-internal/shared/contracts";
 import { db } from "../db/index.js";
-import { pageInheritance, pagePermissions, pages, userGroupMemberships } from "../db/schema.js";
-import { writeAuditLog } from "../lib/audit.js";
+import { pageInheritance, pagePermissions, pages, spacePermissions, userGroupMemberships } from "../db/schema.js";
+import { extractRequestMeta, writeAuditLog } from "../lib/audit.js";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
 
 export type AuthorizationAction = "read" | "write" | "delete";
@@ -13,9 +13,6 @@ export type AuthorizationResult = {
   allowed: boolean;
   reason: string;
 };
-
-const getClientIp = (c: Context<AppEnv>) =>
-  c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? null;
 
 async function logAuthorizationDecision(
   c: Context<AppEnv>,
@@ -35,8 +32,7 @@ async function logAuthorizationDecision(
       requiredAction: action,
       reason: result.reason,
     },
-    ipAddress: getClientIp(c),
-    userAgent: c.req.header("user-agent") ?? null,
+    ...extractRequestMeta(c),
   });
 }
 
@@ -83,6 +79,19 @@ async function getEffectivePagePermissions(pageId: string, visited = new Set<str
   return db.select().from(pagePermissions).where(eq(pagePermissions.pageId, pageId));
 }
 
+async function getSpacePermissionsForGroups(spaceId: string, groupIds: string[]) {
+  if (groupIds.length === 0) return [];
+  return db
+    .select()
+    .from(spacePermissions)
+    .where(
+      and(
+        eq(spacePermissions.spaceId, spaceId),
+        inArray(spacePermissions.groupId, groupIds),
+      )
+    );
+}
+
 async function evaluatePageAccess(
   user: SessionUser,
   pageId: string,
@@ -94,17 +103,21 @@ async function evaluatePageAccess(
     return ownerResult;
   }
 
-  const [memberships, permissions] = await Promise.all([
+  const [memberships, permissions, [page]] = await Promise.all([
     db
       .select({ groupId: userGroupMemberships.groupId })
       .from(userGroupMemberships)
       .where(eq(userGroupMemberships.userId, user.id)),
     getEffectivePagePermissions(pageId),
+    db.select({ spaceId: pages.spaceId }).from(pages).where(eq(pages.id, pageId)),
   ]);
 
-  const groupIds = new Set(memberships.map((membership) => membership.groupId));
+  const groupIds = memberships.map((membership) => membership.groupId);
+  const groupIdSet = new Set(groupIds);
+
+  // Layer 2: Check page permissions
   const matchedPermission = permissions.find((permission) => {
-    if (!permission.groupId || !groupIds.has(permission.groupId)) return false;
+    if (!permission.groupId || !groupIdSet.has(permission.groupId)) return false;
 
     if (action === "read") return permission.canRead;
     if (action === "write") return permission.canWrite;
@@ -115,7 +128,30 @@ async function evaluatePageAccess(
     return { allowed: true, reason: `group:${matchedPermission.groupId}` };
   }
 
-  return { allowed: false, reason: "missing-page-permission" };
+  // If there are explicit page permissions for any of the user's groups, deny
+  // (page permissions were set but didn't grant the requested action)
+  const hasExplicitPagePermissions = permissions.some(
+    (permission) => permission.groupId && groupIdSet.has(permission.groupId)
+  );
+  if (hasExplicitPagePermissions) {
+    return { allowed: false, reason: "page-permission-denied" };
+  }
+
+  // Layer 3: Fallback to space permissions
+  if (page?.spaceId) {
+    const spacePerms = await getSpacePermissionsForGroups(page.spaceId, groupIds);
+    const matchedSpacePerm = spacePerms.find((sp) => {
+      if (action === "read") return sp.canRead;
+      if (action === "write") return sp.canWrite;
+      return sp.canDelete;
+    });
+
+    if (matchedSpacePerm) {
+      return { allowed: true, reason: `space-group:${matchedSpacePerm.groupId}` };
+    }
+  }
+
+  return { allowed: false, reason: "missing-permission" };
 }
 
 export async function authorizeOwnerResource(
@@ -150,6 +186,14 @@ export async function canReadPage(
 ): Promise<boolean> {
   const result = await evaluatePageAccess(user, pageId, ownerUserId, "read");
   return result.allowed;
+}
+
+export async function evaluatePageWriteAccess(
+  user: SessionUser,
+  pageId: string,
+  ownerUserId: string,
+): Promise<AuthorizationResult> {
+  return evaluatePageAccess(user, pageId, ownerUserId, "write");
 }
 
 export async function authorizeUserResource(

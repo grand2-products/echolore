@@ -48,11 +48,14 @@ export default function BackgroundEffectButton({ variant = "light" }: Background
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  const localParticipantRef = useRef(localParticipant);
+  localParticipantRef.current = localParticipant;
+
   const getVideoTrack = useCallback((): LocalVideoTrack | null => {
-    const pub = localParticipant.getTrackPublication(Track.Source.Camera);
+    const pub = localParticipantRef.current.getTrackPublication(Track.Source.Camera);
     if (!pub?.track || pub.track.kind !== Track.Kind.Video) return null;
     return pub.track as LocalVideoTrack;
-  }, [localParticipant]);
+  }, []);
 
   const appliedRef = useRef(false);
   useEffect(() => {

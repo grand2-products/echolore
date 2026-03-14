@@ -64,8 +64,21 @@ export interface PageDto {
   spaceId: string;
   parentId: string | null;
   authorId: string;
+  deletedAt: ISODateString | null;
   createdAt: ISODateString;
   updatedAt: ISODateString;
+  authorName?: string;
+  spaceName?: string;
+}
+
+export interface PageRevisionDto {
+  id: string;
+  pageId: string;
+  revisionNumber: number;
+  title: string;
+  blocks: Array<{ type: string; content: string | null; properties: Record<string, unknown> | null; sortOrder: number }>;
+  authorId: string;
+  createdAt: ISODateString;
 }
 
 export interface BlockDto {
@@ -409,6 +422,16 @@ export interface UpdateWikiChatConversationRequest {
 
 export interface SendWikiChatMessageRequest {
   content: string;
+}
+
+export interface SpacePermissionDto {
+  id: string;
+  spaceId: string;
+  groupId: string;
+  groupName?: string;
+  canRead: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
 }
 
 export interface LivekitTokenRequest {

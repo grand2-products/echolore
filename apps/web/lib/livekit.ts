@@ -1,6 +1,8 @@
 import { apiFetch } from "./api";
 import type { LivekitTokenResponse } from "@contracts/index";
 
+export const COWORKING_ROOM_NAME = "everybody-coworking";
+
 export function getLiveKitUrl(): string {
   return process.env.NEXT_PUBLIC_LIVEKIT_URL ?? "ws://localhost:7880";
 }

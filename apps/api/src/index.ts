@@ -5,26 +5,31 @@ import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import { authHandler, initAuthConfig } from "@hono/auth-js";
 import { UserRole } from "@corp-internal/shared/contracts";
-import { writeAuditLog } from "./lib/audit.js";
+import { auditAction } from "./lib/audit.js";
 import { jsonError } from "./lib/api-error.js";
-import { createStorageProvider, loadFile, setStorageProvider } from "./lib/file-storage.js";
+import { createStorageProvider, setStorageProvider } from "./lib/file-storage.js";
 import { type AppEnv, authGuard, requireRole } from "./lib/auth.js";
+import { securityHeaders, csrfProtection } from "./lib/security-middleware.js";
 import { getAuthConfig } from "./lib/authjs-config.js";
-import { getSiteSetting } from "./repositories/admin/admin-repository.js";
-import { adminRoutes } from "./routes/admin.js";
-import { getSiteSettings, getStorageSettings } from "./services/admin/admin-service.js";
+import { adminRoutes } from "./routes/admin/index.js";
+import { getStorageSettings } from "./services/admin/admin-service.js";
+import { siteRoutes } from "./routes/site.js";
 import { authRoutes } from "./routes/auth.js";
 import { filesRoutes } from "./routes/files.js";
 import { internalRoomAiRoutes } from "./routes/internal-room-ai.js";
 import { livekitRoutes } from "./routes/livekit.js";
 import { livekitWebhookRoutes } from "./routes/livekit-webhook.js";
-import { meetingsRoutes } from "./routes/meetings.js";
+import { meetingsRoutes } from "./routes/meetings/index.js";
 import { metricsRoutes } from "./routes/metrics.js";
 import { usersRoutes } from "./routes/users.js";
 import { startAutonomousAgentLoop } from "./services/meeting/autonomous-agent-service.js";
-import { wikiRoutes } from "./routes/wiki.js";
+import { wikiRoutes } from "./routes/wiki/index.js";
 import { wikiChatRoutes } from "./routes/wiki-chat.js";
 import { calendarRoutes } from "./routes/calendar.js";
+import { coworkingHlsRoutes } from "./routes/coworking-hls.js";
+import { egressLayoutRoutes } from "./routes/egress-layout.js";
+import { createWikiCollabRoutes } from "./routes/wiki-collab.js";
+import { createNodeWebSocket } from "@hono/node-ws";
 
 // ---------------------------------------------------------------------------
 // Required environment variable validation (fail-fast on startup)
@@ -48,79 +53,21 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 const app = new Hono<AppEnv>();
+const apiPort = Number(process.env.PORT) || 3001;
+const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({
+  app,
+  baseUrl: `http://localhost:${apiPort}`,
+});
 const appTitle = process.env.APP_TITLE || "corp-internal";
 
 app.use("*", logger());
 app.use("*", prettyJSON());
 
 // Security headers middleware
-app.use("*", async (c, next) => {
-  await next();
-  c.res.headers.set("X-Frame-Options", "DENY");
-  c.res.headers.set("X-Content-Type-Options", "nosniff");
-  c.res.headers.set("X-XSS-Protection", "1; mode=block");
-  c.res.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  c.res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  c.res.headers.set("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()");
-});
+app.use("*", securityHeaders);
 
 // CSRF protection via Origin header check
-const CSRF_METHODS = new Set(["POST", "PUT", "DELETE", "PATCH"]);
-app.use("*", async (c, next) => {
-  if (!CSRF_METHODS.has(c.req.method.toUpperCase())) {
-    return next();
-  }
-
-  const path = c.req.path;
-
-  // Skip CSRF check for Auth.js routes (they have their own CSRF)
-  if (path.startsWith("/api/auth/")) {
-    return next();
-  }
-
-  // Skip CSRF check for LiveKit webhook routes (use HMAC auth)
-  if (path.startsWith("/api/livekit/webhook")) {
-    return next();
-  }
-
-  // Skip CSRF check for internal routes (use X-Room-AI-Worker-Secret)
-  if (path.startsWith("/api/internal/") || path.startsWith("/internal/")) {
-    return next();
-  }
-
-  // Skip CSRF check for requests with Bearer token (API/mobile clients)
-  const authHeader = c.req.header("Authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    return next();
-  }
-
-  // Check Origin or Referer against allowed CORS origin
-  const allowedOrigin = process.env.CORS_ORIGIN ?? (process.env.NODE_ENV === "production" ? "https://app.example.com" : "http://localhost:3000");
-  const origin = c.req.header("Origin");
-  const referer = c.req.header("Referer");
-
-  if (origin) {
-    if (origin !== allowedOrigin) {
-      return jsonError(c, 403, "CSRF_REJECTED", "Cross-origin request rejected");
-    }
-    return next();
-  }
-
-  if (referer) {
-    try {
-      const refererOrigin = new URL(referer).origin;
-      if (refererOrigin !== allowedOrigin) {
-        return jsonError(c, 403, "CSRF_REJECTED", "Cross-origin request rejected");
-      }
-      return next();
-    } catch {
-      return jsonError(c, 403, "CSRF_REJECTED", "Cross-origin request rejected");
-    }
-  }
-
-  // No Origin or Referer header on a state-changing request
-  return jsonError(c, 403, "CSRF_REJECTED", "Missing Origin header");
-});
+app.use("*", csrfProtection);
 
 app.use(
   "*",
@@ -148,80 +95,24 @@ app.use("/api/auth/*", async (c, next) => {
 
 app.get("/", (c) => c.json({ message: `${appTitle} API`, version: "0.0.1" }));
 app.get("/health", (c) => c.json({ status: "ok", timestamp: new Date().toISOString() }));
+app.route("/ws", createWikiCollabRoutes(upgradeWebSocket)); // WebSocket routes before authGuard
 app.route("/internal/room-ai", internalRoomAiRoutes);
 app.route("/api/livekit/webhook", livekitWebhookRoutes);
 app.route("/api/auth", authRoutes);
 
-app.get("/api/site-settings", async (c) => {
-  try {
-    const settings = await getSiteSettings();
-    return c.json({
-      siteTitle: settings.siteTitle ?? appTitle,
-      siteTagline: settings.siteTagline ?? "Internal collaboration platform",
-      livekitMeetingSimulcast: settings.livekitMeetingSimulcast,
-      livekitMeetingDynacast: settings.livekitMeetingDynacast,
-      livekitMeetingAdaptiveStream: settings.livekitMeetingAdaptiveStream,
-      livekitCoworkingSimulcast: settings.livekitCoworkingSimulcast,
-      livekitCoworkingDynacast: settings.livekitCoworkingDynacast,
-      livekitCoworkingAdaptiveStream: settings.livekitCoworkingAdaptiveStream,
-      hasSiteIcon: settings.hasSiteIcon,
-    });
-  } catch {
-    return c.json({
-      siteTitle: appTitle,
-      siteTagline: "Internal collaboration platform",
-      livekitMeetingSimulcast: true,
-      livekitMeetingDynacast: true,
-      livekitMeetingAdaptiveStream: true,
-      livekitCoworkingSimulcast: true,
-      livekitCoworkingDynacast: true,
-      livekitCoworkingAdaptiveStream: true,
-      hasSiteIcon: false,
-    });
-  }
-});
+app.route("/api", siteRoutes);
 
-app.get("/api/site-icon", async (c) => {
-  try {
-    const [pathRow, typeRow] = await Promise.all([
-      getSiteSetting("siteIconStoragePath"),
-      getSiteSetting("siteIconContentType"),
-    ]);
-
-    if (!pathRow?.value || !typeRow?.value) {
-      return jsonError(c, 404, "SITE_ICON_NOT_FOUND", "Site icon not configured");
-    }
-
-    const buffer = await loadFile(pathRow.value);
-
-    return new Response(new Uint8Array(buffer), {
-      headers: {
-        "Content-Type": typeRow.value,
-        "Cache-Control": "public, max-age=86400, stale-while-revalidate=3600",
-      },
-    });
-  } catch (error) {
-    console.error("Error serving site icon:", error);
-    return jsonError(c, 404, "SITE_ICON_NOT_FOUND", "Site icon not available");
-  }
-});
+// HLS segments served without auth — accessed by hls.js which cannot attach auth headers
+app.route("/api/coworking-hls", coworkingHlsRoutes);
+// Egress layout page — loaded by LiveKit Egress headless Chromium (no auth)
+app.route("/api/egress-layout", egressLayoutRoutes);
 
 app.use("/api/*", authGuard);
 app.use("/api/admin/*", requireRole(UserRole.Admin));
 app.use("/api/admin/*", async (c, next) => {
   const method = c.req.method.toUpperCase();
   if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-    const actor = c.get("user");
-    await writeAuditLog({
-      actorUserId: actor?.id ?? null,
-      actorEmail: actor?.email ?? null,
-      action: `admin.${method.toLowerCase()}`,
-      resourceType: "admin-api",
-      resourceId: c.req.path,
-      metadata: { method, path: c.req.path },
-      ipAddress: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? null,
-      userAgent: c.req.header("user-agent") ?? null,
-    });
+    await auditAction(c, `admin.${method.toLowerCase()}`, "admin-api", c.req.path, { method, path: c.req.path });
   }
   await next();
 });
@@ -270,9 +161,9 @@ app.onError((err, c) =>
   }
 })();
 
-const port = Number(process.env.PORT) || 3001;
-console.log(`Server is running on http://localhost:${port}`);
-serve({ fetch: app.fetch, port });
+console.log(`Server is running on http://localhost:${apiPort}`);
+const server = serve({ fetch: app.fetch, port: apiPort });
+injectWebSocket(server);
 
 // Start autonomous agent evaluation loop
 startAutonomousAgentLoop();

@@ -211,10 +211,6 @@ let currentProvider: StorageProvider = new LocalStorageProvider(
   process.env.FILE_STORAGE_PATH || "/data/files",
 );
 
-export function getStorageProvider(): StorageProvider {
-  return currentProvider;
-}
-
 export function setStorageProvider(provider: StorageProvider): void {
   currentProvider = provider;
 }

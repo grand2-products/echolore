@@ -51,6 +51,7 @@ async function generateAgentTextResponse(input: {
     vertexModel: dbSettings.vertexModel,
     zhipuApiKey: dbSettings.zhipuApiKey,
     zhipuTextModel: dbSettings.zhipuTextModel,
+    zhipuUseCodingPlan: dbSettings.zhipuUseCodingPlan,
   };
   const provider = resolveTextProvider(input.defaultProvider ?? dbSettings.provider);
   if (!isTextGenerationEnabled(provider, overrides)) {

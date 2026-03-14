@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useT } from "@/lib/i18n";
 import { PageTree, type PageNode } from "./PageTree";
 import { SpacePickerModal } from "./SpacePickerModal";
@@ -13,13 +14,9 @@ interface WikiSidebarProps {
   pages?: PageNode[];
   activeId?: string;
   onReparent?: (pageId: string, parentId: string | null) => Promise<void> | void;
-}
-
-function spaceIcon(type: string): string {
-  if (type === "general") return "[G]";
-  if (type === "team") return "[T]";
-  if (type === "personal") return "[P]";
-  return "[?]";
+  onAddSubPage?: (parentId: string, spaceId?: string) => void;
+  onRenamePage?: (pageId: string, newTitle: string) => Promise<void> | void;
+  onDeletePage?: (pageId: string) => Promise<void> | void;
 }
 
 function spaceLabel(type: string, name: string, t: (key: string) => string): string {
@@ -33,12 +30,18 @@ function SpaceSection({
   pages,
   activeId,
   onReparent,
+  onAddSubPage,
+  onRenamePage,
+  onDeletePage,
   t,
 }: {
   space: Space;
   pages: PageNode[];
   activeId?: string;
   onReparent?: WikiSidebarProps["onReparent"];
+  onAddSubPage?: WikiSidebarProps["onAddSubPage"];
+  onRenamePage?: WikiSidebarProps["onRenamePage"];
+  onDeletePage?: WikiSidebarProps["onDeletePage"];
   t: (key: string) => string;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -49,14 +52,14 @@ function SpaceSection({
     if (creatingRef.current) return;
     creatingRef.current = true;
     wikiApi
-      .createPage({ title: "", spaceId: space.id })
+      .createPage({ title: t("wiki.newPage.defaultTitle"), spaceId: space.id })
       .then((res) => {
         router.push(`/wiki/${res.page.id}`);
       })
       .catch(() => {
         creatingRef.current = false;
       });
-  }, [router, space.id]);
+  }, [router, space.id, t]);
 
   return (
     <div className="mb-3">
@@ -66,8 +69,6 @@ function SpaceSection({
           onClick={() => setCollapsed((c) => !c)}
           className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-700"
         >
-          <span className="inline-block w-4 text-center text-[10px]">{collapsed ? ">" : "v"}</span>
-          <span className="text-[10px] text-gray-400">{spaceIcon(space.type)}</span>
           <span>{spaceLabel(space.type, space.name, t)}</span>
         </button>
         <button
@@ -81,7 +82,14 @@ function SpaceSection({
       {!collapsed && (
         <div className="mt-1 ml-2">
           {pages.length > 0 ? (
-            <PageTree pages={pages} activeId={activeId} onReparent={onReparent} />
+            <PageTree
+              pages={pages}
+              activeId={activeId}
+              onReparent={onReparent}
+              onAddSubPage={onAddSubPage}
+              onRenamePage={onRenamePage}
+              onDeletePage={onDeletePage}
+            />
           ) : (
             <p className="text-xs text-gray-400 py-1">{t("wiki.spaces.noPages")}</p>
           )}
@@ -91,7 +99,7 @@ function SpaceSection({
   );
 }
 
-export function WikiSidebar({ spaces, pagesBySpace, pages, activeId, onReparent }: WikiSidebarProps) {
+export function WikiSidebar({ spaces, pagesBySpace, pages, activeId, onReparent, onAddSubPage, onRenamePage, onDeletePage }: WikiSidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showSpacePicker, setShowSpacePicker] = useState(false);
   const t = useT();
@@ -108,6 +116,9 @@ export function WikiSidebar({ spaces, pagesBySpace, pages, activeId, onReparent 
           pages={pagesBySpace[space.id] ?? []}
           activeId={activeId}
           onReparent={onReparent}
+          onAddSubPage={onAddSubPage}
+          onRenamePage={onRenamePage}
+          onDeletePage={onDeletePage}
           t={t}
         />
       ))}
@@ -125,7 +136,14 @@ export function WikiSidebar({ spaces, pagesBySpace, pages, activeId, onReparent 
         </button>
       </div>
       <SpacePickerModal open={showSpacePicker} onClose={() => setShowSpacePicker(false)} />
-      <PageTree pages={pages ?? []} activeId={activeId} onReparent={onReparent} />
+      <PageTree
+        pages={pages ?? []}
+        activeId={activeId}
+        onReparent={onReparent}
+        onAddSubPage={onAddSubPage}
+        onRenamePage={onRenamePage}
+        onDeletePage={onDeletePage}
+      />
     </div>
   );
 
@@ -140,14 +158,24 @@ export function WikiSidebar({ spaces, pagesBySpace, pages, activeId, onReparent 
           {isMobileOpen ? t("wiki.sidebar.hideTree") : t("wiki.sidebar.showTree")}
         </button>
         {isMobileOpen ? (
-          <div className="mt-4 rounded-lg border border-gray-200 p-4">
+          <div className="mt-4">
             {sidebarContent}
+            <div className="mt-4 border-t border-gray-200 pt-3">
+              <Link href="/wiki/trash" className="text-xs text-gray-500 hover:text-gray-700">
+                {t("wiki.sidebar.trash")}
+              </Link>
+            </div>
           </div>
         ) : null}
       </div>
 
       <aside className="hidden w-64 border-r border-gray-200 bg-white p-4 md:block">
         {sidebarContent}
+        <div className="mt-4 border-t border-gray-200 pt-3">
+          <Link href="/wiki/trash" className="text-xs text-gray-500 hover:text-gray-700">
+            {t("wiki.sidebar.trash")}
+          </Link>
+        </div>
       </aside>
     </>
   );

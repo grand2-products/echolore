@@ -8,6 +8,9 @@ import {
   type Meeting,
   meetingsApi,
   usersApi,
+  calendarApi,
+  useCalendarStatusQuery,
+  useCalendarEventsQuery,
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useT } from "@/lib/i18n";
@@ -22,6 +25,11 @@ export default function MeetingsPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creatorLabels, setCreatorLabels] = useState<Record<string, string>>({});
+  const calendarStatus = useCalendarStatusQuery();
+  const isCalendarConnected = calendarStatus.data?.connected ?? false;
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importingEventId, setImportingEventId] = useState<string | null>(null);
+  const [newScheduledAt, setNewScheduledAt] = useState("");
 
   const { data, isLoading: loading, error, refetch } = useMeetingsQuery();
   const createMeetingMutation = useCreateMeetingMutation();
@@ -59,9 +67,11 @@ export default function MeetingsPage() {
       setCreateError(null);
       await createMeetingMutation.mutateAsync({
         title: newMeetingTitle,
+        scheduledAt: newScheduledAt || undefined,
       });
       setShowCreateModal(false);
       setNewMeetingTitle("");
+      setNewScheduledAt("");
       setMessage(t("meetings.list.createSuccess"));
       await refetch();
     } catch (createErrorValue) {
@@ -80,6 +90,20 @@ export default function MeetingsPage() {
       setMessage(getApiErrorMessage(e, t("meetings.list.aiError")));
     } finally {
       setRunningMeetingId(null);
+    }
+  };
+
+  const handleImportEvent = async (eventId: string) => {
+    try {
+      setImportingEventId(eventId);
+      await calendarApi.importEvent(eventId);
+      setMessage(t("meetings.calendar.importSuccess"));
+      setShowImportModal(false);
+      await refetch();
+    } catch (e) {
+      setMessage(getApiErrorMessage(e, t("meetings.calendar.importError")));
+    } finally {
+      setImportingEventId(null);
     }
   };
 
@@ -116,6 +140,15 @@ export default function MeetingsPage() {
             <p className="mt-1 text-gray-600">{t("meetings.list.description")}</p>
           </div>
           <div className="flex items-center gap-2">
+            {isCalendarConnected && (
+              <button
+                type="button"
+                onClick={() => setShowImportModal(true)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700 hover:bg-gray-50"
+              >
+                {t("meetings.calendar.import")}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setShowCreateModal(true)}
@@ -226,6 +259,18 @@ export default function MeetingsPage() {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
+              <div className="mb-4">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t("meetings.create.scheduledAt")}
+                </label>
+                <input
+                  type="datetime-local"
+                  value={newScheduledAt}
+                  onChange={(e) => setNewScheduledAt(e.target.value)}
+                  disabled={createMeetingMutation.isPending}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
@@ -236,7 +281,7 @@ export default function MeetingsPage() {
                   disabled={createMeetingMutation.isPending}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
                 >
-                  {t("wiki.newPage.cancel")}
+                  {t("common.actions.cancel")}
                 </button>
                 <button
                   type="button"
@@ -252,6 +297,77 @@ export default function MeetingsPage() {
             </div>
           </div>
         )}
+      </div>
+
+      {showImportModal && (
+        <CalendarImportModal
+          onClose={() => setShowImportModal(false)}
+          onImport={handleImportEvent}
+          importingEventId={importingEventId}
+        />
+      )}
+    </div>
+  );
+}
+
+function CalendarImportModal({
+  onClose,
+  onImport,
+  importingEventId,
+}: {
+  onClose: () => void;
+  onImport: (eventId: string) => void;
+  importingEventId: string | null;
+}) {
+  const t = useT();
+  const { dateTime } = useFormatters();
+  const eventsQuery = useCalendarEventsQuery(14, true);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+        <h2 className="mb-4 text-lg font-semibold text-gray-900">
+          {t("meetings.calendar.importTitle")}
+        </h2>
+        {eventsQuery.isLoading ? (
+          <p className="text-sm text-gray-500">{t("common.status.loading")}</p>
+        ) : eventsQuery.isError ? (
+          <p className="text-sm text-red-600">{t("meetings.calendar.loadError")}</p>
+        ) : !eventsQuery.data?.events.length ? (
+          <p className="text-sm text-gray-500">{t("meetings.calendar.noEvents")}</p>
+        ) : (
+          <div className="max-h-80 divide-y divide-gray-100 overflow-y-auto">
+            {eventsQuery.data.events.map((event) => (
+              <div key={event.id} className="flex items-center justify-between gap-3 py-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{event.summary}</p>
+                  <p className="text-xs text-gray-500">
+                    {dateTime(event.start)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onImport(event.id)}
+                  disabled={importingEventId !== null}
+                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {importingEventId === event.id
+                    ? t("meetings.calendar.importing")
+                    : t("meetings.calendar.importAction")}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
+          >
+            {t("common.actions.cancel")}
+          </button>
+        </div>
       </div>
     </div>
   );

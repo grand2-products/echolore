@@ -3,15 +3,7 @@
  */
 
 import type { Block as BlockNoteBlock } from "@blocknote/core";
-import type { BlockDto, CreateBlockRequest, UpdateBlockRequest } from "@contracts/index";
-import { wikiApi } from "./api";
-
-type BlockDraft = {
-  type: string;
-  content?: string;
-  properties?: Record<string, unknown>;
-  sortOrder: number;
-};
+import type { BlockDto } from "@contracts/index";
 
 // Use a loose type for BlockNote inline content to avoid generic arity issues
 type InlineItem = {
@@ -21,165 +13,6 @@ type InlineItem = {
   styles?: Record<string, boolean>;
   content?: InlineItem[];
 };
-
-// ---------------------------------------------------------------------------
-// BlockNote -> BlockDto conversion
-// ---------------------------------------------------------------------------
-
-function inlineContentToText(content: InlineItem[] | undefined): string {
-  if (!content || content.length === 0) return "";
-  return content
-    .map((item) => {
-      if (item.type === "text") return item.text ?? "";
-      if (item.type === "link") {
-        return item.content?.map((c: InlineItem) => c.text ?? "").join("") ?? "";
-      }
-      return "";
-    })
-    .join("");
-}
-
-function inlineContentToHtml(content: InlineItem[] | undefined): string {
-  if (!content || content.length === 0) return "";
-  return content
-    .map((item) => {
-      if (item.type === "text") {
-        let text = escapeHtml(item.text ?? "");
-        const styles = item.styles ?? {};
-        if (styles.bold) text = `<strong>${text}</strong>`;
-        if (styles.italic) text = `<em>${text}</em>`;
-        if (styles.strike) text = `<s>${text}</s>`;
-        if (styles.code) text = `<code>${text}</code>`;
-        if (styles.underline) text = `<u>${text}</u>`;
-        return text;
-      }
-      if (item.type === "link") {
-        const href = escapeHtml(item.href ?? "");
-        const linkText = item.content
-          ?.map((c: InlineItem) => (c.text ? escapeHtml(c.text) : ""))
-          .join("") ?? "";
-        return `<a href="${href}">${linkText}</a>`;
-      }
-      return "";
-    })
-    .join("");
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function blockNoteBlockToDraft(
-  block: BlockNoteBlock,
-  sortOrderRef: { current: number },
-): BlockDraft[] {
-  const drafts: BlockDraft[] = [];
-  const type = block.type as string;
-  const props = (block.props ?? {}) as Record<string, unknown>;
-  const content = block.content as InlineItem[] | undefined;
-
-  const push = (
-    dtoType: string,
-    dtoContent?: string,
-    dtoProperties?: Record<string, unknown>,
-  ) => {
-    drafts.push({
-      type: dtoType,
-      content: dtoContent,
-      properties: dtoProperties,
-      sortOrder: sortOrderRef.current++,
-    });
-  };
-
-  switch (type) {
-    case "paragraph": {
-      const html = inlineContentToHtml(content);
-      push("text", html || undefined);
-      break;
-    }
-    case "heading": {
-      const level = (props.level as number) ?? 1;
-      const dtoType = `heading${level}` as string;
-      push(dtoType, inlineContentToText(content));
-      break;
-    }
-    case "bulletListItem": {
-      push("bulletList", inlineContentToHtml(content) || undefined);
-      break;
-    }
-    case "numberedListItem": {
-      push("orderedList", inlineContentToHtml(content) || undefined);
-      break;
-    }
-    case "checkListItem": {
-      push("text", inlineContentToHtml(content) || undefined, {
-        checked: Boolean(props.checked),
-      });
-      break;
-    }
-    case "image": {
-      const url = props.url as string | undefined;
-      const name = props.name as string | undefined;
-      push("image", name || undefined, { src: url, filename: name });
-      break;
-    }
-    case "file": {
-      const url = props.url as string | undefined;
-      const name = props.name as string | undefined;
-      push("file", name || undefined, { href: url, filename: name });
-      break;
-    }
-    case "audio":
-    case "video": {
-      const url = props.url as string | undefined;
-      const name = props.name as string | undefined;
-      push("file", name || undefined, {
-        href: url,
-        filename: name,
-        mediaType: type,
-      });
-      break;
-    }
-    case "codeBlock": {
-      const language = props.language as string | undefined;
-      const text = inlineContentToText(content);
-      push("codeBlock", text || undefined, language ? { language } : undefined);
-      break;
-    }
-    case "table": {
-      push("text", JSON.stringify(block), { blockNoteType: "table" });
-      break;
-    }
-    default: {
-      const text = inlineContentToText(content);
-      if (text) push("text", text);
-      else push("text");
-      break;
-    }
-  }
-
-  // Recursively flatten children
-  const children = (block.children ?? []) as BlockNoteBlock[];
-  for (const child of children) {
-    drafts.push(...blockNoteBlockToDraft(child, sortOrderRef));
-  }
-
-  return drafts;
-}
-
-export function blocksToBlockDtos(blocks: BlockNoteBlock[]): BlockDraft[] {
-  const sortOrderRef = { current: 0 };
-  const drafts: BlockDraft[] = [];
-  for (const block of blocks) {
-    drafts.push(...blockNoteBlockToDraft(block, sortOrderRef));
-  }
-  return drafts;
-}
 
 // ---------------------------------------------------------------------------
 // BlockDto -> BlockNote block conversion
@@ -281,6 +114,15 @@ function unescapeHtml(text: string): string {
     .replace(/&#39;/g, "'");
 }
 
+/**
+ * Converts a backend BlockDto to a BlockNote Block.
+ *
+ * The `as unknown as BlockNoteBlock` casts below are necessary because
+ * BlockNote's `Block` type is a complex discriminated union mapped over the
+ * full block/inline/style schema.  Hand-constructed object literals cannot
+ * satisfy the union without exhaustively specifying every default prop.
+ * The shapes returned here are correct at runtime and accepted by the editor.
+ */
 function blockDtoToBlockNote(dto: BlockDto): BlockNoteBlock {
   const props = dto.properties ?? {};
 
@@ -405,71 +247,3 @@ export function blockDtosToBlocks(dtos: BlockDto[]): BlockNoteBlock[] {
   return sorted.map(blockDtoToBlockNote);
 }
 
-// ---------------------------------------------------------------------------
-// Diff and save
-// ---------------------------------------------------------------------------
-
-export async function diffAndSave(
-  pageId: string,
-  existingDtos: BlockDto[],
-  newDrafts: BlockDraft[],
-): Promise<BlockDto[]> {
-  const existingSorted = [...existingDtos].sort(
-    (a, b) => a.sortOrder - b.sortOrder,
-  );
-
-  const creates: CreateBlockRequest[] = [];
-  const updates: { id: string; data: UpdateBlockRequest }[] = [];
-  const deleteIds: string[] = [];
-
-  // Update or create
-  for (let i = 0; i < newDrafts.length; i++) {
-    const draft = newDrafts[i]!;
-    const existing = existingSorted[i];
-
-    if (existing) {
-      const changed =
-        existing.type !== draft.type ||
-        existing.content !== (draft.content ?? null) ||
-        JSON.stringify(existing.properties) !== JSON.stringify(draft.properties ?? null) ||
-        existing.sortOrder !== draft.sortOrder;
-
-      if (changed) {
-        updates.push({
-          id: existing.id,
-          data: {
-            type: draft.type,
-            content: draft.content ?? null,
-            properties: draft.properties ?? null,
-            sortOrder: draft.sortOrder,
-          },
-        });
-      }
-    } else {
-      creates.push({
-        pageId,
-        type: draft.type,
-        content: draft.content,
-        properties: draft.properties,
-        sortOrder: draft.sortOrder,
-      });
-    }
-  }
-
-  // Delete excess blocks
-  for (let i = newDrafts.length; i < existingSorted.length; i++) {
-    const block = existingSorted[i];
-    if (block) deleteIds.push(block.id);
-  }
-
-  // Execute all operations
-  await Promise.all([
-    ...updates.map((u) => wikiApi.updateBlock(u.id, u.data)),
-    ...creates.map((c) => wikiApi.createBlock(c)),
-    ...deleteIds.map((id) => wikiApi.deleteBlock(id)),
-  ]);
-
-  // Fetch fresh blocks
-  const res = await wikiApi.getPage(pageId);
-  return res.blocks;
-}

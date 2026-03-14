@@ -23,7 +23,7 @@ services:
       - frontend
 
   db:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17
     container_name: corp-internal-db
     restart: unless-stopped
     environment:
@@ -54,7 +54,7 @@ services:
       - backend
 
   livekit:
-    image: livekit/livekit-server:v1.8
+    image: livekit/livekit-server:v1.9
     container_name: corp-internal-livekit
     restart: unless-stopped
     environment:
@@ -62,7 +62,7 @@ services:
         port: 7880
         rtc:
           port_range_start: 50000
-          port_range_end: 50200
+          port_range_end: 50020
           use_external_ip: true
         keys:
           ${LIVEKIT_API_KEY:?LIVEKIT_API_KEY must be set}: ${LIVEKIT_API_SECRET:?LIVEKIT_API_SECRET must be set}
@@ -79,8 +79,10 @@ services:
         logging:
           level: info
     ports:
+      # LiveKit API/WebSocket — TCP
+      - "${LIVEKIT_PORT:-7880}:7880"
       # RTC media — UDP, must be exposed directly (not routable through Traefik)
-      - "${LIVEKIT_RTC_PORT_RANGE:-50000-50200}:50000-50200/udp"
+      - "${LIVEKIT_RTC_PORT_RANGE:-50000-50020}:50000-50020/udp"
     labels:
       traefik.enable: "true"
       traefik.http.routers.livekit.rule: "Host(`${DOMAIN}`) && PathPrefix(`/rtc`)"
@@ -95,17 +97,22 @@ services:
       - valkey
 
   livekit-egress:
-    image: livekit/egress:latest
+    image: livekit/egress:v1.8
     container_name: corp-internal-livekit-egress
     restart: unless-stopped
     environment:
-      EGRESS_CONFIG: |
+      EGRESS_CONFIG_BODY: |
         api_key: ${LIVEKIT_API_KEY:?LIVEKIT_API_KEY must be set}
         api_secret: ${LIVEKIT_API_SECRET:?LIVEKIT_API_SECRET must be set}
         ws_url: ws://livekit:7880
         redis:
           address: valkey:6379
+        file_output:
+          local: true
+          base_directory: /data/files/recordings
         log_level: info
+    volumes:
+      - ./data/files:/data/files
     networks:
       - backend
     depends_on:
@@ -132,8 +139,11 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+      ROOM_AI_WORKER_SECRET: ${ROOM_AI_WORKER_SECRET:-}
     volumes:
-      - file_storage:/data/files
+      - ./data/files:/data/files
     labels:
       traefik.enable: "true"
       traefik.http.routers.api.rule: "Host(`${DOMAIN}`) && PathPrefix(`/api`)"
@@ -167,7 +177,7 @@ services:
     environment:
       NODE_ENV: ${WEB_NODE_ENV:-production}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
-      NEXT_PUBLIC_LIVEKIT_URL: ${NEXT_PUBLIC_LIVEKIT_URL:-wss://${DOMAIN}}
+      NEXT_PUBLIC_LIVEKIT_URL: ${NEXT_PUBLIC_LIVEKIT_URL:?NEXT_PUBLIC_LIVEKIT_URL must be set}
     labels:
       traefik.enable: "true"
       traefik.http.routers.web.rule: "Host(`${DOMAIN}`)"
@@ -189,11 +199,31 @@ services:
     networks:
       - frontend
 
+  worker:
+    image: ${WORKER_IMAGE:-ghcr.io/grand2-products/corp-internal/worker:latest}
+    container_name: corp-internal-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      ROOM_AI_WORKER_MODE: monitor
+      ROOM_AI_API_BASE_URL: http://api:3001
+      ROOM_AI_WORKER_SECRET: ${ROOM_AI_WORKER_SECRET:-}
+      ROOM_AI_POLL_INTERVAL_MS: ${ROOM_AI_POLL_INTERVAL_MS:-15000}
+      LIVEKIT_HOST: http://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?LIVEKIT_API_KEY must be set}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?LIVEKIT_API_SECRET must be set}
+    depends_on:
+      api:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+    networks:
+      - backend
+
 volumes:
   postgres_data:
   valkey_data:
   letsencrypt:
-  file_storage:
 
 networks:
   frontend:

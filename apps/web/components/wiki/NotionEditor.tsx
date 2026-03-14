@@ -14,6 +14,8 @@ interface NotionEditorProps {
   pageTitle: string;
   onTitleChange: (title: string) => void;
   readOnly?: boolean;
+  userName?: string;
+  userColor?: string;
 }
 
 export function NotionEditor(props: NotionEditorProps) {

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UserRole } from "@corp-internal/shared/contracts";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
-import { meetingsRoutes } from "./meetings.js";
+import { meetingsRoutes } from "./meetings/index.js";
 
 const {
   createMeetingMock,
@@ -83,6 +83,24 @@ vi.mock("../lib/audit.js", () => ({
   writeAuditLog: writeAuditLogMock,
 }));
 
+vi.mock("../services/calendar/google-calendar-sync-service.js", () => ({
+  syncMeetingToCalendar: vi.fn(),
+  updateCalendarEvent: vi.fn(),
+  deleteCalendarEvent: vi.fn(),
+}));
+
+vi.mock("../services/meeting/recording-service.js", () => ({
+  getRecordingStatus: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("../lib/file-storage.js", () => ({
+  loadFile: vi.fn(),
+}));
+
+vi.mock("../services/meeting/meeting-agent-runtime-service.js", () => ({
+  generateMeetingAgentResponse: vi.fn(),
+}));
+
 function createApp(sessionUser: SessionUser) {
   const app = new Hono<AppEnv>();
 
@@ -135,6 +153,8 @@ describe("meetingsRoutes", () => {
       status: "scheduled",
       startedAt: new Date("2026-03-11T10:00:00.000Z"),
       endedAt: null,
+      scheduledAt: null,
+      googleCalendarEventId: null,
       createdAt: new Date("2026-03-11T09:00:00.000Z"),
     });
     getMeetingTranscriptsMock.mockResolvedValue([
@@ -168,6 +188,8 @@ describe("meetingsRoutes", () => {
         status: "scheduled",
         startedAt: "2026-03-11T10:00:00.000Z",
         endedAt: null,
+        scheduledAt: null,
+        googleCalendarEventId: null,
         createdAt: "2026-03-11T09:00:00.000Z",
       },
       transcripts: [

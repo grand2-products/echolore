@@ -46,7 +46,7 @@ const getBearerToken = (c: Context): string | null => {
   return token.trim();
 };
 
-async function resolveAuthjsSession(c: Context): Promise<{ user: SessionUser; authMode: SessionAuthMode } | null> {
+export async function resolveAuthjsSession(c: Context): Promise<{ user: SessionUser; authMode: SessionAuthMode } | null> {
   try {
     const token = await getToken({
       req: new Request(c.req.url, { headers: c.req.raw.headers }),

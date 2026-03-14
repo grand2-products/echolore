@@ -37,6 +37,7 @@ export async function generateMeetingSummary(
     vertexModel: dbSettings.vertexModel,
     zhipuApiKey: dbSettings.zhipuApiKey,
     zhipuTextModel: dbSettings.zhipuTextModel,
+    zhipuUseCodingPlan: dbSettings.zhipuUseCodingPlan,
   };
   const provider = resolveTextProvider(dbSettings.provider);
 

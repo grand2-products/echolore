@@ -1,7 +1,7 @@
 import type { PageNode } from "@/components/wiki";
 import type { Page, Space } from "@/lib/api";
 
-export function buildPageTree(flatPages: Page[]): PageNode[] {
+function buildPageTree(flatPages: Page[]): PageNode[] {
   const nodeMap = new Map<string, PageNode>();
 
   for (const page of flatPages) {
@@ -9,6 +9,7 @@ export function buildPageTree(flatPages: Page[]): PageNode[] {
       id: page.id,
       title: page.title,
       parentId: page.parentId ?? undefined,
+      spaceId: page.spaceId,
       children: [],
     });
   }

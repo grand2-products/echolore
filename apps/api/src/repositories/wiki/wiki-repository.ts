@@ -1,17 +1,32 @@
-import { and, desc, eq, exists, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { type NewBlock, type NewPage, blocks, pages } from "../../db/schema.js";
+import { type NewBlock, type NewPage, blocks, pages, spaces, users } from "../../db/schema.js";
 
 export async function listPagesOrderedByUpdatedAt() {
-  return db.select().from(pages).orderBy(desc(pages.updatedAt));
-}
-
-export async function listPagesBySpaceId(spaceId: string) {
-  return db
-    .select()
+  const rows = await db
+    .select({
+      id: pages.id,
+      title: pages.title,
+      spaceId: pages.spaceId,
+      parentId: pages.parentId,
+      authorId: pages.authorId,
+      deletedAt: pages.deletedAt,
+      createdAt: pages.createdAt,
+      updatedAt: pages.updatedAt,
+      authorName: users.name,
+      spaceName: spaces.name,
+    })
     .from(pages)
-    .where(eq(pages.spaceId, spaceId))
+    .leftJoin(users, eq(pages.authorId, users.id))
+    .leftJoin(spaces, eq(pages.spaceId, spaces.id))
+    .where(isNull(pages.deletedAt))
     .orderBy(desc(pages.updatedAt));
+
+  return rows.map((r) => ({
+    ...r,
+    authorName: r.authorName ?? undefined,
+    spaceName: r.spaceName ?? undefined,
+  }));
 }
 
 export async function getPageById(id: string) {
@@ -46,7 +61,10 @@ export async function searchPagesLexically(query: string) {
     .select()
     .from(pages)
     .where(
-      or(titleMatch, blockMatch, sql<boolean>`coalesce(${pages.title}, '') ilike ${`%${query}%`}`)
+      and(
+        isNull(pages.deletedAt),
+        or(titleMatch, blockMatch, sql<boolean>`coalesce(${pages.title}, '') ilike ${`%${query}%`}`)
+      )
     )
     .orderBy(desc(pages.updatedAt));
 }
@@ -105,4 +123,34 @@ export async function updateBlock(
 
 export async function deleteBlock(id: string) {
   await db.delete(blocks).where(eq(blocks.id, id));
+}
+
+export async function softDeletePage(id: string) {
+  const [page] = await db
+    .update(pages)
+    .set({ deletedAt: new Date() })
+    .where(eq(pages.id, id))
+    .returning();
+  return page ?? null;
+}
+
+export async function restorePage(id: string) {
+  const [page] = await db
+    .update(pages)
+    .set({ deletedAt: null })
+    .where(eq(pages.id, id))
+    .returning();
+  return page ?? null;
+}
+
+export async function listDeletedPages() {
+  return db
+    .select()
+    .from(pages)
+    .where(isNotNull(pages.deletedAt))
+    .orderBy(desc(pages.deletedAt));
+}
+
+export async function permanentDeletePage(id: string) {
+  await db.delete(pages).where(eq(pages.id, id));
 }

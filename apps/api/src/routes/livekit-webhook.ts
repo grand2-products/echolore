@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { WebhookReceiver } from "livekit-server-sdk";
 import { livekitApiKey, livekitApiSecret } from "../lib/livekit-config.js";
 import { handleEgressWebhook } from "../services/meeting/recording-service.js";
+import { COWORKING_ROOM, handleCoworkingEgressEnded, stopCoworkingComposite } from "../services/coworking/coworking-mcu-service.js";
 
 const webhookReceiver = new WebhookReceiver(livekitApiKey, livekitApiSecret);
 
@@ -31,6 +32,23 @@ livekitWebhookRoutes.post("/", async (c) => {
     ) {
       console.log(`[livekit-webhook] Processing ${event.event} for egress ${event.egressInfo?.egressId ?? "unknown"}`);
       await handleEgressWebhook(event as { egressInfo?: { egressId: string; status: number; fileResults?: Array<{ filename?: string; size?: bigint | number; duration?: bigint | number }>; error?: string } });
+
+      // Handle coworking composite egress ended or aborted
+      if (event.egressInfo?.egressId) {
+        const egressStatus = event.egressInfo.status;
+        // EgressStatus: EGRESS_COMPLETE=2, EGRESS_ABORTED=4, EGRESS_FAILED=5
+        if (event.event === "egress_ended" || egressStatus === 4 || egressStatus === 5) {
+          handleCoworkingEgressEnded(event.egressInfo.egressId);
+        }
+      }
+    } else if (event.event === "participant_left" && event.room?.name === COWORKING_ROOM) {
+      // Check if only the egress bot remains — if so, stop composite
+      const remainingCount = event.room.numParticipants ?? 0;
+      // Egress itself counts as a participant; stop when it's the only one (or none)
+      if (remainingCount <= 1) {
+        console.log(`[livekit-webhook] Coworking room has ${remainingCount} participant(s) left, stopping composite`);
+        await stopCoworkingComposite();
+      }
     } else {
       console.log(`[livekit-webhook] Received event: ${event.event} (no handler)`);
     }

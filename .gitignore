@@ -41,6 +41,9 @@ yarn-error.log*
 # Testing
 coverage/
 
+# Data (host-mounted volumes)
+data/
+
 # Docker
 docker-compose.override.yml
 

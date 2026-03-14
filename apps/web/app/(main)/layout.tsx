@@ -1,6 +1,7 @@
 "use client";
 
 import { Header, Sidebar } from "@/components/layout";
+import { FloatingChat } from "@/components/wiki-chat/floating-chat";
 import { isApiErrorStatus } from "@/lib/api";
 import { useAuthContext } from "@/lib/auth-context";
 import { useAuthActions } from "@/lib/use-auth-actions";
@@ -84,6 +85,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           <Sidebar user={user} />
           <main className="flex-1 overflow-auto bg-gray-50">{children}</main>
         </div>
+        <FloatingChat />
       </div>
     </SiteSettingsProvider>
   );

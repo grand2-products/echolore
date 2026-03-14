@@ -8,15 +8,22 @@ import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "../../db/index.js";
 import { UserRole } from "@corp-internal/shared/contracts";
-import { pageInheritance, pagePermissions, pages, userGroupMemberships, type Page } from "../../db/schema.js";
+import { blocks, pageInheritance, pagePermissions, pageRevisions, pages, userGroupMemberships, type Page } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { canReadPage } from "../../policies/authorization-policy.js";
 import {
+  getPageBlocks,
+  getPageById,
   getPageParentId,
   listBlockContentsByPageIds,
   listPagesOrderedByUpdatedAt,
   searchPagesLexically,
 } from "../../repositories/wiki/wiki-repository.js";
+import {
+  createRevision,
+  getNextRevisionNumber,
+  getRevisionById,
+} from "../../repositories/wiki/revision-repository.js";
 
 const SEMANTIC_RERANK_LIMIT = 20;
 
@@ -194,4 +201,104 @@ export async function createPageWithAccessDefaults(input: {
   updatedAt: Date;
 }) {
   return db.transaction((tx) => createPageWithAccessDefaultsTx(tx, input));
+}
+
+export async function createPageRevision(pageId: string, authorId: string) {
+  const page = await getPageById(pageId);
+  if (!page) {
+    throw new Error(`Page not found: ${pageId}`);
+  }
+
+  const pageBlocks = await getPageBlocks(pageId);
+  const revisionNumber = await getNextRevisionNumber(pageId);
+
+  const blocksSnapshot = pageBlocks.map((block) => ({
+    type: block.type,
+    content: block.content,
+    properties: block.properties as Record<string, unknown> | null,
+    sortOrder: block.sortOrder,
+  }));
+
+  return createRevision({
+    id: `rev_${nanoid(12)}`,
+    pageId,
+    revisionNumber,
+    title: page.title,
+    blocks: blocksSnapshot,
+    authorId,
+    createdAt: new Date(),
+  });
+}
+
+export async function restoreRevision(
+  pageId: string,
+  revisionId: string,
+  actorUserId: string
+) {
+  const page = await getPageById(pageId);
+  if (!page) {
+    throw new Error(`Page not found: ${pageId}`);
+  }
+
+  const revision = await getRevisionById(revisionId);
+  if (!revision) {
+    throw new Error(`Revision not found: ${revisionId}`);
+  }
+  if (revision.pageId !== pageId) {
+    throw new Error("Revision does not belong to this page");
+  }
+
+  return db.transaction(async (tx) => {
+    const now = new Date();
+
+    // Snapshot current state before restoring (inside transaction)
+    const currentBlocks = await tx
+      .select()
+      .from(blocks)
+      .where(eq(blocks.pageId, pageId))
+      .orderBy(blocks.sortOrder);
+    const revisionNumber = await getNextRevisionNumber(pageId);
+    await tx.insert(pageRevisions).values({
+      id: `rev_${crypto.randomUUID().slice(0, 12)}`,
+      pageId,
+      revisionNumber,
+      title: page.title,
+      blocks: currentBlocks.map((b) => ({
+        type: b.type,
+        content: b.content,
+        properties: b.properties as Record<string, unknown> | null,
+        sortOrder: b.sortOrder,
+      })),
+      authorId: actorUserId,
+      createdAt: now,
+    });
+
+    // Update page title
+    const [updatedPage] = await tx
+      .update(pages)
+      .set({ title: revision.title, updatedAt: now })
+      .where(eq(pages.id, pageId))
+      .returning();
+
+    // Delete existing blocks
+    await tx.delete(blocks).where(eq(blocks.pageId, pageId));
+
+    // Re-create blocks from revision snapshot
+    if (revision.blocks.length > 0) {
+      await tx.insert(blocks).values(
+        revision.blocks.map((block) => ({
+          id: crypto.randomUUID(),
+          pageId,
+          type: block.type,
+          content: block.content,
+          properties: block.properties,
+          sortOrder: block.sortOrder,
+          createdAt: now,
+          updatedAt: now,
+        }))
+      );
+    }
+
+    return updatedPage;
+  });
 }

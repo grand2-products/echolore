@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ne } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
   agents,

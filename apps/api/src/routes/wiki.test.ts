@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UserRole } from "@corp-internal/shared/contracts";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
-import { wikiRoutes } from "./wiki.js";
+import { wikiRoutes } from "./wiki/index.js";
 
 const {
   authorizePageResourceMock,
@@ -72,6 +72,18 @@ vi.mock("../repositories/wiki/wiki-repository.js", () => ({
 
 vi.mock("../repositories/file/file-repository.js", () => ({
   getFileById: getFileByIdMock,
+}));
+
+vi.mock("../repositories/admin/admin-repository.js", () => ({
+  deletePagePermission: vi.fn(),
+  getPageInheritance: vi.fn(),
+}));
+
+vi.mock("../services/admin/admin-service.js", () => ({
+  getPagePermissionsDetail: vi.fn(),
+  listGroupsWithMemberCounts: vi.fn().mockResolvedValue([]),
+  replacePageInheritance: vi.fn(),
+  replacePagePermissions: vi.fn(),
 }));
 
 vi.mock("../services/wiki/wiki-service.js", () => ({

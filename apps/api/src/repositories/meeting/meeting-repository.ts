@@ -81,13 +81,15 @@ export async function createMeeting(input: {
   creatorId: string;
   roomName: string;
   status: string;
+  scheduledAt?: Date | null;
+  googleCalendarEventId?: string | null;
   createdAt: Date;
 }) {
   const [meeting] = await db.insert(meetings).values(input).returning();
   return meeting ?? null;
 }
 
-export async function updateMeeting(id: string, updateData: Record<string, unknown>) {
+export async function updateMeeting(id: string, updateData: Partial<Omit<typeof meetings.$inferInsert, "id">>) {
   const [meeting] = await db
     .update(meetings)
     .set(updateData)

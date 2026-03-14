@@ -137,6 +137,7 @@ async function callDecisionLlm(
     vertexModel: dbSettings.vertexModel,
     zhipuApiKey: dbSettings.zhipuApiKey,
     zhipuTextModel: dbSettings.zhipuTextModel,
+    zhipuUseCodingPlan: dbSettings.zhipuUseCodingPlan,
   };
   const provider = resolveTextProvider(
     agent.defaultProvider ?? dbSettings.provider

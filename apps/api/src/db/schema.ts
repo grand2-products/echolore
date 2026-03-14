@@ -1,5 +1,21 @@
 import { relations, sql } from "drizzle-orm";
-import { boolean, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, customType, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+
+const vector = customType<{ data: number[]; driverData: string }>({
+  dataType() {
+    return "vector(768)";
+  },
+  toDriver(value: number[]): string {
+    return `[${value.join(",")}]`;
+  },
+  fromDriver(value: string): number[] {
+    return value
+      .replace(/^\[/, "")
+      .replace(/\]$/, "")
+      .split(",")
+      .map(Number);
+  },
+});
 
 // Users table
 export const users = pgTable("users", {
@@ -131,6 +147,7 @@ export const pages = pgTable("pages", {
   authorId: text("author_id")
     .references(() => users.id)
     .notNull(),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -149,6 +166,30 @@ export const blocks = pgTable("blocks", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Page revisions table (version history snapshots)
+export const pageRevisions = pgTable(
+  "page_revisions",
+  {
+    id: text("id").primaryKey(),
+    pageId: text("page_id")
+      .references(() => pages.id, { onDelete: "cascade" })
+      .notNull(),
+    revisionNumber: integer("revision_number").notNull(),
+    title: text("title").notNull(),
+    blocks: jsonb("blocks").notNull().$type<Array<{ type: string; content: string | null; properties: Record<string, unknown> | null; sortOrder: number }>>(),
+    authorId: text("author_id")
+      .references(() => users.id)
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    pageRevisionUnique: uniqueIndex("page_revisions_page_id_revision_number_idx").on(
+      table.pageId,
+      table.revisionNumber
+    ),
+  })
+);
+
 // Page permissions table
 export const pagePermissions = pgTable("page_permissions", {
   id: text("id").primaryKey(),
@@ -162,6 +203,24 @@ export const pagePermissions = pgTable("page_permissions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// Space permissions table
+export const spacePermissions = pgTable(
+  "space_permissions",
+  {
+    id: text("id").primaryKey(),
+    spaceId: text("space_id").references(() => spaces.id, { onDelete: "cascade" }).notNull(),
+    groupId: text("group_id").references(() => userGroups.id, { onDelete: "cascade" }).notNull(),
+    canRead: boolean("can_read").default(true).notNull(),
+    canWrite: boolean("can_write").default(false).notNull(),
+    canDelete: boolean("can_delete").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    spaceGroupUnique: uniqueIndex("space_permissions_space_group_unique").on(table.spaceId, table.groupId),
+  })
+);
 
 // Page inheritance settings table
 export const pageInheritance = pgTable("page_inheritance", {
@@ -185,6 +244,8 @@ export const meetings = pgTable("meetings", {
   status: text("status").default("scheduled").notNull(), // scheduled, active, ended
   startedAt: timestamp("started_at"),
   endedAt: timestamp("ended_at"),
+  scheduledAt: timestamp("scheduled_at"),
+  googleCalendarEventId: text("google_calendar_event_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -205,6 +266,22 @@ export const meetingRecordings = pgTable("meeting_recordings", {
   endedAt: timestamp("ended_at"),
   errorMessage: text("error_message"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Google Calendar tokens table
+export const googleCalendarTokens = pgTable("google_calendar_tokens", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull()
+    .unique(),
+  accessTokenEnc: text("access_token_enc").notNull(),
+  refreshTokenEnc: text("refresh_token_enc").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  scope: text("scope").notNull(),
+  calendarId: text("calendar_id").default("primary").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Meeting transcripts table
@@ -327,6 +404,62 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Wiki Chat conversations table
+export const wikiChatConversations = pgTable("wiki_chat_conversations", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  creatorId: text("creator_id")
+    .references(() => users.id)
+    .notNull(),
+  visibility: text("visibility").default("team").notNull(), // 'team' | 'private'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Wiki Chat messages table
+export const wikiChatMessages = pgTable("wiki_chat_messages", {
+  id: text("id").primaryKey(),
+  conversationId: text("conversation_id")
+    .references(() => wikiChatConversations.id, { onDelete: "cascade" })
+    .notNull(),
+  role: text("role").notNull(), // 'user' | 'assistant'
+  content: text("content").notNull(),
+  citations: jsonb("citations").$type<Array<{ pageId: string; pageTitle: string; snippet?: string }>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Yjs document state table (CRDT persistence)
+export const yjsDocuments = pgTable("yjs_documents", {
+  pageId: text("page_id")
+    .references(() => pages.id, { onDelete: "cascade" })
+    .primaryKey(),
+  state: text("state").notNull(), // base64-encoded Y.encodeStateAsUpdate
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Page embeddings table (pgvector for RAG)
+export const pageEmbeddings = pgTable(
+  "page_embeddings",
+  {
+    id: text("id").primaryKey(),
+    pageId: text("page_id")
+      .references(() => pages.id, { onDelete: "cascade" })
+      .notNull(),
+    chunkIndex: integer("chunk_index").default(0).notNull(),
+    plainText: text("plain_text").notNull(),
+    embedding: vector("embedding").notNull(),
+    modelId: text("model_id").default("gemini-embedding-001").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    pageChunkUnique: uniqueIndex("page_embeddings_page_chunk_idx").on(
+      table.pageId,
+      table.chunkIndex
+    ),
+  })
+);
+
 // Site settings (KVS)
 export const siteSettings = pgTable("site_settings", {
   key: text("key").primaryKey(),
@@ -347,6 +480,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   createdAgents: many(agents),
   invokedAgentSessions: many(meetingAgentSessions),
   triggeredAgentEvents: many(meetingAgentEvents),
+  wikiChatConversations: many(wikiChatConversations),
 }));
 
 export const authIdentitiesRelations = relations(authIdentities, ({ one }) => ({
@@ -373,6 +507,7 @@ export const authRefreshTokensRelations = relations(authRefreshTokens, ({ one })
 export const userGroupsRelations = relations(userGroups, ({ many }) => ({
   members: many(userGroupMemberships),
   pagePermissions: many(pagePermissions),
+  spacePermissions: many(spacePermissions),
 }));
 
 export const userGroupMembershipsRelations = relations(userGroupMemberships, ({ one }) => ({
@@ -400,6 +535,7 @@ export const spacesRelations = relations(spaces, ({ one, many }) => ({
     references: [userGroups.id],
   }),
   pages: many(pages),
+  spacePermissions: many(spacePermissions),
 }));
 
 export const pagesRelations = relations(pages, ({ one, many }) => ({
@@ -416,6 +552,7 @@ export const pagesRelations = relations(pages, ({ one, many }) => ({
     references: [pages.id],
   }),
   blocks: many(blocks),
+  revisions: many(pageRevisions),
   permissions: many(pagePermissions),
   inheritance: one(pageInheritance),
 }));
@@ -427,6 +564,17 @@ export const blocksRelations = relations(blocks, ({ one }) => ({
   }),
 }));
 
+export const pageRevisionsRelations = relations(pageRevisions, ({ one }) => ({
+  page: one(pages, {
+    fields: [pageRevisions.pageId],
+    references: [pages.id],
+  }),
+  author: one(users, {
+    fields: [pageRevisions.authorId],
+    references: [users.id],
+  }),
+}));
+
 export const pagePermissionsRelations = relations(pagePermissions, ({ one }) => ({
   page: one(pages, {
     fields: [pagePermissions.pageId],
@@ -434,6 +582,17 @@ export const pagePermissionsRelations = relations(pagePermissions, ({ one }) => 
   }),
   group: one(userGroups, {
     fields: [pagePermissions.groupId],
+    references: [userGroups.id],
+  }),
+}));
+
+export const spacePermissionsRelations = relations(spacePermissions, ({ one }) => ({
+  space: one(spaces, {
+    fields: [spacePermissions.spaceId],
+    references: [spaces.id],
+  }),
+  group: one(userGroups, {
+    fields: [spacePermissions.groupId],
     references: [userGroups.id],
   }),
 }));
@@ -465,6 +624,13 @@ export const meetingRecordingsRelations = relations(meetingRecordings, ({ one })
   }),
   initiator: one(users, {
     fields: [meetingRecordings.initiatedBy],
+    references: [users.id],
+  }),
+}));
+
+export const googleCalendarTokensRelations = relations(googleCalendarTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [googleCalendarTokens.userId],
     references: [users.id],
   }),
 }));
@@ -547,6 +713,35 @@ export const filesRelations = relations(files, ({ one }) => ({
   }),
 }));
 
+export const wikiChatConversationsRelations = relations(wikiChatConversations, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [wikiChatConversations.creatorId],
+    references: [users.id],
+  }),
+  messages: many(wikiChatMessages),
+}));
+
+export const wikiChatMessagesRelations = relations(wikiChatMessages, ({ one }) => ({
+  conversation: one(wikiChatConversations, {
+    fields: [wikiChatMessages.conversationId],
+    references: [wikiChatConversations.id],
+  }),
+}));
+
+export const pageEmbeddingsRelations = relations(pageEmbeddings, ({ one }) => ({
+  page: one(pages, {
+    fields: [pageEmbeddings.pageId],
+    references: [pages.id],
+  }),
+}));
+
+export const yjsDocumentsRelations = relations(yjsDocuments, ({ one }) => ({
+  page: one(pages, {
+    fields: [yjsDocuments.pageId],
+    references: [pages.id],
+  }),
+}));
+
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   actor: one(users, {
     fields: [auditLogs.actorUserId],
@@ -573,10 +768,14 @@ export type Page = typeof pages.$inferSelect;
 export type NewPage = typeof pages.$inferInsert;
 export type Block = typeof blocks.$inferSelect;
 export type NewBlock = typeof blocks.$inferInsert;
+export type PageRevision = typeof pageRevisions.$inferSelect;
+export type NewPageRevision = typeof pageRevisions.$inferInsert;
 export type PagePermission = typeof pagePermissions.$inferSelect;
 export type NewPagePermission = typeof pagePermissions.$inferInsert;
 export type PageInheritance = typeof pageInheritance.$inferSelect;
 export type NewPageInheritance = typeof pageInheritance.$inferInsert;
+export type SpacePermission = typeof spacePermissions.$inferSelect;
+export type NewSpacePermission = typeof spacePermissions.$inferInsert;
 export type Meeting = typeof meetings.$inferSelect;
 export type NewMeeting = typeof meetings.$inferInsert;
 export type Transcript = typeof transcripts.$inferSelect;
@@ -599,3 +798,13 @@ export type SiteSetting = typeof siteSettings.$inferSelect;
 export type NewSiteSetting = typeof siteSettings.$inferInsert;
 export type MeetingRecording = typeof meetingRecordings.$inferSelect;
 export type NewMeetingRecording = typeof meetingRecordings.$inferInsert;
+export type WikiChatConversation = typeof wikiChatConversations.$inferSelect;
+export type NewWikiChatConversation = typeof wikiChatConversations.$inferInsert;
+export type WikiChatMessage = typeof wikiChatMessages.$inferSelect;
+export type NewWikiChatMessage = typeof wikiChatMessages.$inferInsert;
+export type GoogleCalendarToken = typeof googleCalendarTokens.$inferSelect;
+export type NewGoogleCalendarToken = typeof googleCalendarTokens.$inferInsert;
+export type YjsDocument = typeof yjsDocuments.$inferSelect;
+export type NewYjsDocument = typeof yjsDocuments.$inferInsert;
+export type PageEmbedding = typeof pageEmbeddings.$inferSelect;
+export type NewPageEmbedding = typeof pageEmbeddings.$inferInsert;

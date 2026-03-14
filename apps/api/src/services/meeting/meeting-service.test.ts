@@ -93,9 +93,11 @@ describe("meeting-service", () => {
       title: "Planning",
       creatorId: "user_1",
       roomName: "room-a",
-      status: "completed",
+      status: "ended",
       startedAt: null,
       endedAt: null,
+      scheduledAt: null,
+      googleCalendarEventId: null,
       createdAt: new Date("2026-03-11T00:00:00.000Z"),
     };
 
@@ -143,9 +145,11 @@ describe("meeting-service", () => {
       title: "Planning",
       creatorId: "user_1",
       roomName: "room-a",
-      status: "completed",
+      status: "ended",
       startedAt: null,
       endedAt: null,
+      scheduledAt: null,
+      googleCalendarEventId: null,
       createdAt: new Date("2026-03-11T00:00:00.000Z"),
     };
 

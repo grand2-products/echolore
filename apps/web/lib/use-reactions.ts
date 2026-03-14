@@ -88,8 +88,9 @@ export function useReactions(senderName: string) {
   }, []);
 
   // Safety cleanup: remove reactions older than 4 seconds (timestamp-based)
+  const hasReactions = reactions.length > 0;
   useEffect(() => {
-    if (reactions.length === 0) return;
+    if (!hasReactions) return;
     const timer = setInterval(() => {
       const cutoff = Date.now() - 4000;
       setReactions((prev) => {
@@ -98,7 +99,7 @@ export function useReactions(senderName: string) {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [reactions.length > 0]); // only re-run when transitioning 0 <-> non-zero
+  }, [hasReactions]);
 
   return { reactions, sendReaction, removeReaction };
 }

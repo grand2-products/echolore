@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
         loaders: ["@svgr/webpack"],
         as: "*.js",
       },
+      "*.yaml": {
+        loaders: ["raw-loader"],
+        as: "*.js",
+      },
     },
   },
   webpack(config) {
@@ -19,6 +23,12 @@ const nextConfig: NextConfig = {
         managedPaths: [],
       };
     }
+
+    // Load .yaml files as raw strings (used by i18n messages)
+    config.module.rules.push({
+      test: /\.yaml$/,
+      type: "asset/source",
+    });
 
     return config;
   },
