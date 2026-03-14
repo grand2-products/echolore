@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
+import { useQueryClient } from "@tanstack/react-query";
 import type { BlockDto } from "@contracts/index";
 import type { XmlFragment } from "yjs";
 import type { WebsocketProvider } from "y-websocket";
@@ -37,6 +38,7 @@ export default function NotionEditorInner({
   userColor = "#3b82f6",
 }: NotionEditorInnerProps) {
   const t = useT();
+  const queryClient = useQueryClient();
   const titleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { provider, fragment, connectionStatus } = useCollaboration({
@@ -53,12 +55,13 @@ export default function NotionEditorInner({
       titleTimerRef.current = setTimeout(async () => {
         try {
           await wikiApi.updatePage(pageId, { title: newTitle });
+          void queryClient.invalidateQueries({ queryKey: ["wiki", "pages"] });
         } catch (error) {
           console.error("Title save failed", error);
         }
       }, 2000);
     },
-    [onTitleChange, pageId],
+    [onTitleChange, pageId, queryClient],
   );
 
   // Cleanup timers
