@@ -1,4 +1,4 @@
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import { Hono } from "hono";
 import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
@@ -123,6 +123,33 @@ filesRoutes.post(
         uploaderId: user.id,
         createdAt: new Date(),
       });
+
+      // Fire-and-forget: trigger knowledge suggestion for text-based files
+      const isTextFile =
+        uploadedFile.type.startsWith("text/") ||
+        uploadedFile.type === "application/json" ||
+        uploadedFile.type === "application/xml" ||
+        /\.(md|txt|csv|json|xml|yaml|yml|log|typst?|typ)$/i.test(uploadedFile.name);
+      if (newFile && isTextFile) {
+        const textContent = buffer.toString("utf-8").slice(0, 15000);
+        if (textContent.length > 50) {
+          import("../services/knowledge/knowledge-suggestion-service.js")
+            .then(async ({ generateSuggestions }) => {
+              const { db: dbInst } = await import("../db/index.js");
+              const { spaces } = await import("../db/schema.js");
+              const [space] = await dbInst.select({ id: spaces.id }).from(spaces).limit(1);
+              if (!space) return;
+              return generateSuggestions({
+                sourceType: "file_upload",
+                sourceId: fileId,
+                sourceSummary: `File upload: ${uploadedFile.name}`,
+                sourceContent: textContent,
+                targetSpaceId: space.id,
+              });
+            })
+            .catch((err) => console.error("[files] Knowledge suggestion failed:", err));
+        }
+      }
 
       return c.json({ file: newFile }, 201);
     },

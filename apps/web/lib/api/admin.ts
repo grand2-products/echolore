@@ -1,4 +1,4 @@
-import type { SuccessResponse } from "@corp-internal/shared/contracts";
+import type { SuccessResponse } from "@echolore/shared/contracts";
 import { executeApiRequest, fetchApi, parseApiError } from "./fetch";
 import type {
   AdminGroup,

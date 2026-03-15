@@ -14,7 +14,7 @@ Only the latest release on the main branch is actively supported with security u
 
 If you discover a security vulnerability, please report it responsibly by sending an email to:
 
-**security@grand2-products.example.com**
+**security@echolore.dev**
 
 Include the following in your report:
 

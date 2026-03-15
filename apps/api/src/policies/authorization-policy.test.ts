@@ -1,4 +1,4 @@
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
 import {

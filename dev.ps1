@@ -98,7 +98,7 @@ function Get-PostgresScalar {
     [string]$Sql
   )
 
-  $result = docker exec corp-internal-db psql -U wiki -d wiki -t -A -c $Sql 2>$null
+  $result = docker exec echolore-db psql -U wiki -d wiki -t -A -c $Sql 2>$null
   if ($LASTEXITCODE -ne 0) {
     return $null
   }
@@ -235,7 +235,7 @@ function Invoke-EnsureDocker {
   }
 
   Write-Step "Waiting for PostgreSQL health"
-  Wait-ForContainerHealth -ContainerName "corp-internal-db"
+  Wait-ForContainerHealth -ContainerName "echolore-db"
 }
 
 function Invoke-ApplySchema {
@@ -254,7 +254,7 @@ function Invoke-ApplySchema {
     if ($dbSetupCommand -eq "pnpm db:migrate") {
       pnpm db:migrate
     } else {
-      pnpm --filter @corp-internal/api exec drizzle-kit push --force
+      pnpm --filter @echolore/api exec drizzle-kit push --force
     }
     if ($LASTEXITCODE -ne 0) {
       throw "Failed to apply database schema."
@@ -280,15 +280,15 @@ function Invoke-Start {
   $devFilters = @()
 
   if (-not $SkipApi) {
-    $devFilters += "--filter=@corp-internal/api"
+    $devFilters += "--filter=@echolore/api"
   }
 
   if (-not $SkipWeb) {
-    $devFilters += "--filter=@corp-internal/web"
+    $devFilters += "--filter=@echolore/web"
   }
 
   if (-not $SkipWorker) {
-    $devFilters += "--filter=@corp-internal/worker"
+    $devFilters += "--filter=@echolore/worker"
   }
 
   if ($devFilters.Count -eq 0) {
@@ -331,7 +331,7 @@ BEGIN
   END LOOP;
 END `$`$;
 "@
-  docker exec corp-internal-db psql -U wiki -d wiki -c $dropSql
+  docker exec echolore-db psql -U wiki -d wiki -c $dropSql
   if ($LASTEXITCODE -ne 0) {
     throw "Failed to drop tables."
   }
@@ -350,7 +350,7 @@ END `$`$;
 
 function Show-Menu {
   Write-Host ""
-  Write-Host "=== corp-internal dev tools ===" -ForegroundColor Cyan
+  Write-Host "=== echolore dev tools ===" -ForegroundColor Cyan
   Write-Host "  1) start      - Start dev environment"
   Write-Host "  2) db:reset   - Drop all tables and re-apply schema"
   Write-Host "  q) quit"

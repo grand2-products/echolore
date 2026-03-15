@@ -1,4 +1,4 @@
-import type { LivekitTokenResponse } from "@corp-internal/shared/contracts";
+import type { LivekitTokenResponse } from "@echolore/shared/contracts";
 import { apiFetch } from "./api";
 
 export const COWORKING_ROOM_NAME = "everybody-coworking";

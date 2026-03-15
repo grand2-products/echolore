@@ -3,7 +3,7 @@
  */
 
 import type { Block as BlockNoteBlock } from "@blocknote/core";
-import type { BlockDto } from "@corp-internal/shared/contracts";
+import type { BlockDto } from "@echolore/shared/contracts";
 
 // Use a loose type for BlockNote inline content to avoid generic arity issues
 type InlineItem = {

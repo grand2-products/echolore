@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import AgentPanel from "@/components/livekit/AgentPanel";
 import BackgroundEffectButton from "@/components/livekit/BackgroundEffectButton";
+import GuestApprovalBanner from "@/components/livekit/GuestApprovalBanner";
 import MediaToggle from "@/components/livekit/MediaToggle";
 import ParticipantTile from "@/components/livekit/ParticipantTile";
 import ReactionOverlay from "@/components/livekit/ReactionOverlay";
@@ -14,6 +15,7 @@ import ReactionPicker from "@/components/livekit/ReactionPicker";
 import RecordingsList from "@/components/livekit/RecordingsList";
 import ScreenShareView from "@/components/livekit/ScreenShareView";
 import TranscriptPanel from "@/components/livekit/TranscriptPanel";
+import InviteDialog from "@/components/meetings/InviteDialog";
 import type { AgentDefinition, MeetingAgentEvent, RealtimeTranscriptSegment } from "@/lib/api";
 import { livekitApi } from "@/lib/api";
 import { useReactions } from "@/lib/hooks/use-reactions";
@@ -25,6 +27,9 @@ export interface RoomBodyProps {
   meetingId: string;
   title: string;
   userName: string;
+  userRole: string;
+  userId: string;
+  creatorId: string | null;
   roomName: string;
   agents: AgentDefinition[];
   activeAgentIds: string[];
@@ -44,6 +49,8 @@ export default function RoomBody(props: RoomBodyProps) {
   const screenTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
   const closePanel = useCallback(() => setOpenPanel(null), []);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const canManageInvites = props.userRole === "admin" || props.userId === props.creatorId;
   const { reactions, sendReaction, removeReaction } = useReactions(props.userName);
   const hasScreenShare = screenTracks.length > 0;
 
@@ -166,6 +173,31 @@ export default function RoomBody(props: RoomBodyProps) {
         </div>
 
         <div className="flex items-center gap-1.5">
+          {/* Guest invite button — visible to meeting creator and admins only */}
+          {canManageInvites && (
+            <button
+              type="button"
+              onClick={() => setInviteDialogOpen(true)}
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+              title={t("meetings.room.guestInvite") ?? "ゲスト招待"}
+            >
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z"
+                />
+              </svg>
+            </button>
+          )}
+
           {/* Transcript toggle */}
           <button
             type="button"
@@ -220,6 +252,9 @@ export default function RoomBody(props: RoomBodyProps) {
           </button>
         </div>
       </header>
+
+      {/* ─── Guest approval banner ─── */}
+      <GuestApprovalBanner meetingId={props.meetingId} />
 
       {/* ─── Sync status ─── */}
       {props.syncError && (
@@ -400,6 +435,12 @@ export default function RoomBody(props: RoomBodyProps) {
       />
 
       <RoomAudioRenderer />
+
+      <InviteDialog
+        meetingId={props.meetingId}
+        open={inviteDialogOpen}
+        onClose={() => setInviteDialogOpen(false)}
+      />
     </div>
   );
 }

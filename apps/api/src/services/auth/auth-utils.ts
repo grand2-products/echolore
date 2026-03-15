@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import { count, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { users } from "../../db/schema.js";

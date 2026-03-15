@@ -1,8 +1,8 @@
 # AGENTS.md
 
 ## Project
-- Repository: `corp-internal`
-- Purpose: internal collaboration platform for grand2 Products
+- Repository: `echolore`
+- Purpose: AI-powered knowledge & meeting platform (self-hostable)
 - Main domains:
   - Google SSO and email/password access with email-based identity reconciliation
   - Notion-style Wiki
@@ -14,7 +14,7 @@
 - `apps/api`: Hono API
 - `packages/shared`: shared contracts/types
 - `packages/ui`: shared UI package
-- `scripts/setup/`: VPS initial setup scripts
+- `scripts/`: install, update, and dev helper scripts
 - `plan/`: planning and architecture documents
 - `docs/`: operational notes and runbooks
 
@@ -31,43 +31,24 @@
 - Container registry: GHCR (ghcr.io)
 
 ## Release Policy
-- Release path is GitHub Actions workflow only.
-- Do not treat manual SSH deployment as the standard path.
+- Release path is tag-based: push a `v*.*.*` tag to trigger `Publish Release`.
 - Main workflows:
   - `CI`: lint, typecheck, build, test
-  - `App Release`: image build/push to GHCR and host rollout via SSH
-  - `App Rollback`: workflow-driven rollback
-  - `Bootstrap Validate`: isolated clean-host runtime validation
-- Runtime deploy uses prebuilt images, not host-side source builds.
+  - `Publish Release`: image build/push to GHCR, GitHub Release creation
+- Runtime deploy uses prebuilt images via `docker-compose.production.yml`.
+- End users install and update via `scripts/install.sh` and `scripts/update.sh`.
+- Versioning: semver tags (`v0.1.0`), Docker tags (`v0.1.0`, `0.1`, `latest`).
 
 ## Branch Policy
-- `develop` is the integration branch for `dev`.
-- `main` is the release branch for `prod`.
-- Expected automatic path:
-  - `develop` -> `CI` -> `App Release` to `dev`
-  - `main` -> `CI` -> `App Release` to `dev` and `prod`
+- `main` is the release branch.
+- Feature branches → PR → merge to `main`.
 
 ## Compose Policy
-- `docker-compose.yml`: runtime/staging/production compose
+- `docker-compose.yml`: development base compose
 - `docker-compose.dev.yml`: local development override
-- `docker-compose.bootstrap-check.yml`: isolated host bootstrap validation compose
-- `scripts/release/`: host-side workflow scripts for rollout, rollback, and bootstrap validation
-- Runtime services use `API_IMAGE` and `WEB_IMAGE`.
-
-## Environment and Secret Naming
-- Environment split:
-  - `dev`
-  - `prod`
-- Core release/runtime variables:
-  - `API_IMAGE`
-  - `WEB_IMAGE`
-  - `RELEASE_SHA`
-- Core GitHub Secrets:
-  - `DEPLOY_SSH_KEY`
-  - `DEPLOY_KNOWN_HOSTS`
-  - `DEPLOY_HOST_DEV` / `DEPLOY_HOST_PROD`
-  - `DEPLOY_USER_DEV` / `DEPLOY_USER_PROD`
-  - `RUNTIME_ENV_DEV` / `RUNTIME_ENV_PROD`
+- `docker-compose.production.yml`: end-user production compose
+- `docker-compose.bootstrap-check.yml`: isolated validation compose
+- Production images use `${ECHOLORE_VERSION:-latest}` for version pinning.
 
 ## Naming Conventions
 - Environment-specific names should end with `_DEV` or `_PROD` for GitHub Secrets.

@@ -1,4 +1,4 @@
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import { Hono } from "hono";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";

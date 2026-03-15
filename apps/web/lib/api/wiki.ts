@@ -7,7 +7,7 @@ import type {
   SuccessResponse,
   UpdateBlockRequest,
   UpdatePageRequest,
-} from "@corp-internal/shared/contracts";
+} from "@echolore/shared/contracts";
 import { executeApiRequest, fetchApi, parseApiError } from "./fetch";
 import type {
   AdminGroup,

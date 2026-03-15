@@ -2,7 +2,7 @@
 
 Last updated: 2026-03-13
 
-This document describes the currently implemented system architecture of `corp-internal`.
+This document describes the currently implemented system architecture of `echolore`.
 
 ## Runtime Components
 - `apps/web`: Next.js frontend

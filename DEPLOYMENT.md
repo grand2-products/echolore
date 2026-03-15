@@ -1,6 +1,6 @@
-# デプロイメントガイド
+# EchoLore デプロイメントガイド
 
-corp-internal を本番環境（VPS）にデプロイするための手順書です。
+EchoLore をサーバーにデプロイするための手順書です。
 
 ## 前提条件
 
@@ -12,7 +12,6 @@ corp-internal を本番環境（VPS）にデプロイするための手順書で
 
 ### 外部サービス
 - ドメイン名（DNS の A レコードをサーバー IP に設定済み）
-- GitHub アカウント（コンテナイメージの push/pull 用）
 
 ### オプション（デプロイ後に管理画面から設定）
 - Google Cloud Console プロジェクト（Google SSO 用 OAuth クライアント ID/シークレット）
@@ -22,141 +21,33 @@ corp-internal を本番環境（VPS）にデプロイするための手順書で
 
 ---
 
-## 1. サーバー初期セットアップ
-
-ローカルから vps-init.sh を実行します。Docker のインストール、deploy ユーザー作成、systemd サービス登録が自動で行われます。
+## 1. インストール（ワンコマンド）
 
 ```bash
-ssh root@<サーバーIP> 'bash -s' < scripts/setup/vps-init.sh
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | bash
 ```
 
-完了すると以下が設定されます:
-- Docker CE + Compose プラグイン
-- `deploy` ユーザー（docker グループ所属）
-- ランタイムディレクトリ `/opt/wiki`
-- systemd サービス（サーバー再起動時に自動復旧）
+対話形式でドメイン名とメールアドレスを入力するだけで、以下が自動で行われます:
 
----
+- Docker/Compose の存在確認
+- シークレットの自動生成（DB パスワード、認証キー、LiveKit キー等）
+- `/opt/echolore/` にファイル配置
+- Docker イメージの pull と起動
+- データベースマイグレーション
+- ヘルスチェック
 
-## 2. GitHub リポジトリの設定
+### 非対話モード
 
-### GitHub Secrets の登録
-
-リポジトリの Settings > Secrets and variables > Actions に以下を設定します。
-
-| Secret 名 | 説明 |
-|---|---|
-| `DEPLOY_SSH_KEY` | deploy ユーザーの SSH 秘密鍵 |
-| `DEPLOY_KNOWN_HOSTS` | サーバーの known_hosts エントリ（`ssh-keyscan <サーバーIP>` で取得） |
-| `DEPLOY_HOST_DEV` | dev 環境のホスト名または IP |
-| `DEPLOY_HOST_PROD` | prod 環境のホスト名または IP |
-| `DEPLOY_USER_DEV` | dev 環境の SSH ユーザー（通常 `deploy`） |
-| `DEPLOY_USER_PROD` | prod 環境の SSH ユーザー（通常 `deploy`） |
-| `RUNTIME_ENV_DEV` | dev 環境の `.env` ファイル内容（後述） |
-| `RUNTIME_ENV_PROD` | prod 環境の `.env` ファイル内容（後述） |
-
-### SSH 鍵の作成例
+CI/CD やスクリプトから使う場合:
 
 ```bash
-ssh-keygen -t ed25519 -C "deploy@corp-internal" -f deploy_key
-# deploy_key     → DEPLOY_SSH_KEY に設定
-# deploy_key.pub → サーバーの /home/deploy/.ssh/authorized_keys に追記
-```
-
-### コンテナレジストリの公開設定
-
-GitHub Container Registry（GHCR）を使って Docker イメージを配信します。
-GHCR は GitHub が提供するコンテナレジストリで、リポジトリの権限管理をそのまま利用できます。
-
-リポジトリの Settings > Actions > General で、Workflow permissions を **Read and write permissions** に設定します。これにより GitHub Actions がビルドしたイメージを GHCR に push できるようになります。
-
----
-
-## 3. 環境変数の準備
-
-`RUNTIME_ENV_DEV` / `RUNTIME_ENV_PROD` に設定する `.env` の内容です。
-
-> **重要**: `DB_PASSWORD`、`AUTH_SECRET`、`LIVEKIT_API_KEY`、`LIVEKIT_API_SECRET` は全て本番用に強力なランダム値を使用してください。サンプル値をそのまま使わないでください。
->
-> ランダム値の生成例:
-> - Linux / macOS: `openssl rand -base64 48`
-> - Windows (PowerShell): `[Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Max 256 }) -as [byte[]])`
->
-> `AUTH_SECRET` は dev 環境と prod 環境で**異なる値**を使用してください。
-
-```env
-# === 必須 ===
-DOMAIN=your-domain.com
-ACME_EMAIL=admin@your-domain.com
-DB_PASSWORD=<強力なランダムパスワード>
-AUTH_SECRET=<64文字以上のランダム文字列>
-CORS_ORIGIN=https://your-domain.com
-NEXT_PUBLIC_API_URL=https://your-domain.com
-NEXT_PUBLIC_LIVEKIT_URL=wss://your-domain.com
-
-# LiveKit（リアルタイム通信基盤）
-# API キー / シークレットは任意のランダム文字列を自分で決めてください
-# （外部サービスではなく、同じサーバー内の LiveKit コンテナが使用します）
-LIVEKIT_HOST=http://livekit:7880
-LIVEKIT_API_KEY=<任意のランダム文字列>
-LIVEKIT_API_SECRET=<任意のランダム文字列>
-
-# TURN サーバー（企業ネットワーク等で UDP が使えない場合のフォールバック）
-# DOMAIN と同じ値、またはサブドメイン（例: turn.your-domain.com）を設定
-# 設定するドメインの DNS A レコードがサーバー IP を指している必要があります
-LIVEKIT_TURN_DOMAIN=your-domain.com
-LIVEKIT_TURN_TLS_PORT=5349
-
-# コンテナレジストリ認証（プライベートリポジトリの場合のみ必要）
-# パブリックリポジトリの場合は不要です
-# GHCR_USER=<GitHub ユーザー名>
-# GHCR_TOKEN=<GitHub Personal Access Token（read:packages スコープ）>
-
-# リリースワークフローが自動設定する値（手動設定不要）
-# API_IMAGE, WEB_IMAGE, RELEASE_SHA はデプロイ時に自動注入されます
-
-# === オプション ===
-
-# アプリ表示名（管理画面からも変更可能）
-# APP_TITLE=corp-internal
-# NEXT_PUBLIC_APP_TITLE=corp-internal
-```
-
-> **管理画面から設定する項目**: 以下はデプロイ後に `https://your-domain.com/admin/settings` から設定します（環境変数では設定しません）:
-> - Google SSO（OAuth クライアント ID/シークレット）、許可ドメイン
-> - LLM プロバイダ（Gemini API キー、Vertex AI、Z.ai）
-> - メールプロバイダ（SMTP / Resend）
-> - ストレージプロバイダ（S3 互換 / GCS）
-
----
-
-## 4. 初回デプロイ
-
-### 自動デプロイ（推奨）
-
-`main` ブランチへのマージで CI → App Release が自動実行されます。
-
-1. `main` にマージ
-2. GitHub Actions の CI ワークフローが成功
-3. App Release ワークフローが自動トリガー
-4. dev 環境にデプロイ → 成功後、prod 環境にデプロイ
-
-### 手動デプロイ
-
-GitHub Actions > App Release > Run workflow から手動実行も可能です。
-
-### デプロイの確認
-
-```bash
-ssh deploy@<サーバーIP>
-cd /opt/wiki
-docker compose ps              # 全コンテナが running であること
-curl http://localhost:3001/health   # {"status":"ok"} が返ること
+DOMAIN=echolore.example.com ACME_EMAIL=admin@example.com \
+  curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | bash -s -- --unattended
 ```
 
 ---
 
-## 5. 初期ユーザー登録（ゼロユーザーブートストラップ）
+## 2. 初期ユーザー登録
 
 デプロイ直後はユーザーが存在しないため、最初のユーザー登録のみ開放されています。
 
@@ -170,7 +61,7 @@ curl http://localhost:3001/health   # {"status":"ok"} が返ること
 
 ---
 
-## 6. 管理画面での初期設定
+## 3. 管理画面での初期設定
 
 `https://your-domain.com/admin/settings` から以下を設定できます。
 
@@ -196,73 +87,119 @@ curl http://localhost:3001/health   # {"status":"ok"} が返ること
 - **S3 互換**（AWS S3 / MinIO / Cloudflare R2 等）
 - **Google Cloud Storage**
 - 接続テスト機能付き
-- 変更は新しいアップロードに適用（既存ファイルは自動移行されない）
 
 ### 映像品質設定
 - 会議 / コワーキングそれぞれの Simulcast / Dynacast / Adaptive Stream
 
 ---
 
-## 7. 運用
+## 4. アップデート
 
-### 通常リリース
+```bash
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/update.sh | bash
+```
 
-`main` へのマージで自動デプロイされます。手動操作は不要です。
+特定バージョンに更新する場合:
 
-DB マイグレーションはリリース時に自動実行されます。
+```bash
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/update.sh | bash -s -- --version v0.2.0
+```
+
+アップデートは以下を自動で行います:
+- `.env` のバックアップ
+- compose ファイルの更新
+- 新イメージの pull
+- データベースマイグレーション
+- サービスの再起動
+- ヘルスチェック
 
 ### ロールバック
 
-GitHub Actions > App Rollback から実行します。
-
-過去のイメージタグは GitHub リポジトリの Packages ページ、または Actions の過去のリリースログから確認できます。
-
-必要な入力:
-- 環境（dev / prod）
-- ロールバック先の API イメージタグ
-- ロールバック先の Web イメージタグ
-- コミット SHA
-
-### ブレークグラス復旧
-
-GitHub Actions が使えない緊急時:
+直前のバージョンに戻す場合:
 
 ```bash
-ssh deploy@<サーバーIP>
-cd /opt/wiki
-cp .env.previous .env          # 前回のデプロイ状態に戻す
+cd /opt/echolore
+cp .env.backup.<timestamp> .env
 docker compose pull
 docker compose up -d --remove-orphans
-curl http://localhost:3001/health
 ```
+
+---
+
+## 5. バックアップ
+
+### データベース
+
+```bash
+cd /opt/echolore
+docker compose exec -T db pg_dump -U wiki wiki > backup_$(date +%Y%m%d).sql
+```
+
+### リストア
+
+```bash
+cd /opt/echolore
+docker compose exec -T db psql -U wiki wiki < backup_20260315.sql
+```
+
+### ファイルストレージ
+
+ローカルストレージの場合、`file_data` Docker ボリュームにファイルが保存されています:
+
+```bash
+docker run --rm -v echolore_file_data:/data -v $(pwd):/backup alpine tar czf /backup/files_backup.tar.gz -C /data .
+```
+
+---
+
+## 6. トラブルシューティング
 
 ### ログ確認
 
 ```bash
-ssh deploy@<サーバーIP>
-cd /opt/wiki
+cd /opt/echolore
 docker compose logs --tail=200 api
 docker compose logs --tail=200 web
 docker compose logs --tail=200 traefik
-docker compose logs --tail=200 db
 ```
 
 ### ヘルスチェック
 
 ```bash
+cd /opt/echolore
+
 # API
 curl http://localhost:3001/health
-
-# Web
-docker compose exec -T web wget --no-verbose --tries=1 --spider http://127.0.0.1:3000
 
 # 全コンテナ
 docker compose ps
 ```
 
+### API が起動しない
+- `docker compose logs api` でエラー確認
+- DB が healthy か確認: `docker compose exec -T db pg_isready -U wiki -d wiki`
+
+### TLS 証明書が取得できない
+- ドメインの DNS A レコードがサーバー IP を指しているか確認
+- ポート 80 が開放されているか確認（ACME HTTP チャレンジに必要）
+- `docker compose logs traefik` で証明書エラーを確認
+
+### ファイルアップロードが失敗する
+- ストレージプロバイダが正しく設定されているか管理画面で確認
+- ローカルストレージの場合: ボリュームのパーミッション確認
+- S3/GCS の場合: 管理画面の「接続テスト」で疎通確認
+
+### LiveKit に接続できない
+- UDP 50000-50020 がファイアウォールで開放されているか確認
+- TURN サーバーのドメイン DNS が正しく設定されているか確認
+
+### 認証エラー（401）
+- `AUTH_SECRET` が設定されているか確認
+- Google SSO: 管理画面で OAuth クライアント ID/シークレットが正しく設定されているか確認
+
 ---
 
-## 8. アーキテクチャ概要
+## アーキテクチャ概要
 
 ```
 ┌─────────────┐
@@ -300,37 +237,9 @@ LiveKit ──→ UDP 50000-50020 (RTC メディア)
 
 ---
 
-## 9. トラブルシューティング
-
-### API が起動しない
-- `docker compose logs api` でエラー確認
-- `DATABASE_URL` が正しいか確認
-- DB が healthy か確認: `docker compose exec -T db pg_isready -U wiki -d wiki`
-
-### TLS 証明書が取得できない
-- ドメインの DNS A レコードがサーバー IP を指しているか確認
-- ポート 80 が開放されているか確認（ACME HTTP チャレンジに必要）
-- `docker compose logs traefik` で証明書エラーを確認
-
-### ファイルアップロードが失敗する
-- ストレージプロバイダが正しく設定されているか管理画面で確認
-- ローカルストレージの場合: `FILE_STORAGE_PATH` が書き込み可能か確認
-- S3/GCS の場合: 管理画面の「接続テスト」で疎通確認
-
-### LiveKit に接続できない
-- UDP 50000-50020 がファイアウォールで開放されているか確認
-- `NEXT_PUBLIC_LIVEKIT_URL` が `wss://your-domain.com` になっているか確認
-
-### 認証エラー（401）
-- `AUTH_SECRET` が設定されているか確認
-- Google SSO: 管理画面で OAuth クライアント ID/シークレットが正しく設定されているか確認
-- 管理画面の許可ドメイン設定がユーザーのメールドメインと一致しているか確認
-
----
-
 ## 関連ドキュメント
 
-- `DEVELOPMENT.md` — ローカル開発ガイド
+- `docs/contributing-deployment.md` — 開発者向けデプロイガイド
 - `docs/release-workflows.md` — リリースワークフロー詳細
 - `docs/ops-runbook.md` — 運用手順書
 - `docs/system-architecture.md` — システムアーキテクチャ

@@ -1,4 +1,4 @@
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Context } from "hono";
 import { db } from "../db/index.js";
@@ -8,6 +8,7 @@ import {
   pages,
   spacePermissions,
   userGroupMemberships,
+  userGroups,
 } from "../db/schema.js";
 import { extractRequestMeta, writeAuditLog } from "../lib/audit.js";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
@@ -209,6 +210,31 @@ export async function authorizeUserResource(
     action === "delete" ? evaluateAdminOnly(user) : evaluateSelfOrAdmin(user, targetUserId);
   await logAuthorizationDecision(c, user, "user", targetUserId, action, result);
   return result;
+}
+
+export async function canApproveKnowledge(user: SessionUser): Promise<boolean> {
+  if (user.role === UserRole.Admin) return true;
+
+  const memberships = await db
+    .select({ groupId: userGroupMemberships.groupId })
+    .from(userGroupMemberships)
+    .where(eq(userGroupMemberships.userId, user.id));
+
+  if (memberships.length === 0) return false;
+
+  const groups = await db
+    .select({ permissions: userGroups.permissions })
+    .from(userGroups)
+    .where(
+      inArray(
+        userGroups.id,
+        memberships.map((m) => m.groupId)
+      )
+    );
+
+  return groups.some(
+    (g) => Array.isArray(g.permissions) && g.permissions.includes("knowledge.approve")
+  );
 }
 
 export async function authorizeAdminResource(

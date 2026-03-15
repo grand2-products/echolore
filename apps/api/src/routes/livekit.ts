@@ -1,4 +1,4 @@
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { AccessToken, RoomServiceClient } from "livekit-server-sdk";

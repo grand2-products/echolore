@@ -17,7 +17,7 @@ import type {
   SummaryDto,
   TranscriptDto,
   UserDto,
-} from "@corp-internal/shared/contracts";
+} from "@echolore/shared/contracts";
 
 // Re-exported DTO aliases
 export type User = UserDto;

@@ -1,0 +1,285 @@
+import { zValidator } from "@hono/zod-validator";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { Hono } from "hono";
+import { AccessToken, DataPacket_Kind, RoomServiceClient } from "livekit-server-sdk";
+import { z } from "zod";
+import { db } from "../db/index.js";
+import { meetingGuestRequests, meetingInvites, meetings } from "../db/schema.js";
+import { jsonError, withErrorHandler } from "../lib/api-error.js";
+import { livekitApiKey, livekitApiSecret, livekitHost } from "../lib/livekit-config.js";
+import { getValkey } from "../lib/valkey.js";
+
+const roomService = new RoomServiceClient(livekitHost, livekitApiKey, livekitApiSecret);
+const encoder = new TextEncoder();
+
+export const meetingGuestRoutes = new Hono();
+
+// Rate limit state (simple in-memory per-IP)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.count >= 10) return false;
+  entry.count++;
+  return true;
+}
+
+// Periodically clean up expired rate limit entries to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitMap) {
+    if (now > entry.resetAt) rateLimitMap.delete(ip);
+  }
+}, 300_000); // every 5 minutes
+
+const joinRequestSchema = z.object({
+  guestName: z.string().min(1).max(100),
+});
+
+// GET /api/meetings/join/:token — Validate invite token
+meetingGuestRoutes.get(
+  "/join/:token",
+  withErrorHandler(
+    async (c) => {
+      const { token } = c.req.param();
+
+      const [invite] = await db
+        .select()
+        .from(meetingInvites)
+        .where(
+          and(
+            eq(meetingInvites.token, token),
+            isNull(meetingInvites.revokedAt),
+            gt(meetingInvites.expiresAt, new Date())
+          )
+        );
+
+      if (!invite) {
+        return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found or expired");
+      }
+
+      if (invite.maxUses !== null && invite.useCount >= invite.maxUses) {
+        return jsonError(c, 410, "INVITE_EXHAUSTED", "Invite has reached its usage limit");
+      }
+
+      const [meeting] = await db.select().from(meetings).where(eq(meetings.id, invite.meetingId));
+
+      if (!meeting) {
+        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+      }
+
+      return c.json({
+        meeting: { id: meeting.id, title: meeting.title, status: meeting.status },
+        invite: {
+          id: invite.id,
+          label: invite.label,
+          expiresAt: invite.expiresAt.toISOString(),
+        },
+      });
+    },
+    "INVITE_VALIDATE_FAILED",
+    "Failed to validate invite"
+  )
+);
+
+// POST /api/meetings/join/:token/request — Submit join request
+meetingGuestRoutes.post(
+  "/join/:token/request",
+  zValidator("json", joinRequestSchema),
+  withErrorHandler(
+    async (c) => {
+      const ip = c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
+      if (!checkRateLimit(ip)) {
+        return jsonError(c, 429, "RATE_LIMITED", "Too many requests");
+      }
+
+      const { token } = c.req.param();
+      const { guestName } = c.req.valid("json");
+
+      const requestId = crypto.randomUUID();
+      const shortId = requestId.slice(0, 8);
+      // Use only the short ID for identity to avoid special characters in guestName
+      const guestIdentity = `guest-${shortId}`;
+
+      // Atomic: increment useCount + create guest request in a single transaction
+      const result = await db.transaction(async (tx) => {
+        const [invite] = await tx
+          .update(meetingInvites)
+          .set({ useCount: sql`${meetingInvites.useCount} + 1` })
+          .where(
+            and(
+              eq(meetingInvites.token, token),
+              isNull(meetingInvites.revokedAt),
+              gt(meetingInvites.expiresAt, new Date()),
+              sql`(${meetingInvites.maxUses} IS NULL OR ${meetingInvites.useCount} < ${meetingInvites.maxUses})`
+            )
+          )
+          .returning();
+
+        if (!invite) return null;
+
+        const [guestRequest] = await tx
+          .insert(meetingGuestRequests)
+          .values({
+            id: requestId,
+            inviteId: invite.id,
+            meetingId: invite.meetingId,
+            guestName,
+            guestIdentity,
+            status: "pending",
+            ipAddress: ip,
+            userAgent: c.req.header("user-agent") ?? null,
+            createdAt: new Date(),
+          })
+          .returning();
+
+        return { invite, guestRequest };
+      });
+
+      if (!result || !result.guestRequest) {
+        if (!result) {
+          return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found, expired, or full");
+        }
+        return jsonError(c, 500, "GUEST_REQUEST_FAILED", "Failed to create guest request");
+      }
+
+      const { invite, guestRequest } = result;
+
+      // Notify room participants via LiveKit DataChannel
+      try {
+        const [meeting] = await db
+          .select({ roomName: meetings.roomName })
+          .from(meetings)
+          .where(eq(meetings.id, invite.meetingId));
+
+        if (meeting) {
+          const msg = {
+            type: "guest-request-new",
+            requestId,
+            guestName,
+          };
+          await roomService.sendData(
+            meeting.roomName,
+            encoder.encode(JSON.stringify(msg)),
+            DataPacket_Kind.RELIABLE,
+            { topic: "guest-request" }
+          );
+        }
+      } catch {
+        // Best-effort notification — don't fail the request
+      }
+
+      return c.json({ requestId: guestRequest.id, guestIdentity: guestRequest.guestIdentity }, 201);
+    },
+    "GUEST_REQUEST_FAILED",
+    "Failed to submit join request"
+  )
+);
+
+// GET /api/meetings/join/:token/request/:requestId/status — Poll approval status
+meetingGuestRoutes.get(
+  "/join/:token/request/:requestId/status",
+  withErrorHandler(
+    async (c) => {
+      const { token, requestId } = c.req.param();
+
+      // Verify invite token matches the request's invite
+      const [invite] = await db
+        .select({ id: meetingInvites.id })
+        .from(meetingInvites)
+        .where(eq(meetingInvites.token, token));
+
+      if (!invite) {
+        return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found");
+      }
+
+      const [request] = await db
+        .select()
+        .from(meetingGuestRequests)
+        .where(
+          and(eq(meetingGuestRequests.id, requestId), eq(meetingGuestRequests.inviteId, invite.id))
+        );
+
+      if (!request) {
+        return jsonError(c, 404, "REQUEST_NOT_FOUND", "Guest request not found");
+      }
+
+      if (request.status === "pending") {
+        return c.json({ status: "pending" as const });
+      }
+
+      if (request.status === "rejected") {
+        return c.json({ status: "rejected" as const });
+      }
+
+      // approved — return cached LiveKit token or generate a new one
+      const cacheKey = `guest-token:${requestId}`;
+      const valkey = getValkey();
+
+      // Try cache first
+      if (valkey) {
+        try {
+          const cached = await valkey.get(cacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached) as { token: string; roomName: string };
+            return c.json({
+              status: "approved" as const,
+              token: parsed.token,
+              roomName: parsed.roomName,
+            });
+          }
+        } catch {
+          // cache miss or error — fall through to generate
+        }
+      }
+
+      const [meeting] = await db.select().from(meetings).where(eq(meetings.id, request.meetingId));
+
+      if (!meeting) {
+        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+      }
+
+      const at = new AccessToken(livekitApiKey, livekitApiSecret, {
+        identity: request.guestIdentity,
+        name: request.guestName,
+      });
+
+      at.addGrant({
+        roomJoin: true,
+        room: meeting.roomName,
+        canPublish: true,
+        canSubscribe: true,
+        canPublishData: true,
+      });
+
+      const livekitToken = await at.toJwt();
+
+      // Cache for 5 minutes (token is valid longer, but guest should connect quickly)
+      if (valkey) {
+        try {
+          await valkey.set(
+            cacheKey,
+            JSON.stringify({ token: livekitToken, roomName: meeting.roomName }),
+            "EX",
+            300
+          );
+        } catch {
+          // cache write failure is non-critical
+        }
+      }
+
+      return c.json({
+        status: "approved" as const,
+        token: livekitToken,
+        roomName: meeting.roomName,
+      });
+    },
+    "GUEST_STATUS_FAILED",
+    "Failed to check guest request status"
+  )
+);

@@ -1,7 +1,7 @@
 services:
   traefik:
     image: traefik:v3.3
-    container_name: corp-internal-traefik
+    container_name: echolore-traefik
     restart: unless-stopped
     command:
       - --providers.docker=true
@@ -27,7 +27,7 @@ services:
 
   db:
     image: pgvector/pgvector:pg17
-    container_name: corp-internal-db
+    container_name: echolore-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: wiki
@@ -48,7 +48,7 @@ services:
 
   valkey:
     image: valkey/valkey:8-alpine
-    container_name: corp-internal-valkey
+    container_name: echolore-valkey
     restart: unless-stopped
     volumes:
       - valkey_data:/data
@@ -59,7 +59,7 @@ services:
 
   livekit:
     image: livekit/livekit-server:v1.9
-    container_name: corp-internal-livekit
+    container_name: echolore-livekit
     restart: unless-stopped
     environment:
       LIVEKIT_CONFIG: |
@@ -116,7 +116,7 @@ services:
 
   livekit-egress:
     image: livekit/egress:v1.8
-    container_name: corp-internal-livekit-egress
+    container_name: echolore-livekit-egress
     restart: unless-stopped
     environment:
       EGRESS_CONFIG_BODY: |
@@ -140,8 +140,8 @@ services:
       - SYS_ADMIN
 
   api:
-    image: ${API_IMAGE:-ghcr.io/grand2-products/corp-internal/api:latest}
-    container_name: corp-internal-api
+    image: ${API_IMAGE:-ghcr.io/grand2-products/echolore/api:latest}
+    container_name: echolore-api
     restart: unless-stopped
     environment:
       NODE_ENV: ${API_NODE_ENV:-production}
@@ -157,6 +157,7 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
       ROOM_AI_WORKER_SECRET: ${ROOM_AI_WORKER_SECRET:-}
+      VALKEY_URL: redis://valkey:6379
     volumes:
       - ./data/files:/data/files
     labels:
@@ -186,8 +187,8 @@ services:
       - backend
 
   web:
-    image: ${WEB_IMAGE:-ghcr.io/grand2-products/corp-internal/web:latest}
-    container_name: corp-internal-web
+    image: ${WEB_IMAGE:-ghcr.io/grand2-products/echolore/web:latest}
+    container_name: echolore-web
     restart: unless-stopped
     environment:
       NODE_ENV: ${WEB_NODE_ENV:-production}
@@ -215,8 +216,8 @@ services:
       - frontend
 
   worker:
-    image: ${WORKER_IMAGE:-ghcr.io/grand2-products/corp-internal/worker:latest}
-    container_name: corp-internal-worker
+    image: ${WORKER_IMAGE:-ghcr.io/grand2-products/echolore/worker:latest}
+    container_name: echolore-worker
     restart: unless-stopped
     environment:
       NODE_ENV: production

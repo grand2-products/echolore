@@ -5,7 +5,7 @@ import { loadFile } from "../lib/file-storage.js";
 import { getSiteSetting } from "../repositories/admin/admin-repository.js";
 import { getSiteSettings } from "../services/admin/admin-service.js";
 
-const appTitle = process.env.APP_TITLE || "corp-internal";
+const appTitle = process.env.APP_TITLE || "EchoLore";
 
 export const siteRoutes = new Hono<AppEnv>();
 

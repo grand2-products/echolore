@@ -8,6 +8,9 @@ const pool = new Pool({
 
 const db = drizzle(pool);
 
+console.log("Ensuring pgvector extension...");
+await pool.query("CREATE EXTENSION IF NOT EXISTS vector;");
+
 console.log("Running migrations...");
 await migrate(db, { migrationsFolder: "./drizzle" });
 console.log("Migrations applied successfully");

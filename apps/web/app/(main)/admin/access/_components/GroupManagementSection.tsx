@@ -1,6 +1,6 @@
 "use client";
 
-import { ALL_GROUP_PERMISSIONS, type GroupPermission } from "@corp-internal/shared/contracts";
+import { ALL_GROUP_PERMISSIONS, type GroupPermission } from "@echolore/shared/contracts";
 import { useEffect, useState } from "react";
 import { adminApi, type CreateAdminGroupRequest } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";

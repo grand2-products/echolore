@@ -133,6 +133,36 @@ export async function transcribeRecording(
     console.log(
       `[recording-transcription] Transcribed ${segments.length} segments for meeting ${meetingId}`
     );
+
+    // Fire-and-forget: trigger knowledge suggestion from transcription
+    if (segments.length > 0) {
+      const fullText = segments.map((s) => `[${s.speaker}] ${s.content}`).join("\n");
+      import("../knowledge/knowledge-suggestion-service.js")
+        .then(async ({ generateSuggestions }) => {
+          const { db: dbInst } = await import("../../db/index.js");
+          const { meetings, spaces } = await import("../../db/schema.js");
+          const { eq } = await import("drizzle-orm");
+          const [meeting] = await dbInst
+            .select({ title: meetings.title })
+            .from(meetings)
+            .where(eq(meetings.id, meetingId))
+            .limit(1);
+          const [space] = await dbInst.select({ id: spaces.id }).from(spaces).limit(1);
+          if (!space) return;
+          const title = meeting?.title ?? meetingId;
+          return generateSuggestions({
+            sourceType: "transcription",
+            sourceId: meetingId,
+            sourceSummary: `Meeting transcription: ${title}`,
+            sourceContent: fullText,
+            targetSpaceId: space.id,
+          });
+        })
+        .catch((err) =>
+          console.error("[recording-transcription] Knowledge suggestion failed:", err)
+        );
+    }
+
     return { segmentCount: segments.length };
   } catch (error) {
     console.error("[recording-transcription] Transcription failed:", error);

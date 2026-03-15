@@ -4,7 +4,7 @@ import type {
   ListFilesResponse,
   SuccessResponse,
   UploadFileResponse,
-} from "@corp-internal/shared/contracts";
+} from "@echolore/shared/contracts";
 import { executeApiRequest, fetchApi, parseApiError } from "./fetch";
 
 export const filesApi = {

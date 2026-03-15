@@ -33,6 +33,11 @@ export const csrfProtection: MiddlewareHandler<AppEnv> = async (c, next) => {
     return next();
   }
 
+  // Skip CSRF check for guest meeting join routes (invite token is the protection)
+  if (path.startsWith("/api/meetings/join/")) {
+    return next();
+  }
+
   // Skip CSRF check for LiveKit webhook routes (use HMAC auth)
   if (path.startsWith("/api/livekit/webhook")) {
     return next();

@@ -2,7 +2,7 @@
 
 Last updated: 2026-03-12
 
-This document describes the current rollback and recovery shape for `corp-internal`.
+This document describes the current rollback and recovery shape for `echolore`.
 
 ## Primary Rollback Path
 - standard rollback is workflow-driven through `App Rollback`

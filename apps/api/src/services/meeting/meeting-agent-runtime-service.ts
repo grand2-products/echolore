@@ -1,4 +1,4 @@
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import { HumanMessage } from "@langchain/core/messages";
 import { createMeetingAgent } from "../../ai/agent/create-meeting-agent.js";
 import { createSpeechGatewayBundle } from "../../ai/gateway/index.js";

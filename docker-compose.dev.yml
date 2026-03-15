@@ -30,7 +30,7 @@ services:
     command:
       - sh
       - -lc
-      - corepack enable && pnpm install --frozen-lockfile && pnpm --filter @corp-internal/api dev
+      - corepack enable && pnpm install --frozen-lockfile && pnpm --filter @echolore/api dev
     environment:
       API_NODE_ENV: development
       NODE_ENV: development
@@ -75,7 +75,7 @@ services:
     command:
       - sh
       - -lc
-      - corepack enable && pnpm install --frozen-lockfile && pnpm --filter @corp-internal/web dev
+      - corepack enable && pnpm install --frozen-lockfile && pnpm --filter @echolore/web dev
     environment:
       WEB_NODE_ENV: development
       NODE_ENV: development
@@ -102,7 +102,7 @@ services:
     command:
       - sh
       - -lc
-      - corepack enable && pnpm install --frozen-lockfile && pnpm --filter @corp-internal/worker dev
+      - corepack enable && pnpm install --frozen-lockfile && pnpm --filter @echolore/worker dev
     environment:
       NODE_ENV: development
       ROOM_AI_WORKER_MODE: monitor

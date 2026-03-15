@@ -1,4 +1,4 @@
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import { sql } from "drizzle-orm";
 import { embedText, isEmbeddingEnabled } from "../../ai/embeddings.js";
 import { db } from "../../db/index.js";

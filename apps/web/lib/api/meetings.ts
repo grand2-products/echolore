@@ -1,4 +1,5 @@
 import type {
+  CreateMeetingInviteRequest,
   CreateMeetingRequest,
   CreateMeetingResponse,
   CreateSummaryRequest,
@@ -6,14 +7,19 @@ import type {
   CreateTranscriptRequest,
   CreateTranscriptResponse,
   GetMeetingResponse,
+  GuestJoinRequestResponse,
+  GuestRequestStatusResponse,
   ListMeetingsResponse,
   LivekitCreateRoomRequest,
   LivekitTokenRequest,
   LivekitTokenResponse,
+  MeetingGuestRequestDto,
+  MeetingInviteDto,
   SuccessResponse,
   UpdateMeetingRequest,
-} from "@corp-internal/shared/contracts";
-import { buildApiUrl, fetchApi } from "./fetch";
+  ValidateInviteResponse,
+} from "@echolore/shared/contracts";
+import { buildApiUrl, fetchApi, fetchPublic } from "./fetch";
 import type {
   AgentDefinition,
   LivekitParticipantInfo,
@@ -126,6 +132,50 @@ export const meetingsApi = {
     buildApiUrl(
       `/meetings/${encodeURIComponent(meetingId)}/recordings/${encodeURIComponent(recordingId)}/download`
     ),
+
+  // Invite management (authenticated)
+  createInvite: (meetingId: string, data: CreateMeetingInviteRequest) =>
+    fetchApi<{ invite: MeetingInviteDto }>(`/meetings/${meetingId}/invites`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  listInvites: (meetingId: string) =>
+    fetchApi<{ invites: MeetingInviteDto[] }>(`/meetings/${meetingId}/invites`),
+
+  revokeInvite: (meetingId: string, inviteId: string) =>
+    fetchApi<SuccessResponse>(`/meetings/${meetingId}/invites/${inviteId}`, {
+      method: "DELETE",
+    }),
+
+  listGuestRequests: (meetingId: string) =>
+    fetchApi<{ requests: MeetingGuestRequestDto[] }>(`/meetings/${meetingId}/guest-requests`),
+
+  approveGuestRequest: (meetingId: string, requestId: string) =>
+    fetchApi<SuccessResponse>(`/meetings/${meetingId}/guest-requests/${requestId}/approve`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
+  rejectGuestRequest: (meetingId: string, requestId: string) =>
+    fetchApi<SuccessResponse>(`/meetings/${meetingId}/guest-requests/${requestId}/reject`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+};
+
+// Public guest API (no auth required)
+export const guestApi = {
+  validateInvite: (token: string) => fetchPublic<ValidateInviteResponse>(`/meetings/join/${token}`),
+
+  submitJoinRequest: (token: string, guestName: string) =>
+    fetchPublic<GuestJoinRequestResponse>(`/meetings/join/${token}/request`, {
+      method: "POST",
+      body: JSON.stringify({ guestName }),
+    }),
+
+  checkRequestStatus: (token: string, requestId: string) =>
+    fetchPublic<GuestRequestStatusResponse>(`/meetings/join/${token}/request/${requestId}/status`),
 };
 
 export const livekitApi = {

@@ -31,6 +31,7 @@ export default function MeetingRoomPage() {
   const locale = useLocale();
   const lkSettings = useMeetingLivekitSettings();
   const [title, setTitle] = useState<string>(meetingId);
+  const [creatorId, setCreatorId] = useState<string | null>(null);
   const [roomName, setRoomName] = useState<string>(meetingId);
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +52,7 @@ export default function MeetingRoomPage() {
           adminApi.listAgents().catch(() => ({ agents: [] })),
         ]);
         setTitle(detail.meeting.title);
+        setCreatorId(detail.meeting.creatorId);
         setRoomName(detail.meeting.roomName);
         setAgents(agentList.agents);
 
@@ -226,6 +228,9 @@ export default function MeetingRoomPage() {
         meetingId={meetingId}
         title={title}
         userName={user?.name ?? t("meetings.room.guestUser")}
+        userRole={user?.role ?? "member"}
+        userId={user?.id ?? ""}
+        creatorId={creatorId}
         roomName={roomName}
         agents={agents}
         activeAgentIds={activeAgentIds}

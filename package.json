@@ -1,8 +1,8 @@
 {
-  "name": "corp-internal",
-  "version": "0.0.1",
+  "name": "echolore",
+  "version": "0.1.0",
   "private": true,
-  "description": "grand2 Products 社内ポータルアプリ - Wiki & ビデオ会議ツール",
+  "description": "EchoLore — AI-powered knowledge & meeting platform",
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
@@ -15,7 +15,7 @@
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",
     "dev:daily": "powershell -ExecutionPolicy Bypass -File ./dev.ps1",
-    "bootstrap:local": "powershell -ExecutionPolicy Bypass -File ./scripts/release/local-bootstrap-validate.ps1",
+
     "docker:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d",
     "docker:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml down",
     "docker:logs": "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f",

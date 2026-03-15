@@ -1,8 +1,4 @@
-import {
-  ALL_GROUP_PERMISSIONS,
-  type GroupPermission,
-  UserRole,
-} from "@corp-internal/shared/contracts";
+import { ALL_GROUP_PERMISSIONS, type GroupPermission, UserRole } from "@echolore/shared/contracts";
 import { z } from "zod";
 
 export const groupPermissionSchema = z.enum(

@@ -18,9 +18,9 @@ COPY packages/ui ./packages/ui
 
 RUN mkdir -p /app/apps/web/public
 
-RUN pnpm --filter @corp-internal/shared build
-RUN pnpm --filter @corp-internal/ui build
-RUN pnpm --filter @corp-internal/web build
+RUN pnpm --filter @echolore/shared build
+RUN pnpm --filter @echolore/ui build
+RUN pnpm --filter @echolore/web build
 
 FROM node:22-alpine AS runner
 

@@ -1,6 +1,6 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import { and, count, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { authIdentities, emailVerificationTokens, users } from "../../db/schema.js";

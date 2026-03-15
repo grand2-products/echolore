@@ -1,4 +1,4 @@
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import type { SessionUser } from "../../lib/auth.js";
 import { getConversationById } from "../../repositories/ai-chat/ai-chat-repository.js";
 import { sendMessageAndGetResponse } from "./ai-chat-ai-service.js";

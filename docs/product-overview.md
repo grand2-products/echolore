@@ -2,7 +2,7 @@
 
 Last updated: 2026-03-13
 
-This document describes the currently implemented product shape of `corp-internal`.
+This document describes the currently implemented product shape of `echolore`.
 
 ## Current Product Areas
 - Google SSO and email/password access with email-based account reconciliation

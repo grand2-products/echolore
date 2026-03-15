@@ -1,6 +1,6 @@
 # Development Guide
 
-Detailed local development guide for `corp-internal`.
+Detailed local development guide for `EchoLore`.
 
 Repository-wide stable rules live in `AGENTS.md`.
 High-level project overview lives in `README.md`.

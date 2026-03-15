@@ -1,5 +1,5 @@
 import { getToken } from "@auth/core/jwt";
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import type { Context, MiddlewareHandler } from "hono";
 import { getUserById } from "../repositories/user/user-repository.js";
 import { resolveAllowedDomain } from "../services/admin/auth-settings-service.js";

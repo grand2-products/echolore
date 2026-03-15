@@ -6,7 +6,7 @@ import type {
   TokenAuthResponse,
   VerifyEmailRequest,
   VerifyEmailResponse,
-} from "@corp-internal/shared/contracts";
+} from "@echolore/shared/contracts";
 import { fetchApi } from "./fetch";
 import type { AuthMeResponse } from "./types";
 

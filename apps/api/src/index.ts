@@ -1,4 +1,4 @@
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import { authHandler, initAuthConfig } from "@hono/auth-js";
 import { serve } from "@hono/node-server";
 import { createNodeWebSocket } from "@hono/node-ws";
@@ -14,14 +14,17 @@ import { createStorageProvider, setStorageProvider } from "./lib/file-storage.js
 import { csrfProtection, securityHeaders } from "./lib/security-middleware.js";
 import { adminRoutes } from "./routes/admin/index.js";
 import { aiChatRoutes } from "./routes/ai-chat.js";
+import { aituberRoutes } from "./routes/aituber.js";
 import { authRoutes } from "./routes/auth.js";
 import { calendarRoutes } from "./routes/calendar.js";
 import { coworkingHlsRoutes } from "./routes/coworking-hls.js";
 import { egressLayoutRoutes } from "./routes/egress-layout.js";
 import { filesRoutes } from "./routes/files.js";
 import { internalRoomAiRoutes } from "./routes/internal-room-ai.js";
+import { knowledgeSuggestionsRoutes } from "./routes/knowledge-suggestions.js";
 import { livekitRoutes } from "./routes/livekit.js";
 import { livekitWebhookRoutes } from "./routes/livekit-webhook.js";
+import { meetingGuestRoutes } from "./routes/meeting-guest.js";
 import { meetingsRoutes } from "./routes/meetings/index.js";
 import { metricsRoutes } from "./routes/metrics.js";
 import { siteRoutes } from "./routes/site.js";
@@ -29,6 +32,7 @@ import { usersRoutes } from "./routes/users.js";
 import { wikiRoutes } from "./routes/wiki/index.js";
 import { createWikiCollabRoutes } from "./routes/wiki-collab.js";
 import { buildStorageConfig, getStorageSettings } from "./services/admin/admin-service.js";
+import { startKnowledgeScanLoop } from "./services/knowledge/knowledge-scan-service.js";
 import { startAutonomousAgentLoop } from "./services/meeting/autonomous-agent-service.js";
 import { shutdownCollab } from "./services/wiki/yjs-collab-service.js";
 
@@ -63,7 +67,7 @@ const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({
   app,
   baseUrl: `http://localhost:${apiPort}`,
 });
-const appTitle = process.env.APP_TITLE || "corp-internal";
+const appTitle = process.env.APP_TITLE || "EchoLore";
 
 app.use("*", logger());
 app.use("*", prettyJSON());
@@ -121,6 +125,8 @@ app.route("/api/auth", authRoutes);
 
 app.route("/api", siteRoutes);
 
+// Guest meeting join routes — before authGuard (public, token-protected)
+app.route("/api/meetings", meetingGuestRoutes);
 // HLS segments served without auth — accessed by hls.js which cannot attach auth headers
 app.route("/api/coworking-hls", coworkingHlsRoutes);
 // Egress layout page — loaded by LiveKit Egress headless Chromium (no auth)
@@ -150,6 +156,8 @@ app.route("/api/users", usersRoutes);
 app.route("/api/files", filesRoutes);
 app.route("/api/livekit", livekitRoutes);
 app.route("/api/calendar", calendarRoutes);
+app.route("/api/aituber", aituberRoutes);
+app.route("/api/knowledge-suggestions", knowledgeSuggestionsRoutes);
 app.route("/api/admin", adminRoutes);
 app.route("/api/admin/metrics", metricsRoutes);
 
@@ -178,6 +186,9 @@ injectWebSocket(server);
 
 // Start autonomous agent evaluation loop
 startAutonomousAgentLoop();
+
+// Start knowledge suggestion periodic scan
+startKnowledgeScanLoop();
 
 // Graceful shutdown: persist all Yjs documents before exit
 const SHUTDOWN_TIMEOUT_MS = 30_000;

@@ -1,5 +1,5 @@
 {
-  "name": "@corp-internal/worker",
+  "name": "@echolore/worker",
   "version": "0.0.1",
   "private": true,
   "type": "module",

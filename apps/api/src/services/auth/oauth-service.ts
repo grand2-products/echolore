@@ -1,4 +1,4 @@
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import { and, count, eq } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import { db } from "../../db/index.js";

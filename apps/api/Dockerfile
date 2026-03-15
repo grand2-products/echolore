@@ -14,9 +14,9 @@ RUN pnpm install --frozen-lockfile
 COPY apps/api ./apps/api
 COPY packages/shared ./packages/shared
 
-RUN pnpm --filter @corp-internal/shared build
-RUN pnpm --filter @corp-internal/api build
-RUN pnpm deploy --filter @corp-internal/api --prod /prod/api
+RUN pnpm --filter @echolore/shared build
+RUN pnpm --filter @echolore/api build
+RUN pnpm deploy --filter @echolore/api --prod /prod/api
 
 FROM node:22-alpine AS runner
 

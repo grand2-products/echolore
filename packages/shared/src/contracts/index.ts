@@ -15,6 +15,7 @@ export const GroupPermission = {
   MeetingJoin: "meeting.join",
   FileUpload: "file.upload",
   FileDownload: "file.download",
+  KnowledgeApprove: "knowledge.approve",
 } as const;
 export type GroupPermission = (typeof GroupPermission)[keyof typeof GroupPermission];
 export const ALL_GROUP_PERMISSIONS = Object.values(GroupPermission);
@@ -463,4 +464,232 @@ export interface LivekitCreateRoomRequest {
   name: string;
   emptyTimeout?: number;
   maxParticipants?: number;
+}
+
+// Meeting Guest Access
+export type GuestRequestStatus = "pending" | "approved" | "rejected";
+
+export interface MeetingInviteDto {
+  id: string;
+  meetingId: string;
+  token: string;
+  createdByUserId: string;
+  label: string | null;
+  maxUses: number | null;
+  useCount: number;
+  expiresAt: ISODateString;
+  revokedAt: ISODateString | null;
+  createdAt: ISODateString;
+}
+
+export interface MeetingGuestRequestDto {
+  id: string;
+  inviteId: string;
+  meetingId: string;
+  guestName: string;
+  guestIdentity: string;
+  status: GuestRequestStatus;
+  approvedByUserId: string | null;
+  createdAt: ISODateString;
+  resolvedAt: ISODateString | null;
+}
+
+export interface CreateMeetingInviteRequest {
+  label?: string;
+  maxUses?: number;
+  expiresInSeconds: number;
+}
+
+export interface JoinMeetingGuestRequest {
+  guestName: string;
+}
+
+export interface ValidateInviteResponse {
+  meeting: { id: string; title: string; status: MeetingStatus };
+  invite: { id: string; label: string | null; expiresAt: ISODateString };
+}
+
+export interface GuestJoinRequestResponse {
+  requestId: string;
+  guestIdentity: string;
+}
+
+export interface GuestRequestStatusResponse {
+  status: GuestRequestStatus;
+  token?: string;
+  roomName?: string;
+}
+
+export interface GuestRequestDataChannelMessage {
+  type: "guest-request-new" | "guest-request-resolved";
+  requestId: string;
+  guestName?: string;
+  status?: "approved" | "rejected";
+  resolvedBy?: string;
+}
+
+// --- AITuber ---
+
+export type AituberSessionStatus = "created" | "live" | "ended";
+export type AituberMessageRole = "viewer" | "assistant";
+export type AituberAvatarState = "idle" | "thinking" | "talking";
+
+export interface AituberCharacterDto {
+  id: string;
+  name: string;
+  personality: string;
+  systemPrompt: string;
+  speakingStyle: string | null;
+  languageCode: string;
+  voiceName: string | null;
+  avatarUrl: string | null;
+  createdBy: string;
+  isPublic: boolean;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export interface AituberSessionDto {
+  id: string;
+  characterId: string;
+  creatorId: string;
+  title: string;
+  status: AituberSessionStatus;
+  roomName: string;
+  startedAt: ISODateString | null;
+  endedAt: ISODateString | null;
+  createdAt: ISODateString;
+  characterName?: string;
+}
+
+export interface AituberMessageDto {
+  id: string;
+  sessionId: string;
+  role: AituberMessageRole;
+  senderUserId: string | null;
+  senderName: string;
+  content: string;
+  processedAt: ISODateString | null;
+  createdAt: ISODateString;
+}
+
+// AITuber Requests
+export interface CreateAituberCharacterRequest {
+  name: string;
+  personality: string;
+  systemPrompt: string;
+  speakingStyle?: string;
+  languageCode?: string;
+  voiceName?: string;
+  avatarUrl?: string;
+  isPublic?: boolean;
+}
+
+export interface UpdateAituberCharacterRequest {
+  name?: string;
+  personality?: string;
+  systemPrompt?: string;
+  speakingStyle?: string | null;
+  languageCode?: string;
+  voiceName?: string | null;
+  avatarUrl?: string | null;
+  isPublic?: boolean;
+}
+
+export interface CreateAituberSessionRequest {
+  characterId: string;
+  title: string;
+}
+
+export interface SendAituberMessageRequest {
+  content: string;
+  senderName: string;
+}
+
+// AITuber Responses
+export class ListAituberCharactersResponse {
+  constructor(public characters: AituberCharacterDto[]) {}
+}
+
+export class GetAituberCharacterResponse {
+  constructor(public character: AituberCharacterDto) {}
+}
+
+export class CreateAituberCharacterResponse {
+  constructor(public character: AituberCharacterDto) {}
+}
+
+export class ListAituberSessionsResponse {
+  constructor(public sessions: AituberSessionDto[]) {}
+}
+
+export class GetAituberSessionResponse {
+  constructor(public session: AituberSessionDto) {}
+}
+
+export class CreateAituberSessionResponse {
+  constructor(public session: AituberSessionDto) {}
+}
+
+export class ListAituberMessagesResponse {
+  constructor(public messages: AituberMessageDto[]) {}
+}
+
+export class SendAituberMessageResponse {
+  constructor(public message: AituberMessageDto) {}
+}
+
+export class AituberTokenResponse {
+  constructor(public token: string) {}
+}
+
+// AITuber Data Channel Events
+export type AituberDataEvent =
+  | { type: "viewer-message"; messageId: string; senderName: string; content: string }
+  | { type: "ai-token"; token: string }
+  | { type: "ai-complete"; messageId: string; fullContent: string }
+  | { type: "avatar-state"; state: AituberAvatarState }
+  | { type: "image-share"; url: string; caption?: string }
+  | { type: "viewer-count"; count: number };
+
+// --- Knowledge Suggestions ---
+
+export type KnowledgeSuggestionSourceType = "file_upload" | "transcription" | "periodic_scan";
+export type KnowledgeSuggestionTargetType = "new_page" | "update_page";
+export type KnowledgeSuggestionStatus = "pending" | "approved" | "rejected";
+
+export interface KnowledgeSuggestionDto {
+  id: string;
+  sourceType: KnowledgeSuggestionSourceType;
+  sourceId: string | null;
+  sourceSummary: string | null;
+  targetType: KnowledgeSuggestionTargetType;
+  targetPageId: string | null;
+  targetSpaceId: string;
+  proposedTitle: string;
+  proposedBlocks: Array<{
+    type: string;
+    content: string | null;
+    properties: Record<string, unknown> | null;
+    sortOrder: number;
+  }>;
+  aiReasoning: string;
+  status: KnowledgeSuggestionStatus;
+  reviewedByUserId: string | null;
+  reviewedAt: ISODateString | null;
+  rejectionReason: string | null;
+  resultPageId: string | null;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export class ListKnowledgeSuggestionsResponse {
+  constructor(
+    public suggestions: KnowledgeSuggestionDto[],
+    public total?: number
+  ) {}
+}
+
+export class GetKnowledgeSuggestionResponse {
+  constructor(public suggestion: KnowledgeSuggestionDto) {}
 }

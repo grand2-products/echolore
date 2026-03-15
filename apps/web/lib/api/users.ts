@@ -5,7 +5,7 @@ import type {
   ListUsersResponse,
   SuccessResponse,
   UpdateUserRequest,
-} from "@corp-internal/shared/contracts";
+} from "@echolore/shared/contracts";
 import { fetchApi } from "./fetch";
 
 export const usersApi = {

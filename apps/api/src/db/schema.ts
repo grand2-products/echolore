@@ -269,6 +269,43 @@ export const meetings = pgTable("meetings", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Meeting invites table (guest access)
+export const meetingInvites = pgTable("meeting_invites", {
+  id: text("id").primaryKey(),
+  meetingId: text("meeting_id")
+    .references(() => meetings.id, { onDelete: "cascade" })
+    .notNull(),
+  token: text("token").notNull().unique(),
+  createdByUserId: text("created_by_user_id")
+    .references(() => users.id)
+    .notNull(),
+  label: text("label"),
+  maxUses: integer("max_uses"),
+  useCount: integer("use_count").default(0).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Meeting guest requests table (approval queue + audit trail)
+export const meetingGuestRequests = pgTable("meeting_guest_requests", {
+  id: text("id").primaryKey(),
+  inviteId: text("invite_id")
+    .references(() => meetingInvites.id, { onDelete: "cascade" })
+    .notNull(),
+  meetingId: text("meeting_id")
+    .references(() => meetings.id, { onDelete: "cascade" })
+    .notNull(),
+  guestName: text("guest_name").notNull(),
+  guestIdentity: text("guest_identity").notNull(),
+  status: text("status").default("pending").notNull(), // pending, approved, rejected
+  approvedByUserId: text("approved_by_user_id").references(() => users.id),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
 // Meeting recordings table
 export const meetingRecordings = pgTable("meeting_recordings", {
   id: text("id").primaryKey(),
@@ -489,6 +526,85 @@ export const pageEmbeddings = pgTable(
   })
 );
 
+// AITuber characters
+export const aituberCharacters = pgTable("aituber_characters", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  personality: text("personality").notNull(),
+  systemPrompt: text("system_prompt").notNull(),
+  speakingStyle: text("speaking_style"),
+  languageCode: text("language_code").default("ja-JP").notNull(),
+  voiceName: text("voice_name"),
+  avatarUrl: text("avatar_url"),
+  createdBy: text("created_by")
+    .references(() => users.id)
+    .notNull(),
+  isPublic: boolean("is_public").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// AITuber sessions
+export const aituberSessions = pgTable("aituber_sessions", {
+  id: text("id").primaryKey(),
+  characterId: text("character_id")
+    .references(() => aituberCharacters.id, { onDelete: "cascade" })
+    .notNull(),
+  creatorId: text("creator_id")
+    .references(() => users.id)
+    .notNull(),
+  title: text("title").notNull(),
+  status: text("status").default("created").notNull(), // created, live, ended
+  roomName: text("room_name").notNull().unique(),
+  startedAt: timestamp("started_at"),
+  endedAt: timestamp("ended_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// AITuber messages
+export const aituberMessages = pgTable("aituber_messages", {
+  id: text("id").primaryKey(),
+  sessionId: text("session_id")
+    .references(() => aituberSessions.id, { onDelete: "cascade" })
+    .notNull(),
+  role: text("role").notNull(), // viewer, assistant
+  senderUserId: text("sender_user_id").references(() => users.id),
+  senderName: text("sender_name").notNull(),
+  content: text("content").notNull(),
+  processedAt: timestamp("processed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Knowledge suggestions (AI-proposed wiki updates)
+export const knowledgeSuggestions = pgTable("knowledge_suggestions", {
+  id: text("id").primaryKey(),
+  sourceType: text("source_type").notNull(), // file_upload, transcription, periodic_scan
+  sourceId: text("source_id"),
+  sourceSummary: text("source_summary"),
+  targetType: text("target_type").notNull(), // new_page, update_page
+  targetPageId: text("target_page_id").references(() => pages.id),
+  targetSpaceId: text("target_space_id")
+    .references(() => spaces.id)
+    .notNull(),
+  proposedTitle: text("proposed_title").notNull(),
+  proposedBlocks: jsonb("proposed_blocks").notNull().$type<
+    Array<{
+      type: string;
+      content: string | null;
+      properties: Record<string, unknown> | null;
+      sortOrder: number;
+    }>
+  >(),
+  aiReasoning: text("ai_reasoning").notNull(),
+  status: text("status").default("pending").notNull(), // pending, approved, rejected
+  reviewedByUserId: text("reviewed_by_user_id").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at"),
+  rejectionReason: text("rejection_reason"),
+  resultPageId: text("result_page_id").references(() => pages.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Site settings (KVS)
 export const siteSettings = pgTable("site_settings", {
   key: text("key").primaryKey(),
@@ -644,6 +760,35 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
   agentSessions: many(meetingAgentSessions),
   agentEvents: many(meetingAgentEvents),
   recordings: many(meetingRecordings),
+  invites: many(meetingInvites),
+  guestRequests: many(meetingGuestRequests),
+}));
+
+export const meetingInvitesRelations = relations(meetingInvites, ({ one, many }) => ({
+  meeting: one(meetings, {
+    fields: [meetingInvites.meetingId],
+    references: [meetings.id],
+  }),
+  createdByUser: one(users, {
+    fields: [meetingInvites.createdByUserId],
+    references: [users.id],
+  }),
+  guestRequests: many(meetingGuestRequests),
+}));
+
+export const meetingGuestRequestsRelations = relations(meetingGuestRequests, ({ one }) => ({
+  invite: one(meetingInvites, {
+    fields: [meetingGuestRequests.inviteId],
+    references: [meetingInvites.id],
+  }),
+  meeting: one(meetings, {
+    fields: [meetingGuestRequests.meetingId],
+    references: [meetings.id],
+  }),
+  approvedByUser: one(users, {
+    fields: [meetingGuestRequests.approvedByUserId],
+    references: [users.id],
+  }),
 }));
 
 export const meetingRecordingsRelations = relations(meetingRecordings, ({ one }) => ({
@@ -771,10 +916,60 @@ export const yjsDocumentsRelations = relations(yjsDocuments, ({ one }) => ({
   }),
 }));
 
+export const aituberCharactersRelations = relations(aituberCharacters, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [aituberCharacters.createdBy],
+    references: [users.id],
+  }),
+  sessions: many(aituberSessions),
+}));
+
+export const aituberSessionsRelations = relations(aituberSessions, ({ one, many }) => ({
+  character: one(aituberCharacters, {
+    fields: [aituberSessions.characterId],
+    references: [aituberCharacters.id],
+  }),
+  creator: one(users, {
+    fields: [aituberSessions.creatorId],
+    references: [users.id],
+  }),
+  messages: many(aituberMessages),
+}));
+
+export const aituberMessagesRelations = relations(aituberMessages, ({ one }) => ({
+  session: one(aituberSessions, {
+    fields: [aituberMessages.sessionId],
+    references: [aituberSessions.id],
+  }),
+  senderUser: one(users, {
+    fields: [aituberMessages.senderUserId],
+    references: [users.id],
+  }),
+}));
+
 export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   actor: one(users, {
     fields: [auditLogs.actorUserId],
     references: [users.id],
+  }),
+}));
+
+export const knowledgeSuggestionsRelations = relations(knowledgeSuggestions, ({ one }) => ({
+  targetPage: one(pages, {
+    fields: [knowledgeSuggestions.targetPageId],
+    references: [pages.id],
+  }),
+  targetSpace: one(spaces, {
+    fields: [knowledgeSuggestions.targetSpaceId],
+    references: [spaces.id],
+  }),
+  reviewedByUser: one(users, {
+    fields: [knowledgeSuggestions.reviewedByUserId],
+    references: [users.id],
+  }),
+  resultPage: one(pages, {
+    fields: [knowledgeSuggestions.resultPageId],
+    references: [pages.id],
   }),
 }));
 
@@ -837,3 +1032,15 @@ export type YjsDocument = typeof yjsDocuments.$inferSelect;
 export type NewYjsDocument = typeof yjsDocuments.$inferInsert;
 export type PageEmbedding = typeof pageEmbeddings.$inferSelect;
 export type NewPageEmbedding = typeof pageEmbeddings.$inferInsert;
+export type MeetingInvite = typeof meetingInvites.$inferSelect;
+export type NewMeetingInvite = typeof meetingInvites.$inferInsert;
+export type MeetingGuestRequest = typeof meetingGuestRequests.$inferSelect;
+export type NewMeetingGuestRequest = typeof meetingGuestRequests.$inferInsert;
+export type AituberCharacter = typeof aituberCharacters.$inferSelect;
+export type NewAituberCharacter = typeof aituberCharacters.$inferInsert;
+export type AituberSession = typeof aituberSessions.$inferSelect;
+export type NewAituberSession = typeof aituberSessions.$inferInsert;
+export type AituberMessage = typeof aituberMessages.$inferSelect;
+export type NewAituberMessage = typeof aituberMessages.$inferInsert;
+export type KnowledgeSuggestion = typeof knowledgeSuggestions.$inferSelect;
+export type NewKnowledgeSuggestion = typeof knowledgeSuggestions.$inferInsert;

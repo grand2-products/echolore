@@ -1,7 +1,7 @@
 import type { AuthConfig } from "@auth/core";
 import Credentials from "@auth/core/providers/credentials";
 import Google from "@auth/core/providers/google";
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { users } from "../db/schema.js";

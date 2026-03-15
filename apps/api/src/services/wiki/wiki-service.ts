@@ -1,4 +1,4 @@
-import { UserRole } from "@corp-internal/shared/contracts";
+import { UserRole } from "@echolore/shared/contracts";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {

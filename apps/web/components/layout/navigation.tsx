@@ -113,6 +113,26 @@ export const navigationItems: NavigationItem[] = [
     ),
   },
   {
+    label: "aituber",
+    href: "/aituber",
+    icon: (
+      <svg
+        aria-hidden="true"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M9.172 15.828a5 5 0 010-7.072m5.656 0a5 5 0 010 7.072M12 12h.01"
+        />
+      </svg>
+    ),
+  },
+  {
     label: "search",
     href: "/search",
     icon: (

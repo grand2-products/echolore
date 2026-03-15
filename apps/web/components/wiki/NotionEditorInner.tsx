@@ -2,7 +2,7 @@
 
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
-import type { BlockDto } from "@corp-internal/shared/contracts";
+import type { BlockDto } from "@echolore/shared/contracts";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
 import type { WebsocketProvider } from "y-websocket";

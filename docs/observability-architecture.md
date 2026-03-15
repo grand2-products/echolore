@@ -2,7 +2,7 @@
 
 Last updated: 2026-03-13
 
-This document describes the currently implemented observability baseline for `corp-internal`.
+This document describes the currently implemented observability baseline for `echolore`.
 
 ## Signals
 - API health endpoint for liveness checks
