@@ -3,7 +3,7 @@
 import { type AgentDefinition, type CreateAgentRequest, adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useT } from "@/lib/i18n";
-import { useStableEvent } from "@/lib/use-stable-event";
+import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useEffect, useState } from "react";
 import { LlmSettingsSection } from "../settings/_components/LlmSettingsSection";
 import { TestConnectionModal, type TestModalState } from "../settings/_components/TestConnectionModal";

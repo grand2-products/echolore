@@ -2,6 +2,7 @@
 
 import {
   type BackgroundEffect,
+  BACKGROUND_CATEGORIES,
   PRESET_BACKGROUNDS,
   addCustomBackground,
   applyBackgroundEffect,
@@ -15,8 +16,6 @@ import { useT } from "@/lib/i18n";
 import { useLocalParticipant } from "@livekit/components-react";
 import { Track, type LocalVideoTrack } from "livekit-client";
 import { useCallback, useEffect, useRef, useState } from "react";
-
-const CATEGORIES = ["office", "interior", "nature", "creative", "tech", "seasonal"] as const;
 
 interface BackgroundEffectButtonProps {
   variant?: "dark" | "light";
@@ -220,7 +219,7 @@ export default function BackgroundEffectButton({ variant = "light" }: Background
 
           {/* Preset backgrounds */}
           <div className="mb-3 max-h-52 overflow-y-auto">
-            {CATEGORIES.map((cat) => {
+            {BACKGROUND_CATEGORIES.map((cat) => {
               const presets = PRESET_BACKGROUNDS.filter((p) => p.category === cat);
               if (presets.length === 0) return null;
               return (

@@ -5,7 +5,7 @@ import { FloatingChat } from "@/components/wiki-chat/floating-chat";
 import { CoworkingFloatingBar } from "@/components/coworking/floating-bar";
 import { isApiErrorStatus } from "@/lib/api";
 import { useAuthContext } from "@/lib/auth-context";
-import { useAuthActions } from "@/lib/use-auth-actions";
+import { useAuthActions } from "@/lib/hooks/use-auth-actions";
 import { useT } from "@/lib/i18n";
 import { buildCurrentReturnTo, buildLoginUrl } from "@/lib/return-to";
 import { SiteSettingsProvider } from "@/lib/site-settings-context";

@@ -42,7 +42,7 @@ export const navigationItems: NavigationItem[] = [
   },
   {
     label: "wikiChat",
-    href: "/wiki-chat",
+    href: "/ai-chat",
     icon: (
       <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path

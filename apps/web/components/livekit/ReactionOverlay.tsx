@@ -1,6 +1,6 @@
 "use client";
 
-import type { ActiveReaction } from "@/lib/use-reactions";
+import type { ActiveReaction } from "@/lib/hooks/use-reactions";
 
 interface ReactionOverlayProps {
   reactions: ActiveReaction[];

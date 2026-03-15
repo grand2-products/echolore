@@ -6,8 +6,8 @@ import { appTitle } from "@/lib/app-config";
 import { useAuthContext } from "@/lib/auth-context";
 import { useLocale, type SupportedLocale } from "@/lib/i18n";
 import { normalizeReturnTo } from "@/lib/return-to";
-import { useAuthActions } from "@/lib/use-auth-actions";
-import { usePasswordAuth } from "@/lib/use-password-auth";
+import { useAuthActions } from "@/lib/hooks/use-auth-actions";
+import { usePasswordAuth } from "@/lib/hooks/use-password-auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 

@@ -12,7 +12,7 @@ import {
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChatMessageBubble, ChatInput, TypingIndicator } from "@/components/wiki-chat";
+import { ChatMessageBubble, ChatInput, TypingIndicator } from "@/components/ai-chat";
 
 export default function WikiChatPage() {
   const params = useParams();
@@ -42,7 +42,7 @@ export default function WikiChatPage() {
     try {
       await wikiChatApi.deleteConversation(id);
       void queryClient.invalidateQueries({ queryKey: ["wiki-chat", "conversations"] });
-      router.push("/wiki-chat");
+      router.push("/ai-chat");
     } catch {
       // Ignore
     }
@@ -63,7 +63,7 @@ export default function WikiChatPage() {
           {error ? getApiErrorMessage(error, t("wikiChat.notFound")) : t("wikiChat.notFound")}
         </p>
         <Link
-          href="/wiki-chat"
+          href="/ai-chat"
           className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
         >
           {t("wikiChat.back")}
@@ -77,7 +77,7 @@ export default function WikiChatPage() {
       {/* Top bar */}
       <div className="flex items-center gap-3 border-b border-gray-200 px-6 py-3">
         <Link
-          href="/wiki-chat"
+          href="/ai-chat"
           className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
         >
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

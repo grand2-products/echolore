@@ -3,7 +3,7 @@
 import { adminApi, type EmailProvider } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
-import { useStableEvent } from "@/lib/use-stable-event";
+import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useEffect, useState } from "react";
 
 const INPUT_CLASS = "mt-1 w-full rounded-md border border-gray-300 px-3 py-2";

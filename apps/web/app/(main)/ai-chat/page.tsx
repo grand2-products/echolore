@@ -34,7 +34,7 @@ export default function WikiChatListPage() {
     try {
       const result = await createMutation.mutateAsync({});
       if (result.conversation) {
-        router.push(`/wiki-chat/${result.conversation.id}`);
+        router.push(`/ai-chat/${result.conversation.id}`);
       }
     } catch {
       // Error handled by mutation
@@ -121,7 +121,7 @@ export default function WikiChatListPage() {
             {conversations.map((conv) => (
               <Link
                 key={conv.id}
-                href={`/wiki-chat/${conv.id}`}
+                href={`/ai-chat/${conv.id}`}
                 className="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-blue-300 hover:shadow-md"
               >
                 <div className="flex items-start justify-between">

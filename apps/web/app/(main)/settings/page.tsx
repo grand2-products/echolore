@@ -4,11 +4,11 @@ import { calendarApi, useCalendarStatusQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAuthContext } from "@/lib/auth-context";
 import { supportedLocales, useFormatters, useLocale, useSetLocale, useT, type SupportedLocale } from "@/lib/i18n";
-import { useAuthActions } from "@/lib/use-auth-actions";
+import { useAuthActions } from "@/lib/hooks/use-auth-actions";
 import {
   useCurrentAuthSessions,
   useRevokeCurrentAuthSession,
-} from "@/lib/use-auth-session";
+} from "@/lib/hooks/use-auth-session";
 import { buildLoginUrl } from "@/lib/return-to";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";

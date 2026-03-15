@@ -13,7 +13,7 @@ import { useAuthContext } from "@/lib/auth-context";
 import { useMeetingLivekitSettings } from "@/lib/site-settings-context";
 import { translate, useLocale, useT } from "@/lib/i18n";
 import { fetchLiveKitToken, getLiveKitUrl } from "@/lib/livekit";
-import { useStableEvent } from "@/lib/use-stable-event";
+import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { LiveKitRoom } from "@livekit/components-react";
 import { Room } from "livekit-client";
 import RoomBody from "./RoomBody";

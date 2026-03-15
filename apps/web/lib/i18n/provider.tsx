@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { STORAGE_KEYS } from "../constants/storage-keys";
 import { defaultLocale, supportedLocales } from "./messages";
 import { normalizeLocale, useI18nStore } from "./store";
 
@@ -11,7 +12,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const persisted = window.localStorage.getItem("corp-internal-locale");
+    const persisted = window.localStorage.getItem(STORAGE_KEYS.locale);
     if (persisted) return;
 
     const browserLocale =
@@ -24,7 +25,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, [locale]);
 
   useEffect(() => {
-    document.cookie = `locale=${locale}; path=/; max-age=31536000; samesite=lax`;
+    const ONE_YEAR = 60 * 60 * 24 * 365;
+    document.cookie = `locale=${locale}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
   }, [locale]);
 
   return children;

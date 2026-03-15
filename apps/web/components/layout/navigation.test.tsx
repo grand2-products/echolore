@@ -12,7 +12,7 @@ describe("navigation visibility", () => {
       avatarUrl: null,
     });
 
-    expect(items.map((item) => item.href)).toEqual(["/", "/wiki", "/wiki-chat", "/meetings", "/coworking", "/search"]);
+    expect(items.map((item) => item.href)).toEqual(["/", "/wiki", "/ai-chat", "/meetings", "/coworking", "/search"]);
   });
 
   it("shows admin items for admins", () => {
@@ -27,7 +27,7 @@ describe("navigation visibility", () => {
     expect(items.map((item) => item.href)).toEqual([
       "/",
       "/wiki",
-      "/wiki-chat",
+      "/ai-chat",
       "/meetings",
       "/coworking",
       "/search",

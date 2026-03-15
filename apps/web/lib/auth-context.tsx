@@ -2,7 +2,7 @@
 
 import type { AuthMeResponse } from "./api";
 import { createContext, useContext } from "react";
-import { useCurrentAuth } from "./use-auth-session";
+import { useCurrentAuth } from "./hooks/use-auth-session";
 
 type AuthContextValue = ReturnType<typeof useCurrentAuth> & {
   user: AuthMeResponse["user"];

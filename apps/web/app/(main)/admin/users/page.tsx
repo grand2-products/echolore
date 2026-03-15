@@ -3,7 +3,7 @@
 import { adminApi, type AdminUserRecord } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useT } from "@/lib/i18n";
-import { useStableEvent } from "@/lib/use-stable-event";
+import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useEffect, useState } from "react";
 
 export default function AdminUsersPage() {

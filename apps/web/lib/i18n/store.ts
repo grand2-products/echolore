@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { STORAGE_KEYS } from "../constants/storage-keys";
 import { defaultLocale, supportedLocales, type SupportedLocale } from "./messages";
 
 type I18nState = {
@@ -34,7 +35,7 @@ export const useI18nStore = create<I18nState>()(
       hydrateLocale: (locale) => set({ locale: normalizeLocale(locale) }),
     }),
     {
-      name: "corp-internal-locale",
+      name: STORAGE_KEYS.locale,
       partialize: (state) => ({ locale: state.locale }),
     }
   )

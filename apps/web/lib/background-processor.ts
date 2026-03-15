@@ -1,4 +1,5 @@
 import type { LocalVideoTrack } from "livekit-client";
+import { STORAGE_KEYS } from "./constants/storage-keys";
 
 export type BackgroundEffect =
   | "none"
@@ -11,6 +12,8 @@ export interface PresetBackground {
   category: string;
   url: string;
 }
+
+export const BACKGROUND_CATEGORIES = ["office", "interior", "nature", "creative", "tech", "seasonal"] as const;
 
 export const PRESET_BACKGROUNDS: PresetBackground[] = [
   // Office
@@ -41,9 +44,6 @@ export const PRESET_BACKGROUNDS: PresetBackground[] = [
   { id: "seasonal-christmas", category: "seasonal", url: "/virtual-backgrounds/seasonal-christmas.webp" },
 ];
 
-const STORAGE_KEY = "backgroundEffect";
-const CUSTOM_BG_KEY = "customBackgrounds";
-
 /** Serialize effect for localStorage */
 function serializeEffect(effect: BackgroundEffect): string {
   if (typeof effect === "string") return effect;
@@ -64,21 +64,21 @@ function deserializeEffect(raw: string): BackgroundEffect {
 
 export function getStoredBackgroundEffect(): BackgroundEffect {
   if (typeof window === "undefined") return "none";
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = localStorage.getItem(STORAGE_KEYS.backgroundEffect);
   if (!stored) return "none";
   return deserializeEffect(stored);
 }
 
 export function storeBackgroundEffect(effect: BackgroundEffect) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, serializeEffect(effect));
+  localStorage.setItem(STORAGE_KEYS.backgroundEffect, serializeEffect(effect));
 }
 
 /** Get user-added custom background URLs from localStorage */
 export function getCustomBackgrounds(): string[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(CUSTOM_BG_KEY);
+    const raw = localStorage.getItem(STORAGE_KEYS.customBackgrounds);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return parsed.filter((v): v is string => typeof v === "string");
@@ -93,13 +93,13 @@ export function addCustomBackground(dataUrl: string) {
   const list = getCustomBackgrounds();
   list.unshift(dataUrl);
   // Keep max 10 custom backgrounds
-  localStorage.setItem(CUSTOM_BG_KEY, JSON.stringify(list.slice(0, 10)));
+  localStorage.setItem(STORAGE_KEYS.customBackgrounds, JSON.stringify(list.slice(0, 10)));
 }
 
 /** Remove a custom background from localStorage */
 export function removeCustomBackground(dataUrl: string) {
   const list = getCustomBackgrounds().filter((u) => u !== dataUrl);
-  localStorage.setItem(CUSTOM_BG_KEY, JSON.stringify(list));
+  localStorage.setItem(STORAGE_KEYS.customBackgrounds, JSON.stringify(list));
 }
 
 export function effectEquals(a: BackgroundEffect, b: BackgroundEffect): boolean {
@@ -123,7 +123,8 @@ export async function applyBackgroundEffect(
 
   if (effect === "blur" || effect === "blur-light") {
     const { BackgroundBlur } = await import("@livekit/track-processors");
-    const blurRadius = effect === "blur" ? 30 : 12;
+    const BLUR_RADIUS = { blur: 30, "blur-light": 12 } as const;
+    const blurRadius = BLUR_RADIUS[effect as "blur" | "blur-light"];
     const processor = BackgroundBlur(blurRadius);
     await track.setProcessor(processor);
     return;

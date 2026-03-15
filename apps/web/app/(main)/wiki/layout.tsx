@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { WikiSidebar } from "@/components/wiki";
 import { useWikiPagesQuery, useSpacesQuery } from "@/lib/api";
-import { useWikiPageActions } from "@/lib/use-wiki-page-actions";
+import { useWikiPageActions } from "@/lib/hooks/use-wiki-page-actions";
 import { groupPagesBySpace } from "@/lib/wiki-tree";
 
 interface WikiLayoutProps {

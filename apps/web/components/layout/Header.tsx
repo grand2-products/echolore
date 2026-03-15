@@ -5,7 +5,7 @@ import { useSpacesQuery, wikiApi } from "@/lib/api";
 import { getVisibleNavigationItems } from "@/components/layout/navigation";
 import { useT } from "@/lib/i18n";
 import { useSiteTitle } from "@/lib/site-settings-context";
-import { useAuthActions } from "@/lib/use-auth-actions";
+import { useAuthActions } from "@/lib/hooks/use-auth-actions";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

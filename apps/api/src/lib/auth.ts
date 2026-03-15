@@ -5,6 +5,10 @@ import { jsonError } from "./api-error.js";
 import { writeAuditLog } from "./audit.js";
 import { resolveAccessTokenSession } from "./local-auth.js";
 import { resolveAllowedDomain } from "../services/admin/auth-settings-service.js";
+import { getUserById } from "../repositories/user/user-repository.js";
+
+// Cache of user IDs confirmed to exist in DB. Avoids a DB query on every request.
+const verifiedUserIds = new Set<string>();
 
 const AUTH_SECRET = process.env.AUTH_SECRET || process.env.AUTH_SESSION_SECRET;
 if (!AUTH_SECRET) {
@@ -108,6 +112,14 @@ export const authGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
   // 2. Auth.js JWT session (browser)
   const authjsResult = await resolveAuthjsSession(c);
   if (authjsResult) {
+    // Verify user still exists in DB (cached after first check)
+    if (!verifiedUserIds.has(authjsResult.user.id)) {
+      const dbUser = await getUserById(authjsResult.user.id);
+      if (!dbUser) {
+        return jsonError(c, 401, "SESSION_INVALID", "User no longer exists");
+      }
+      verifiedUserIds.add(authjsResult.user.id);
+    }
     c.set("user", authjsResult.user);
     c.set("authMode", authjsResult.authMode);
     c.set("authTransport", "authjs");

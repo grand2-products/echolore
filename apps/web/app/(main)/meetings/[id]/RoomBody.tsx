@@ -16,7 +16,7 @@ import MediaToggle from "@/components/livekit/MediaToggle";
 import ReactionOverlay from "@/components/livekit/ReactionOverlay";
 import ReactionPicker from "@/components/livekit/ReactionPicker";
 import ScreenShareView from "@/components/livekit/ScreenShareView";
-import { useReactions } from "@/lib/use-reactions";
+import { useReactions } from "@/lib/hooks/use-reactions";
 import {
   ConnectionState,
   RoomAudioRenderer,

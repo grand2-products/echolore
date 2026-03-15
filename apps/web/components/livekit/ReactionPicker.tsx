@@ -1,7 +1,7 @@
 "use client";
 
 import { useT } from "@/lib/i18n";
-import { REACTION_EMOJIS } from "@/lib/use-reactions";
+import { REACTION_EMOJIS } from "@/lib/hooks/use-reactions";
 import { useEffect, useRef, useState } from "react";
 
 interface ReactionPickerProps {

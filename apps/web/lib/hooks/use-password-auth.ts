@@ -2,8 +2,8 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { authService } from "./auth-service";
-import { normalizeReturnTo } from "./return-to";
+import { authService } from "../auth-service";
+import { normalizeReturnTo } from "../return-to";
 import { useStableEvent } from "./use-stable-event";
 import { invalidateAuthQueries } from "./use-auth-session";
 

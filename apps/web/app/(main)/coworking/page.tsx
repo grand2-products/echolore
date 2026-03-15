@@ -17,6 +17,7 @@ import { useT } from "@/lib/i18n";
 import { apiFetch } from "@/lib/api";
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-core";
 import {
+  BACKGROUND_CATEGORIES,
   type BackgroundEffect,
   PRESET_BACKGROUNDS,
   addCustomBackground,
@@ -29,7 +30,8 @@ import {
 import BackgroundEffectButton from "@/components/livekit/BackgroundEffectButton";
 import MediaToggle from "@/components/livekit/MediaToggle";
 
-const CATEGORIES = ["office", "interior", "nature", "creative", "tech", "seasonal"] as const;
+import { STORAGE_KEYS } from "@/lib/constants/storage-keys";
+
 
 function ParticipantCard({ trackRef }: { trackRef: TrackReferenceOrPlaceholder }) {
   const t = useT();
@@ -539,7 +541,7 @@ function PreviewBackgroundPicker() {
 
           {/* Preset backgrounds */}
           <div className="mb-3 max-h-52 overflow-y-auto">
-            {CATEGORIES.map((cat) => {
+            {BACKGROUND_CATEGORIES.map((cat) => {
               const presets = PRESET_BACKGROUNDS.filter((p) => p.category === cat);
               if (presets.length === 0) return null;
               return (
@@ -599,17 +601,21 @@ function CoworkingPreview({ onJoin }: { onJoin: (opts: { camera: boolean; mic: b
   const [micOn, setMicOn] = useState(false);
   const [joining, setJoining] = useState(false);
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>(
+    () => (typeof window !== "undefined" && localStorage.getItem(STORAGE_KEYS.videoDevice)) || "",
+  );
 
   // Enumerate video devices (once on mount)
   useEffect(() => {
     navigator.mediaDevices.enumerateDevices().then((devices) => {
       const cameras = devices.filter((d) => d.kind === "videoinput");
       setVideoDevices(cameras);
-      const first = cameras[0];
-      if (first) {
-        setSelectedDeviceId((prev) => prev || first.deviceId);
-      }
+      setSelectedDeviceId((prev) => {
+        // Keep stored device if it still exists
+        if (prev && cameras.some((c) => c.deviceId === prev)) return prev;
+        // Fallback to first available
+        return cameras[0]?.deviceId ?? "";
+      });
     }).catch(() => {});
   }, []);
 
@@ -725,7 +731,10 @@ function CoworkingPreview({ onJoin }: { onJoin: (opts: { camera: boolean; mic: b
           <div>
             <select
               value={selectedDeviceId}
-              onChange={(e) => setSelectedDeviceId(e.target.value)}
+              onChange={(e) => {
+                setSelectedDeviceId(e.target.value);
+                localStorage.setItem(STORAGE_KEYS.videoDevice, e.target.value);
+              }}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               {videoDevices.map((device, idx) => (

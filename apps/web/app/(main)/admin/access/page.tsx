@@ -10,7 +10,7 @@ import {
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
-import { useStableEvent } from "@/lib/use-stable-event";
+import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useEffect, useState } from "react";
 import { GroupManagementSection } from "./_components/GroupManagementSection";
 import { UserMembershipSection } from "./_components/UserMembershipSection";
