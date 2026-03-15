@@ -2,11 +2,7 @@ pre-commit:
   parallel: true
   jobs:
     - name: biome check
-      run: |
-        FILES=$(git diff --cached --name-only --diff-filter=d -- '*.ts' '*.tsx' '*.json' '*.css')
-        if [ -n "$FILES" ]; then
-          echo "$FILES" | xargs pnpm biome check --no-errors-on-unmatched
-        fi
+      run: git diff --cached --name-only --diff-filter=d -- '*.ts' '*.tsx' '*.json' '*.css' | xargs -r pnpm biome check --no-errors-on-unmatched
 
     - name: typecheck
       run: pnpm typecheck
