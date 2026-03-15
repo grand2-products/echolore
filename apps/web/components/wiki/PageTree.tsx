@@ -1,8 +1,8 @@
 "use client";
 
-import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useT } from "@/lib/i18n";
 
 export interface PageNode {
   id: string;
@@ -264,6 +264,8 @@ function PageTreeItem(props: PageTreeItemProps) {
   return (
     <div>
       <div
+        role="treeitem"
+        tabIndex={0}
         className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm transition ${
           props.activeId === props.page.id
             ? "bg-blue-50 text-blue-600"
@@ -469,6 +471,7 @@ export function PageTree({
 
   return (
     <div
+      role="tree"
       className="space-y-0.5"
       onDragOver={(event) => {
         event.preventDefault();

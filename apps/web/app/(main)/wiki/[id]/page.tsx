@@ -1,13 +1,13 @@
 "use client";
 
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NotionEditor } from "@/components/wiki/NotionEditor";
 import { PagePermissionsPanel } from "@/components/wiki/PagePermissionsPanel";
 import { VersionHistoryPanel } from "@/components/wiki/VersionHistoryPanel";
 import { useAuthMeQuery, useWikiPageQuery, wikiApi } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 function stringToColor(str: string): string {
   let hash = 0;

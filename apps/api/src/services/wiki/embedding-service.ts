@@ -87,7 +87,8 @@ export async function indexPage(pageId: string): Promise<void> {
   // Embed all chunks
   const embeddings: { chunkIndex: number; text: string; vector: number[] }[] = [];
   for (let i = 0; i < chunks.length; i++) {
-    const chunkText_ = chunks[i]!;
+    const chunkText_ = chunks[i];
+    if (!chunkText_) continue;
     const vector = await embedText(chunkText_, {
       taskType: "RETRIEVAL_DOCUMENT",
       outputDimensionality: EMBEDDING_DIMENSIONS,

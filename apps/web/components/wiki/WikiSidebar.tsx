@@ -1,10 +1,10 @@
 "use client";
 
-import { type Space, wikiApi } from "@/lib/api";
-import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
+import { type Space, wikiApi } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import { type PageNode, PageTree } from "./PageTree";
 import { SpacePickerModal } from "./SpacePickerModal";
 

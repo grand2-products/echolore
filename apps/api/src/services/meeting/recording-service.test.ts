@@ -28,7 +28,7 @@ const { dbMock, egressClientMock, getStorageSettingsMock } = vi.hoisted(() => {
       _queryFindManyMock: queryFindManyMock,
     },
     egressClientMock: {
-      startRoomCompositeEgress: vi.fn(),
+      startTrackCompositeEgress: vi.fn(),
       stopEgress: vi.fn(),
     },
     getStorageSettingsMock: vi.fn(),
@@ -39,11 +39,22 @@ vi.mock("../../db/index.js", () => ({
   db: dbMock,
 }));
 
-vi.mock("livekit-server-sdk", () => ({
-  EgressClient: vi.fn(() => egressClientMock),
-  EncodedFileOutput: vi.fn((opts: unknown) => opts),
-  EncodedFileType: { MP4: 0 },
-}));
+vi.mock("livekit-server-sdk", () => {
+  class MockEgressClient {
+    startTrackCompositeEgress = egressClientMock.startTrackCompositeEgress;
+    stopEgress = egressClientMock.stopEgress;
+  }
+  class MockEncodedFileOutput {
+    constructor(opts: Record<string, unknown>) {
+      Object.assign(this, opts);
+    }
+  }
+  return {
+    EgressClient: MockEgressClient,
+    EncodedFileOutput: MockEncodedFileOutput,
+    EncodedFileType: { MP4: 0 },
+  };
+});
 
 vi.mock("../../lib/livekit-config.js", () => ({
   livekitHost: "http://livekit:7880",
@@ -53,6 +64,11 @@ vi.mock("../../lib/livekit-config.js", () => ({
 
 vi.mock("../admin/admin-service.js", () => ({
   getStorageSettings: getStorageSettingsMock,
+  getEmailSettings: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("../notification/notification-service.js", () => ({
+  notifyRecordingComplete: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("recording-service", () => {
@@ -63,13 +79,13 @@ describe("recording-service", () => {
     dbMock._updateSetWhereMock.mockReset();
     dbMock._queryFindFirstMock.mockReset();
     dbMock._queryFindManyMock.mockReset();
-    egressClientMock.startRoomCompositeEgress.mockReset();
+    egressClientMock.startTrackCompositeEgress.mockReset();
     egressClientMock.stopEgress.mockReset();
     getStorageSettingsMock.mockReset();
   });
 
   describe("startRecording", () => {
-    it("calls EgressClient.startRoomCompositeEgress and inserts a DB record", async () => {
+    it("calls EgressClient.startTrackCompositeEgress and inserts a DB record", async () => {
       getStorageSettingsMock.mockResolvedValue({
         provider: "local",
         localPath: "/data/files",
@@ -83,7 +99,7 @@ describe("recording-service", () => {
       });
 
       const egressInfo = { egressId: "egress_123" };
-      egressClientMock.startRoomCompositeEgress.mockResolvedValue(egressInfo);
+      egressClientMock.startTrackCompositeEgress.mockResolvedValue(egressInfo);
 
       const recordingRow = {
         id: "rec_1",
@@ -98,7 +114,7 @@ describe("recording-service", () => {
         values: vi.fn(() => ({
           returning: vi.fn(async () => [recordingRow]),
         })),
-      });
+      } as ReturnType<typeof dbMock.insert>);
 
       vi.spyOn(crypto, "randomUUID").mockReturnValueOnce(
         "11111111-1111-1111-1111-111111111111" as `${string}-${string}-${string}-${string}-${string}`
@@ -107,9 +123,9 @@ describe("recording-service", () => {
       const { startRecording } = await import("./recording-service.js");
       const result = await startRecording("room-a", "meeting_1", "user_1");
 
-      expect(egressClientMock.startRoomCompositeEgress).toHaveBeenCalledWith(
+      expect(egressClientMock.startTrackCompositeEgress).toHaveBeenCalledWith(
         "room-a",
-        expect.objectContaining({ file: expect.anything() })
+        expect.objectContaining({ fileType: 0, filepath: expect.any(String) })
       );
       expect(dbMock.insert).toHaveBeenCalledWith(meetingRecordings);
       expect(result.egressInfo).toEqual(egressInfo);

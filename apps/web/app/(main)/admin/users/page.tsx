@@ -1,10 +1,11 @@
 "use client";
 
+import Image from "next/image";
+import { useEffect, useState } from "react";
 import { type AdminUserRecord, adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useFormatters, useT } from "@/lib/i18n";
-import { useEffect, useState } from "react";
 
 export default function AdminUsersPage() {
   const t = useT();
@@ -105,7 +106,14 @@ export default function AdminUsersPage() {
                 <td className="whitespace-nowrap px-4 py-3">
                   <div className="flex items-center gap-2">
                     {user.avatarUrl ? (
-                      <img src={user.avatarUrl} alt="" className="h-7 w-7 rounded-full" />
+                      <Image
+                        src={user.avatarUrl}
+                        alt=""
+                        width={28}
+                        height={28}
+                        unoptimized
+                        className="h-7 w-7 rounded-full"
+                      />
                     ) : (
                       <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-medium text-white">
                         {user.name.charAt(0)}

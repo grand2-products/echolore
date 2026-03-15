@@ -1,10 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useCallback, useRef, useState } from "react";
 import { ErrorBanner } from "@/components/ui";
 import { useSpacesQuery, wikiApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
-import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
 import { ModalShell } from "./ModalShell";
 import { SpaceList } from "./SpaceList";
 

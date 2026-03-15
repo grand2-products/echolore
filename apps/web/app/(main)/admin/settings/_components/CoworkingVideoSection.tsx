@@ -1,10 +1,10 @@
 "use client";
 
-import { type LivekitParticipantInfo, adminApi, livekitApi } from "@/lib/api";
+import { useCallback, useState } from "react";
+import { adminApi, type LivekitParticipantInfo, livekitApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 import { COWORKING_ROOM_NAME } from "@/lib/livekit";
-import { useCallback, useState } from "react";
 import { INPUT_CLASS, SettingsCheckbox, SettingsSectionShell } from "./SettingsSectionShell";
 
 interface CoworkingVideoSectionProps {

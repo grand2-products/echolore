@@ -1,11 +1,11 @@
 "use client";
 
-import { useCoworkingRoom } from "@/lib/coworking-room-context";
-import { useT } from "@/lib/i18n";
 import { ParticipantEvent } from "livekit-client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { useCoworkingRoom } from "@/lib/coworking-room-context";
+import { useT } from "@/lib/i18n";
 
 export function CoworkingFloatingBar() {
   const { room, isConnected, leave } = useCoworkingRoom();

@@ -1,16 +1,16 @@
 "use client";
 
-import { type SiteSettings, siteSettingsApi } from "@/lib/api";
-import { appTagline, appTitle } from "@/lib/app-config";
 import {
-  type ReactNode,
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
 } from "react";
+import { type SiteSettings, siteSettingsApi } from "@/lib/api";
+import { appTagline, appTitle } from "@/lib/app-config";
 
 const defaultSettings: SiteSettings = {
   siteTitle: appTitle,
@@ -27,6 +27,7 @@ const defaultSettings: SiteSettings = {
   livekitCoworkingMcuFps: 15,
   livekitCoworkingFocusIdentity: null,
   hasSiteIcon: false,
+  googleOAuthEnabled: false,
 };
 
 interface SiteSettingsContextValue {
@@ -55,6 +56,7 @@ function applyDefaults(data: SiteSettings): SiteSettings {
     livekitCoworkingMcuFps: data.livekitCoworkingMcuFps ?? 15,
     livekitCoworkingFocusIdentity: data.livekitCoworkingFocusIdentity ?? null,
     hasSiteIcon: data.hasSiteIcon ?? false,
+    googleOAuthEnabled: data.googleOAuthEnabled ?? false,
   };
 }
 

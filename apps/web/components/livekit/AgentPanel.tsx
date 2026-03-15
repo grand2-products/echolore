@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type AgentDefinition,
   type MeetingAgentEvent,
@@ -8,7 +9,6 @@ import {
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useLocale, useT } from "@/lib/i18n";
-import { useEffect, useMemo, useRef, useState } from "react";
 
 export function localeToLanguageCode(locale: string) {
   switch (locale) {
@@ -155,16 +155,14 @@ export default function AgentPanel(props: AgentPanelProps) {
   return (
     <>
       {/* Backdrop */}
-      {props.open && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity"
+      {props.open ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity appearance-none border-none p-0 m-0 cursor-default"
           onClick={props.onClose}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") props.onClose();
-          }}
-          role="presentation"
+          aria-label="Close"
         />
-      )}
+      ) : null}
 
       {/* Drawer */}
       <dialog

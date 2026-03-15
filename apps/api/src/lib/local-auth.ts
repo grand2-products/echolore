@@ -16,8 +16,8 @@ import {
 export {
   authenticatePasswordUser,
   exchangeGoogleIdToken,
-  issueMobileTokenPair,
   isRegistrationOpen,
+  issueMobileTokenPair,
   listAuthSessionsForUser,
   reconcileGoogleIdentity,
   refreshAccessToken,

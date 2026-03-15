@@ -35,9 +35,19 @@ vi.mock("../../lib/file-storage.js", () => ({
 }));
 
 // Stub @langchain/core/messages so we can inspect HumanMessage calls
-vi.mock("@langchain/core/messages", () => ({
-  HumanMessage: vi.fn((args: unknown) => args),
-}));
+vi.mock("@langchain/core/messages", () => {
+  class MockHumanMessage {
+    content: unknown;
+    constructor(args: unknown) {
+      if (typeof args === "object" && args !== null && "content" in args) {
+        Object.assign(this, args);
+      } else {
+        this.content = args;
+      }
+    }
+  }
+  return { HumanMessage: MockHumanMessage };
+});
 
 const defaultLlmSettings = {
   provider: "gemini",

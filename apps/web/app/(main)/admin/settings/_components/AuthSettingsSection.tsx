@@ -1,9 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { adminApi } from "@/lib/api";
 import { useSettingsForm } from "@/lib/hooks/use-settings-form";
 import { useT } from "@/lib/i18n";
-import { useState } from "react";
 import { INPUT_CLASS, SettingsSectionShell } from "./SettingsSectionShell";
 
 export function AuthSettingsSection() {
@@ -69,6 +69,7 @@ export function AuthSettingsSection() {
             type="password"
             value={googleClientSecret}
             onChange={(e) => setGoogleClientSecret(e.target.value)}
+            autoComplete="off"
             className={INPUT_CLASS}
           />
         </label>

@@ -93,9 +93,10 @@ export async function getAuthConfig(): Promise<AuthConfig> {
         if (user) {
           // Initial sign-in: embed user info into the JWT
           if (account?.provider === "google") {
+            const userEmail = user.email ?? "";
             const reconciledUser = await reconcileGoogleIdentity({
-              email: user.email!,
-              name: user.name || user.email?.split("@")[0] || "User",
+              email: userEmail,
+              name: user.name || userEmail.split("@")[0] || "User",
             });
             token.userId = reconciledUser.id;
             token.role = reconciledUser.role;

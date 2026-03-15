@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { authApi, siteSettingsApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { appTitle } from "@/lib/app-config";
@@ -8,8 +10,6 @@ import { useAuthActions } from "@/lib/hooks/use-auth-actions";
 import { usePasswordAuth } from "@/lib/hooks/use-password-auth";
 import { type SupportedLocale, useLocale } from "@/lib/i18n";
 import { normalizeReturnTo } from "@/lib/return-to";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
 
 type AuthView = "signin" | "register";
 
@@ -163,6 +163,7 @@ export default function LoginPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState<boolean | null>(null);
   const [siteTitle, setSiteTitle] = useState(appTitle);
+  const [googleOAuthEnabled, setGoogleOAuthEnabled] = useState(false);
   const copy: LoginCopy = loginCopy[locale as SupportedLocale] ?? loginCopy.en;
 
   useEffect(() => {
@@ -178,7 +179,10 @@ export default function LoginPage() {
       .catch(() => setRegistrationOpen(false));
     void siteSettingsApi
       .get()
-      .then((s) => setSiteTitle(s.siteTitle || appTitle))
+      .then((s) => {
+        setSiteTitle(s.siteTitle || appTitle);
+        setGoogleOAuthEnabled(s.googleOAuthEnabled);
+      })
       .catch(() => {});
   }, []);
 
@@ -272,7 +276,7 @@ export default function LoginPage() {
         <h1 className="mt-3 text-2xl font-semibold text-slate-900">
           {view === "signin" ? copy.titleSignin : copy.titleRegister}
         </h1>
-        <p className="mt-2 text-sm text-slate-600">{copy.intro}</p>
+        {googleOAuthEnabled ? <p className="mt-2 text-sm text-slate-600">{copy.intro}</p> : null}
 
         {registrationOpen ? (
           <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
@@ -309,14 +313,16 @@ export default function LoginPage() {
           </div>
         ) : null}
 
-        <div className="mt-6 space-y-3">
-          <a
-            href={googleSignInUrl}
-            className="block rounded-lg border border-slate-300 px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            {copy.continueGoogle}
-          </a>
-        </div>
+        {googleOAuthEnabled ? (
+          <div className="mt-6 space-y-3">
+            <a
+              href={googleSignInUrl}
+              className="block rounded-lg border border-slate-300 px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {copy.continueGoogle}
+            </a>
+          </div>
+        ) : null}
 
         {message ? (
           <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
@@ -405,7 +411,7 @@ export default function LoginPage() {
                 value={registerEmail}
                 onChange={(event) => setRegisterEmail(event.target.value)}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                autoComplete="email"
+                autoComplete="username"
                 required
               />
             </div>

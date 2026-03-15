@@ -1,4 +1,4 @@
-import { AIMessage, HumanMessage } from "@langchain/core/messages";
+import { AIMessage, type BaseMessage, HumanMessage } from "@langchain/core/messages";
 import { nanoid } from "nanoid";
 import { createAiChatAgent } from "../../ai/agent/create-ai-chat-agent.js";
 import {
@@ -18,7 +18,7 @@ import {
   updateConversation,
 } from "../../repositories/ai-chat/ai-chat-repository.js";
 import { getLlmSettings } from "../admin/admin-service.js";
-import { type VectorSearchResult, searchVisibleChunks } from "../wiki/vector-search-service.js";
+import { searchVisibleChunks, type VectorSearchResult } from "../wiki/vector-search-service.js";
 
 export async function sendMessageAndGetResponse(
   user: SessionUser,
@@ -152,13 +152,12 @@ async function invokeAgent(
 
     // Extract the last AI message
     const aiMessages = result.messages.filter(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (m: any) => m._getType?.() === "ai" || m.constructor?.name === "AIMessage"
+      (m: BaseMessage) => m._getType?.() === "ai" || m.constructor?.name === "AIMessage"
     );
 
     let responseContent = "";
-    if (aiMessages.length > 0) {
-      const lastAiMessage = aiMessages[aiMessages.length - 1];
+    const lastAiMessage = aiMessages.at(-1);
+    if (lastAiMessage) {
       responseContent =
         typeof lastAiMessage.content === "string"
           ? lastAiMessage.content

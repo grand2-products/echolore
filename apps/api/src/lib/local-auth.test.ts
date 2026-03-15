@@ -27,10 +27,7 @@ function createSelectQueue<T>(items: T[]) {
   }));
 }
 
-function createTx(options: {
-  selectQueue?: unknown[];
-  updateQueue?: unknown[];
-}) {
+function createTx(options: { selectQueue?: unknown[]; updateQueue?: unknown[] }) {
   const selectQueue = [...(options.selectQueue ?? [])];
   const updateQueue = [...(options.updateQueue ?? [])];
   const inserts: Array<{ table: unknown; values: unknown }> = [];

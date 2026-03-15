@@ -1,10 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useCallback, useState } from "react";
 import { wikiApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
-import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
 
 interface UseWikiPageActionsOptions {
   /** Called after a mutation succeeds so the caller can refresh its data. */

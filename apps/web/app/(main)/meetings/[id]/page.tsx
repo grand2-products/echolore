@@ -1,12 +1,16 @@
 "use client";
 
+import { LiveKitRoom } from "@livekit/components-react";
+import { Room } from "livekit-client";
+import { useParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type AgentDefinition,
+  adminApi,
   type MeetingAgentEvent,
   type MeetingAgentSession,
-  type RealtimeTranscriptSegment,
-  adminApi,
   meetingsApi,
+  type RealtimeTranscriptSegment,
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAuthContext } from "@/lib/auth-context";
@@ -14,10 +18,6 @@ import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { translate, useLocale, useT } from "@/lib/i18n";
 import { fetchLiveKitToken, getLiveKitUrl } from "@/lib/livekit";
 import { useMeetingLivekitSettings } from "@/lib/site-settings-context";
-import { LiveKitRoom } from "@livekit/components-react";
-import { Room } from "livekit-client";
-import { useParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
 import RoomBody from "./RoomBody";
 
 /* ─── Page ─── */

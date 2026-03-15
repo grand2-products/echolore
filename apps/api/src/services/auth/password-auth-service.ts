@@ -6,43 +6,39 @@
 //   - session-service.ts  — session resolution, listing, and revocation
 //   - oauth-service.ts    — Google OAuth flow, identity reconciliation
 
+export type {
+  AccessTokenPayload,
+  AuthSessionRecord,
+  IssuedTokenSet,
+  RefreshClientType,
+  RefreshResult,
+  ResolvedAccessTokenSession,
+  SupportedAuthMode,
+} from "./auth-utils.js";
 export {
   ACCESS_TOKEN_TTL_SECONDS,
-  REFRESH_TOKEN_TTL_SECONDS,
   isRegistrationOpen,
+  REFRESH_TOKEN_TTL_SECONDS,
 } from "./auth-utils.js";
-
-export type {
-  SupportedAuthMode,
-  AccessTokenPayload,
-  RefreshClientType,
-  IssuedTokenSet,
-  ResolvedAccessTokenSession,
-  AuthSessionRecord,
-  RefreshResult,
-} from "./auth-utils.js";
-
 export {
+  exchangeGoogleIdToken,
+  issueMobileTokenPair,
+  reconcileGoogleIdentity,
+} from "./oauth-service.js";
+export {
+  authenticatePasswordUser,
   registerPasswordUser,
   verifyEmailRegistrationToken,
-  authenticatePasswordUser,
 } from "./password-service.js";
 
+export {
+  listAuthSessionsForUser,
+  resolveAccessTokenSession,
+  revokeAuthSessionById,
+} from "./session-service.js";
 export {
   createSignedAccessToken,
   parseSignedAccessToken,
   refreshAccessToken,
   revokeRefreshToken,
 } from "./token-service.js";
-
-export {
-  resolveAccessTokenSession,
-  listAuthSessionsForUser,
-  revokeAuthSessionById,
-} from "./session-service.js";
-
-export {
-  reconcileGoogleIdentity,
-  issueMobileTokenPair,
-  exchangeGoogleIdToken,
-} from "./oauth-service.js";

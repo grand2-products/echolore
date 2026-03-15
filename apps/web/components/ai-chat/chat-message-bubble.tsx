@@ -1,8 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import type { AiChatMessage } from "@/lib/api";
 import { useT } from "@/lib/i18n";
-import Link from "next/link";
 import { MarkdownContent } from "./markdown-content";
 
 interface ChatMessageBubbleProps {

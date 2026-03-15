@@ -1,13 +1,9 @@
 "use client";
 
-import { useAuthContext } from "@/lib/auth-context";
-import { useT } from "@/lib/i18n";
-import { COWORKING_ROOM_NAME, fetchLiveKitToken, getLiveKitUrl } from "@/lib/livekit";
-import { useCoworkingLivekitSettings } from "@/lib/site-settings-context";
 import { ConnectionState, Room, RoomEvent } from "livekit-client";
 import {
-  type ReactNode,
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
@@ -15,6 +11,10 @@ import {
   useRef,
   useState,
 } from "react";
+import { useAuthContext } from "@/lib/auth-context";
+import { useT } from "@/lib/i18n";
+import { COWORKING_ROOM_NAME, fetchLiveKitToken, getLiveKitUrl } from "@/lib/livekit";
+import { useCoworkingLivekitSettings } from "@/lib/site-settings-context";
 
 interface JoinOptions {
   /** Enable camera immediately after joining (default: true) */

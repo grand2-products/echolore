@@ -1,9 +1,9 @@
 "use client";
 
-import { type EmailProvider, adminApi } from "@/lib/api";
+import { useState } from "react";
+import { adminApi, type EmailProvider } from "@/lib/api";
 import { useSettingsForm } from "@/lib/hooks/use-settings-form";
 import { useT } from "@/lib/i18n";
-import { useState } from "react";
 import { INPUT_CLASS, SettingsSectionShell } from "./SettingsSectionShell";
 
 export function EmailSettingsSection() {
@@ -81,6 +81,7 @@ export function EmailSettingsSection() {
                 value={resendApiKey}
                 onChange={(e) => setResendApiKey(e.target.value)}
                 placeholder="re_..."
+                autoComplete="off"
                 className={INPUT_CLASS}
               />
             </label>
@@ -143,6 +144,7 @@ export function EmailSettingsSection() {
                   type="password"
                   value={smtpPass}
                   onChange={(e) => setSmtpPass(e.target.value)}
+                  autoComplete="off"
                   className={INPUT_CLASS}
                 />
               </label>

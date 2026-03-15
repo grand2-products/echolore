@@ -1,8 +1,8 @@
 import { HumanMessage } from "@langchain/core/messages";
 import type { Transcript } from "../db/schema.js";
 import { getLlmSettings } from "../services/admin/admin-service.js";
-import { createChatModel, isTextGenerationEnabled, resolveTextProvider } from "./llm/index.js";
 import type { LlmOverrides } from "./llm/index.js";
+import { createChatModel, isTextGenerationEnabled, resolveTextProvider } from "./llm/index.js";
 
 const clip = (value: string, max = 12000) => value.slice(0, max);
 

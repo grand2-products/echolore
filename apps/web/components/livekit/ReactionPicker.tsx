@@ -1,8 +1,8 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { REACTION_EMOJIS } from "@/lib/hooks/use-reactions";
 import { useT } from "@/lib/i18n";
-import { useEffect, useRef, useState } from "react";
 
 interface ReactionPickerProps {
   onReact: (emoji: string) => void;

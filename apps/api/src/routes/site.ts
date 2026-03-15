@@ -27,6 +27,7 @@ siteRoutes.get("/site-settings", async (c) => {
       livekitCoworkingMcuFps: settings.livekitCoworkingMcuFps,
       livekitCoworkingFocusIdentity: settings.livekitCoworkingFocusIdentity,
       hasSiteIcon: settings.hasSiteIcon,
+      googleOAuthEnabled: settings.googleOAuthEnabled,
     });
   } catch {
     return c.json({
@@ -44,6 +45,7 @@ siteRoutes.get("/site-settings", async (c) => {
       livekitCoworkingMcuFps: 15,
       livekitCoworkingFocusIdentity: null,
       hasSiteIcon: false,
+      googleOAuthEnabled: false,
     });
   }
 });

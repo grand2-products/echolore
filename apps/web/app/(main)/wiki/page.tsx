@@ -1,12 +1,12 @@
 "use client";
 
+import Link from "next/link";
+import { useState } from "react";
 import { ErrorBanner, LoadingState } from "@/components/ui";
 import { ImportFileModal, SpacePickerModal } from "@/components/wiki";
 import { useWikiPagesQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useT } from "@/lib/i18n";
-import Link from "next/link";
-import { useState } from "react";
 
 function formatRelativeDate(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();

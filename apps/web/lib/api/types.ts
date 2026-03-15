@@ -265,6 +265,7 @@ export interface SiteSettings {
   livekitCoworkingMcuFps: number;
   livekitCoworkingFocusIdentity: string | null;
   hasSiteIcon: boolean;
+  googleOAuthEnabled: boolean;
 }
 
 export interface UpdateSiteSettingsRequest {

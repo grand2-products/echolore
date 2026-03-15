@@ -1,5 +1,9 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useRef } from "react";
 import { ChatInput, ChatMessageBubble, TypingIndicator } from "@/components/ai-chat";
 import {
   type AiChatMessage,
@@ -10,10 +14,6 @@ import {
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useScrollIntoView } from "@/lib/hooks/use-auto-scroll";
 import { useT } from "@/lib/i18n";
-import { useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useRef } from "react";
 
 export default function AiChatPage() {
   const params = useParams();

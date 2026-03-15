@@ -1,14 +1,15 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getVisibleNavigationItems } from "@/components/layout/navigation";
 import type { AuthMeResponse, Page, SessionUser, Space } from "@/lib/api";
 import { useSpacesQuery, wikiApi } from "@/lib/api";
 import { useAuthActions } from "@/lib/hooks/use-auth-actions";
 import { useT } from "@/lib/i18n";
 import { useSiteTitle } from "@/lib/site-settings-context";
-import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface HeaderProps {
   user?: SessionUser | null;
@@ -313,7 +314,14 @@ export function Header({ user }: HeaderProps) {
               className="flex items-center gap-2 rounded-full p-1 transition hover:bg-gray-100"
             >
               {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.name} className="h-8 w-8 rounded-full" />
+                <Image
+                  src={user.avatarUrl}
+                  alt={user.name}
+                  width={32}
+                  height={32}
+                  unoptimized
+                  className="h-8 w-8 rounded-full"
+                />
               ) : (
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-medium text-white">
                   {user?.name?.charAt(0) || "U"}

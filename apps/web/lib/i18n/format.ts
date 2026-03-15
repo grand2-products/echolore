@@ -2,8 +2,7 @@
 
 import { useMemo } from "react";
 import type { SupportedLocale } from "./messages";
-import { useLocale } from "./translate";
-import { type TranslationValues, translate } from "./translate";
+import { type TranslationValues, translate, useLocale } from "./translate";
 
 export function formatDate(value: string | number | Date, locale: string) {
   return new Intl.DateTimeFormat(locale, {

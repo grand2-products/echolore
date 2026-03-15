@@ -1,5 +1,4 @@
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import type { Runnable } from "@langchain/core/runnables";
 import type { DynamicStructuredTool } from "@langchain/core/tools";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 
@@ -9,8 +8,9 @@ export interface CreateAiChatAgentInput {
   ragContext?: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createAiChatAgent(input: CreateAiChatAgentInput): Runnable<any, any> {
+export function createAiChatAgent(
+  input: CreateAiChatAgentInput
+): ReturnType<typeof createReactAgent> {
   const contextBlock = input.ragContext
     ? ["", "## Retrieved Wiki Context", "", input.ragContext, "", "---", ""].join("\n")
     : "";

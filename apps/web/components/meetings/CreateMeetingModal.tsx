@@ -1,10 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { ErrorBanner } from "@/components/ui";
 import { useCreateMeetingMutation } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
-import { useState } from "react";
 
 export interface CreateMeetingModalProps {
   isCalendarConnected: boolean;

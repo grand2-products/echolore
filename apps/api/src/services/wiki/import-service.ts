@@ -3,7 +3,7 @@
  * in a single DB transaction.
  */
 import { db } from "../../db/index.js";
-import { type Block, type Page, blocks } from "../../db/schema.js";
+import { type Block, blocks, type Page } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { parseMarkdown, parseTypst } from "./import-parser.js";
 import { createPageWithAccessDefaultsTx } from "./wiki-service.js";

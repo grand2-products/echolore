@@ -1,10 +1,10 @@
 "use client";
 
-import { type Space, useSpacesQuery, wikiApi } from "@/lib/api";
-import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { type Space, useSpacesQuery, wikiApi } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 const SPACE_ICON: Record<string, string> = { general: "G", team: "T", personal: "P" };
 

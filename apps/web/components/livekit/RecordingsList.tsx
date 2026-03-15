@@ -1,8 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { type MeetingRecording, meetingsApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
-import { useEffect, useState } from "react";
 
 export interface RecordingsListProps {
   meetingId: string;

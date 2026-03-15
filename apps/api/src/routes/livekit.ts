@@ -91,7 +91,7 @@ livekitRoutes.post(
           c,
           400,
           "LIVEKIT_ROOM_VALIDATION_FAILED",
-          parsed.error.errors.map((e) => e.message).join(", ")
+          parsed.error.issues.map((e: { message: string }) => e.message).join(", ")
         );
       }
 

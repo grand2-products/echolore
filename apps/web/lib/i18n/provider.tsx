@@ -5,6 +5,12 @@ import { STORAGE_KEYS } from "../constants/storage-keys";
 import { defaultLocale, supportedLocales } from "./messages";
 import { normalizeLocale, useI18nStore } from "./store";
 
+function setLocaleCookie(locale: string) {
+  const ONE_YEAR = 60 * 60 * 24 * 365;
+  const cookie = `locale=${locale}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
+  document.cookie = cookie;
+}
+
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const locale = useI18nStore((state) => state.locale);
   const hydrateLocale = useI18nStore((state) => state.hydrateLocale);
@@ -24,11 +30,10 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, [locale]);
 
   useEffect(() => {
-    const ONE_YEAR = 60 * 60 * 24 * 365;
-    document.cookie = `locale=${locale}; path=/; max-age=${ONE_YEAR}; samesite=lax`;
+    setLocaleCookie(locale);
   }, [locale]);
 
   return children;
 }
 
-export { defaultLocale, supportedLocales, normalizeLocale };
+export { defaultLocale, normalizeLocale, supportedLocales };

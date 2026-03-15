@@ -6,13 +6,13 @@ import type { AppEnv } from "../../lib/auth.js";
 import { authorizePageResource } from "../../policies/authorization-policy.js";
 import { getSpaceById } from "../../repositories/wiki/space-repository.js";
 import {
+  getPageBlocks,
   getPageById,
   softDeletePage,
   updatePage,
 } from "../../repositories/wiki/wiki-repository.js";
-import { getPageBlocks } from "../../repositories/wiki/wiki-repository.js";
 import { deletePageEmbeddings, indexPage } from "../../services/wiki/embedding-service.js";
-import { GENERAL_SPACE_ID, canAccessSpace } from "../../services/wiki/space-service.js";
+import { canAccessSpace, GENERAL_SPACE_ID } from "../../services/wiki/space-service.js";
 import {
   createPageRevision,
   createPageWithAccessDefaults,

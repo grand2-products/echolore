@@ -16,7 +16,7 @@ function getWsBaseUrl(): string {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? `http://${window.location.hostname}:3001`;
   const url = new URL(apiUrl);
   const protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${url.host}/ws/wiki/collab`;
+  return `${protocol}//${url.host}/api/ws/wiki/collab`;
 }
 
 interface CollabState {

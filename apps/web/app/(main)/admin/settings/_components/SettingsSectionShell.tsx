@@ -1,7 +1,7 @@
 "use client";
 
-import { useT } from "@/lib/i18n";
 import type { ReactNode } from "react";
+import { useT } from "@/lib/i18n";
 
 export const INPUT_CLASS = "mt-1 w-full rounded-md border border-gray-300 px-3 py-2";
 

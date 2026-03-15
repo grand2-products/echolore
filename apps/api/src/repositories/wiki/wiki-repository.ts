@@ -1,6 +1,6 @@
 import { and, desc, eq, exists, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { type NewBlock, type NewPage, blocks, pages, spaces, users } from "../../db/schema.js";
+import { blocks, type NewBlock, type NewPage, pages, spaces, users } from "../../db/schema.js";
 
 export async function listPagesOrderedByUpdatedAt() {
   const rows = await db

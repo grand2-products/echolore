@@ -1,9 +1,9 @@
 "use client";
 
-import { useT } from "@/lib/i18n";
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-core";
 import { VideoTrack } from "@livekit/components-react";
 import type { TrackPublication } from "livekit-client";
+import { useT } from "@/lib/i18n";
 
 export interface ParticipantTileProps {
   trackRef: TrackReferenceOrPlaceholder;

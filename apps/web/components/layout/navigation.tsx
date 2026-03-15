@@ -1,7 +1,7 @@
 "use client";
 
-import type { SessionUser } from "@/lib/api";
 import type { ReactNode } from "react";
+import type { SessionUser } from "@/lib/api";
 
 export interface NavigationItem {
   /** i18n key under common.nav (e.g. "aiChat" → t("common.nav.aiChat")) */

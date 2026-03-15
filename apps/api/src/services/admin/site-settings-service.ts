@@ -16,6 +16,8 @@ export async function getSiteSettings() {
     coworkingMcuFps,
     coworkingFocusIdentity,
     siteIconPath,
+    googleClientId,
+    googleClientSecret,
   ] = await Promise.all([
     getSiteSetting("siteTitle"),
     getSiteSetting("siteTagline"),
@@ -31,6 +33,8 @@ export async function getSiteSettings() {
     getSiteSetting("livekitCoworkingMcuFps"),
     getSiteSetting("livekitCoworkingFocusIdentity"),
     getSiteSetting("siteIconStoragePath"),
+    getSiteSetting("authGoogleClientId"),
+    getSiteSetting("authGoogleClientSecret"),
   ]);
   return {
     siteTitle: title?.value ?? null,
@@ -47,6 +51,7 @@ export async function getSiteSettings() {
     livekitCoworkingMcuFps: coworkingMcuFps?.value ? Number(coworkingMcuFps.value) : 15,
     livekitCoworkingFocusIdentity: coworkingFocusIdentity?.value ?? null,
     hasSiteIcon: Boolean(siteIconPath?.value),
+    googleOAuthEnabled: Boolean(googleClientId?.value && googleClientSecret?.value),
   };
 }
 
@@ -83,9 +88,10 @@ export async function updateSiteSettings(input: {
     "livekitCoworkingAdaptiveStream",
   ] as const;
   for (const key of boolKeys) {
-    if (input[key] !== undefined) {
-      await upsertSiteSetting(key, String(input[key]));
-      results[key] = input[key]!;
+    const val = input[key];
+    if (val !== undefined) {
+      await upsertSiteSetting(key, String(val));
+      results[key] = val;
     }
   }
   if (input.livekitCoworkingMode !== undefined) {
@@ -98,9 +104,10 @@ export async function updateSiteSettings(input: {
     "livekitCoworkingMcuFps",
   ] as const;
   for (const key of numKeys) {
-    if (input[key] !== undefined) {
-      await upsertSiteSetting(key, String(input[key]));
-      results[key] = input[key]!;
+    const val = input[key];
+    if (val !== undefined) {
+      await upsertSiteSetting(key, String(val));
+      results[key] = val;
     }
   }
   if (input.livekitCoworkingFocusIdentity !== undefined) {

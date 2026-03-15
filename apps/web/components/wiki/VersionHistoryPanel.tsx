@@ -1,8 +1,8 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { type PageRevision, wikiApi } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
-import { useCallback, useEffect, useState } from "react";
 
 interface VersionHistoryPanelProps {
   pageId: string;

@@ -90,8 +90,8 @@ describe("useReactions", () => {
     vi.resetModules();
     refIndex.current = 0;
     stateValue = [];
-    const mod = await import("./use-reactions.js");
-    return mod.useReactions("Alice");
+    const { useReactions: createReactions } = await import("./use-reactions.js");
+    return createReactions("Alice");
   }
 
   it("sends a reaction with correct JSON payload", async () => {

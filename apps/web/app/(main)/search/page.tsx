@@ -1,13 +1,13 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { ErrorBanner } from "@/components/ui";
 import { type Page, type WikiSearchMeta, wikiApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useT } from "@/lib/i18n";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
 
 export default function SearchPage() {
   const router = useRouter();

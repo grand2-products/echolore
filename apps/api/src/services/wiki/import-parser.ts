@@ -39,7 +39,11 @@ class BlockCollector {
   }
 
   heading(depth: number, content: string) {
-    this.push({ type: HEADING_TYPE_MAP[Math.min(depth, 3)]!, content, properties: null });
+    this.push({
+      type: HEADING_TYPE_MAP[Math.min(depth, 3)] ?? "heading",
+      content,
+      properties: null,
+    });
   }
 
   text(content: string) {
@@ -136,7 +140,7 @@ export function parseMarkdown(source: string): BlockDraft[] {
           break;
         case "paragraph":
           if (node.children.length === 1 && node.children[0]?.type === "image") {
-            const img = node.children[0]!;
+            const img = node.children[0];
             c.image(img.url, img.alt || null);
           } else {
             c.text(phrasingToHtml(node.children));
@@ -189,7 +193,7 @@ export function parseTypst(source: string): BlockDraft[] {
   let i = 0;
 
   while (i < lines.length) {
-    const line = lines[i]!;
+    const line = lines[i] ?? "";
 
     // Code block
     const codeMatch = line.match(/^```(\w*)$/);
@@ -198,7 +202,7 @@ export function parseTypst(source: string): BlockDraft[] {
       const codeLines: string[] = [];
       i++;
       while (i < lines.length && !lines[i]?.startsWith("```")) {
-        codeLines.push(lines[i]!);
+        codeLines.push(lines[i] ?? "");
         i++;
       }
       if (i < lines.length) i++; // skip closing ```
@@ -217,7 +221,7 @@ export function parseTypst(source: string): BlockDraft[] {
     // Heading
     const headingMatch = line.match(/^(={1,3})\s+(.+)$/);
     if (headingMatch) {
-      c.heading(headingMatch[1]?.length ?? 1, typstInlineToHtml(headingMatch[2]?.trim() ?? ""));
+      c.heading((headingMatch[1] ?? "=").length, typstInlineToHtml((headingMatch[2] ?? "").trim()));
       i++;
       continue;
     }
@@ -225,7 +229,7 @@ export function parseTypst(source: string): BlockDraft[] {
     // Unordered list
     const ulMatch = line.match(/^-\s+(.+)$/);
     if (ulMatch) {
-      c.list(false, typstInlineToHtml(ulMatch[1]!));
+      c.list(false, typstInlineToHtml(ulMatch[1] ?? ""));
       i++;
       continue;
     }
@@ -233,7 +237,7 @@ export function parseTypst(source: string): BlockDraft[] {
     // Ordered list
     const olMatch = line.match(/^\+\s+(.+)$/);
     if (olMatch) {
-      c.list(true, typstInlineToHtml(olMatch[1]!));
+      c.list(true, typstInlineToHtml(olMatch[1] ?? ""));
       i++;
       continue;
     }
@@ -241,7 +245,7 @@ export function parseTypst(source: string): BlockDraft[] {
     // Image
     const imageMatch = line.match(/^#image\("([^"]+)"\)/);
     if (imageMatch) {
-      c.image(imageMatch[1]!, null);
+      c.image(imageMatch[1] ?? "", null);
       i++;
       continue;
     }
@@ -255,8 +259,12 @@ export function parseTypst(source: string): BlockDraft[] {
     // Plain text paragraph — collect consecutive non-special lines
     const paraLines: string[] = [line];
     i++;
-    while (i < lines.length && lines[i]?.trim() !== "" && !TYPST_SPECIAL_LINE.test(lines[i]!)) {
-      paraLines.push(lines[i]!);
+    while (
+      i < lines.length &&
+      lines[i]?.trim() !== "" &&
+      !TYPST_SPECIAL_LINE.test(lines[i] ?? "")
+    ) {
+      paraLines.push(lines[i] ?? "");
       i++;
     }
     c.text(typstInlineToHtml(paraLines.join(" ")));

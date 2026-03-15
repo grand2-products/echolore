@@ -1,8 +1,7 @@
-import { sql } from "drizzle-orm";
-import { db } from "../../db/index.js";
-
 import { UserRole } from "@corp-internal/shared/contracts";
+import { sql } from "drizzle-orm";
 import { embedText, isEmbeddingEnabled } from "../../ai/embeddings.js";
+import { db } from "../../db/index.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { canReadPage } from "../../policies/authorization-policy.js";
 

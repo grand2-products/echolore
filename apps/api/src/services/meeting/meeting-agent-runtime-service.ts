@@ -2,12 +2,12 @@ import { UserRole } from "@corp-internal/shared/contracts";
 import { HumanMessage } from "@langchain/core/messages";
 import { createMeetingAgent } from "../../ai/agent/create-meeting-agent.js";
 import { createSpeechGatewayBundle } from "../../ai/gateway/index.js";
+import type { LlmOverrides } from "../../ai/llm/index.js";
 import {
   createChatModel,
   isTextGenerationEnabled,
   resolveTextProvider,
 } from "../../ai/llm/index.js";
-import type { LlmOverrides } from "../../ai/llm/index.js";
 import { createAgentTools } from "../../ai/tools/index.js";
 import type { SessionUser } from "../../lib/auth.js";
 import {

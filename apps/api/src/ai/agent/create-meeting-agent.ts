@@ -1,5 +1,4 @@
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import type { Runnable } from "@langchain/core/runnables";
 import type { DynamicStructuredTool } from "@langchain/core/tools";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 
@@ -11,8 +10,9 @@ export interface CreateMeetingAgentInput {
   tools: DynamicStructuredTool[];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createMeetingAgent(input: CreateMeetingAgentInput): Runnable<any, any> {
+export function createMeetingAgent(
+  input: CreateMeetingAgentInput
+): ReturnType<typeof createReactAgent> {
   const systemMessage = [
     `You are ${input.agentName}, an internal AI employee participating in a meeting.`,
     `Intervention style: ${input.interventionStyle}`,

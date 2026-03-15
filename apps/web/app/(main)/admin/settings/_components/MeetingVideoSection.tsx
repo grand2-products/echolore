@@ -1,9 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
-import { useState } from "react";
 import { SettingsCheckbox, SettingsSectionShell } from "./SettingsSectionShell";
 
 interface MeetingVideoSectionProps {

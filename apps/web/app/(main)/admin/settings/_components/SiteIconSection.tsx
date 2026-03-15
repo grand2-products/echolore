@@ -1,9 +1,10 @@
 "use client";
 
+import Image from "next/image";
+import { useRef, useState } from "react";
 import { adminApi, getSiteIconUrl } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
-import { useRef, useState } from "react";
 import { SettingsSectionShell } from "./SettingsSectionShell";
 
 const SITE_ICON_MAX_BYTES = 256 * 1024;
@@ -63,10 +64,12 @@ export function SiteIconSection({ initialHasSiteIcon }: SiteIconSectionProps) {
       <div className="space-y-4">
         {hasSiteIcon && (
           <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={`${getSiteIconUrl()}?v=${iconVersion}`}
               alt="Site icon"
+              width={40}
+              height={40}
+              unoptimized
               className="h-10 w-10 rounded border border-gray-200 object-contain"
             />
             <span className="text-sm text-gray-500">{t("admin.settings.siteIcon")}</span>
@@ -74,7 +77,8 @@ export function SiteIconSection({ initialHasSiteIcon }: SiteIconSectionProps) {
         )}
 
         {/* Drop zone + file input */}
-        <div
+        <button
+          type="button"
           onDragOver={(e) => {
             e.preventDefault();
             setIconDragging(true);
@@ -89,16 +93,7 @@ export function SiteIconSection({ initialHasSiteIcon }: SiteIconSectionProps) {
             }
           }}
           onClick={() => iconInputRef.current?.click()}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              iconInputRef.current?.click();
-            }
-          }}
-          // biome-ignore lint/a11y/useSemanticElements: drag-drop zone with click handler
-          role="button"
-          tabIndex={0}
-          className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
+          className={`flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
             iconDragging
               ? "border-blue-400 bg-blue-50"
               : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100"
@@ -125,7 +120,7 @@ export function SiteIconSection({ initialHasSiteIcon }: SiteIconSectionProps) {
               <span className="mt-1 text-xs text-gray-400">PNG / SVG / ICO, max 256KB</span>
             </>
           )}
-        </div>
+        </button>
 
         {hasSiteIcon && (
           <button

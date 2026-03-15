@@ -1,8 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { type AdminGroup, type AdminPagePermissionRecord, wikiApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
-import { useEffect, useState } from "react";
 
 interface PagePermissionsPanelProps {
   pageId: string;

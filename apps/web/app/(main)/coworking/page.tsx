@@ -1,36 +1,36 @@
 "use client";
 
-import BackgroundEffectButton from "@/components/livekit/BackgroundEffectButton";
-import MediaToggle from "@/components/livekit/MediaToggle";
-import { apiFetch } from "@/lib/api";
-import { useAuthContext } from "@/lib/auth-context";
-import {
-  BACKGROUND_CATEGORIES,
-  type BackgroundEffect,
-  PRESET_BACKGROUNDS,
-  addCustomBackground,
-  effectEquals,
-  getCustomBackgrounds,
-  getStoredBackgroundEffect,
-  removeCustomBackground,
-  storeBackgroundEffect,
-} from "@/lib/background-processor";
-import { useCoworkingRoom } from "@/lib/coworking-room-context";
-import { useT } from "@/lib/i18n";
-import { useCoworkingLivekitSettings } from "@/lib/site-settings-context";
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-core";
 import {
   ConnectionState,
   RoomAudioRenderer,
   RoomContext,
-  VideoTrack,
   useParticipants,
   useTracks,
+  VideoTrack,
 } from "@livekit/components-react";
 import { Track, type TrackPublication } from "livekit-client";
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
-
+import BackgroundEffectButton from "@/components/livekit/BackgroundEffectButton";
+import MediaToggle from "@/components/livekit/MediaToggle";
+import { apiFetch } from "@/lib/api";
+import { useAuthContext } from "@/lib/auth-context";
+import {
+  addCustomBackground,
+  BACKGROUND_CATEGORIES,
+  type BackgroundEffect,
+  effectEquals,
+  getCustomBackgrounds,
+  getStoredBackgroundEffect,
+  PRESET_BACKGROUNDS,
+  removeCustomBackground,
+  storeBackgroundEffect,
+} from "@/lib/background-processor";
 import { STORAGE_KEYS } from "@/lib/constants/storage-keys";
+import { useCoworkingRoom } from "@/lib/coworking-room-context";
+import { useT } from "@/lib/i18n";
+import { useCoworkingLivekitSettings } from "@/lib/site-settings-context";
 
 function ParticipantCard({ trackRef }: { trackRef: TrackReferenceOrPlaceholder }) {
   const t = useT();
@@ -555,7 +555,14 @@ function PreviewBackgroundPicker() {
                           : "border-gray-200 hover:border-gray-300"
                       }`}
                     >
-                      <img src={url} alt="" className="h-full w-full object-cover" />
+                      <Image
+                        src={url}
+                        alt=""
+                        width={56}
+                        height={56}
+                        unoptimized
+                        className="h-full w-full object-cover"
+                      />
                     </button>
                     <button
                       type="button"
@@ -595,11 +602,13 @@ function PreviewBackgroundPicker() {
                               : "border-gray-200 hover:border-gray-300"
                           }`}
                         >
-                          <img
+                          <Image
                             src={preset.url}
                             alt={t(`background.preset.${preset.id}`)}
+                            width={56}
+                            height={56}
+                            unoptimized
                             className="h-full w-full object-cover"
-                            loading="lazy"
                           />
                         </button>
                       );
@@ -643,7 +652,9 @@ function PreviewBackgroundPicker() {
 
 function CoworkingPreview({
   onJoin,
-}: { onJoin: (opts: { camera: boolean; mic: boolean; deviceId?: string }) => void }) {
+}: {
+  onJoin: (opts: { camera: boolean; mic: boolean; deviceId?: string }) => void;
+}) {
   const t = useT();
   const { user } = useAuthContext();
   const videoRef = useRef<HTMLVideoElement>(null);

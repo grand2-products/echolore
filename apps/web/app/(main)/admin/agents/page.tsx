@@ -1,10 +1,10 @@
 "use client";
 
-import { type AgentDefinition, type CreateAgentRequest, adminApi } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { type AgentDefinition, adminApi, type CreateAgentRequest } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useFormatters, useT } from "@/lib/i18n";
-import { useEffect, useState } from "react";
 import { LlmSettingsSection } from "../settings/_components/LlmSettingsSection";
 import {
   TestConnectionModal,

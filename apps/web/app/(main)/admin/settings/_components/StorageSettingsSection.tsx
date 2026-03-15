@@ -1,10 +1,10 @@
 "use client";
 
-import { type StorageProviderType, adminApi } from "@/lib/api";
+import { useState } from "react";
+import { adminApi, type StorageProviderType } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useSettingsForm } from "@/lib/hooks/use-settings-form";
 import { useT } from "@/lib/i18n";
-import { useState } from "react";
 import { INPUT_CLASS, SettingsCheckbox, SettingsSectionShell } from "./SettingsSectionShell";
 import type { TestModalState } from "./TestConnectionModal";
 
@@ -188,6 +188,7 @@ export function StorageSettingsSection({ onTestModal }: StorageSettingsSectionPr
                 type="password"
                 value={storageS3SecretKey}
                 onChange={(e) => setStorageS3SecretKey(e.target.value)}
+                autoComplete="off"
                 className={INPUT_CLASS}
               />
             </label>

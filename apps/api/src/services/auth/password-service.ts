@@ -6,11 +6,11 @@ import { db } from "../../db/index.js";
 import { authIdentities, emailVerificationTokens, users } from "../../db/schema.js";
 import { resolveAllowedDomain } from "../admin/auth-settings-service.js";
 import {
-  PASSWORD_PROVIDER,
   findUserByEmail,
   hashValue,
   isRegistrationOpen,
   normalizeEmail,
+  PASSWORD_PROVIDER,
   toSessionUser,
 } from "./auth-utils.js";
 

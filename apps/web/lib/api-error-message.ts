@@ -1,9 +1,9 @@
 "use client";
 
+import { useCallback } from "react";
 import type { ApiError } from "@/lib/api";
 import type { SupportedLocale } from "@/lib/i18n";
 import { defaultLocale, useLocale } from "@/lib/i18n";
-import { useCallback } from "react";
 
 type LocalizedMessages = Record<string, string>;
 type ApiErrorLike = Pick<ApiError, "code" | "detail" | "message">;

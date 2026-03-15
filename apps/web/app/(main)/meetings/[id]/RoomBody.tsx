@@ -1,5 +1,10 @@
 "use client";
 
+import { ConnectionState, RoomAudioRenderer, useTracks } from "@livekit/components-react";
+import { Track } from "livekit-client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AgentPanel from "@/components/livekit/AgentPanel";
 import BackgroundEffectButton from "@/components/livekit/BackgroundEffectButton";
 import MediaToggle from "@/components/livekit/MediaToggle";
@@ -13,11 +18,6 @@ import type { AgentDefinition, MeetingAgentEvent, RealtimeTranscriptSegment } fr
 import { livekitApi } from "@/lib/api";
 import { useReactions } from "@/lib/hooks/use-reactions";
 import { useFormatters, useT } from "@/lib/i18n";
-import { ConnectionState, RoomAudioRenderer, useTracks } from "@livekit/components-react";
-import { Track } from "livekit-client";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
 
 type OpenPanel = "agent" | "transcript" | null;
 

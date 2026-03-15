@@ -1,10 +1,10 @@
 "use client";
 
-import { type LlmProvider, adminApi } from "@/lib/api";
+import { useState } from "react";
+import { adminApi, type LlmProvider } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useSettingsForm } from "@/lib/hooks/use-settings-form";
 import { useT } from "@/lib/i18n";
-import { useState } from "react";
 import { INPUT_CLASS, SettingsSectionShell } from "./SettingsSectionShell";
 import type { TestModalState } from "./TestConnectionModal";
 
@@ -124,6 +124,7 @@ export function LlmSettingsSection({ onTestModal }: LlmSettingsSectionProps) {
                 value={geminiApiKey}
                 onChange={(e) => setGeminiApiKey(e.target.value)}
                 placeholder="AIza..."
+                autoComplete="off"
                 className={INPUT_CLASS}
               />
             </label>
@@ -180,6 +181,7 @@ export function LlmSettingsSection({ onTestModal }: LlmSettingsSectionProps) {
                 type="password"
                 value={zhipuApiKey}
                 onChange={(e) => setZhipuApiKey(e.target.value)}
+                autoComplete="off"
                 className={INPUT_CLASS}
               />
             </label>

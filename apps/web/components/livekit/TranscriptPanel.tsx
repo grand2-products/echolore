@@ -1,9 +1,9 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { RealtimeTranscriptSegment } from "@/lib/api";
 import { useAutoScrollNearBottom } from "@/lib/hooks/use-auto-scroll";
 import { useFormatters, useT } from "@/lib/i18n";
-import { useEffect, useRef } from "react";
 
 export interface TranscriptPanelProps {
   segments: RealtimeTranscriptSegment[];
@@ -29,16 +29,14 @@ export default function TranscriptPanel({ segments, open, onClose }: TranscriptP
 
   return (
     <>
-      {open && (
-        <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+      {open ? (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm appearance-none border-none p-0 m-0 cursor-default"
           onClick={onClose}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") onClose();
-          }}
-          role="presentation"
+          aria-label="Close"
         />
-      )}
+      ) : null}
       <dialog
         open={open}
         aria-modal="true"

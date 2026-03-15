@@ -1,21 +1,22 @@
 "use client";
 
+import { useLocalParticipant } from "@livekit/components-react";
+import { type LocalVideoTrack, Track } from "livekit-client";
+import Image from "next/image";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  BACKGROUND_CATEGORIES,
-  type BackgroundEffect,
-  PRESET_BACKGROUNDS,
   addCustomBackground,
   applyBackgroundEffect,
+  BACKGROUND_CATEGORIES,
+  type BackgroundEffect,
   effectEquals,
   getCustomBackgrounds,
   getStoredBackgroundEffect,
+  PRESET_BACKGROUNDS,
   removeCustomBackground,
   storeBackgroundEffect,
 } from "@/lib/background-processor";
 import { useT } from "@/lib/i18n";
-import { useLocalParticipant } from "@livekit/components-react";
-import { type LocalVideoTrack, Track } from "livekit-client";
-import { useCallback, useEffect, useRef, useState } from "react";
 
 interface BackgroundEffectButtonProps {
   variant?: "dark" | "light";
@@ -228,7 +229,14 @@ export default function BackgroundEffectButton({ variant = "light" }: Background
                           : "border-gray-200 hover:border-gray-300"
                       }`}
                     >
-                      <img src={url} alt="" className="h-full w-full object-cover" />
+                      <Image
+                        src={url}
+                        alt=""
+                        width={56}
+                        height={56}
+                        unoptimized
+                        className="h-full w-full object-cover"
+                      />
                     </button>
                     <button
                       type="button"
@@ -268,11 +276,13 @@ export default function BackgroundEffectButton({ variant = "light" }: Background
                               : "border-gray-200 hover:border-gray-300"
                           }`}
                         >
-                          <img
+                          <Image
                             src={preset.url}
                             alt={t(`background.preset.${preset.id}`)}
+                            width={56}
+                            height={56}
+                            unoptimized
                             className="h-full w-full object-cover"
-                            loading="lazy"
                           />
                         </button>
                       );

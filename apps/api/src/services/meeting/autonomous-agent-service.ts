@@ -1,11 +1,11 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { buildAutonomousDecisionPrompt } from "../../ai/agent/autonomous-decision-prompt.js";
+import type { LlmOverrides } from "../../ai/llm/index.js";
 import {
   createChatModel,
   isTextGenerationEnabled,
   resolveTextProvider,
 } from "../../ai/llm/index.js";
-import type { LlmOverrides } from "../../ai/llm/index.js";
 import {
   getLastAutonomousEventTime,
   listAutonomousActiveSessions,

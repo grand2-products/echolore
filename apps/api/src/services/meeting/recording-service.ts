@@ -130,10 +130,9 @@ export async function handleEgressWebhook(event: {
       with: { meeting: true },
     });
     if (recording?.storagePath) {
+      const path = recording.storagePath;
       import("./recording-transcription-service.js")
-        .then(({ transcribeRecording }) =>
-          transcribeRecording(recording.meetingId, recording.storagePath!)
-        )
+        .then(({ transcribeRecording }) => transcribeRecording(recording.meetingId, path))
         .catch((err) => console.error("[recording] Auto-transcription failed:", err));
     }
     // Email notification

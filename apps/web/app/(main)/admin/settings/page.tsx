@@ -1,8 +1,8 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { useT } from "@/lib/i18n";
 import { useSiteSettings } from "@/lib/site-settings-context";
-import { useCallback, useState } from "react";
 import { CoworkingVideoSection } from "./_components/CoworkingVideoSection";
 import { EmailSettingsSection } from "./_components/EmailSettingsSection";
 import { MeetingVideoSection } from "./_components/MeetingVideoSection";

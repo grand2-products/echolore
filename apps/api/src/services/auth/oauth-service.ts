@@ -4,7 +4,7 @@ import { OAuth2Client } from "google-auth-library";
 import { db } from "../../db/index.js";
 import { authIdentities, users } from "../../db/schema.js";
 import { getAuthSettings, resolveAllowedDomain } from "../admin/auth-settings-service.js";
-import { GOOGLE_PROVIDER, findUserById, normalizeEmail, toSessionUser } from "./auth-utils.js";
+import { findUserById, GOOGLE_PROVIDER, normalizeEmail, toSessionUser } from "./auth-utils.js";
 import { buildAccessToken, issueRefreshToken } from "./token-service.js";
 
 const googleClient = new OAuth2Client();
@@ -123,10 +123,7 @@ async function resolveGoogleUserFromIdToken(idToken: string) {
   return reconcileGoogleIdentity({ email, name });
 }
 
-export async function issueMobileTokenPair(input: {
-  userId: string;
-  deviceName?: string | null;
-}) {
+export async function issueMobileTokenPair(input: { userId: string; deviceName?: string | null }) {
   const user = await findUserById(input.userId);
   if (!user) {
     throw new Error("User not found");

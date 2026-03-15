@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 import { FloatingChat } from "@/components/ai-chat/floating-chat";
 import { CoworkingFloatingBar } from "@/components/coworking/floating-bar";
 import { Header, Sidebar } from "@/components/layout";
@@ -10,9 +13,6 @@ import { useAuthActions } from "@/lib/hooks/use-auth-actions";
 import { useT } from "@/lib/i18n";
 import { buildCurrentReturnTo, buildLoginUrl } from "@/lib/return-to";
 import { SiteSettingsProvider } from "@/lib/site-settings-context";
-import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
 
 interface MainLayoutProps {
   children: React.ReactNode;

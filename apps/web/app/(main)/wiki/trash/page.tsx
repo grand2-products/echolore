@@ -1,10 +1,10 @@
 "use client";
 
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import { ErrorBanner, LoadingState } from "@/components/ui";
 import { type Page, wikiApi } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
-import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
 
 export default function WikiTrashPage() {
   const t = useT();

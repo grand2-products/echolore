@@ -1,8 +1,8 @@
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { authRefreshTokens } from "../../db/schema.js";
-import { findUserById, hashValue, toSessionUser } from "./auth-utils.js";
 import type { AuthSessionRecord, ResolvedAccessTokenSession } from "./auth-utils.js";
+import { findUserById, hashValue, toSessionUser } from "./auth-utils.js";
 import { parseSignedAccessToken } from "./token-service.js";
 
 export async function resolveAccessTokenSession(input: {

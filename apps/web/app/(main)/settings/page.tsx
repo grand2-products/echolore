@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { ErrorBanner } from "@/components/ui";
 import { calendarApi, useCalendarStatusQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
@@ -16,8 +18,6 @@ import {
   useT,
 } from "@/lib/i18n";
 import { buildLoginUrl } from "@/lib/return-to";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
 
 export default function SettingsPage() {
   const { user, authMode, isLoading, isError, refetch: refetchAuth } = useAuthContext();

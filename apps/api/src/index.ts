@@ -20,14 +20,14 @@ import { coworkingHlsRoutes } from "./routes/coworking-hls.js";
 import { egressLayoutRoutes } from "./routes/egress-layout.js";
 import { filesRoutes } from "./routes/files.js";
 import { internalRoomAiRoutes } from "./routes/internal-room-ai.js";
-import { livekitWebhookRoutes } from "./routes/livekit-webhook.js";
 import { livekitRoutes } from "./routes/livekit.js";
+import { livekitWebhookRoutes } from "./routes/livekit-webhook.js";
 import { meetingsRoutes } from "./routes/meetings/index.js";
 import { metricsRoutes } from "./routes/metrics.js";
 import { siteRoutes } from "./routes/site.js";
 import { usersRoutes } from "./routes/users.js";
-import { createWikiCollabRoutes } from "./routes/wiki-collab.js";
 import { wikiRoutes } from "./routes/wiki/index.js";
+import { createWikiCollabRoutes } from "./routes/wiki-collab.js";
 import { buildStorageConfig, getStorageSettings } from "./services/admin/admin-service.js";
 import { startAutonomousAgentLoop } from "./services/meeting/autonomous-agent-service.js";
 import { shutdownCollab } from "./services/wiki/yjs-collab-service.js";
@@ -114,7 +114,7 @@ app.use("/api/auth/*", async (c, next) => {
 
 app.get("/", (c) => c.json({ message: `${appTitle} API`, version: "0.0.1" }));
 app.get("/health", (c) => c.json({ status: "ok", timestamp: new Date().toISOString() }));
-app.route("/ws", createWikiCollabRoutes(upgradeWebSocket)); // WebSocket routes before authGuard
+app.route("/api/ws", createWikiCollabRoutes(upgradeWebSocket)); // WebSocket routes before authGuard
 app.route("/internal/room-ai", internalRoomAiRoutes);
 app.route("/api/livekit/webhook", livekitWebhookRoutes);
 app.route("/api/auth", authRoutes);

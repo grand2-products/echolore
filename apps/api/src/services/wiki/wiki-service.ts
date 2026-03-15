@@ -9,8 +9,8 @@ import {
 } from "../../ai/embeddings.js";
 import { db } from "../../db/index.js";
 import {
-  type Page,
   blocks,
+  type Page,
   pageInheritance,
   pagePermissions,
   pageRevisions,

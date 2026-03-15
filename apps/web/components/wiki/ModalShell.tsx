@@ -10,7 +10,7 @@ interface ModalShellProps {
 
 export function ModalShell({ open, onClose, children }: ModalShellProps) {
   const handleBackdropClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
+    (e: React.MouseEvent<HTMLButtonElement>) => {
       if (e.target === e.currentTarget) onClose();
     },
     [onClose]
@@ -19,15 +19,13 @@ export function ModalShell({ open, onClose, children }: ModalShellProps) {
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+    <button
+      type="button"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 appearance-none border-none p-0 m-0 cursor-default"
       onClick={handleBackdropClick}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
-      }}
-      role="presentation"
+      aria-label="Close"
     >
       <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">{children}</div>
-    </div>
+    </button>
   );
 }

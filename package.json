@@ -26,10 +26,10 @@
     "prepare": "lefthook install"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
+    "@biomejs/biome": "^2.4.7",
     "dotenv-cli": "^11.0.0",
     "lefthook": "^2.1.4",
-    "turbo": "^2.4.4",
+    "turbo": "^2.8.17",
     "typescript": "^5.7.3"
   },
   "packageManager": "pnpm@9.15.9",

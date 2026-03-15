@@ -1,9 +1,5 @@
 "use client";
 
-import { type ConnectionStatus, useCollaboration } from "@/hooks/use-collaboration";
-import { filesApi, getWikiFileDownloadUrl, wikiApi } from "@/lib/api";
-import { useT } from "@/lib/i18n";
-import { blockDtosToBlocks } from "@/lib/wiki-serializer";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
 import type { BlockDto } from "@corp-internal/shared/contracts";
@@ -11,6 +7,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
 import type { WebsocketProvider } from "y-websocket";
 import type { XmlFragment } from "yjs";
+import { type ConnectionStatus, useCollaboration } from "@/hooks/use-collaboration";
+import { filesApi, getWikiFileDownloadUrl, wikiApi } from "@/lib/api";
+import { useT } from "@/lib/i18n";
+import { blockDtosToBlocks } from "@/lib/wiki-serializer";
 import { CollaboratorAvatars } from "./CollaboratorAvatars";
 
 import "@blocknote/shadcn/style.css";

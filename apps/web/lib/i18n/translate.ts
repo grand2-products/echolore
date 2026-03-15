@@ -2,10 +2,10 @@
 
 import { useCallback } from "react";
 import {
-  type SupportedLocale,
-  type TranslationDictionary,
   defaultLocale,
   messagesByLocale,
+  type SupportedLocale,
+  type TranslationDictionary,
 } from "./messages";
 import { useI18nStore } from "./store";
 

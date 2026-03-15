@@ -28,7 +28,6 @@ export function jsonError(
  * type inference (including `zValidator` augmented context types) continues
  * to work correctly.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withErrorHandler<H extends (c: any) => Promise<Response>>(
   handler: H,
   errorCode: string,

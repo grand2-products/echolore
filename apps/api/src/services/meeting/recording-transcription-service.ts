@@ -1,10 +1,10 @@
 import { HumanMessage } from "@langchain/core/messages";
+import type { LlmOverrides } from "../../ai/llm/index.js";
 import {
   createChatModel,
   isTextGenerationEnabled,
   resolveTextProvider,
 } from "../../ai/llm/index.js";
-import type { LlmOverrides } from "../../ai/llm/index.js";
 import { loadFile } from "../../lib/file-storage.js";
 import { createTranscript } from "../../repositories/meeting/meeting-repository.js";
 import { getLlmSettings } from "../admin/admin-service.js";
@@ -115,7 +115,8 @@ export async function transcribeRecording(
     // Store in transcripts table
     const baseTime = new Date();
     for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i]!;
+      const seg = segments[i];
+      if (!seg) continue;
       const [min, sec] = seg.timestamp.split(":").map(Number);
       const offsetMs = ((min ?? 0) * 60 + (sec ?? 0)) * 1000;
 

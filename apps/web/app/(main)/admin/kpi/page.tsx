@@ -1,9 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ErrorBanner } from "@/components/ui";
 import { type KpiOverviewResponse, metricsApi } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
-import { useEffect, useState } from "react";
 
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 const alertTone = (critical: boolean, warning: boolean) => {

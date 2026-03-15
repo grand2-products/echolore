@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { STORAGE_KEYS } from "../constants/storage-keys";
-import { type SupportedLocale, defaultLocale, supportedLocales } from "./messages";
+import { defaultLocale, type SupportedLocale, supportedLocales } from "./messages";
 
 type I18nState = {
   locale: SupportedLocale;

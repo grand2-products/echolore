@@ -1,11 +1,11 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { getVisibleNavigationItems } from "@/components/layout/navigation";
 import type { SessionUser } from "@/lib/api";
 import { useCoworkingRoom } from "@/lib/coworking-room-context";
 import { useT } from "@/lib/i18n";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 
 interface SidebarProps {
   children?: React.ReactNode;

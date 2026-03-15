@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { type Meeting, blocks, summaries } from "../../db/schema.js";
-import { MEETING_NOTES_PAGE_ID, createMeetingSummaryWikiArtifacts } from "./meeting-service.js";
+import { blocks, type Meeting, summaries } from "../../db/schema.js";
+import { createMeetingSummaryWikiArtifacts, MEETING_NOTES_PAGE_ID } from "./meeting-service.js";
 
 const { dbMock, createPageWithAccessDefaultsTxMock } = vi.hoisted(() => {
   const selectFromWhereMock = vi.fn();

@@ -1,12 +1,12 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
+import { useParams } from "next/navigation";
+import { useCallback, useMemo } from "react";
 import { WikiSidebar } from "@/components/wiki";
 import { useSpacesQuery, useWikiPagesQuery } from "@/lib/api";
 import { useWikiPageActions } from "@/lib/hooks/use-wiki-page-actions";
 import { groupPagesBySpace } from "@/lib/wiki-tree";
-import { useQueryClient } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
-import { useCallback, useMemo } from "react";
 
 interface WikiLayoutProps {
   children: React.ReactNode;

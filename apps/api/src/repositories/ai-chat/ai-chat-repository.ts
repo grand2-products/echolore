@@ -1,10 +1,10 @@
 import { and, desc, eq, inArray, max, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
-  type NewAiChatConversation,
-  type NewAiChatMessage,
   aiChatConversations,
   aiChatMessages,
+  type NewAiChatConversation,
+  type NewAiChatMessage,
   users,
 } from "../../db/schema.js";
 

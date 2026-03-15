@@ -15,14 +15,14 @@ export const createBlockSchema = z.object({
   pageId: z.string(),
   type: z.string(),
   content: z.string().optional(),
-  properties: z.record(z.unknown()).optional(),
+  properties: z.record(z.string(), z.unknown()).optional(),
   sortOrder: z.number(),
 });
 
 export const updateBlockSchema = z.object({
   type: z.string().optional(),
   content: z.string().nullable().optional(),
-  properties: z.record(z.unknown()).nullable().optional(),
+  properties: z.record(z.string(), z.unknown()).nullable().optional(),
   sortOrder: z.number().optional(),
 });
 

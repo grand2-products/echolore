@@ -1,6 +1,6 @@
 import { realpathSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import path, { dirname, normalize, relative, resolve, isAbsolute } from "node:path";
+import path, { dirname, isAbsolute, normalize, relative, resolve } from "node:path";
 
 // ---------------------------------------------------------------------------
 // StorageProvider interface

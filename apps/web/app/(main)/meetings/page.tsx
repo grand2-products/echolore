@@ -1,12 +1,14 @@
 "use client";
 
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarImportModal } from "@/components/meetings/CalendarImportModal";
 import { CreateMeetingModal } from "@/components/meetings/CreateMeetingModal";
 import { CreatorFilter } from "@/components/meetings/CreatorFilter";
 import { ErrorBanner } from "@/components/ui";
 import {
-  type Meeting,
   calendarApi,
+  type Meeting,
   meetingsApi,
   useCalendarStatusQuery,
   useMeetingsQuery,
@@ -14,8 +16,6 @@ import {
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useT } from "@/lib/i18n";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 
 export default function MeetingsPage() {
   const t = useT();

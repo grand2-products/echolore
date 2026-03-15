@@ -1,7 +1,7 @@
 "use client";
 
-import { getSiteIconUrl, siteSettingsApi } from "@/lib/api";
 import { useEffect } from "react";
+import { getSiteIconUrl, siteSettingsApi } from "@/lib/api";
 
 export function DynamicFavicon() {
   useEffect(() => {

@@ -1,7 +1,7 @@
 export {
-  type TextProvider,
+  createChatModel,
+  isTextGenerationEnabled,
   type LlmOverrides,
   resolveTextProvider,
-  isTextGenerationEnabled,
-  createChatModel,
+  type TextProvider,
 } from "./create-chat-model.js";

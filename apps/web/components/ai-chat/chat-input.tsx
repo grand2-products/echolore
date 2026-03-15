@@ -1,7 +1,7 @@
 "use client";
 
-import { useT } from "@/lib/i18n";
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n";
 
 interface ChatInputProps {
   onSend: (content: string) => void;
