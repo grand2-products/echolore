@@ -9,7 +9,10 @@ import type { SessionUser } from "../../lib/auth.js";
 
 const MSG_SYNC = 0;
 const MSG_AWARENESS = 1;
+const MSG_PING = 9;
 const MSG_QUERY_AWARENESS = 3;
+
+const PING_INTERVAL_MS = 15_000;
 
 interface ConnInfo {
   ws: WSContext;
@@ -24,6 +27,7 @@ interface DocEntry {
   conns: Map<WSContext, ConnInfo>;
   saveTimer: ReturnType<typeof setTimeout> | null;
   gcTimer: ReturnType<typeof setTimeout> | null;
+  pingTimer: ReturnType<typeof setInterval> | null;
 }
 
 const docs = new Map<string, DocEntry>();
@@ -48,6 +52,13 @@ function broadcast(
   }
 }
 
+/** Pre-encoded ping message (single-byte varUint for MSG_PING) */
+const PING_MESSAGE = (() => {
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, MSG_PING);
+  return encoding.toUint8Array(encoder);
+})();
+
 async function getOrCreateDoc(pageId: string): Promise<DocEntry> {
   const existing = docs.get(pageId);
   if (existing) {
@@ -67,6 +78,7 @@ async function getOrCreateDoc(pageId: string): Promise<DocEntry> {
     conns: new Map(),
     saveTimer: null,
     gcTimer: null,
+    pingTimer: null,
   };
   docs.set(pageId, entry);
 
@@ -144,6 +156,13 @@ export async function addConnection(
 ): Promise<void> {
   const entry = await getOrCreateDoc(pageId);
   entry.conns.set(ws, { ws, user, controlledIds: new Set() });
+
+  // Start ping timer when first client connects
+  if (!entry.pingTimer) {
+    entry.pingTimer = setInterval(() => {
+      broadcast(entry, null, PING_MESSAGE);
+    }, PING_INTERVAL_MS);
+  }
 
   // Send sync step 1
   const syncEncoder = encoding.createEncoder();
@@ -275,6 +294,12 @@ export function removeConnection(pageId: string, ws: WSContext): void {
   entry.conns.delete(ws);
 
   if (entry.conns.size === 0) {
+    // Stop ping timer when no clients are connected
+    if (entry.pingTimer) {
+      clearInterval(entry.pingTimer);
+      entry.pingTimer = null;
+    }
+
     // Persist immediately on last disconnect, then schedule GC
     void persistDoc(pageId);
 
@@ -282,6 +307,10 @@ export function removeConnection(pageId: string, ws: WSContext): void {
       const e = docs.get(pageId);
       if (e && e.conns.size === 0) {
         if (e.saveTimer) clearTimeout(e.saveTimer);
+        if (e.pingTimer) {
+          clearInterval(e.pingTimer);
+          e.pingTimer = null;
+        }
         e.awareness.destroy();
         e.doc.destroy();
         docs.delete(pageId);
