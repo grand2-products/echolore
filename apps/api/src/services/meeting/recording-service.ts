@@ -1,36 +1,22 @@
 import { eq } from "drizzle-orm";
-import {
-  EgressClient,
-  EncodedFileOutput,
-  EncodedFileType,
-} from "livekit-server-sdk";
+import { EgressClient, EncodedFileOutput, EncodedFileType } from "livekit-server-sdk";
 import { db } from "../../db/index.js";
 import { meetingRecordings } from "../../db/schema.js";
-import {
-  livekitApiKey,
-  livekitApiSecret,
-  livekitHost,
-} from "../../lib/livekit-config.js";
+import { livekitApiKey, livekitApiSecret, livekitHost } from "../../lib/livekit-config.js";
 import { getStorageSettings } from "../admin/admin-service.js";
 
 const egressClient = new EgressClient(livekitHost, livekitApiKey, livekitApiSecret);
 
-export async function startRecording(
-  roomName: string,
-  meetingId: string,
-  userId: string,
-) {
+export async function startRecording(roomName: string, meetingId: string, userId: string) {
   // Build output config based on storage settings
   const storageRaw = await getStorageSettings();
   // Convert null values to undefined for the builder
   const storage = Object.fromEntries(
-    Object.entries(storageRaw).map(([k, v]) => [k, v ?? undefined]),
+    Object.entries(storageRaw).map(([k, v]) => [k, v ?? undefined])
   ) as Record<string, string | undefined> & { provider: string };
   const fileOutput = buildFileOutput(roomName, storage);
 
-  const info = await egressClient.startRoomCompositeEgress(roomName, {
-    file: fileOutput,
-  });
+  const info = await egressClient.startTrackCompositeEgress(roomName, fileOutput);
 
   const id = crypto.randomUUID();
   const [recording] = await db
@@ -67,10 +53,7 @@ export async function getRecordingStatus(meetingId: string) {
 export async function getActiveRecording(meetingId: string) {
   return db.query.meetingRecordings.findFirst({
     where: (r, { and, inArray }) =>
-      and(
-        eq(r.meetingId, meetingId),
-        inArray(r.status, ["starting", "recording"]),
-      ),
+      and(eq(r.meetingId, meetingId), inArray(r.status, ["starting", "recording"])),
   });
 }
 
@@ -138,10 +121,7 @@ export async function handleEgressWebhook(event: {
     updates.errorMessage = info.error ?? "Unknown error";
   }
 
-  await db
-    .update(meetingRecordings)
-    .set(updates)
-    .where(eq(meetingRecordings.egressId, egressId));
+  await db.update(meetingRecordings).set(updates).where(eq(meetingRecordings.egressId, egressId));
 
   // Trigger transcription and notification on completion (fire-and-forget)
   if (status === "completed") {
@@ -152,11 +132,9 @@ export async function handleEgressWebhook(event: {
     if (recording?.storagePath) {
       import("./recording-transcription-service.js")
         .then(({ transcribeRecording }) =>
-          transcribeRecording(recording.meetingId, recording.storagePath!),
+          transcribeRecording(recording.meetingId, recording.storagePath!)
         )
-        .catch((err) =>
-          console.error("[recording] Auto-transcription failed:", err),
-        );
+        .catch((err) => console.error("[recording] Auto-transcription failed:", err));
     }
     // Email notification
     if (recording) {
@@ -165,19 +143,27 @@ export async function handleEgressWebhook(event: {
           notifyRecordingComplete(
             recording.meetingId,
             recording.meeting?.title ?? "Untitled Meeting",
-            recording.initiatedBy,
-          ),
+            recording.initiatedBy
+          )
         )
-        .catch((err) =>
-          console.error("[recording] Notification failed:", err),
-        );
+        .catch((err) => console.error("[recording] Notification failed:", err));
     }
   }
 }
 
 function buildFileOutput(
   roomName: string,
-  storage: { provider: string; gcsBucket?: string; gcsKeyJson?: string; s3Bucket?: string; s3AccessKey?: string; s3SecretKey?: string; s3Endpoint?: string; s3Region?: string; localPath?: string },
+  storage: {
+    provider: string;
+    gcsBucket?: string;
+    gcsKeyJson?: string;
+    s3Bucket?: string;
+    s3AccessKey?: string;
+    s3SecretKey?: string;
+    s3Endpoint?: string;
+    s3Region?: string;
+    localPath?: string;
+  }
 ): EncodedFileOutput {
   const filepath = `recordings/${roomName}/{time}`;
 
