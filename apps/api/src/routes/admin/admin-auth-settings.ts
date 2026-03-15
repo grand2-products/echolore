@@ -12,26 +12,20 @@ export const adminAuthSettingsRoutes = new Hono<AppEnv>();
 
 adminAuthSettingsRoutes.get(
   "/auth-settings",
-  withErrorHandler(
-    async (c) => {
-      const settings = await getAuthSettings();
-      return c.json(maskSecrets(settings, [...SECRET_FIELDS]));
-    },
-    "ADMIN_AUTH_SETTINGS_FETCH_FAILED",
-    "Failed to fetch auth settings"
-  )
+  withErrorHandler("ADMIN_AUTH_SETTINGS_FETCH_FAILED", "Failed to fetch auth settings"),
+  async (c) => {
+    const settings = await getAuthSettings();
+    return c.json(maskSecrets(settings, [...SECRET_FIELDS]));
+  }
 );
 
 adminAuthSettingsRoutes.put(
   "/auth-settings",
   zValidator("json", updateAuthSettingsSchema),
-  withErrorHandler(
-    async (c) => {
-      const data = stripMaskedValues(c.req.valid("json"), [...SECRET_FIELDS]);
-      const updated = await updateAuthSettings(data);
-      return c.json(maskSecrets(updated, [...SECRET_FIELDS]));
-    },
-    "ADMIN_AUTH_SETTINGS_UPDATE_FAILED",
-    "Failed to update auth settings"
-  )
+  withErrorHandler("ADMIN_AUTH_SETTINGS_UPDATE_FAILED", "Failed to update auth settings"),
+  async (c) => {
+    const data = stripMaskedValues(c.req.valid("json"), [...SECRET_FIELDS]);
+    const updated = await updateAuthSettings(data);
+    return c.json(maskSecrets(updated, [...SECRET_FIELDS]));
+  }
 );

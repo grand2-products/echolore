@@ -25,294 +25,276 @@ const createInviteSchema = z.object({
 meetingInviteRoutes.post(
   "/:id/invites",
   zValidator("json", createInviteSchema),
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const user = c.get("user");
-      const data = c.req.valid("json");
+  withErrorHandler("INVITE_CREATE_FAILED", "Failed to create invite"),
+  async (c) => {
+    const { id } = c.req.param();
+    const user = c.get("user");
+    const data = c.req.valid("json");
 
-      const meeting = await db.query.meetings.findFirst({
-        where: eq(meetings.id, id),
-      });
-      if (!meeting) {
-        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-      }
+    const meeting = await db.query.meetings.findFirst({
+      where: eq(meetings.id, id),
+    });
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+    }
 
-      const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
-      if (!authz.allowed) {
-        return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
-      }
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
+    if (!authz.allowed) {
+      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+    }
 
-      const invite = {
-        id: crypto.randomUUID(),
-        meetingId: id,
-        token: crypto.randomUUID(),
-        createdByUserId: user.id,
-        label: data.label ?? null,
-        maxUses: data.maxUses ?? null,
-        useCount: 0,
-        expiresAt: new Date(Date.now() + data.expiresInSeconds * 1000),
-        createdAt: new Date(),
-      };
+    const invite = {
+      id: crypto.randomUUID(),
+      meetingId: id,
+      token: crypto.randomUUID(),
+      createdByUserId: user.id,
+      label: data.label ?? null,
+      maxUses: data.maxUses ?? null,
+      useCount: 0,
+      expiresAt: new Date(Date.now() + data.expiresInSeconds * 1000),
+      createdAt: new Date(),
+    };
 
-      const [created] = await db.insert(meetingInvites).values(invite).returning();
+    const [created] = await db.insert(meetingInvites).values(invite).returning();
 
-      if (!created) {
-        return jsonError(c, 500, "INVITE_CREATE_FAILED", "Failed to create invite");
-      }
+    if (!created) {
+      return jsonError(c, 500, "INVITE_CREATE_FAILED", "Failed to create invite");
+    }
 
-      return c.json({ invite: toInviteDto(created) }, 201);
-    },
-    "INVITE_CREATE_FAILED",
-    "Failed to create invite"
-  )
+    return c.json({ invite: toInviteDto(created) }, 201);
+  }
 );
 
 // GET /api/meetings/:id/invites — List invites
 meetingInviteRoutes.get(
   "/:id/invites",
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
+  withErrorHandler("INVITE_LIST_FAILED", "Failed to list invites"),
+  async (c) => {
+    const { id } = c.req.param();
 
-      const meeting = await db.query.meetings.findFirst({
-        where: eq(meetings.id, id),
-      });
-      if (!meeting) {
-        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-      }
+    const meeting = await db.query.meetings.findFirst({
+      where: eq(meetings.id, id),
+    });
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+    }
 
-      const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
-      if (!authz.allowed) {
-        return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
-      }
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
+    if (!authz.allowed) {
+      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+    }
 
-      const invites = await db
-        .select()
-        .from(meetingInvites)
-        .where(eq(meetingInvites.meetingId, id))
-        .orderBy(desc(meetingInvites.createdAt));
+    const invites = await db
+      .select()
+      .from(meetingInvites)
+      .where(eq(meetingInvites.meetingId, id))
+      .orderBy(desc(meetingInvites.createdAt));
 
-      return c.json({ invites: invites.map(toInviteDto) });
-    },
-    "INVITE_LIST_FAILED",
-    "Failed to list invites"
-  )
+    return c.json({ invites: invites.map(toInviteDto) });
+  }
 );
 
 // DELETE /api/meetings/:id/invites/:inviteId — Revoke invite
 meetingInviteRoutes.delete(
   "/:id/invites/:inviteId",
-  withErrorHandler(
-    async (c) => {
-      const { id, inviteId } = c.req.param();
+  withErrorHandler("INVITE_REVOKE_FAILED", "Failed to revoke invite"),
+  async (c) => {
+    const { id, inviteId } = c.req.param();
 
-      const meeting = await db.query.meetings.findFirst({
-        where: eq(meetings.id, id),
-      });
-      if (!meeting) {
-        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-      }
+    const meeting = await db.query.meetings.findFirst({
+      where: eq(meetings.id, id),
+    });
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+    }
 
-      const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
-      if (!authz.allowed) {
-        return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
-      }
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
+    if (!authz.allowed) {
+      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+    }
 
-      const [revoked] = await db
-        .update(meetingInvites)
-        .set({ revokedAt: new Date() })
-        .where(
-          and(
-            eq(meetingInvites.id, inviteId),
-            eq(meetingInvites.meetingId, id),
-            isNull(meetingInvites.revokedAt)
-          )
+    const [revoked] = await db
+      .update(meetingInvites)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(meetingInvites.id, inviteId),
+          eq(meetingInvites.meetingId, id),
+          isNull(meetingInvites.revokedAt)
         )
-        .returning();
+      )
+      .returning();
 
-      if (!revoked) {
-        return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found or already revoked");
-      }
+    if (!revoked) {
+      return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found or already revoked");
+    }
 
-      return c.json({ success: true });
-    },
-    "INVITE_REVOKE_FAILED",
-    "Failed to revoke invite"
-  )
+    return c.json({ success: true });
+  }
 );
 
 // GET /api/meetings/:id/guest-requests — List pending guest requests
 meetingInviteRoutes.get(
   "/:id/guest-requests",
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
+  withErrorHandler("GUEST_REQUESTS_LIST_FAILED", "Failed to list guest requests"),
+  async (c) => {
+    const { id } = c.req.param();
 
-      const meeting = await db.query.meetings.findFirst({
-        where: eq(meetings.id, id),
-      });
-      if (!meeting) {
-        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-      }
+    const meeting = await db.query.meetings.findFirst({
+      where: eq(meetings.id, id),
+    });
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+    }
 
-      const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
-      if (!authz.allowed) {
-        return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
-      }
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
+    if (!authz.allowed) {
+      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+    }
 
-      const requests = await db
-        .select()
-        .from(meetingGuestRequests)
-        .where(eq(meetingGuestRequests.meetingId, id))
-        .orderBy(desc(meetingGuestRequests.createdAt));
+    const requests = await db
+      .select()
+      .from(meetingGuestRequests)
+      .where(eq(meetingGuestRequests.meetingId, id))
+      .orderBy(desc(meetingGuestRequests.createdAt));
 
-      return c.json({ requests: requests.map(toGuestRequestDto) });
-    },
-    "GUEST_REQUESTS_LIST_FAILED",
-    "Failed to list guest requests"
-  )
+    return c.json({ requests: requests.map(toGuestRequestDto) });
+  }
 );
 
 // POST /api/meetings/:id/guest-requests/:requestId/approve — Approve guest
 // Only the meeting owner or an admin can approve guest requests.
 meetingInviteRoutes.post(
   "/:id/guest-requests/:requestId/approve",
-  withErrorHandler(
-    async (c) => {
-      const { id, requestId } = c.req.param();
-      const user = c.get("user");
+  withErrorHandler("GUEST_APPROVE_FAILED", "Failed to approve guest request"),
+  async (c) => {
+    const { id, requestId } = c.req.param();
+    const user = c.get("user");
 
-      const meeting = await db.query.meetings.findFirst({
-        where: eq(meetings.id, id),
-      });
-      if (!meeting) {
-        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-      }
+    const meeting = await db.query.meetings.findFirst({
+      where: eq(meetings.id, id),
+    });
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+    }
 
-      const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
-      if (!authz.allowed) {
-        return jsonError(
-          c,
-          403,
-          "MEETING_FORBIDDEN",
-          "Only the meeting owner or an admin can approve guest requests"
-        );
-      }
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
+    if (!authz.allowed) {
+      return jsonError(
+        c,
+        403,
+        "MEETING_FORBIDDEN",
+        "Only the meeting owner or an admin can approve guest requests"
+      );
+    }
 
-      const [updated] = await db
-        .update(meetingGuestRequests)
-        .set({
-          status: "approved",
-          approvedByUserId: user.id,
-          resolvedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(meetingGuestRequests.id, requestId),
-            eq(meetingGuestRequests.meetingId, id),
-            eq(meetingGuestRequests.status, "pending")
-          )
+    const [updated] = await db
+      .update(meetingGuestRequests)
+      .set({
+        status: "approved",
+        approvedByUserId: user.id,
+        resolvedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(meetingGuestRequests.id, requestId),
+          eq(meetingGuestRequests.meetingId, id),
+          eq(meetingGuestRequests.status, "pending")
         )
-        .returning();
+      )
+      .returning();
 
-      if (!updated) {
-        return jsonError(c, 404, "REQUEST_NOT_FOUND", "Request not found or already resolved");
-      }
+    if (!updated) {
+      return jsonError(c, 404, "REQUEST_NOT_FOUND", "Request not found or already resolved");
+    }
 
-      // Notify room via DataChannel
-      try {
-        const msg = {
-          type: "guest-request-resolved",
-          requestId,
-          status: "approved",
-          resolvedBy: user.name,
-        };
-        await roomService.sendData(
-          meeting.roomName,
-          encoder.encode(JSON.stringify(msg)),
-          DataPacket_Kind.RELIABLE,
-          { topic: "guest-request" }
-        );
-      } catch {
-        // Best-effort
-      }
+    // Notify room via DataChannel
+    try {
+      const msg = {
+        type: "guest-request-resolved",
+        requestId,
+        status: "approved",
+        resolvedBy: user.name,
+      };
+      await roomService.sendData(
+        meeting.roomName,
+        encoder.encode(JSON.stringify(msg)),
+        DataPacket_Kind.RELIABLE,
+        { topic: "guest-request" }
+      );
+    } catch {
+      // Best-effort
+    }
 
-      return c.json({ success: true });
-    },
-    "GUEST_APPROVE_FAILED",
-    "Failed to approve guest request"
-  )
+    return c.json({ success: true });
+  }
 );
 
 // POST /api/meetings/:id/guest-requests/:requestId/reject — Reject guest
 meetingInviteRoutes.post(
   "/:id/guest-requests/:requestId/reject",
-  withErrorHandler(
-    async (c) => {
-      const { id, requestId } = c.req.param();
-      const user = c.get("user");
+  withErrorHandler("GUEST_REJECT_FAILED", "Failed to reject guest request"),
+  async (c) => {
+    const { id, requestId } = c.req.param();
+    const user = c.get("user");
 
-      const meeting = await db.query.meetings.findFirst({
-        where: eq(meetings.id, id),
-      });
-      if (!meeting) {
-        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-      }
+    const meeting = await db.query.meetings.findFirst({
+      where: eq(meetings.id, id),
+    });
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+    }
 
-      const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
-      if (!authz.allowed) {
-        return jsonError(
-          c,
-          403,
-          "MEETING_FORBIDDEN",
-          "Only the meeting owner or an admin can reject guest requests"
-        );
-      }
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
+    if (!authz.allowed) {
+      return jsonError(
+        c,
+        403,
+        "MEETING_FORBIDDEN",
+        "Only the meeting owner or an admin can reject guest requests"
+      );
+    }
 
-      const [updated] = await db
-        .update(meetingGuestRequests)
-        .set({
-          status: "rejected",
-          approvedByUserId: user.id,
-          resolvedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(meetingGuestRequests.id, requestId),
-            eq(meetingGuestRequests.meetingId, id),
-            eq(meetingGuestRequests.status, "pending")
-          )
+    const [updated] = await db
+      .update(meetingGuestRequests)
+      .set({
+        status: "rejected",
+        approvedByUserId: user.id,
+        resolvedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(meetingGuestRequests.id, requestId),
+          eq(meetingGuestRequests.meetingId, id),
+          eq(meetingGuestRequests.status, "pending")
         )
-        .returning();
+      )
+      .returning();
 
-      if (!updated) {
-        return jsonError(c, 404, "REQUEST_NOT_FOUND", "Request not found or already resolved");
-      }
+    if (!updated) {
+      return jsonError(c, 404, "REQUEST_NOT_FOUND", "Request not found or already resolved");
+    }
 
-      // Notify room via DataChannel
-      try {
-        const msg = {
-          type: "guest-request-resolved",
-          requestId,
-          status: "rejected",
-          resolvedBy: user.name,
-        };
-        await roomService.sendData(
-          meeting.roomName,
-          encoder.encode(JSON.stringify(msg)),
-          DataPacket_Kind.RELIABLE,
-          { topic: "guest-request" }
-        );
-      } catch {
-        // Best-effort
-      }
+    // Notify room via DataChannel
+    try {
+      const msg = {
+        type: "guest-request-resolved",
+        requestId,
+        status: "rejected",
+        resolvedBy: user.name,
+      };
+      await roomService.sendData(
+        meeting.roomName,
+        encoder.encode(JSON.stringify(msg)),
+        DataPacket_Kind.RELIABLE,
+        { topic: "guest-request" }
+      );
+    } catch {
+      // Best-effort
+    }
 
-      return c.json({ success: true });
-    },
-    "GUEST_REJECT_FAILED",
-    "Failed to reject guest request"
-  )
+    return c.json({ success: true });
+  }
 );
 
 // DTO helpers

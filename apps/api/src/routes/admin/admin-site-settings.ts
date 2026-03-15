@@ -11,27 +11,21 @@ export const adminSiteSettingsRoutes = new Hono<AppEnv>();
 
 adminSiteSettingsRoutes.get(
   "/settings",
-  withErrorHandler(
-    async (c) => {
-      return c.json(await getSiteSettings());
-    },
-    "ADMIN_SETTINGS_FETCH_FAILED",
-    "Failed to fetch site settings"
-  )
+  withErrorHandler("ADMIN_SETTINGS_FETCH_FAILED", "Failed to fetch site settings"),
+  async (c) => {
+    return c.json(await getSiteSettings());
+  }
 );
 
 adminSiteSettingsRoutes.put(
   "/settings",
   zValidator("json", updateSiteSettingsSchema),
-  withErrorHandler(
-    async (c) => {
-      const data = c.req.valid("json");
-      const updated = await updateSiteSettings(data);
-      return c.json(updated);
-    },
-    "ADMIN_SETTINGS_UPDATE_FAILED",
-    "Failed to update site settings"
-  )
+  withErrorHandler("ADMIN_SETTINGS_UPDATE_FAILED", "Failed to update site settings"),
+  async (c) => {
+    const data = c.req.valid("json");
+    const updated = await updateSiteSettings(data);
+    return c.json(updated);
+  }
 );
 
 // ---------------------------------------------------------------------------
@@ -49,59 +43,53 @@ const SITE_ICON_STORAGE_PATH = "site/site-icon";
 
 adminSiteSettingsRoutes.post(
   "/site-icon",
-  withErrorHandler(
-    async (c) => {
-      const contentType = c.req.header("content-type") || "";
-      if (!contentType.includes("multipart/form-data")) {
-        return jsonError(c, 400, "SITE_ICON_MULTIPART_REQUIRED", "Multipart form data required");
-      }
+  withErrorHandler("SITE_ICON_UPLOAD_FAILED", "Failed to upload site icon"),
+  async (c) => {
+    const contentType = c.req.header("content-type") || "";
+    if (!contentType.includes("multipart/form-data")) {
+      return jsonError(c, 400, "SITE_ICON_MULTIPART_REQUIRED", "Multipart form data required");
+    }
 
-      const body = await c.req.parseBody();
-      const uploadedFile = body.file as File | undefined;
-      if (!uploadedFile) {
-        return jsonError(c, 400, "SITE_ICON_FILE_REQUIRED", "File is required");
-      }
+    const body = await c.req.parseBody();
+    const uploadedFile = body.file as File | undefined;
+    if (!uploadedFile) {
+      return jsonError(c, 400, "SITE_ICON_FILE_REQUIRED", "File is required");
+    }
 
-      if (!SITE_ICON_ALLOWED_TYPES.has(uploadedFile.type)) {
-        return jsonError(
-          c,
-          400,
-          "SITE_ICON_FORMAT_ERROR",
-          "Only PNG, SVG, and ICO files are allowed"
-        );
-      }
+    if (!SITE_ICON_ALLOWED_TYPES.has(uploadedFile.type)) {
+      return jsonError(
+        c,
+        400,
+        "SITE_ICON_FORMAT_ERROR",
+        "Only PNG, SVG, and ICO files are allowed"
+      );
+    }
 
-      if (uploadedFile.size > SITE_ICON_MAX_BYTES) {
-        return jsonError(c, 400, "SITE_ICON_SIZE_ERROR", "File must be 256KB or smaller");
-      }
+    if (uploadedFile.size > SITE_ICON_MAX_BYTES) {
+      return jsonError(c, 400, "SITE_ICON_SIZE_ERROR", "File must be 256KB or smaller");
+    }
 
-      const arrayBuffer = await uploadedFile.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+    const arrayBuffer = await uploadedFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-      await saveFile(SITE_ICON_STORAGE_PATH, buffer);
+    await saveFile(SITE_ICON_STORAGE_PATH, buffer);
 
-      await upsertSiteSetting("siteIconStoragePath", SITE_ICON_STORAGE_PATH);
-      await upsertSiteSetting("siteIconContentType", uploadedFile.type);
+    await upsertSiteSetting("siteIconStoragePath", SITE_ICON_STORAGE_PATH);
+    await upsertSiteSetting("siteIconContentType", uploadedFile.type);
 
-      return c.json({ success: true });
-    },
-    "SITE_ICON_UPLOAD_FAILED",
-    "Failed to upload site icon"
-  )
+    return c.json({ success: true });
+  }
 );
 
 adminSiteSettingsRoutes.delete(
   "/site-icon",
-  withErrorHandler(
-    async (c) => {
-      await removeFile(SITE_ICON_STORAGE_PATH);
+  withErrorHandler("SITE_ICON_DELETE_FAILED", "Failed to delete site icon"),
+  async (c) => {
+    await removeFile(SITE_ICON_STORAGE_PATH);
 
-      await deleteSiteSetting("siteIconStoragePath");
-      await deleteSiteSetting("siteIconContentType");
+    await deleteSiteSetting("siteIconStoragePath");
+    await deleteSiteSetting("siteIconContentType");
 
-      return c.json({ success: true });
-    },
-    "SITE_ICON_DELETE_FAILED",
-    "Failed to delete site icon"
-  )
+    return c.json({ success: true });
+  }
 );

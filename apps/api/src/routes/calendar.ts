@@ -18,29 +18,23 @@ export const calendarRoutes = new Hono<AppEnv>();
 // GET /api/calendar/status
 calendarRoutes.get(
   "/status",
-  withErrorHandler(
-    async (c) => {
-      const user = c.get("user");
-      const connected = await isConnected(user.id);
-      return c.json({ connected });
-    },
-    "CALENDAR_STATUS_FAILED",
-    "Failed to check calendar status"
-  )
+  withErrorHandler("CALENDAR_STATUS_FAILED", "Failed to check calendar status"),
+  async (c) => {
+    const user = c.get("user");
+    const connected = await isConnected(user.id);
+    return c.json({ connected });
+  }
 );
 
 // GET /api/calendar/connect
 calendarRoutes.get(
   "/connect",
-  withErrorHandler(
-    async (c) => {
-      const user = c.get("user");
-      const url = await getAuthUrl(user.id);
-      return c.redirect(url);
-    },
-    "CALENDAR_CONNECT_FAILED",
-    "Failed to start calendar connection"
-  )
+  withErrorHandler("CALENDAR_CONNECT_FAILED", "Failed to start calendar connection"),
+  async (c) => {
+    const user = c.get("user");
+    const url = await getAuthUrl(user.id);
+    return c.redirect(url);
+  }
 );
 
 // GET /api/calendar/callback
@@ -83,48 +77,39 @@ calendarRoutes.get("/callback", async (c) => {
 // POST /api/calendar/disconnect
 calendarRoutes.post(
   "/disconnect",
-  withErrorHandler(
-    async (c) => {
-      const user = c.get("user");
-      await disconnect(user.id);
-      await auditAction(c, "calendar.disconnect", "google-calendar", user.id);
-      return c.json({ success: true });
-    },
-    "CALENDAR_DISCONNECT_FAILED",
-    "Failed to disconnect calendar"
-  )
+  withErrorHandler("CALENDAR_DISCONNECT_FAILED", "Failed to disconnect calendar"),
+  async (c) => {
+    const user = c.get("user");
+    await disconnect(user.id);
+    await auditAction(c, "calendar.disconnect", "google-calendar", user.id);
+    return c.json({ success: true });
+  }
 );
 
 // GET /api/calendar/events
 calendarRoutes.get(
   "/events",
-  withErrorHandler(
-    async (c) => {
-      const user = c.get("user");
-      const days = Math.min(Number(c.req.query("days")) || 7, 30);
-      const events = await listUpcomingEvents(user.id, days);
-      return c.json({ events });
-    },
-    "CALENDAR_EVENTS_FAILED",
-    "Failed to list calendar events"
-  )
+  withErrorHandler("CALENDAR_EVENTS_FAILED", "Failed to list calendar events"),
+  async (c) => {
+    const user = c.get("user");
+    const days = Math.min(Number(c.req.query("days")) || 7, 30);
+    const events = await listUpcomingEvents(user.id, days);
+    return c.json({ events });
+  }
 );
 
 // POST /api/calendar/events/:eventId/import
 calendarRoutes.post(
   "/events/:eventId/import",
-  withErrorHandler(
-    async (c) => {
-      const user = c.get("user");
-      const { eventId } = c.req.param();
-      const meeting = await importEventAsMeeting(user.id, eventId);
-      if (!meeting) {
-        return jsonError(c, 500, "CALENDAR_IMPORT_FAILED", "Failed to import calendar event");
-      }
-      await auditAction(c, "calendar.import", "meeting", meeting.id, { calendarEventId: eventId });
-      return c.json({ meeting }, 201);
-    },
-    "CALENDAR_IMPORT_FAILED",
-    "Failed to import calendar event"
-  )
+  withErrorHandler("CALENDAR_IMPORT_FAILED", "Failed to import calendar event"),
+  async (c) => {
+    const user = c.get("user");
+    const { eventId } = c.req.param();
+    const meeting = await importEventAsMeeting(user.id, eventId);
+    if (!meeting) {
+      return jsonError(c, 500, "CALENDAR_IMPORT_FAILED", "Failed to import calendar event");
+    }
+    await auditAction(c, "calendar.import", "meeting", meeting.id, { calendarEventId: eventId });
+    return c.json({ meeting }, 201);
+  }
 );

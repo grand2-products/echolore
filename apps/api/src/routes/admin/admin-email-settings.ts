@@ -12,26 +12,20 @@ export const adminEmailSettingsRoutes = new Hono<AppEnv>();
 
 adminEmailSettingsRoutes.get(
   "/email-settings",
-  withErrorHandler(
-    async (c) => {
-      const settings = await getEmailSettings();
-      return c.json(maskSecrets(settings, [...SECRET_FIELDS]));
-    },
-    "ADMIN_EMAIL_SETTINGS_FETCH_FAILED",
-    "Failed to fetch email settings"
-  )
+  withErrorHandler("ADMIN_EMAIL_SETTINGS_FETCH_FAILED", "Failed to fetch email settings"),
+  async (c) => {
+    const settings = await getEmailSettings();
+    return c.json(maskSecrets(settings, [...SECRET_FIELDS]));
+  }
 );
 
 adminEmailSettingsRoutes.put(
   "/email-settings",
   zValidator("json", updateEmailSettingsSchema),
-  withErrorHandler(
-    async (c) => {
-      const data = stripMaskedValues(c.req.valid("json"), [...SECRET_FIELDS]);
-      const updated = await updateEmailSettings(data);
-      return c.json(maskSecrets(updated, [...SECRET_FIELDS]));
-    },
-    "ADMIN_EMAIL_SETTINGS_UPDATE_FAILED",
-    "Failed to update email settings"
-  )
+  withErrorHandler("ADMIN_EMAIL_SETTINGS_UPDATE_FAILED", "Failed to update email settings"),
+  async (c) => {
+    const data = stripMaskedValues(c.req.valid("json"), [...SECRET_FIELDS]);
+    const updated = await updateEmailSettings(data);
+    return c.json(maskSecrets(updated, [...SECRET_FIELDS]));
+  }
 );

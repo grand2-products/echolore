@@ -26,49 +26,40 @@ const createCharacterSchema = z.object({
 aituberRoutes.post(
   "/characters",
   zValidator("json", createCharacterSchema),
-  withErrorHandler(
-    async (c) => {
-      const user = c.get("user");
-      const body = c.req.valid("json");
-      const character = await aituberService.createCharacter({
-        ...body,
-        createdBy: user.id,
-      });
-      return c.json({ character }, 201);
-    },
-    "AITUBER_CHARACTER_CREATE_FAILED",
-    "Failed to create character"
-  )
+  withErrorHandler("AITUBER_CHARACTER_CREATE_FAILED", "Failed to create character"),
+  async (c) => {
+    const user = c.get("user");
+    const body = c.req.valid("json");
+    const character = await aituberService.createCharacter({
+      ...body,
+      createdBy: user.id,
+    });
+    return c.json({ character }, 201);
+  }
 );
 
 aituberRoutes.get(
   "/characters",
-  withErrorHandler(
-    async (c) => {
-      const characters = await aituberService.listCharacters();
-      return c.json({ characters });
-    },
-    "AITUBER_CHARACTER_LIST_FAILED",
-    "Failed to list characters"
-  )
+  withErrorHandler("AITUBER_CHARACTER_LIST_FAILED", "Failed to list characters"),
+  async (c) => {
+    const characters = await aituberService.listCharacters();
+    return c.json({ characters });
+  }
 );
 
 aituberRoutes.get(
   "/characters/:id",
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const user = c.get("user");
-      const character = await aituberService.getCharacter(id);
-      if (!character) return jsonError(c, 404, "NOT_FOUND", "Character not found");
-      if (!character.isPublic && !isOwnerOrAdmin(user, character.createdBy)) {
-        return jsonError(c, 403, "FORBIDDEN", "Not authorized to view this character");
-      }
-      return c.json({ character });
-    },
-    "AITUBER_CHARACTER_GET_FAILED",
-    "Failed to get character"
-  )
+  withErrorHandler("AITUBER_CHARACTER_GET_FAILED", "Failed to get character"),
+  async (c) => {
+    const { id } = c.req.param();
+    const user = c.get("user");
+    const character = await aituberService.getCharacter(id);
+    if (!character) return jsonError(c, 404, "NOT_FOUND", "Character not found");
+    if (!character.isPublic && !isOwnerOrAdmin(user, character.createdBy)) {
+      return jsonError(c, 403, "FORBIDDEN", "Not authorized to view this character");
+    }
+    return c.json({ character });
+  }
 );
 
 const updateCharacterSchema = z.object({
@@ -85,41 +76,35 @@ const updateCharacterSchema = z.object({
 aituberRoutes.patch(
   "/characters/:id",
   zValidator("json", updateCharacterSchema),
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const user = c.get("user");
-      const existing = await aituberService.getCharacter(id);
-      if (!existing) return jsonError(c, 404, "NOT_FOUND", "Character not found");
-      if (!isOwnerOrAdmin(user, existing.createdBy)) {
-        return jsonError(c, 403, "FORBIDDEN", "Not authorized to update this character");
-      }
-      const body = c.req.valid("json");
-      const character = await aituberService.updateCharacter(id, body);
-      return c.json({ character });
-    },
-    "AITUBER_CHARACTER_UPDATE_FAILED",
-    "Failed to update character"
-  )
+  withErrorHandler("AITUBER_CHARACTER_UPDATE_FAILED", "Failed to update character"),
+  async (c) => {
+    const { id } = c.req.param();
+    const user = c.get("user");
+    const existing = await aituberService.getCharacter(id);
+    if (!existing) return jsonError(c, 404, "NOT_FOUND", "Character not found");
+    if (!isOwnerOrAdmin(user, existing.createdBy)) {
+      return jsonError(c, 403, "FORBIDDEN", "Not authorized to update this character");
+    }
+    const body = c.req.valid("json");
+    const character = await aituberService.updateCharacter(id, body);
+    return c.json({ character });
+  }
 );
 
 aituberRoutes.delete(
   "/characters/:id",
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const user = c.get("user");
-      const existing = await aituberService.getCharacter(id);
-      if (!existing) return jsonError(c, 404, "NOT_FOUND", "Character not found");
-      if (!isOwnerOrAdmin(user, existing.createdBy)) {
-        return jsonError(c, 403, "FORBIDDEN", "Not authorized to delete this character");
-      }
-      await aituberService.deleteCharacter(id);
-      return c.json({ success: true });
-    },
-    "AITUBER_CHARACTER_DELETE_FAILED",
-    "Failed to delete character"
-  )
+  withErrorHandler("AITUBER_CHARACTER_DELETE_FAILED", "Failed to delete character"),
+  async (c) => {
+    const { id } = c.req.param();
+    const user = c.get("user");
+    const existing = await aituberService.getCharacter(id);
+    if (!existing) return jsonError(c, 404, "NOT_FOUND", "Character not found");
+    if (!isOwnerOrAdmin(user, existing.createdBy)) {
+      return jsonError(c, 403, "FORBIDDEN", "Not authorized to delete this character");
+    }
+    await aituberService.deleteCharacter(id);
+    return c.json({ success: true });
+  }
 );
 
 // --- Session Management ---
@@ -132,111 +117,96 @@ const createSessionSchema = z.object({
 aituberRoutes.post(
   "/sessions",
   zValidator("json", createSessionSchema),
-  withErrorHandler(
-    async (c) => {
-      const user = c.get("user");
-      const body = c.req.valid("json");
-      const character = await aituberService.getCharacter(body.characterId);
-      if (!character) return jsonError(c, 404, "NOT_FOUND", "Character not found");
-      const session = await aituberService.createSession({
-        characterId: body.characterId,
-        creatorId: user.id,
-        title: body.title,
-      });
-      return c.json({ session }, 201);
-    },
-    "AITUBER_SESSION_CREATE_FAILED",
-    "Failed to create session"
-  )
+  withErrorHandler("AITUBER_SESSION_CREATE_FAILED", "Failed to create session"),
+  async (c) => {
+    const user = c.get("user");
+    const body = c.req.valid("json");
+    const character = await aituberService.getCharacter(body.characterId);
+    if (!character) return jsonError(c, 404, "NOT_FOUND", "Character not found");
+    const session = await aituberService.createSession({
+      characterId: body.characterId,
+      creatorId: user.id,
+      title: body.title,
+    });
+    return c.json({ session }, 201);
+  }
 );
 
 aituberRoutes.get(
   "/sessions",
-  withErrorHandler(
-    async (c) => {
-      const status = c.req.query("status");
-      const sessions = await aituberService.listSessions(status ? { status } : undefined);
-      return c.json({ sessions });
-    },
-    "AITUBER_SESSION_LIST_FAILED",
-    "Failed to list sessions"
-  )
+  withErrorHandler("AITUBER_SESSION_LIST_FAILED", "Failed to list sessions"),
+  async (c) => {
+    const status = c.req.query("status");
+    const sessions = await aituberService.listSessions(status ? { status } : undefined);
+    return c.json({ sessions });
+  }
 );
 
 aituberRoutes.get(
   "/sessions/:id",
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const session = await aituberService.getSession(id);
-      if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
-      const character = await aituberService.getCharacter(session.characterId);
-      return c.json({
-        session: { ...session, characterName: character?.name },
-      });
-    },
-    "AITUBER_SESSION_GET_FAILED",
-    "Failed to get session"
-  )
+  withErrorHandler("AITUBER_SESSION_GET_FAILED", "Failed to get session"),
+  async (c) => {
+    const { id } = c.req.param();
+    const session = await aituberService.getSession(id);
+    if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
+    const character = await aituberService.getCharacter(session.characterId);
+    return c.json({
+      session: { ...session, characterName: character?.name },
+    });
+  }
 );
 
 aituberRoutes.post(
   "/sessions/:id/start",
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const user = c.get("user");
-      const session = await aituberService.getSession(id);
-      if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
-      if (!isOwnerOrAdmin(user, session.creatorId)) {
-        return jsonError(c, 403, "FORBIDDEN", "Not authorized to start this session");
-      }
+  withErrorHandler("AITUBER_SESSION_START_FAILED", "Failed to start session"),
+  async (c) => {
+    const { id } = c.req.param();
+    const user = c.get("user");
+    const session = await aituberService.getSession(id);
+    if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
+    if (!isOwnerOrAdmin(user, session.creatorId)) {
+      return jsonError(c, 403, "FORBIDDEN", "Not authorized to start this session");
+    }
 
-      // Create LiveKit room
-      await livekitService.createAituberRoom(session.roomName);
+    // Create LiveKit room
+    await livekitService.createAituberRoom(session.roomName);
 
-      // Start session
-      const updated = await aituberService.startSession(id);
+    // Start session
+    const updated = await aituberService.startSession(id);
 
-      // Get character and start AI processing loop
-      const character = await aituberService.getCharacter(session.characterId);
-      if (character) {
-        await aiService.startProcessingLoop(id, character, session.roomName);
-      }
+    // Get character and start AI processing loop
+    const character = await aituberService.getCharacter(session.characterId);
+    if (character) {
+      await aiService.startProcessingLoop(id, character, session.roomName);
+    }
 
-      return c.json({ session: updated });
-    },
-    "AITUBER_SESSION_START_FAILED",
-    "Failed to start session"
-  )
+    return c.json({ session: updated });
+  }
 );
 
 aituberRoutes.post(
   "/sessions/:id/stop",
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const user = c.get("user");
-      const session = await aituberService.getSession(id);
-      if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
-      if (!isOwnerOrAdmin(user, session.creatorId)) {
-        return jsonError(c, 403, "FORBIDDEN", "Not authorized to stop this session");
-      }
+  withErrorHandler("AITUBER_SESSION_STOP_FAILED", "Failed to stop session"),
+  async (c) => {
+    const { id } = c.req.param();
+    const user = c.get("user");
+    const session = await aituberService.getSession(id);
+    if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
+    if (!isOwnerOrAdmin(user, session.creatorId)) {
+      return jsonError(c, 403, "FORBIDDEN", "Not authorized to stop this session");
+    }
 
-      // Stop AI processing loop
-      aiService.stopProcessingLoop(id);
+    // Stop AI processing loop
+    aiService.stopProcessingLoop(id);
 
-      // Stop session
-      const updated = await aituberService.stopSession(id);
+    // Stop session
+    const updated = await aituberService.stopSession(id);
 
-      // Delete LiveKit room
-      await livekitService.deleteAituberRoom(session.roomName);
+    // Delete LiveKit room
+    await livekitService.deleteAituberRoom(session.roomName);
 
-      return c.json({ session: updated });
-    },
-    "AITUBER_SESSION_STOP_FAILED",
-    "Failed to stop session"
-  )
+    return c.json({ session: updated });
+  }
 );
 
 // --- Viewer Operations ---
@@ -249,72 +219,63 @@ const sendMessageSchema = z.object({
 aituberRoutes.post(
   "/sessions/:id/messages",
   zValidator("json", sendMessageSchema),
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const user = c.get("user");
-      const session = await aituberService.getSession(id);
-      if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
-      if (session.status !== "live") {
-        return jsonError(c, 400, "SESSION_NOT_LIVE", "Session is not live");
-      }
-      const body = c.req.valid("json");
-      const message = await aituberService.sendViewerMessage({
-        sessionId: id,
-        senderUserId: user.id,
-        senderName: body.senderName,
-        content: body.content,
-      });
+  withErrorHandler("AITUBER_MESSAGE_SEND_FAILED", "Failed to send message"),
+  async (c) => {
+    const { id } = c.req.param();
+    const user = c.get("user");
+    const session = await aituberService.getSession(id);
+    if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
+    if (session.status !== "live") {
+      return jsonError(c, 400, "SESSION_NOT_LIVE", "Session is not live");
+    }
+    const body = c.req.valid("json");
+    const message = await aituberService.sendViewerMessage({
+      sessionId: id,
+      senderUserId: user.id,
+      senderName: body.senderName,
+      content: body.content,
+    });
 
-      // Also broadcast via data channel for immediate display
-      await livekitService.sendDataToRoom(session.roomName, {
-        type: "viewer-message",
-        messageId: message.id,
-        senderName: body.senderName,
-        content: body.content,
-      });
+    // Also broadcast via data channel for immediate display
+    await livekitService.sendDataToRoom(session.roomName, {
+      type: "viewer-message",
+      messageId: message.id,
+      senderName: body.senderName,
+      content: body.content,
+    });
 
-      return c.json({ message }, 201);
-    },
-    "AITUBER_MESSAGE_SEND_FAILED",
-    "Failed to send message"
-  )
+    return c.json({ message }, 201);
+  }
 );
 
 aituberRoutes.get(
   "/sessions/:id/messages",
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const session = await aituberService.getSession(id);
-      if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
-      const messages = await aituberService.listMessages(id);
-      return c.json({ messages });
-    },
-    "AITUBER_MESSAGE_LIST_FAILED",
-    "Failed to list messages"
-  )
+  withErrorHandler("AITUBER_MESSAGE_LIST_FAILED", "Failed to list messages"),
+  async (c) => {
+    const { id } = c.req.param();
+    const session = await aituberService.getSession(id);
+    if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
+    const messages = await aituberService.listMessages(id);
+    return c.json({ messages });
+  }
 );
 
 aituberRoutes.get(
   "/sessions/:id/token",
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const user = c.get("user");
-      const session = await aituberService.getSession(id);
-      if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
-      if (session.status !== "live") {
-        return jsonError(c, 400, "SESSION_NOT_LIVE", "Session is not live");
-      }
-      const token = await livekitService.generateViewerToken(
-        session.roomName,
-        `viewer-${user.id}`,
-        user.name
-      );
-      return c.json({ token });
-    },
-    "AITUBER_TOKEN_FAILED",
-    "Failed to generate token"
-  )
+  withErrorHandler("AITUBER_TOKEN_FAILED", "Failed to generate token"),
+  async (c) => {
+    const { id } = c.req.param();
+    const user = c.get("user");
+    const session = await aituberService.getSession(id);
+    if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
+    if (session.status !== "live") {
+      return jsonError(c, 400, "SESSION_NOT_LIVE", "Session is not live");
+    }
+    const token = await livekitService.generateViewerToken(
+      session.roomName,
+      `viewer-${user.id}`,
+      user.name
+    );
+    return c.json({ token });
+  }
 );

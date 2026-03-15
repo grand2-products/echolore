@@ -44,54 +44,48 @@ const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
 livekitRoutes.post(
   "/token",
   zValidator("json", livekitTokenSchema),
-  withErrorHandler(
-    async (c) => {
-      const { roomName, participantName, participantIdentity } = c.req.valid("json");
-      const user = c.get("user");
+  withErrorHandler("LIVEKIT_TOKEN_GENERATE_FAILED", "Failed to generate token"),
+  async (c) => {
+    const { roomName, participantName, participantIdentity } = c.req.valid("json");
+    const user = c.get("user");
 
-      if (participantIdentity !== user.id) {
-        return jsonError(
-          c,
-          403,
-          "IDENTITY_MISMATCH",
-          "participantIdentity must match authenticated user"
-        );
-      }
+    if (participantIdentity !== user.id) {
+      return jsonError(
+        c,
+        403,
+        "IDENTITY_MISMATCH",
+        "participantIdentity must match authenticated user"
+      );
+    }
 
-      const at = new AccessToken(apiKey, apiSecret, {
-        identity: participantIdentity,
-        name: participantName,
-      });
+    const at = new AccessToken(apiKey, apiSecret, {
+      identity: participantIdentity,
+      name: participantName,
+    });
 
-      at.addGrant({
-        roomJoin: true,
-        room: roomName,
-        canPublish: true,
-        canSubscribe: true,
-        canPublishData: true,
-      });
+    at.addGrant({
+      roomJoin: true,
+      room: roomName,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true,
+    });
 
-      const token = await at.toJwt();
+    const token = await at.toJwt();
 
-      return c.json({ token });
-    },
-    "LIVEKIT_TOKEN_GENERATE_FAILED",
-    "Failed to generate token"
-  )
+    return c.json({ token });
+  }
 );
 
 // GET /api/livekit/rooms - List all rooms
 livekitRoutes.get(
   "/rooms",
   requireRole(UserRole.Admin),
-  withErrorHandler(
-    async (c) => {
-      const rooms = await roomService.listRooms();
-      return c.json({ rooms });
-    },
-    "LIVEKIT_ROOMS_LIST_FAILED",
-    "Failed to list rooms"
-  )
+  withErrorHandler("LIVEKIT_ROOMS_LIST_FAILED", "Failed to list rooms"),
+  async (c) => {
+    const rooms = await roomService.listRooms();
+    return c.json({ rooms });
+  }
 );
 
 // POST /api/livekit/rooms - Create a new room
@@ -104,185 +98,158 @@ const createRoomSchema = z.object({
 livekitRoutes.post(
   "/rooms",
   requireRole(UserRole.Admin),
-  withErrorHandler(
-    async (c) => {
-      const body = await c.req.json();
-      const parsed = createRoomSchema.safeParse(body);
+  withErrorHandler("LIVEKIT_ROOM_CREATE_FAILED", "Failed to create room"),
+  async (c) => {
+    const body = await c.req.json();
+    const parsed = createRoomSchema.safeParse(body);
 
-      if (!parsed.success) {
-        return jsonError(
-          c,
-          400,
-          "LIVEKIT_ROOM_VALIDATION_FAILED",
-          parsed.error.issues.map((e: { message: string }) => e.message).join(", ")
-        );
-      }
+    if (!parsed.success) {
+      return jsonError(
+        c,
+        400,
+        "LIVEKIT_ROOM_VALIDATION_FAILED",
+        parsed.error.issues.map((e: { message: string }) => e.message).join(", ")
+      );
+    }
 
-      const { name, emptyTimeout, maxParticipants } = parsed.data;
+    const { name, emptyTimeout, maxParticipants } = parsed.data;
 
-      const room = await roomService.createRoom({
-        name,
-        emptyTimeout,
-        maxParticipants,
-      });
+    const room = await roomService.createRoom({
+      name,
+      emptyTimeout,
+      maxParticipants,
+    });
 
-      return c.json({ room }, 201);
-    },
-    "LIVEKIT_ROOM_CREATE_FAILED",
-    "Failed to create room"
-  )
+    return c.json({ room }, 201);
+  }
 );
 
 // DELETE /api/livekit/rooms/:name - Delete a room
 livekitRoutes.delete(
   "/rooms/:name",
   requireRole(UserRole.Admin),
-  withErrorHandler(
-    async (c) => {
-      const { name } = c.req.param();
+  withErrorHandler("LIVEKIT_ROOM_DELETE_FAILED", "Failed to delete room"),
+  async (c) => {
+    const { name } = c.req.param();
 
-      await roomService.deleteRoom(name);
-      return c.json({ success: true });
-    },
-    "LIVEKIT_ROOM_DELETE_FAILED",
-    "Failed to delete room"
-  )
+    await roomService.deleteRoom(name);
+    return c.json({ success: true });
+  }
 );
 
 // GET /api/livekit/rooms/:name/participants - List participants in a room
 livekitRoutes.get(
   "/rooms/:name/participants",
   requireRole(UserRole.Admin),
-  withErrorHandler(
-    async (c) => {
-      const { name } = c.req.param();
+  withErrorHandler("LIVEKIT_PARTICIPANTS_LIST_FAILED", "Failed to list participants"),
+  async (c) => {
+    const { name } = c.req.param();
 
-      const participants = await roomService.listParticipants(name);
-      return c.json({ participants });
-    },
-    "LIVEKIT_PARTICIPANTS_LIST_FAILED",
-    "Failed to list participants"
-  )
+    const participants = await roomService.listParticipants(name);
+    return c.json({ participants });
+  }
 );
 
 // POST /api/livekit/rooms/:name/start-recording - Start recording
 livekitRoutes.post(
   "/rooms/:name/start-recording",
-  withErrorHandler(
-    async (c) => {
-      const { name } = c.req.param();
-      const user = c.get("user");
+  withErrorHandler("LIVEKIT_RECORDING_START_FAILED", "Failed to start recording"),
+  async (c) => {
+    const { name } = c.req.param();
+    const user = c.get("user");
 
-      const body = await c.req.json().catch(() => ({}));
-      const parsed = startRecordingBody.safeParse(body);
-      if (!parsed.success) {
-        return jsonError(c, 400, "VALIDATION_ERROR", "meetingId is required");
-      }
-      const { meetingId } = parsed.data;
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = startRecordingBody.safeParse(body);
+    if (!parsed.success) {
+      return jsonError(c, 400, "VALIDATION_ERROR", "meetingId is required");
+    }
+    const { meetingId } = parsed.data;
 
-      const meeting = await getMeetingById(meetingId);
-      if (!meeting || !isOwnerOrAdmin(user, meeting.creatorId)) {
-        return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
-      }
+    const meeting = await getMeetingById(meetingId);
+    if (!meeting || !isOwnerOrAdmin(user, meeting.creatorId)) {
+      return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
+    }
 
-      const { egressInfo, recording } = await recordingService.startRecording(
-        name,
-        meetingId,
-        user?.id ?? "unknown"
-      );
-      return c.json({ egressId: egressInfo.egressId, recording });
-    },
-    "LIVEKIT_RECORDING_START_FAILED",
-    "Failed to start recording"
-  )
+    const { egressInfo, recording } = await recordingService.startRecording(
+      name,
+      meetingId,
+      user?.id ?? "unknown"
+    );
+    return c.json({ egressId: egressInfo.egressId, recording });
+  }
 );
 
 // POST /api/livekit/rooms/:name/stop-recording - Stop recording
 livekitRoutes.post(
   "/rooms/:name/stop-recording",
-  withErrorHandler(
-    async (c) => {
-      const user = c.get("user");
-      const body = await c.req.json().catch(() => ({}));
-      const parsed = stopRecordingBody.safeParse(body);
-      if (!parsed.success) {
-        return jsonError(c, 400, "VALIDATION_ERROR", "egressId and meetingId are required");
-      }
-      const { egressId, meetingId } = parsed.data;
+  withErrorHandler("LIVEKIT_RECORDING_STOP_FAILED", "Failed to stop recording"),
+  async (c) => {
+    const user = c.get("user");
+    const body = await c.req.json().catch(() => ({}));
+    const parsed = stopRecordingBody.safeParse(body);
+    if (!parsed.success) {
+      return jsonError(c, 400, "VALIDATION_ERROR", "egressId and meetingId are required");
+    }
+    const { egressId, meetingId } = parsed.data;
 
-      const meeting = await getMeetingById(meetingId);
-      if (!meeting || !isOwnerOrAdmin(user, meeting.creatorId)) {
-        return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
-      }
+    const meeting = await getMeetingById(meetingId);
+    if (!meeting || !isOwnerOrAdmin(user, meeting.creatorId)) {
+      return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
+    }
 
-      await recordingService.stopRecording(egressId);
-      return c.json({ success: true });
-    },
-    "LIVEKIT_RECORDING_STOP_FAILED",
-    "Failed to stop recording"
-  )
+    await recordingService.stopRecording(egressId);
+    return c.json({ success: true });
+  }
 );
 
 // GET /api/livekit/rooms/:name/recording-status - Get recording status
 livekitRoutes.get(
   "/rooms/:name/recording-status",
-  withErrorHandler(
-    async (c) => {
-      const user = c.get("user");
-      const meetingId = c.req.query("meetingId");
-      if (!meetingId) {
-        return jsonError(c, 400, "MEETING_ID_REQUIRED", "meetingId query param is required");
-      }
+  withErrorHandler("LIVEKIT_RECORDING_STATUS_FAILED", "Failed to get recording status"),
+  async (c) => {
+    const user = c.get("user");
+    const meetingId = c.req.query("meetingId");
+    if (!meetingId) {
+      return jsonError(c, 400, "MEETING_ID_REQUIRED", "meetingId query param is required");
+    }
 
-      const meeting = await getMeetingById(meetingId);
-      if (!meeting || !isOwnerOrAdmin(user, meeting.creatorId)) {
-        return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
-      }
+    const meeting = await getMeetingById(meetingId);
+    if (!meeting || !isOwnerOrAdmin(user, meeting.creatorId)) {
+      return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
+    }
 
-      const recordings = await recordingService.getRecordingStatus(meetingId);
-      return c.json({ recordings });
-    },
-    "LIVEKIT_RECORDING_STATUS_FAILED",
-    "Failed to get recording status"
-  )
+    const recordings = await recordingService.getRecordingStatus(meetingId);
+    return c.json({ recordings });
+  }
 );
 
 // POST /api/livekit/coworking/start-composite - Start MCU composite
 livekitRoutes.post(
   "/coworking/start-composite",
   requireRole(UserRole.Admin),
-  withErrorHandler(
-    async (c) => {
-      const status = await coworkingMcu.startCoworkingComposite();
-      return c.json(status);
-    },
-    "COWORKING_COMPOSITE_START_FAILED",
-    "Failed to start composite"
-  )
+  withErrorHandler("COWORKING_COMPOSITE_START_FAILED", "Failed to start composite"),
+  async (c) => {
+    const status = await coworkingMcu.startCoworkingComposite();
+    return c.json(status);
+  }
 );
 
 // POST /api/livekit/coworking/stop-composite - Stop MCU composite (admin only)
 livekitRoutes.post(
   "/coworking/stop-composite",
   requireRole(UserRole.Admin),
-  withErrorHandler(
-    async (c) => {
-      await coworkingMcu.stopCoworkingComposite();
-      return c.json({ success: true });
-    },
-    "COWORKING_COMPOSITE_STOP_FAILED",
-    "Failed to stop composite"
-  )
+  withErrorHandler("COWORKING_COMPOSITE_STOP_FAILED", "Failed to stop composite"),
+  async (c) => {
+    await coworkingMcu.stopCoworkingComposite();
+    return c.json({ success: true });
+  }
 );
 
 // GET /api/livekit/coworking/composite-status - Get composite status
 livekitRoutes.get(
   "/coworking/composite-status",
-  withErrorHandler(
-    async (c) => {
-      return c.json(coworkingMcu.getCoworkingCompositeStatus());
-    },
-    "COWORKING_COMPOSITE_STATUS_FAILED",
-    "Failed to get composite status"
-  )
+  withErrorHandler("COWORKING_COMPOSITE_STATUS_FAILED", "Failed to get composite status"),
+  async (c) => {
+    return c.json(coworkingMcu.getCoworkingCompositeStatus());
+  }
 );

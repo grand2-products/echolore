@@ -14,74 +14,65 @@ export const wikiTrashRoutes = new Hono<AppEnv>();
 
 wikiTrashRoutes.get(
   "/trash",
-  withErrorHandler(
-    async (c) => {
-      const user = c.get("user");
+  withErrorHandler("WIKI_TRASH_LIST_FAILED", "Failed to fetch trash"),
+  async (c) => {
+    const user = c.get("user");
 
-      const deletedPages = await listDeletedPages();
-      const filtered =
-        user.role === UserRole.Admin
-          ? deletedPages
-          : deletedPages.filter((p) => p.authorId === user.id);
-      return c.json({ pages: filtered });
-    },
-    "WIKI_TRASH_LIST_FAILED",
-    "Failed to fetch trash"
-  )
+    const deletedPages = await listDeletedPages();
+    const filtered =
+      user.role === UserRole.Admin
+        ? deletedPages
+        : deletedPages.filter((p) => p.authorId === user.id);
+    return c.json({ pages: filtered });
+  }
 );
 
 wikiTrashRoutes.post(
   "/trash/:id/restore",
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const user = c.get("user");
+  withErrorHandler("WIKI_PAGE_RESTORE_FAILED", "Failed to restore page"),
+  async (c) => {
+    const { id } = c.req.param();
+    const user = c.get("user");
 
-      const page = await getPageById(id);
-      if (!page) {
-        return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
-      }
-      if (!page.deletedAt) {
-        return jsonError(c, 400, "WIKI_PAGE_NOT_DELETED", "Page is not in trash");
-      }
+    const page = await getPageById(id);
+    if (!page) {
+      return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
+    }
+    if (!page.deletedAt) {
+      return jsonError(c, 400, "WIKI_PAGE_NOT_DELETED", "Page is not in trash");
+    }
 
-      // Only admin or the author can restore
-      if (user.role !== UserRole.Admin && page.authorId !== user.id) {
-        return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
-      }
+    // Only admin or the author can restore
+    if (user.role !== UserRole.Admin && page.authorId !== user.id) {
+      return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
+    }
 
-      const restored = await restorePage(id);
-      void indexPage(id).catch((e) => console.error("indexPage error:", e));
-      return c.json({ page: restored });
-    },
-    "WIKI_PAGE_RESTORE_FAILED",
-    "Failed to restore page"
-  )
+    const restored = await restorePage(id);
+    void indexPage(id).catch((e) => console.error("indexPage error:", e));
+    return c.json({ page: restored });
+  }
 );
 
 wikiTrashRoutes.delete(
   "/trash/:id",
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const user = c.get("user");
+  withErrorHandler("WIKI_PAGE_DELETE_FAILED", "Failed to permanently delete page"),
+  async (c) => {
+    const { id } = c.req.param();
+    const user = c.get("user");
 
-      if (user.role !== UserRole.Admin) {
-        return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Admin only");
-      }
+    if (user.role !== UserRole.Admin) {
+      return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Admin only");
+    }
 
-      const page = await getPageById(id);
-      if (!page) {
-        return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
-      }
-      if (!page.deletedAt) {
-        return jsonError(c, 400, "WIKI_PAGE_NOT_DELETED", "Page is not in trash");
-      }
+    const page = await getPageById(id);
+    if (!page) {
+      return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
+    }
+    if (!page.deletedAt) {
+      return jsonError(c, 400, "WIKI_PAGE_NOT_DELETED", "Page is not in trash");
+    }
 
-      await permanentDeletePage(id);
-      return c.json({ success: true });
-    },
-    "WIKI_PAGE_DELETE_FAILED",
-    "Failed to permanently delete page"
-  )
+    await permanentDeletePage(id);
+    return c.json({ success: true });
+  }
 );

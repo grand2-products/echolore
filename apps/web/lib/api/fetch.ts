@@ -33,6 +33,11 @@ export function buildApiUrl(path: string) {
   return `${API_BASE}${normalizedPath}`;
 }
 
+export function buildAuthJsUrl(path: string) {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE.replace(/\/api$/, "")}${normalizedPath}`;
+}
+
 // ---------------------------------------------------------------------------
 // Error handling
 // ---------------------------------------------------------------------------
@@ -179,4 +184,20 @@ export async function fetchPublic<T>(path: string, options?: RequestInit): Promi
   }
 
   return response.json();
+}
+
+/**
+ * Fetch plain text from an absolute or relative URL.
+ * Useful for endpoints like HLS manifests where the response is not JSON.
+ */
+export async function fetchText(url: string, options?: RequestInit): Promise<string> {
+  const response = await fetch(url, {
+    ...options,
+  });
+
+  if (!response.ok) {
+    throw await parseApiError(response);
+  }
+
+  return response.text();
 }

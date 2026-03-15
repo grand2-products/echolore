@@ -22,84 +22,81 @@ export const meetingPipelineRoutes = new Hono<AppEnv>();
 meetingPipelineRoutes.post(
   "/:id/pipeline/run",
   zValidator("json", runPipelineSchema),
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const body = c.req.valid("json");
+  withErrorHandler("MEETING_PIPELINE_RUN_FAILED", "Failed to run room AI pipeline"),
+  async (c) => {
+    const { id } = c.req.param();
+    const body = c.req.valid("json");
 
-      const meeting = await getMeetingById(id);
-      if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+    const meeting = await getMeetingById(id);
+    if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
-      const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
-      if (!authz.allowed) {
-        return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
-      }
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
+    if (!authz.allowed) {
+      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+    }
 
-      let meetingTranscripts = await getMeetingTranscripts(id);
+    let meetingTranscripts = await getMeetingTranscripts(id);
 
-      // If no transcripts exist, try to transcribe from a completed recording
-      if (meetingTranscripts.length === 0) {
-        try {
-          const { maybeTranscribeCompletedRecording } = await import(
-            "../../services/meeting/recording-transcription-service.js"
-          );
-          await maybeTranscribeCompletedRecording(id);
-          meetingTranscripts = await getMeetingTranscripts(id);
-        } catch {
-          // transcription failed, continue with empty check below
-        }
-      }
-
-      if (meetingTranscripts.length === 0) {
-        return jsonError(
-          c,
-          409,
-          "MEETING_PIPELINE_TRANSCRIPTS_MISSING",
-          "No transcripts found for this meeting"
+    // If no transcripts exist, try to transcribe from a completed recording
+    if (meetingTranscripts.length === 0) {
+      try {
+        const { maybeTranscribeCompletedRecording } = await import(
+          "../../services/meeting/recording-transcription-service.js"
         );
+        await maybeTranscribeCompletedRecording(id);
+        meetingTranscripts = await getMeetingTranscripts(id);
+      } catch {
+        // transcription failed, continue with empty check below
       }
+    }
 
-      const existingPipelineResult = await getExistingRoomAiPipelineResult(id);
-      if (existingPipelineResult) {
-        await auditAction(c, "roomai.pipeline.reused", "meeting", meeting.id, {
-          transcriptCount: meetingTranscripts.length,
-          summaryId: existingPipelineResult.summary.id,
-          wikiPageId: existingPipelineResult.wikiPage.id,
-        });
-
-        return c.json({
-          meetingId: meeting.id,
-          summary: toSummaryDto(existingPipelineResult.summary),
-          wikiPage: existingPipelineResult.wikiPage,
-          reused: true,
-        });
-      }
-
-      const summaryContent = await generateMeetingSummary(
-        body.title ?? meeting.title,
-        meetingTranscripts
+    if (meetingTranscripts.length === 0) {
+      return jsonError(
+        c,
+        409,
+        "MEETING_PIPELINE_TRANSCRIPTS_MISSING",
+        "No transcripts found for this meeting"
       );
+    }
 
-      const { summary: createdSummary, wikiPage } = await createMeetingSummaryWikiArtifacts(
-        meeting,
-        summaryContent
-      );
-
-      await auditAction(c, "roomai.pipeline.run", "meeting", meeting.id, {
+    const existingPipelineResult = await getExistingRoomAiPipelineResult(id);
+    if (existingPipelineResult) {
+      await auditAction(c, "roomai.pipeline.reused", "meeting", meeting.id, {
         transcriptCount: meetingTranscripts.length,
-        summaryId: createdSummary.id,
-        wikiPageId: wikiPage.id,
-        reused: false,
+        summaryId: existingPipelineResult.summary.id,
+        wikiPageId: existingPipelineResult.wikiPage.id,
       });
 
       return c.json({
         meetingId: meeting.id,
-        summary: toSummaryDto(createdSummary),
-        wikiPage,
-        reused: false,
+        summary: toSummaryDto(existingPipelineResult.summary),
+        wikiPage: existingPipelineResult.wikiPage,
+        reused: true,
       });
-    },
-    "MEETING_PIPELINE_RUN_FAILED",
-    "Failed to run room AI pipeline"
-  )
+    }
+
+    const summaryContent = await generateMeetingSummary(
+      body.title ?? meeting.title,
+      meetingTranscripts
+    );
+
+    const { summary: createdSummary, wikiPage } = await createMeetingSummaryWikiArtifacts(
+      meeting,
+      summaryContent
+    );
+
+    await auditAction(c, "roomai.pipeline.run", "meeting", meeting.id, {
+      transcriptCount: meetingTranscripts.length,
+      summaryId: createdSummary.id,
+      wikiPageId: wikiPage.id,
+      reused: false,
+    });
+
+    return c.json({
+      meetingId: meeting.id,
+      summary: toSummaryDto(createdSummary),
+      wikiPage,
+      reused: false,
+    });
+  }
 );

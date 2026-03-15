@@ -18,28 +18,22 @@ export const adminLlmSettingsRoutes = new Hono<AppEnv>();
 
 adminLlmSettingsRoutes.get(
   "/llm-settings",
-  withErrorHandler(
-    async (c) => {
-      const settings = await getLlmSettings();
-      return c.json(maskSecrets(settings, [...SECRET_FIELDS]));
-    },
-    "ADMIN_LLM_SETTINGS_FETCH_FAILED",
-    "Failed to fetch LLM settings"
-  )
+  withErrorHandler("ADMIN_LLM_SETTINGS_FETCH_FAILED", "Failed to fetch LLM settings"),
+  async (c) => {
+    const settings = await getLlmSettings();
+    return c.json(maskSecrets(settings, [...SECRET_FIELDS]));
+  }
 );
 
 adminLlmSettingsRoutes.put(
   "/llm-settings",
   zValidator("json", updateLlmSettingsSchema),
-  withErrorHandler(
-    async (c) => {
-      const data = stripMaskedValues(c.req.valid("json"), [...SECRET_FIELDS]);
-      const updated = await updateLlmSettings(data);
-      return c.json(maskSecrets(updated, [...SECRET_FIELDS]));
-    },
-    "ADMIN_LLM_SETTINGS_UPDATE_FAILED",
-    "Failed to update LLM settings"
-  )
+  withErrorHandler("ADMIN_LLM_SETTINGS_UPDATE_FAILED", "Failed to update LLM settings"),
+  async (c) => {
+    const data = stripMaskedValues(c.req.valid("json"), [...SECRET_FIELDS]);
+    const updated = await updateLlmSettings(data);
+    return c.json(maskSecrets(updated, [...SECRET_FIELDS]));
+  }
 );
 
 adminLlmSettingsRoutes.post("/llm-settings/test", async (c) => {

@@ -51,86 +51,71 @@ async function authorizePagePermissionAccess(
 
 wikiPermissionRoutes.get(
   "/:id/permissions",
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const { error } = await authorizePagePermissionAccess(c, id);
-      if (error) return error;
+  withErrorHandler("WIKI_PAGE_PERMISSIONS_FETCH_FAILED", "Failed to fetch page permissions"),
+  async (c) => {
+    const { id } = c.req.param();
+    const { error } = await authorizePagePermissionAccess(c, id);
+    if (error) return error;
 
-      return c.json(await getPagePermissionsDetail(id));
-    },
-    "WIKI_PAGE_PERMISSIONS_FETCH_FAILED",
-    "Failed to fetch page permissions"
-  )
+    return c.json(await getPagePermissionsDetail(id));
+  }
 );
 
 wikiPermissionRoutes.put(
   "/:id/permissions",
   zValidator("json", setPagePermissionsSchema),
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const data = c.req.valid("json");
-      const { error } = await authorizePagePermissionAccess(c, id);
-      if (error) return error;
+  withErrorHandler("WIKI_PAGE_PERMISSIONS_SET_FAILED", "Failed to set page permissions"),
+  async (c) => {
+    const { id } = c.req.param();
+    const data = c.req.valid("json");
+    const { error } = await authorizePagePermissionAccess(c, id);
+    if (error) return error;
 
-      await replacePagePermissions(id, data.inheritFromParent ?? true, data.permissions);
-      return c.json({ pageId: id, inheritFromParent: data.inheritFromParent ?? true });
-    },
-    "WIKI_PAGE_PERMISSIONS_SET_FAILED",
-    "Failed to set page permissions"
-  )
+    await replacePagePermissions(id, data.inheritFromParent ?? true, data.permissions);
+    return c.json({ pageId: id, inheritFromParent: data.inheritFromParent ?? true });
+  }
 );
 
 wikiPermissionRoutes.delete(
   "/:id/permissions/groups/:groupId",
-  withErrorHandler(
-    async (c) => {
-      const { id, groupId } = c.req.param();
-      const { error } = await authorizePagePermissionAccess(c, id);
-      if (error) return error;
+  withErrorHandler("WIKI_PAGE_PERMISSION_DELETE_FAILED", "Failed to remove permission"),
+  async (c) => {
+    const { id, groupId } = c.req.param();
+    const { error } = await authorizePagePermissionAccess(c, id);
+    if (error) return error;
 
-      const deleted = await deletePagePermission(id, groupId);
-      if (!deleted) {
-        return jsonError(c, 404, "WIKI_PAGE_PERMISSION_NOT_FOUND", "Permission not found");
-      }
-      return c.json({ success: true });
-    },
-    "WIKI_PAGE_PERMISSION_DELETE_FAILED",
-    "Failed to remove permission"
-  )
+    const deleted = await deletePagePermission(id, groupId);
+    if (!deleted) {
+      return jsonError(c, 404, "WIKI_PAGE_PERMISSION_NOT_FOUND", "Permission not found");
+    }
+    return c.json({ success: true });
+  }
 );
 
 wikiPermissionRoutes.get(
   "/:id/permissions/inherit",
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const { error } = await authorizePagePermissionAccess(c, id);
-      if (error) return error;
+  withErrorHandler("WIKI_PAGE_INHERITANCE_FETCH_FAILED", "Failed to fetch inheritance"),
+  async (c) => {
+    const { id } = c.req.param();
+    const { error } = await authorizePagePermissionAccess(c, id);
+    if (error) return error;
 
-      const inherit = await getPageInheritance(id);
-      return c.json({ pageId: id, inheritFromParent: inherit?.inheritFromParent ?? true });
-    },
-    "WIKI_PAGE_INHERITANCE_FETCH_FAILED",
-    "Failed to fetch inheritance"
-  )
+    const inherit = await getPageInheritance(id);
+    return c.json({ pageId: id, inheritFromParent: inherit?.inheritFromParent ?? true });
+  }
 );
 
 wikiPermissionRoutes.put(
   "/:id/permissions/inherit",
   zValidator("json", updateInheritanceSchema),
-  withErrorHandler(
-    async (c) => {
-      const { id } = c.req.param();
-      const data = c.req.valid("json");
-      const { error } = await authorizePagePermissionAccess(c, id);
-      if (error) return error;
+  withErrorHandler("WIKI_PAGE_INHERITANCE_SET_FAILED", "Failed to set inheritance"),
+  async (c) => {
+    const { id } = c.req.param();
+    const data = c.req.valid("json");
+    const { error } = await authorizePagePermissionAccess(c, id);
+    if (error) return error;
 
-      await replacePageInheritance(id, data.inheritFromParent);
-      return c.json({ pageId: id, inheritFromParent: data.inheritFromParent });
-    },
-    "WIKI_PAGE_INHERITANCE_SET_FAILED",
-    "Failed to set inheritance"
-  )
+    await replacePageInheritance(id, data.inheritFromParent);
+    return c.json({ pageId: id, inheritFromParent: data.inheritFromParent });
+  }
 );

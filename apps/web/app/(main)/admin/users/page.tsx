@@ -7,7 +7,7 @@ import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useFormatters, useT } from "@/lib/i18n";
 
-const isValidImageUrl = (url: string | null | undefined): boolean => {
+const isValidImageUrl = (url: string | null | undefined): url is string => {
   if (!url) return false;
   try {
     const parsed = new URL(url);
@@ -107,7 +107,7 @@ export default function AdminUsersPage() {
                   <div className="flex items-center gap-2">
                     {isValidImageUrl(user.avatarUrl) ? (
                       <Image
-                        src={user.avatarUrl as string}
+                        src={user.avatarUrl}
                         alt=""
                         width={28}
                         height={28}

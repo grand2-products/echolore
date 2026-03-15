@@ -40,242 +40,233 @@ const joinRequestSchema = z.object({
 // GET /api/meetings/join/:token — Validate invite token
 meetingGuestRoutes.get(
   "/join/:token",
-  withErrorHandler(
-    async (c) => {
-      const { token } = c.req.param();
+  withErrorHandler("INVITE_VALIDATE_FAILED", "Failed to validate invite"),
+  async (c) => {
+    const { token } = c.req.param();
 
-      const [invite] = await db
-        .select()
-        .from(meetingInvites)
-        .where(
-          and(
-            eq(meetingInvites.token, token),
-            isNull(meetingInvites.revokedAt),
-            gt(meetingInvites.expiresAt, new Date())
-          )
-        );
+    const [invite] = await db
+      .select()
+      .from(meetingInvites)
+      .where(
+        and(
+          eq(meetingInvites.token, token),
+          isNull(meetingInvites.revokedAt),
+          gt(meetingInvites.expiresAt, new Date())
+        )
+      );
 
-      if (!invite) {
-        return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found or expired");
-      }
+    if (!invite) {
+      return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found or expired");
+    }
 
-      if (invite.maxUses !== null && invite.useCount >= invite.maxUses) {
-        return jsonError(c, 410, "INVITE_EXHAUSTED", "Invite has reached its usage limit");
-      }
+    if (invite.maxUses !== null && invite.useCount >= invite.maxUses) {
+      return jsonError(c, 410, "INVITE_EXHAUSTED", "Invite has reached its usage limit");
+    }
 
-      const [meeting] = await db.select().from(meetings).where(eq(meetings.id, invite.meetingId));
+    const [meeting] = await db.select().from(meetings).where(eq(meetings.id, invite.meetingId));
 
-      if (!meeting) {
-        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-      }
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+    }
 
-      return c.json({
-        meeting: { id: meeting.id, title: meeting.title, status: meeting.status },
-        invite: {
-          id: invite.id,
-          label: invite.label,
-          expiresAt: invite.expiresAt.toISOString(),
-        },
-      });
-    },
-    "INVITE_VALIDATE_FAILED",
-    "Failed to validate invite"
-  )
+    return c.json({
+      meeting: { id: meeting.id, title: meeting.title, status: meeting.status },
+      invite: {
+        id: invite.id,
+        label: invite.label,
+        expiresAt: invite.expiresAt.toISOString(),
+      },
+    });
+  }
 );
 
 // POST /api/meetings/join/:token/request — Submit join request
 meetingGuestRoutes.post(
   "/join/:token/request",
   zValidator("json", joinRequestSchema),
-  withErrorHandler(
-    async (c) => {
-      const ip = getRequestIp(c.req.raw.headers) ?? "unknown";
-      if (!(await checkRateLimit(ip))) {
-        return jsonError(c, 429, "RATE_LIMITED", "Too many requests");
-      }
+  withErrorHandler("GUEST_REQUEST_FAILED", "Failed to submit join request"),
+  async (c) => {
+    const ip = getRequestIp(c.req.raw.headers) ?? "unknown";
+    if (!(await checkRateLimit(ip))) {
+      return jsonError(c, 429, "RATE_LIMITED", "Too many requests");
+    }
 
-      const { token } = c.req.param();
-      const { guestName } = c.req.valid("json");
+    const { token } = c.req.param();
+    const { guestName } = c.req.valid("json");
 
-      const requestId = crypto.randomUUID();
-      const shortId = requestId.slice(0, 8);
-      // Use only the short ID for identity to avoid special characters in guestName
-      const guestIdentity = `guest-${shortId}`;
+    const requestId = crypto.randomUUID();
+    const shortId = requestId.slice(0, 8);
+    // Use only the short ID for identity to avoid special characters in guestName
+    const guestIdentity = `guest-${shortId}`;
 
-      // Atomic: increment useCount + create guest request in a single transaction
-      const result = await db.transaction(async (tx) => {
-        const [invite] = await tx
-          .update(meetingInvites)
-          .set({ useCount: sql`${meetingInvites.useCount} + 1` })
-          .where(
-            and(
-              eq(meetingInvites.token, token),
-              isNull(meetingInvites.revokedAt),
-              gt(meetingInvites.expiresAt, new Date()),
-              sql`(${meetingInvites.maxUses} IS NULL OR ${meetingInvites.useCount} < ${meetingInvites.maxUses})`
-            )
+    // Atomic: increment useCount + create guest request in a single transaction
+    const result = await db.transaction(async (tx) => {
+      const [invite] = await tx
+        .update(meetingInvites)
+        .set({ useCount: sql`${meetingInvites.useCount} + 1` })
+        .where(
+          and(
+            eq(meetingInvites.token, token),
+            isNull(meetingInvites.revokedAt),
+            gt(meetingInvites.expiresAt, new Date()),
+            sql`(${meetingInvites.maxUses} IS NULL OR ${meetingInvites.useCount} < ${meetingInvites.maxUses})`
           )
-          .returning();
+        )
+        .returning();
 
-        if (!invite) return null;
+      if (!invite) return null;
 
-        const [guestRequest] = await tx
-          .insert(meetingGuestRequests)
-          .values({
-            id: requestId,
-            inviteId: invite.id,
-            meetingId: invite.meetingId,
-            guestName,
-            guestIdentity,
-            status: "pending",
-            ipAddress: ip,
-            userAgent: c.req.header("user-agent") ?? null,
-            createdAt: new Date(),
-          })
-          .returning();
+      const [guestRequest] = await tx
+        .insert(meetingGuestRequests)
+        .values({
+          id: requestId,
+          inviteId: invite.id,
+          meetingId: invite.meetingId,
+          guestName,
+          guestIdentity,
+          status: "pending",
+          ipAddress: ip,
+          userAgent: c.req.header("user-agent") ?? null,
+          createdAt: new Date(),
+        })
+        .returning();
 
-        return { invite, guestRequest };
-      });
+      return { invite, guestRequest };
+    });
 
-      if (!result || !result.guestRequest) {
-        if (!result) {
-          return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found, expired, or full");
-        }
-        return jsonError(c, 500, "GUEST_REQUEST_FAILED", "Failed to create guest request");
+    if (!result || !result.guestRequest) {
+      if (!result) {
+        return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found, expired, or full");
       }
+      return jsonError(c, 500, "GUEST_REQUEST_FAILED", "Failed to create guest request");
+    }
 
-      const { invite, guestRequest } = result;
+    const { invite, guestRequest } = result;
 
-      // Notify room participants via LiveKit DataChannel
-      try {
-        const [meeting] = await db
-          .select({ roomName: meetings.roomName })
-          .from(meetings)
-          .where(eq(meetings.id, invite.meetingId));
+    // Notify room participants via LiveKit DataChannel
+    try {
+      const [meeting] = await db
+        .select({ roomName: meetings.roomName })
+        .from(meetings)
+        .where(eq(meetings.id, invite.meetingId));
 
-        if (meeting) {
-          const msg = {
-            type: "guest-request-new",
-            requestId,
-            guestName,
-          };
-          await roomService.sendData(
-            meeting.roomName,
-            encoder.encode(JSON.stringify(msg)),
-            DataPacket_Kind.RELIABLE,
-            { topic: "guest-request" }
-          );
-        }
-      } catch {
-        // Best-effort notification — don't fail the request
+      if (meeting) {
+        const msg = {
+          type: "guest-request-new",
+          requestId,
+          guestName,
+        };
+        await roomService.sendData(
+          meeting.roomName,
+          encoder.encode(JSON.stringify(msg)),
+          DataPacket_Kind.RELIABLE,
+          { topic: "guest-request" }
+        );
       }
+    } catch {
+      // Best-effort notification — don't fail the request
+    }
 
-      return c.json({ requestId: guestRequest.id, guestIdentity: guestRequest.guestIdentity }, 201);
-    },
-    "GUEST_REQUEST_FAILED",
-    "Failed to submit join request"
-  )
+    return c.json({ requestId: guestRequest.id, guestIdentity: guestRequest.guestIdentity }, 201);
+  }
 );
 
 // GET /api/meetings/join/:token/request/:requestId/status — Poll approval status
 meetingGuestRoutes.get(
   "/join/:token/request/:requestId/status",
-  withErrorHandler(
-    async (c) => {
-      const { token, requestId } = c.req.param();
+  withErrorHandler("GUEST_STATUS_FAILED", "Failed to check guest request status"),
+  async (c) => {
+    const { token, requestId } = c.req.param();
 
-      // Verify invite token matches the request's invite
-      const [invite] = await db
-        .select({ id: meetingInvites.id })
-        .from(meetingInvites)
-        .where(eq(meetingInvites.token, token));
+    // Verify invite token matches the request's invite
+    const [invite] = await db
+      .select({ id: meetingInvites.id })
+      .from(meetingInvites)
+      .where(eq(meetingInvites.token, token));
 
-      if (!invite) {
-        return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found");
+    if (!invite) {
+      return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found");
+    }
+
+    const [request] = await db
+      .select()
+      .from(meetingGuestRequests)
+      .where(
+        and(eq(meetingGuestRequests.id, requestId), eq(meetingGuestRequests.inviteId, invite.id))
+      );
+
+    if (!request) {
+      return jsonError(c, 404, "REQUEST_NOT_FOUND", "Guest request not found");
+    }
+
+    if (request.status === "pending") {
+      return c.json({ status: "pending" as const });
+    }
+
+    if (request.status === "rejected") {
+      return c.json({ status: "rejected" as const });
+    }
+
+    // approved — return cached LiveKit token or generate a new one
+    const cacheKey = `guest-token:${requestId}`;
+    const valkey = getValkey();
+
+    // Try cache first
+    if (valkey) {
+      try {
+        const cached = await valkey.get(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached) as { token: string; roomName: string };
+          return c.json({
+            status: "approved" as const,
+            token: parsed.token,
+            roomName: parsed.roomName,
+          });
+        }
+      } catch {
+        // cache miss or error — fall through to generate
       }
+    }
 
-      const [request] = await db
-        .select()
-        .from(meetingGuestRequests)
-        .where(
-          and(eq(meetingGuestRequests.id, requestId), eq(meetingGuestRequests.inviteId, invite.id))
+    const [meeting] = await db.select().from(meetings).where(eq(meetings.id, request.meetingId));
+
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+    }
+
+    const at = new AccessToken(livekitApiKey, livekitApiSecret, {
+      identity: request.guestIdentity,
+      name: request.guestName,
+    });
+
+    at.addGrant({
+      roomJoin: true,
+      room: meeting.roomName,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true,
+    });
+
+    const livekitToken = await at.toJwt();
+
+    // Cache for 5 minutes (token is valid longer, but guest should connect quickly)
+    if (valkey) {
+      try {
+        await valkey.set(
+          cacheKey,
+          JSON.stringify({ token: livekitToken, roomName: meeting.roomName }),
+          "EX",
+          300
         );
-
-      if (!request) {
-        return jsonError(c, 404, "REQUEST_NOT_FOUND", "Guest request not found");
+      } catch {
+        // cache write failure is non-critical
       }
+    }
 
-      if (request.status === "pending") {
-        return c.json({ status: "pending" as const });
-      }
-
-      if (request.status === "rejected") {
-        return c.json({ status: "rejected" as const });
-      }
-
-      // approved — return cached LiveKit token or generate a new one
-      const cacheKey = `guest-token:${requestId}`;
-      const valkey = getValkey();
-
-      // Try cache first
-      if (valkey) {
-        try {
-          const cached = await valkey.get(cacheKey);
-          if (cached) {
-            const parsed = JSON.parse(cached) as { token: string; roomName: string };
-            return c.json({
-              status: "approved" as const,
-              token: parsed.token,
-              roomName: parsed.roomName,
-            });
-          }
-        } catch {
-          // cache miss or error — fall through to generate
-        }
-      }
-
-      const [meeting] = await db.select().from(meetings).where(eq(meetings.id, request.meetingId));
-
-      if (!meeting) {
-        return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-      }
-
-      const at = new AccessToken(livekitApiKey, livekitApiSecret, {
-        identity: request.guestIdentity,
-        name: request.guestName,
-      });
-
-      at.addGrant({
-        roomJoin: true,
-        room: meeting.roomName,
-        canPublish: true,
-        canSubscribe: true,
-        canPublishData: true,
-      });
-
-      const livekitToken = await at.toJwt();
-
-      // Cache for 5 minutes (token is valid longer, but guest should connect quickly)
-      if (valkey) {
-        try {
-          await valkey.set(
-            cacheKey,
-            JSON.stringify({ token: livekitToken, roomName: meeting.roomName }),
-            "EX",
-            300
-          );
-        } catch {
-          // cache write failure is non-critical
-        }
-      }
-
-      return c.json({
-        status: "approved" as const,
-        token: livekitToken,
-        roomName: meeting.roomName,
-      });
-    },
-    "GUEST_STATUS_FAILED",
-    "Failed to check guest request status"
-  )
+    return c.json({
+      status: "approved" as const,
+      token: livekitToken,
+      roomName: meeting.roomName,
+    });
+  }
 );
