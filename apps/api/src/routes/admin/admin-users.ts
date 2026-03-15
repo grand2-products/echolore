@@ -8,6 +8,7 @@ import {
   listUsersWithGroups,
   replaceUserGroups,
 } from "../../services/admin/admin-service.js";
+import { toAdminUserRecordDto } from "./dto.js";
 import { updateUserGroupsSchema, updateUserRoleSchema } from "./schemas.js";
 
 export const adminUserRoutes = new Hono<AppEnv>();
@@ -18,7 +19,10 @@ adminUserRoutes.get(
   async (c) => {
     const { limit, offset } = parsePaginationParams(c);
     const all = await listUsersWithGroups();
-    return c.json({ users: all.slice(offset, offset + limit), total: all.length });
+    return c.json({
+      users: all.slice(offset, offset + limit).map(toAdminUserRecordDto),
+      total: all.length,
+    });
   }
 );
 
@@ -31,7 +35,7 @@ adminUserRoutes.put(
     const data = c.req.valid("json");
     const user = await changeUserRole(id, data.role);
     if (!user) return jsonError(c, 404, "ADMIN_USER_NOT_FOUND", "User not found");
-    return c.json({ user });
+    return c.json({ user: toAdminUserRecordDto({ ...user, groups: [] }) });
   }
 );
 

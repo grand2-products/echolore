@@ -20,7 +20,6 @@ export const usersRoutes = new Hono<AppEnv>();
 
 // Validation schemas
 const createUserSchema = z.object({
-  id: z.string(),
   email: z.string().email(),
   name: z.string().min(1),
   avatarUrl: z.string().optional(),
@@ -209,7 +208,7 @@ usersRoutes.post("/", zValidator("json", createUserSchema), async (c) => {
       const now = new Date();
 
       const newUser = await createUser({
-        id: data.id,
+        id: `user_${crypto.randomUUID()}`,
         email: data.email,
         name: data.name,
         avatarUrl: data.avatarUrl || null,

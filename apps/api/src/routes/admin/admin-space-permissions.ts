@@ -8,6 +8,7 @@ import {
   getSpacePermissionsDetail,
   replaceSpacePermissions,
 } from "../../services/admin/admin-service.js";
+import { toAdminSpacePermissionsResponseDto } from "./dto.js";
 import { replaceSpacePermissionsSchema } from "./schemas.js";
 
 export const adminSpacePermissionRoutes = new Hono<AppEnv>();
@@ -18,7 +19,7 @@ adminSpacePermissionRoutes.get(
   async (c) => {
     const { spaceId } = c.req.param();
     const detail = await getSpacePermissionsDetail(spaceId);
-    return c.json(detail);
+    return c.json(toAdminSpacePermissionsResponseDto(detail));
   }
 );
 

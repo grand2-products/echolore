@@ -8,7 +8,7 @@ import {
   listRealtimeTranscriptSegments,
   upsertTranscriptSegment,
 } from "../../services/meeting/meeting-realtime-service.js";
-import { toTranscriptDto } from "./dto.js";
+import { toRealtimeTranscriptSegmentDto, toTranscriptDto } from "./dto.js";
 import { createTranscriptSchema, realtimeTranscriptSchema } from "./schemas.js";
 
 export const meetingTranscriptRoutes = new Hono<AppEnv>();
@@ -67,7 +67,8 @@ meetingTranscriptRoutes.get(
     const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
     if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
-    return c.json({ segments: await listRealtimeTranscriptSegments(id) });
+    const segments = await listRealtimeTranscriptSegments(id);
+    return c.json({ segments: segments.map(toRealtimeTranscriptSegmentDto) });
   }
 );
 
@@ -103,6 +104,15 @@ meetingTranscriptRoutes.post(
       finalizedAt: data.finalizedAt ? new Date(data.finalizedAt) : null,
     });
 
-    return c.json({ segment }, 201);
+    if (!segment) {
+      return jsonError(
+        c,
+        500,
+        "MEETING_REALTIME_TRANSCRIPT_UPSERT_FAILED",
+        "Failed to upsert realtime transcript"
+      );
+    }
+
+    return c.json({ segment: toRealtimeTranscriptSegmentDto(segment) }, 201);
   }
 );

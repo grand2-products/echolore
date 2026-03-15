@@ -3,6 +3,12 @@
  */
 
 import type {
+  AdminGroupDetailDto,
+  AdminGroupDto,
+  AdminSpacePermissionRecordDto,
+  AdminSpacePermissionsResponseDto,
+  AdminUserGroupRefDto,
+  AdminUserRecordDto,
   AiChatConversationDto,
   AiChatMessageDto,
   AuthMeResponseDto,
@@ -12,6 +18,7 @@ import type {
   MeetingDto,
   PageDto,
   PageRevisionDto,
+  RealtimeTranscriptSegmentDto,
   SessionUserDto,
   SpaceDto,
   SummaryDto,
@@ -90,21 +97,7 @@ export interface RunRoomAiPipelineResponse {
   reused: boolean;
 }
 
-export interface RealtimeTranscriptSegment {
-  id: string;
-  meetingId: string;
-  participantIdentity: string;
-  speakerUserId: string | null;
-  speakerLabel: string;
-  content: string;
-  isPartial: boolean;
-  segmentKey: string;
-  provider: string;
-  confidence: number | null;
-  startedAt: string;
-  finalizedAt: string | null;
-  createdAt: string;
-}
+export type RealtimeTranscriptSegment = RealtimeTranscriptSegmentDto;
 
 export interface AgentDefinition {
   id: string;
@@ -184,36 +177,10 @@ export interface MeetingAgentResponse {
   } | null;
 }
 
-export interface AdminGroup {
-  id: string;
-  name: string;
-  description: string | null;
-  isSystem: boolean;
-  permissions: string[];
-  createdAt: string;
-  updatedAt: string;
-  memberCount: number;
-}
-
-export interface AdminGroupDetail extends Omit<AdminGroup, "memberCount"> {
-  members: string[];
-}
-
-export interface AdminUserGroupRef {
-  id: string;
-  name: string;
-}
-
-export interface AdminUserRecord {
-  id: string;
-  email: string;
-  name: string;
-  avatarUrl?: string | null;
-  role: "admin" | "member";
-  createdAt: string;
-  updatedAt: string;
-  groups: AdminUserGroupRef[];
-}
+export type AdminGroup = AdminGroupDto;
+export type AdminGroupDetail = AdminGroupDetailDto;
+export type AdminUserGroupRef = AdminUserGroupRefDto;
+export type AdminUserRecord = AdminUserRecordDto;
 
 export interface AdminPagePermissionRecord {
   id: string;
@@ -233,22 +200,8 @@ export interface AdminPagePermissionsResponse {
   permissions: AdminPagePermissionRecord[];
 }
 
-export interface AdminSpacePermissionRecord {
-  id: string;
-  spaceId: string;
-  groupId: string;
-  groupName?: string;
-  canRead: boolean;
-  canWrite: boolean;
-  canDelete: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface AdminSpacePermissionsResponse {
-  spaceId: string;
-  permissions: AdminSpacePermissionRecord[];
-}
+export type AdminSpacePermissionRecord = AdminSpacePermissionRecordDto;
+export type AdminSpacePermissionsResponse = AdminSpacePermissionsResponseDto;
 
 export interface SiteSettings {
   siteTitle: string;
@@ -400,17 +353,8 @@ export interface UpdateStorageSettingsRequest {
   gcsKeyJson?: string | null;
 }
 
-export interface CreateAdminGroupRequest {
-  name: string;
-  description?: string;
-  permissions: string[];
-}
-
-export interface UpdateAdminGroupRequest {
-  name?: string;
-  description?: string;
-  permissions?: string[];
-}
+export type CreateAdminGroupRequest = import("@echolore/shared/contracts").CreateAdminGroupRequest;
+export type UpdateAdminGroupRequest = import("@echolore/shared/contracts").UpdateAdminGroupRequest;
 
 export interface CalendarEvent {
   id: string;

@@ -32,6 +32,10 @@ This document captures durable implementation notes that do not belong in short-
 - frontend API access is centralized in `apps/web/lib/api.ts`
 - release flow is workflow-driven and uses prebuilt images
 - runtime deployment and local development use separate compose entrypoints
+- API error handling supports both middleware and wrapper styles via `apps/api/src/lib/api-error.ts`
+- shared contracts in `packages/shared/src/contracts/index.ts` include admin DTOs and realtime transcript DTOs used by both `apps/api` and `apps/web`
+- admin route responses are mapped to shared DTOs in `apps/api/src/routes/admin/dto.ts`
+- user creation no longer accepts client-provided `id`; server assigns `user_${crypto.randomUUID()}` in `apps/api/src/routes/users.ts`
 
 ## Ongoing Cleanup Rule
 - old plan files that mainly describe implemented reality should be reduced or replaced with pointers to `docs/`

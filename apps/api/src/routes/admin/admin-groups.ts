@@ -19,6 +19,7 @@ import {
   listGroupsWithMemberCounts,
 } from "../../services/admin/admin-service.js";
 import { ensureTeamSpaceForGroup } from "../../services/wiki/space-service.js";
+import { toAdminGroupDetailDto, toAdminGroupDto } from "./dto.js";
 import { addMembersSchema, createGroupSchema, updateGroupSchema } from "./schemas.js";
 
 export const adminGroupRoutes = new Hono<AppEnv>();
@@ -29,7 +30,10 @@ adminGroupRoutes.get(
   async (c) => {
     const { limit, offset } = parsePaginationParams(c);
     const all = await listGroupsWithMemberCounts();
-    return c.json({ groups: all.slice(offset, offset + limit), total: all.length });
+    return c.json({
+      groups: all.slice(offset, offset + limit).map(toAdminGroupDto),
+      total: all.length,
+    });
   }
 );
 
@@ -60,7 +64,8 @@ adminGroupRoutes.post(
       await ensureTeamSpaceForGroup(group.id, group.name);
     }
 
-    return c.json({ group }, 201);
+    if (!group) return jsonError(c, 500, "ADMIN_GROUP_CREATE_FAILED", "Failed to create group");
+    return c.json({ group: toAdminGroupDto(group) }, 201);
   }
 );
 
@@ -71,7 +76,7 @@ adminGroupRoutes.get(
     const { id } = c.req.param();
     const group = await getGroupDetail(id);
     if (!group) return jsonError(c, 404, "ADMIN_GROUP_NOT_FOUND", "Group not found");
-    return c.json({ group });
+    return c.json({ group: toAdminGroupDetailDto(group) });
   }
 );
 
@@ -107,7 +112,8 @@ adminGroupRoutes.put(
       updatedAt: new Date(),
     });
 
-    return c.json({ group: updated });
+    if (!updated) return jsonError(c, 404, "ADMIN_GROUP_NOT_FOUND", "Group not found");
+    return c.json({ group: toAdminGroupDto(updated) });
   }
 );
 

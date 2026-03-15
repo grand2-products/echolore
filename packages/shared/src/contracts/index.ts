@@ -175,7 +175,6 @@ export class GetUserResponse {
 }
 
 export interface CreateUserRequest {
-  id: string;
   email: string;
   name: string;
   avatarUrl?: string;
@@ -526,6 +525,82 @@ export interface GuestRequestDataChannelMessage {
   guestName?: string;
   status?: "approved" | "rejected";
   resolvedBy?: string;
+}
+
+export interface RealtimeTranscriptSegmentDto {
+  id: string;
+  meetingId: string;
+  participantIdentity: string;
+  speakerUserId: string | null;
+  speakerLabel: string;
+  content: string;
+  isPartial: boolean;
+  segmentKey: string;
+  provider: string;
+  confidence: number | null;
+  startedAt: ISODateString;
+  finalizedAt: ISODateString | null;
+  createdAt: ISODateString;
+}
+
+export interface AdminUserGroupRefDto {
+  id: string;
+  name: string;
+}
+
+export interface AdminGroupDto {
+  id: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  permissions: string[];
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+  memberCount: number;
+}
+
+export interface AdminGroupDetailDto extends Omit<AdminGroupDto, "memberCount"> {
+  members: string[];
+}
+
+export interface AdminUserRecordDto {
+  id: string;
+  email: string;
+  name: string;
+  avatarUrl?: string | null;
+  role: UserRole;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+  groups: AdminUserGroupRefDto[];
+}
+
+export interface AdminSpacePermissionRecordDto {
+  id: string;
+  spaceId: string;
+  groupId: string;
+  groupName?: string;
+  canRead: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+export interface AdminSpacePermissionsResponseDto {
+  spaceId: string;
+  permissions: AdminSpacePermissionRecordDto[];
+}
+
+export interface CreateAdminGroupRequest {
+  name: string;
+  description?: string;
+  permissions: string[];
+}
+
+export interface UpdateAdminGroupRequest {
+  name?: string;
+  description?: string;
+  permissions?: string[];
 }
 
 // --- AITuber ---

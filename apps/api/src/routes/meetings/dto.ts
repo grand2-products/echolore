@@ -1,5 +1,15 @@
-import type { MeetingDto, SummaryDto, TranscriptDto } from "@echolore/shared/contracts";
-import type { meetings, summaries, transcripts } from "../../db/schema.js";
+import type {
+  MeetingDto,
+  RealtimeTranscriptSegmentDto,
+  SummaryDto,
+  TranscriptDto,
+} from "@echolore/shared/contracts";
+import type {
+  meetings,
+  meetingTranscriptSegments,
+  summaries,
+  transcripts,
+} from "../../db/schema.js";
 
 export const toIso = (value: Date | null): string | null => (value ? value.toISOString() : null);
 
@@ -30,4 +40,22 @@ export const toSummaryDto = (summary: typeof summaries.$inferSelect): SummaryDto
   meetingId: summary.meetingId,
   content: summary.content,
   createdAt: summary.createdAt.toISOString(),
+});
+
+export const toRealtimeTranscriptSegmentDto = (
+  segment: typeof meetingTranscriptSegments.$inferSelect
+): RealtimeTranscriptSegmentDto => ({
+  id: segment.id,
+  meetingId: segment.meetingId,
+  participantIdentity: segment.participantIdentity,
+  speakerUserId: segment.speakerUserId,
+  speakerLabel: segment.speakerLabel,
+  content: segment.content,
+  isPartial: segment.isPartial,
+  segmentKey: segment.segmentKey,
+  provider: segment.provider,
+  confidence: segment.confidence,
+  startedAt: segment.startedAt.toISOString(),
+  finalizedAt: segment.finalizedAt?.toISOString() ?? null,
+  createdAt: segment.createdAt.toISOString(),
 });
