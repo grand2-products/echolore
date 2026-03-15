@@ -60,6 +60,7 @@ export default function RoomBody(props: RoomBodyProps) {
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
   const [recordingElapsed, setRecordingElapsed] = useState(0);
   const [recordingPending, setRecordingPending] = useState(false);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
   const recordingStartTimeRef = useRef<number | null>(null);
 
   // Poll recording status — stable deps (no recordingStartTime)
@@ -108,6 +109,7 @@ export default function RoomBody(props: RoomBodyProps) {
   const toggleRecording = useCallback(async () => {
     if (recordingPending) return; // Prevent concurrent calls
     setRecordingPending(true);
+    setRecordingError(null);
     try {
       if (isRecording && recordingEgressId) {
         await livekitApi.stopRecording(props.roomName, recordingEgressId);
@@ -123,11 +125,15 @@ export default function RoomBody(props: RoomBodyProps) {
         setRecordingStartTime(Date.now());
       }
     } catch {
-      // ignore
+      setRecordingError(
+        isRecording
+          ? (t("meetings.room.stopRecordingError") ?? "Failed to stop recording")
+          : (t("meetings.room.startRecordingError") ?? "Failed to start recording")
+      );
     } finally {
       setRecordingPending(false);
     }
-  }, [isRecording, recordingEgressId, recordingPending, props.roomName, props.meetingId]);
+  }, [isRecording, recordingEgressId, recordingPending, props.roomName, props.meetingId, t]);
 
   const formatElapsed = (secs: number) => {
     const m = Math.floor(secs / 60)
@@ -272,6 +278,20 @@ export default function RoomBody(props: RoomBodyProps) {
         </div>
       )}
 
+      {/* ─── Recording error ─── */}
+      {recordingError && (
+        <div className="flex items-center justify-between border-b border-red-500/20 bg-red-500/10 px-4 py-2">
+          <span className="text-xs text-red-300">{recordingError}</span>
+          <button
+            type="button"
+            onClick={() => setRecordingError(null)}
+            className="rounded-md bg-red-500/20 px-2.5 py-1 text-xs font-medium text-red-200 hover:bg-red-500/30"
+          >
+            {t("common.actions.dismiss") ?? "Dismiss"}
+          </button>
+        </div>
+      )}
+
       {/* ─── Video grid (center stage) ─── */}
       <div className="relative flex flex-1 items-center justify-center overflow-auto p-4">
         <ReactionOverlay reactions={reactions} onComplete={removeReaction} />
@@ -314,8 +334,7 @@ export default function RoomBody(props: RoomBodyProps) {
         ) : tracks.length === 1 ? (
           /* Single participant — spotlight */
           <div className="w-full max-w-4xl">
-            {/* biome-ignore lint/style/noNonNullAssertion: guarded by tracks.length === 1 */}
-            <ParticipantTile trackRef={tracks[0]!} />
+            {tracks[0] && <ParticipantTile trackRef={tracks[0]} />}
           </div>
         ) : tracks.length <= 4 ? (
           /* 2-4 participants — 2x2 grid */

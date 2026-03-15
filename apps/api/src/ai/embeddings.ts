@@ -81,16 +81,14 @@ export async function embedText(
     ...(options.outputDimensionality ? { outputDimensionality: options.outputDimensionality } : {}),
   };
 
-  const response = await fetch(
-    `${GEMINI_API_URL}/models/${model}:embedContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    }
-  );
+  const response = await fetch(`${GEMINI_API_URL}/models/${model}:embedContent`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    body: JSON.stringify(body),
+  });
 
   if (!response.ok) {
     const message = await response.text();

@@ -20,6 +20,8 @@ services:
       - "443:443"
       - "${LIVEKIT_TURN_TLS_PORT:-5349}:${LIVEKIT_TURN_TLS_PORT:-5349}"
     volumes:
+      # SECURITY: Direct Docker socket mount is required for Traefik service discovery in dev.
+      # In production, use a docker-socket-proxy (e.g. tecnativa/docker-socket-proxy) instead.
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - letsencrypt:/letsencrypt
     networks:

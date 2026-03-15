@@ -1,3 +1,4 @@
+import { UserRole } from "@echolore/shared/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
@@ -192,6 +193,10 @@ meetingInviteRoutes.post(
         return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
       }
 
+      if (meeting.creatorId !== user.id && user.role !== UserRole.Admin) {
+        return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+      }
+
       const [updated] = await db
         .update(meetingGuestRequests)
         .set({
@@ -250,6 +255,10 @@ meetingInviteRoutes.post(
       });
       if (!meeting) {
         return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+      }
+
+      if (meeting.creatorId !== user.id && user.role !== UserRole.Admin) {
+        return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
       }
 
       const [updated] = await db

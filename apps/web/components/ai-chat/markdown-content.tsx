@@ -156,14 +156,17 @@ function formatCodeInline(text: string, baseKey: number): React.ReactNode {
   const parts = text.split(/`([^`]+)`/);
   if (parts.length === 1) return text;
 
-  return parts.map((part, i) =>
-    i % 2 === 1 ? (
-      // biome-ignore lint/suspicious/noArrayIndexKey: split parts have no unique id
-      <code key={`c-${baseKey}-${i}`} className="rounded bg-gray-200 px-1 py-0.5 text-xs">
-        {part}
-      </code>
-    ) : (
-      part || null
-    )
-  );
+  const elements: React.ReactNode[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 1) {
+      elements.push(
+        <code key={`c-${baseKey}-${i}`} className="rounded bg-gray-200 px-1 py-0.5 text-xs">
+          {parts[i]}
+        </code>
+      );
+    } else if (parts[i]) {
+      elements.push(parts[i]);
+    }
+  }
+  return elements;
 }

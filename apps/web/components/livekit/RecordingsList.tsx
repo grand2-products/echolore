@@ -87,13 +87,14 @@ export default function RecordingsList({ meetingId }: RecordingsListProps) {
             </div>
             {playingId === rec.id && (
               <div className="mt-1 rounded-lg bg-gray-800/60 p-2">
-                {/* biome-ignore lint/a11y/useMediaCaption: recording playback does not have captions */}
                 <video
                   src={meetingsApi.getRecordingDownloadUrl(meetingId, rec.id)}
                   controls
                   autoPlay
                   className="w-full rounded"
-                />
+                >
+                  <track kind="captions" default />
+                </video>
               </div>
             )}
           </div>

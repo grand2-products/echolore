@@ -19,6 +19,9 @@ services:
       - "443:443"
       - "${LIVEKIT_TURN_TLS_PORT:-5349}:${LIVEKIT_TURN_TLS_PORT:-5349}"
     volumes:
+      # SECURITY: Direct Docker socket access grants full host control.
+      # In production, use a docker-socket-proxy (e.g. tecnativa/docker-socket-proxy)
+      # to restrict API access to only the endpoints Traefik needs.
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - letsencrypt:/letsencrypt
     networks:
@@ -132,6 +135,12 @@ services:
     image: ghcr.io/grand2-products/echolore/api:${ECHOLORE_VERSION:-latest}
     container_name: echolore-api
     restart: unless-stopped
+    user: "1000:1000"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -177,6 +186,12 @@ services:
     image: ghcr.io/grand2-products/echolore/web:${ECHOLORE_VERSION:-latest}
     container_name: echolore-web
     restart: unless-stopped
+    user: "1000:1000"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: https://${DOMAIN}
@@ -204,6 +219,12 @@ services:
     image: ghcr.io/grand2-products/echolore/worker:${ECHOLORE_VERSION:-latest}
     container_name: echolore-worker
     restart: unless-stopped
+    user: "1000:1000"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
     environment:
       NODE_ENV: production
       ROOM_AI_WORKER_MODE: monitor

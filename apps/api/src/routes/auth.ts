@@ -94,10 +94,10 @@ authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
       "Registration is closed": { status: 403, message: "Registration is closed" },
       "Password login is already configured for this email address": {
         status: 409,
-        message: "Password login is already configured for this email address",
+        message: "Registration failed",
       },
       "Name is required": { status: 400, message: "Name is required" },
-      "Email domain is not allowed": { status: 400, message: "Email domain is not allowed" },
+      "Email domain is not allowed": { status: 400, message: "Registration failed" },
     };
     const known = Object.entries(KNOWN_MESSAGES).find(([key]) => rawMessage.includes(key));
     const status = known ? known[1].status : 400;

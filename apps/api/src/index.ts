@@ -47,11 +47,19 @@ if (process.env.NODE_ENV !== "test") {
     }
   }
 
+  // Validate ENCRYPTION_KEY format early (must be 64-char hex = 32 bytes)
+  const encKeyHex = process.env.ENCRYPTION_KEY;
+  if (encKeyHex && !/^[0-9a-fA-F]{64}$/.test(encKeyHex)) {
+    throw new Error("ENCRYPTION_KEY must be a 64-char hex string (32 bytes)");
+  }
+
   if (process.env.NODE_ENV === "production") {
     const REQUIRED_IN_PRODUCTION = [
       "CORS_ORIGIN",
+      "ENCRYPTION_KEY",
       "LIVEKIT_API_KEY",
       "LIVEKIT_API_SECRET",
+      "ROOM_AI_WORKER_SECRET",
     ] as const;
     for (const key of REQUIRED_IN_PRODUCTION) {
       if (!process.env[key]) {

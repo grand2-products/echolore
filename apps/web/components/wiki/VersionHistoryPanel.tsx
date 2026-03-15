@@ -82,45 +82,46 @@ export function VersionHistoryPanel({ pageId, onClose, onRestored }: VersionHist
             </h3>
             <p className="text-xs text-gray-500 mb-3">{dateTime(selectedRevision.createdAt)}</p>
             <div className="border border-gray-200 rounded-lg p-3 mb-3 max-h-96 overflow-auto">
-              {selectedRevision.blocks.map((block, i) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: blocks have no unique id
-                <div key={i} className="mb-1 text-sm text-gray-700">
-                  {block.type === "heading1" ? (
-                    <h3 className="text-lg font-bold">{block.content}</h3>
-                  ) : block.type === "heading2" ? (
-                    <h4 className="text-base font-semibold">{block.content}</h4>
-                  ) : block.type === "heading3" ? (
-                    <h5 className="text-sm font-semibold">{block.content}</h5>
-                  ) : block.type === "quote" ? (
-                    <blockquote className="border-l-2 border-gray-300 pl-2 italic">
-                      {block.content}
-                    </blockquote>
-                  ) : block.type === "bulletList" ? (
-                    <p className="ml-3">- {block.content}</p>
-                  ) : block.type === "orderedList" || block.type === "numberedList" ? (
-                    <p className="ml-3">
-                      {i + 1}. {block.content}
-                    </p>
-                  ) : block.type === "code" || block.type === "codeBlock" ? (
-                    <pre className="bg-gray-100 rounded p-1 text-xs overflow-x-auto">
-                      {block.content}
-                    </pre>
-                  ) : block.type === "divider" ? (
-                    <hr className="my-2" />
-                  ) : block.type === "image" ? (
-                    <p className="text-xs text-gray-400">[image]</p>
-                  ) : block.type === "file" ? (
-                    <p className="text-xs text-gray-400">
-                      [file:{" "}
-                      {((block.properties as Record<string, unknown> | null)?.filename as string) ??
-                        "attachment"}
-                      ]
-                    </p>
-                  ) : (
-                    <p>{block.content}</p>
-                  )}
-                </div>
-              ))}
+              {selectedRevision.blocks
+                .map((block, idx) => ({ ...block, _key: `${block.type}-${idx}`, _num: idx + 1 }))
+                .map((block) => (
+                  <div key={block._key} className="mb-1 text-sm text-gray-700">
+                    {block.type === "heading1" ? (
+                      <h3 className="text-lg font-bold">{block.content}</h3>
+                    ) : block.type === "heading2" ? (
+                      <h4 className="text-base font-semibold">{block.content}</h4>
+                    ) : block.type === "heading3" ? (
+                      <h5 className="text-sm font-semibold">{block.content}</h5>
+                    ) : block.type === "quote" ? (
+                      <blockquote className="border-l-2 border-gray-300 pl-2 italic">
+                        {block.content}
+                      </blockquote>
+                    ) : block.type === "bulletList" ? (
+                      <p className="ml-3">- {block.content}</p>
+                    ) : block.type === "orderedList" || block.type === "numberedList" ? (
+                      <p className="ml-3">
+                        {block._num}. {block.content}
+                      </p>
+                    ) : block.type === "code" || block.type === "codeBlock" ? (
+                      <pre className="bg-gray-100 rounded p-1 text-xs overflow-x-auto">
+                        {block.content}
+                      </pre>
+                    ) : block.type === "divider" ? (
+                      <hr className="my-2" />
+                    ) : block.type === "image" ? (
+                      <p className="text-xs text-gray-400">[image]</p>
+                    ) : block.type === "file" ? (
+                      <p className="text-xs text-gray-400">
+                        [file:{" "}
+                        {((block.properties as Record<string, unknown> | null)
+                          ?.filename as string) ?? "attachment"}
+                        ]
+                      </p>
+                    ) : (
+                      <p>{block.content}</p>
+                    )}
+                  </div>
+                ))}
             </div>
             <button
               type="button"

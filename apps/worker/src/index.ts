@@ -130,6 +130,10 @@ async function runWebhookMode() {
 async function main() {
   const config = getWorkerConfig();
 
+  if (!config.roomAiWorkerSecret && process.env.NODE_ENV === "production") {
+    throw new Error("ROOM_AI_WORKER_SECRET is required in production");
+  }
+
   if (config.mode === "transcribe-file") {
     await runTranscribeFileMode();
     return;

@@ -78,18 +78,18 @@ export default function InviteDialog({ meetingId, open, onClose }: InviteDialogP
   const activeInvites = invites.filter((i) => !i.revokedAt);
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: modal backdrop dismiss
-    // biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop dismiss
     <div
+      role="dialog"
+      aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onClick={onClose}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
     >
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: stop propagation */}
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: stop propagation */}
-      <div
-        className="mx-4 w-full max-w-lg rounded-xl border border-gray-700 bg-gray-900 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="mx-4 w-full max-w-lg rounded-xl border border-gray-700 bg-gray-900 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-700 px-6 py-4">
           <h2 className="text-lg font-semibold text-white">ゲスト招待</h2>

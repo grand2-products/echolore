@@ -69,9 +69,8 @@ export default function AdminSettingsPage() {
         </>
       ) : (
         <div className="space-y-6">
-          {[...Array(5)].map((_, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholders
-            <div key={i} className="rounded-xl border border-gray-200 bg-white p-6">
+          {["s0", "s1", "s2", "s3", "s4"].map((key) => (
+            <div key={key} className="rounded-xl border border-gray-200 bg-white p-6">
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center text-gray-500">
                 {t("admin.settings.loading")}
               </div>

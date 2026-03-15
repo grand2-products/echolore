@@ -26,6 +26,10 @@ services:
 
   api:
     image: node:22-alpine
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     working_dir: /workspace
     command:
       - sh
@@ -71,6 +75,10 @@ services:
 
   web:
     image: node:22-alpine
+    deploy:
+      resources:
+        limits:
+          memory: 1G
     working_dir: /workspace
     command:
       - sh
@@ -98,6 +106,10 @@ services:
 
   worker:
     image: node:22-alpine
+    deploy:
+      resources:
+        limits:
+          memory: 1G
     working_dir: /workspace
     command:
       - sh

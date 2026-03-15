@@ -7,6 +7,7 @@ import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import { requireRole } from "../lib/auth.js";
 import { livekitApiKey, livekitApiSecret, livekitHost } from "../lib/livekit-config.js";
+import { getMeetingById } from "../repositories/meeting/meeting-repository.js";
 import * as coworkingMcu from "../services/coworking/coworking-mcu-service.js";
 import * as recordingService from "../services/meeting/recording-service.js";
 
@@ -36,6 +37,16 @@ livekitRoutes.post(
   withErrorHandler(
     async (c) => {
       const { roomName, participantName, participantIdentity } = c.req.valid("json");
+      const user = c.get("user");
+
+      if (participantIdentity !== user.id) {
+        return jsonError(
+          c,
+          403,
+          "IDENTITY_MISMATCH",
+          "participantIdentity must match authenticated user"
+        );
+      }
 
       const at = new AccessToken(apiKey, apiSecret, {
         identity: participantIdentity,
@@ -62,6 +73,7 @@ livekitRoutes.post(
 // GET /api/livekit/rooms - List all rooms
 livekitRoutes.get(
   "/rooms",
+  requireRole(UserRole.Admin),
   withErrorHandler(
     async (c) => {
       const rooms = await roomService.listRooms();
@@ -81,6 +93,7 @@ const createRoomSchema = z.object({
 
 livekitRoutes.post(
   "/rooms",
+  requireRole(UserRole.Admin),
   withErrorHandler(
     async (c) => {
       const body = await c.req.json();
@@ -113,6 +126,7 @@ livekitRoutes.post(
 // DELETE /api/livekit/rooms/:name - Delete a room
 livekitRoutes.delete(
   "/rooms/:name",
+  requireRole(UserRole.Admin),
   withErrorHandler(
     async (c) => {
       const { name } = c.req.param();
@@ -128,6 +142,7 @@ livekitRoutes.delete(
 // GET /api/livekit/rooms/:name/participants - List participants in a room
 livekitRoutes.get(
   "/rooms/:name/participants",
+  requireRole(UserRole.Admin),
   withErrorHandler(
     async (c) => {
       const { name } = c.req.param();
@@ -154,6 +169,13 @@ livekitRoutes.post(
         return jsonError(c, 400, "MEETING_ID_REQUIRED", "meetingId is required");
       }
 
+      if (user.role !== UserRole.Admin) {
+        const meeting = await getMeetingById(meetingId);
+        if (!meeting || meeting.creatorId !== user.id) {
+          return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
+        }
+      }
+
       const { egressInfo, recording } = await recordingService.startRecording(
         name,
         meetingId,
@@ -171,10 +193,23 @@ livekitRoutes.post(
   "/rooms/:name/stop-recording",
   withErrorHandler(
     async (c) => {
+      const user = c.get("user");
       const body = await c.req.json();
       const egressId = (body as Record<string, string>).egressId;
       if (!egressId) {
         return jsonError(c, 400, "EGRESS_ID_REQUIRED", "egressId is required");
+      }
+
+      const meetingId = (body as Record<string, string>).meetingId;
+      if (!meetingId) {
+        return jsonError(c, 400, "MEETING_ID_REQUIRED", "meetingId is required");
+      }
+
+      if (user.role !== UserRole.Admin) {
+        const meeting = await getMeetingById(meetingId);
+        if (!meeting || meeting.creatorId !== user.id) {
+          return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
+        }
       }
 
       await recordingService.stopRecording(egressId);
@@ -190,12 +225,20 @@ livekitRoutes.get(
   "/rooms/:name/recording-status",
   withErrorHandler(
     async (c) => {
-      const body = c.req.query("meetingId");
-      if (!body) {
+      const user = c.get("user");
+      const meetingId = c.req.query("meetingId");
+      if (!meetingId) {
         return jsonError(c, 400, "MEETING_ID_REQUIRED", "meetingId query param is required");
       }
 
-      const recordings = await recordingService.getRecordingStatus(body);
+      if (user.role !== UserRole.Admin) {
+        const meeting = await getMeetingById(meetingId);
+        if (!meeting || meeting.creatorId !== user.id) {
+          return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
+        }
+      }
+
+      const recordings = await recordingService.getRecordingStatus(meetingId);
       return c.json({ recordings });
     },
     "LIVEKIT_RECORDING_STATUS_FAILED",
@@ -206,6 +249,7 @@ livekitRoutes.get(
 // POST /api/livekit/coworking/start-composite - Start MCU composite
 livekitRoutes.post(
   "/coworking/start-composite",
+  requireRole(UserRole.Admin),
   withErrorHandler(
     async (c) => {
       const status = await coworkingMcu.startCoworkingComposite();

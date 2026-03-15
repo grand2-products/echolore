@@ -14,6 +14,11 @@ const AUTH_SECRET = process.env.AUTH_SECRET || process.env.AUTH_SESSION_SECRET;
 if (!AUTH_SECRET) {
   throw new Error("AUTH_SECRET (or AUTH_SESSION_SECRET) must be set");
 }
+if (!process.env.AUTH_SECRET && process.env.AUTH_SESSION_SECRET) {
+  console.warn(
+    "[auth] WARNING: Using deprecated AUTH_SESSION_SECRET. Please set AUTH_SECRET instead."
+  );
+}
 
 export type SessionUser = {
   id: string;

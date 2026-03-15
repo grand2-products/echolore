@@ -76,8 +76,7 @@ export default function GuestRoomBody({ meetingTitle, guestName, onLeave }: Gues
           </div>
         ) : tracks.length === 1 ? (
           <div className="w-full max-w-4xl">
-            {/* biome-ignore lint/style/noNonNullAssertion: guarded */}
-            <ParticipantTile trackRef={tracks[0]!} />
+            {tracks[0] && <ParticipantTile trackRef={tracks[0]} />}
           </div>
         ) : tracks.length <= 4 ? (
           <div className="grid w-full max-w-5xl gap-3 sm:grid-cols-2">

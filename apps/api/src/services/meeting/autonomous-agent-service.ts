@@ -1,4 +1,5 @@
 import { HumanMessage } from "@langchain/core/messages";
+import { z } from "zod";
 import { buildAutonomousDecisionPrompt } from "../../ai/agent/autonomous-decision-prompt.js";
 import type { LlmOverrides } from "../../ai/llm/index.js";
 import {
@@ -98,7 +99,9 @@ async function evaluateAgent(
   await updateSessionEvalCursor(session.id, latestSegmentId);
 
   // Stage 2: LLM decision
-  const recentLines = newSegments.map((seg) => `${seg.speakerLabel}: ${seg.content}`);
+  const recentLines = newSegments.map(
+    (seg) => `<transcript_line>${seg.speakerLabel}: ${seg.content}</transcript_line>`
+  );
 
   const decision = await callDecisionLlm(agent, recentLines);
   if (!decision.shouldIntervene) {
@@ -156,21 +159,43 @@ async function callDecisionLlm(
       recentTranscriptLines,
     });
 
-    const result = await chatModel.invoke([new HumanMessage(prompt)]);
+    const llmResult = await chatModel.invoke([new HumanMessage(prompt)]);
     const text =
-      typeof result.content === "string" ? result.content.trim() : String(result.content).trim();
+      typeof llmResult.content === "string"
+        ? llmResult.content.trim()
+        : String(llmResult.content).trim();
 
-    // Parse JSON response
-    const parsed = JSON.parse(text) as {
-      shouldIntervene: boolean;
-      reason: string;
-      suggestedPrompt: string;
-    };
+    // Parse and validate JSON response
+    const DecisionSchema = z.object({
+      shouldIntervene: z.boolean(),
+      reason: z.string().optional().default(""),
+      suggestedPrompt: z.string().optional().default(""),
+    });
+
+    let rawJson: unknown;
+    try {
+      rawJson = JSON.parse(text);
+    } catch {
+      return {
+        shouldIntervene: false,
+        reason: "Invalid JSON from decision LLM",
+        suggestedPrompt: "",
+      };
+    }
+
+    const parsed = DecisionSchema.safeParse(rawJson);
+    if (!parsed.success) {
+      return {
+        shouldIntervene: false,
+        reason: "Invalid schema from decision LLM",
+        suggestedPrompt: "",
+      };
+    }
 
     return {
-      shouldIntervene: Boolean(parsed.shouldIntervene),
-      reason: parsed.reason ?? "",
-      suggestedPrompt: parsed.suggestedPrompt ?? "",
+      shouldIntervene: parsed.data.shouldIntervene,
+      reason: parsed.data.reason,
+      suggestedPrompt: parsed.data.suggestedPrompt,
     };
   } catch {
     return { shouldIntervene: false, reason: "Decision LLM call failed", suggestedPrompt: "" };

@@ -4,7 +4,7 @@ import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
 import type { BlockDto } from "@echolore/shared/contracts";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WebsocketProvider } from "y-websocket";
 import type { XmlFragment } from "yjs";
 import { type ConnectionStatus, useCollaboration } from "@/hooks/use-collaboration";
@@ -37,6 +37,7 @@ export default function NotionEditorInner({
   const t = useT();
   const queryClient = useQueryClient();
   const titleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [titleSaveError, setTitleSaveError] = useState(false);
 
   const { provider, fragment, connectionStatus } = useCollaboration({
     pageId,
@@ -52,9 +53,12 @@ export default function NotionEditorInner({
       titleTimerRef.current = setTimeout(async () => {
         try {
           await wikiApi.updatePage(pageId, { title: newTitle });
+          setTitleSaveError(false);
           void queryClient.invalidateQueries({ queryKey: ["wiki", "pages"] });
         } catch (error) {
           console.error("Title save failed", error);
+          setTitleSaveError(true);
+          setTimeout(() => setTitleSaveError(false), 4000);
         }
       }, 2000);
     },
@@ -88,6 +92,11 @@ export default function NotionEditorInner({
           placeholder={t("wiki.newPage.titlePlaceholder")}
           className="mb-2 w-full border-none text-4xl font-bold text-gray-900 outline-none placeholder:text-gray-300"
         />
+      )}
+      {titleSaveError && (
+        <p className="mb-2 text-xs text-red-500">
+          {t("wiki.titleSaveError") ?? "Failed to save title"}
+        </p>
       )}
 
       {/* Connection status + collaborator avatars */}
@@ -215,14 +224,11 @@ function CollabEditor({
 
       event.preventDefault();
       const language = match[1] || undefined;
-      // PartialBlock is a complex discriminated union that cannot be satisfied
-      // by a dynamically constructed block literal; the assertion is required.
       editor.updateBlock(block, {
-        type: "codeBlock",
+        type: "codeBlock" as const,
         props: language ? { language } : {},
         content: "",
-        // biome-ignore lint/suspicious/noExplicitAny: BlockNoteEditor types require casting for custom block updates
-      } as any);
+      });
     },
     [editor]
   );

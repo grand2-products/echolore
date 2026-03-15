@@ -1,6 +1,7 @@
 import type { KnowledgeSuggestionSourceType } from "@echolore/shared/contracts";
 import { HumanMessage } from "@langchain/core/messages";
 import { desc, eq, isNull } from "drizzle-orm";
+import { z } from "zod";
 import { buildKnowledgeSuggestionPrompt } from "../../ai/agent/knowledge-suggestion-prompt.js";
 import type { LlmOverrides } from "../../ai/llm/index.js";
 import {
@@ -136,27 +137,44 @@ export async function generateSuggestions(input: SuggestionInput): Promise<void>
   }
 }
 
+const LlmSuggestionSchema = z.object({
+  targetType: z.enum(["new_page", "update_page"]),
+  targetPageId: z.string().nullable().optional().default(null),
+  proposedTitle: z.string(),
+  blocks: z.array(
+    z.object({
+      type: z.string(),
+      content: z.string().nullable().optional().default(null),
+      properties: z.record(z.string(), z.unknown()).nullable().optional().default(null),
+      sortOrder: z.number(),
+    })
+  ),
+  reasoning: z.string(),
+});
+
 function parseSuggestions(text: string): LlmSuggestion[] {
   // Extract JSON from potential markdown code blocks
   const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const jsonStr = jsonMatch ? (jsonMatch[1] ?? "").trim() : text.trim();
 
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(jsonStr);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (s: unknown): s is LlmSuggestion =>
-        typeof s === "object" &&
-        s !== null &&
-        "targetType" in s &&
-        "proposedTitle" in s &&
-        "blocks" in s &&
-        "reasoning" in s
-    );
+    parsed = JSON.parse(jsonStr);
   } catch {
     console.warn("[knowledge-suggestion] Failed to parse LLM response as JSON");
     return [];
   }
+
+  if (!Array.isArray(parsed)) return [];
+
+  const results: LlmSuggestion[] = [];
+  for (const item of parsed) {
+    const result = LlmSuggestionSchema.safeParse(item);
+    if (result.success) {
+      results.push(result.data);
+    }
+  }
+  return results;
 }
 
 export async function approveSuggestion(

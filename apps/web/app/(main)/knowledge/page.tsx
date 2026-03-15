@@ -1,10 +1,9 @@
 "use client";
 
 import type { KnowledgeSuggestionDto } from "@echolore/shared/contracts";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { isApiErrorStatus, knowledgeApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
-import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useFormatters, useT } from "@/lib/i18n";
 import { SuggestionDetailModal } from "./_components/SuggestionDetailModal";
 
@@ -25,7 +24,7 @@ export default function KnowledgeSuggestionsPage() {
   const [sourceFilter, setSourceFilter] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const loadSuggestions = useStableEvent(async () => {
+  const loadSuggestions = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -44,12 +43,11 @@ export default function KnowledgeSuggestionsPage() {
     } finally {
       setIsLoading(false);
     }
-  });
+  }, [statusFilter, sourceFilter, getApiErrorMessage, t]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-fetch when filters change
   useEffect(() => {
     void loadSuggestions();
-  }, [loadSuggestions, statusFilter, sourceFilter]);
+  }, [loadSuggestions]);
 
   const handleApprove = async (id: string) => {
     setError(null);

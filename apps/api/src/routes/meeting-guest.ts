@@ -14,28 +14,23 @@ const encoder = new TextEncoder();
 
 export const meetingGuestRoutes = new Hono();
 
-// Rate limit state (simple in-memory per-IP)
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+// Rate limit via Valkey (Redis-compatible) — 10 requests per 60s window per IP
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_SECONDS = 60;
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + 60_000 });
-    return true;
+async function checkRateLimit(ip: string): Promise<boolean> {
+  const valkey = getValkey();
+  if (!valkey) return true; // allow if Valkey unavailable
+
+  const key = `rate:guest-request:${ip}`;
+  try {
+    const count = await valkey.incr(key);
+    if (count === 1) await valkey.expire(key, RATE_LIMIT_WINDOW_SECONDS);
+    return count <= RATE_LIMIT_MAX;
+  } catch {
+    return true; // allow if Valkey errors
   }
-  if (entry.count >= 10) return false;
-  entry.count++;
-  return true;
 }
-
-// Periodically clean up expired rate limit entries to prevent memory leak
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, entry] of rateLimitMap) {
-    if (now > entry.resetAt) rateLimitMap.delete(ip);
-  }
-}, 300_000); // every 5 minutes
 
 const joinRequestSchema = z.object({
   guestName: z.string().min(1).max(100),
@@ -94,7 +89,7 @@ meetingGuestRoutes.post(
   withErrorHandler(
     async (c) => {
       const ip = c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
-      if (!checkRateLimit(ip)) {
+      if (!(await checkRateLimit(ip))) {
         return jsonError(c, 429, "RATE_LIMITED", "Too many requests");
       }
 
