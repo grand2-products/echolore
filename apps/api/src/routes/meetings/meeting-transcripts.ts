@@ -13,12 +13,22 @@ import { createTranscriptSchema, realtimeTranscriptSchema } from "./schemas.js";
 
 export const meetingTranscriptRoutes = new Hono<AppEnv>();
 
+type MeetingTranscriptCreateResponse = {
+  transcript: import("@echolore/shared/contracts").TranscriptDto;
+};
+type MeetingRealtimeTranscriptsResponse = {
+  segments: import("@echolore/shared/contracts").RealtimeTranscriptSegmentDto[];
+};
+type MeetingRealtimeTranscriptUpsertResponse = {
+  segment: import("@echolore/shared/contracts").RealtimeTranscriptSegmentDto;
+};
+
 // POST /api/meetings/:id/transcripts - Add transcript
 meetingTranscriptRoutes.post(
   "/:id/transcripts",
   zValidator("json", createTranscriptSchema),
   withErrorHandler("MEETING_TRANSCRIPT_CREATE_FAILED", "Failed to add transcript"),
-  async (c) => {
+  async (c): Promise<Response> => {
     const { id } = c.req.param();
     const data = c.req.valid("json");
 
@@ -47,7 +57,10 @@ meetingTranscriptRoutes.post(
       return jsonError(c, 500, "MEETING_TRANSCRIPT_CREATE_FAILED", "Failed to add transcript");
     }
 
-    return c.json({ transcript: toTranscriptDto(newTranscript) }, 201);
+    return c.json<MeetingTranscriptCreateResponse>(
+      { transcript: toTranscriptDto(newTranscript) },
+      201
+    );
   }
 );
 
@@ -58,7 +71,7 @@ meetingTranscriptRoutes.get(
     "MEETING_REALTIME_TRANSCRIPTS_FETCH_FAILED",
     "Failed to fetch realtime transcripts"
   ),
-  async (c) => {
+  async (c): Promise<Response> => {
     const { id } = c.req.param();
 
     const meeting = await getMeetingById(id);
@@ -68,7 +81,9 @@ meetingTranscriptRoutes.get(
     if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     const segments = await listRealtimeTranscriptSegments(id);
-    return c.json({ segments: segments.map(toRealtimeTranscriptSegmentDto) });
+    return c.json<MeetingRealtimeTranscriptsResponse>({
+      segments: segments.map(toRealtimeTranscriptSegmentDto),
+    });
   }
 );
 
@@ -80,7 +95,7 @@ meetingTranscriptRoutes.post(
     "MEETING_REALTIME_TRANSCRIPT_UPSERT_FAILED",
     "Failed to upsert realtime transcript"
   ),
-  async (c) => {
+  async (c): Promise<Response> => {
     const { id } = c.req.param();
     const data = c.req.valid("json");
 
@@ -113,6 +128,9 @@ meetingTranscriptRoutes.post(
       );
     }
 
-    return c.json({ segment: toRealtimeTranscriptSegmentDto(segment) }, 201);
+    return c.json<MeetingRealtimeTranscriptUpsertResponse>(
+      { segment: toRealtimeTranscriptSegmentDto(segment) },
+      201
+    );
   }
 );

@@ -13,13 +13,18 @@ import { replaceSpacePermissionsSchema } from "./schemas.js";
 
 export const adminSpacePermissionRoutes = new Hono<AppEnv>();
 
+type AdminSpacePermissionsResponse =
+  import("@echolore/shared/contracts").AdminSpacePermissionsResponseDto;
+type AdminSpacePermissionsUpdateResponse = { spaceId: string; updated: true };
+type AdminSpacePermissionDeleteResponse = { success: true };
+
 adminSpacePermissionRoutes.get(
   "/permissions/spaces/:spaceId",
   withErrorHandler("ADMIN_SPACE_PERMISSIONS_FETCH_FAILED", "Failed to fetch space permissions"),
-  async (c) => {
+  async (c): Promise<Response> => {
     const { spaceId } = c.req.param();
     const detail = await getSpacePermissionsDetail(spaceId);
-    return c.json(toAdminSpacePermissionsResponseDto(detail));
+    return c.json<AdminSpacePermissionsResponse>(toAdminSpacePermissionsResponseDto(detail));
   }
 );
 
@@ -27,7 +32,7 @@ adminSpacePermissionRoutes.put(
   "/permissions/spaces/:spaceId",
   zValidator("json", replaceSpacePermissionsSchema),
   withErrorHandler("ADMIN_SPACE_PERMISSIONS_UPDATE_FAILED", "Failed to update space permissions"),
-  async (c) => {
+  async (c): Promise<Response> => {
     const { spaceId } = c.req.param();
     const data = c.req.valid("json");
     const space = await getSpaceById(spaceId);
@@ -35,19 +40,19 @@ adminSpacePermissionRoutes.put(
       return jsonError(c, 404, "ADMIN_SPACE_NOT_FOUND", "Space not found");
     }
     await replaceSpacePermissions(spaceId, data.permissions);
-    return c.json({ spaceId, updated: true });
+    return c.json<AdminSpacePermissionsUpdateResponse>({ spaceId, updated: true });
   }
 );
 
 adminSpacePermissionRoutes.delete(
   "/permissions/spaces/:spaceId/groups/:groupId",
   withErrorHandler("ADMIN_SPACE_PERMISSION_DELETE_FAILED", "Failed to delete space permission"),
-  async (c) => {
+  async (c): Promise<Response> => {
     const { spaceId, groupId } = c.req.param();
     const deleted = await deleteSpacePermissionForGroup(spaceId, groupId);
     if (!deleted) {
       return jsonError(c, 404, "ADMIN_SPACE_PERMISSION_NOT_FOUND", "Space permission not found");
     }
-    return c.json({ success: true });
+    return c.json<AdminSpacePermissionDeleteResponse>({ success: true });
   }
 );
