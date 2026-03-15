@@ -16,7 +16,7 @@ const { sendMock, useDataChannelMock } = vi.hoisted(() => {
 // Capture state setters and effect callbacks registered during hook execution
 let stateValue: unknown[] = [];
 let setStateCallback: ((updater: (prev: unknown[]) => unknown[]) => void) | null = null;
-let effectCleanupHolder: { ref: (() => void) | undefined } = { ref: undefined };
+const effectCleanupHolder: { ref: (() => void) | undefined } = { ref: undefined };
 let lastSendRefValue: { current: number };
 let encoderRefValue: { current: TextEncoder };
 let decoderRefValue: { current: TextDecoder };
@@ -49,7 +49,7 @@ vi.mock("react", () => ({
     lastSendRefValue = { current: init as number };
     return lastSendRefValue;
   },
-  useEffect: (fn: () => (() => void) | void) => {
+  useEffect: (fn: () => (() => void) | undefined) => {
     const cleanup = fn();
     if (cleanup) effectCleanupHolder.ref = cleanup;
   },
@@ -72,12 +72,12 @@ describe("useReactions", () => {
       (_topic: string, onMessage: (msg: { payload: Uint8Array }) => void) => {
         onMessageHandler = onMessage;
         return { send: sendMock };
-      },
+      }
     );
 
     sendMock.mockReset();
     vi.spyOn(crypto, "randomUUID").mockReturnValue(
-      "test-uuid" as `${string}-${string}-${string}-${string}-${string}`,
+      "test-uuid" as `${string}-${string}-${string}-${string}-${string}`
     );
   });
 
@@ -100,7 +100,7 @@ describe("useReactions", () => {
     sendReaction("thumbsUp");
 
     expect(sendMock).toHaveBeenCalledTimes(1);
-    const payload = sendMock.mock.calls[0]![0] as Uint8Array;
+    const payload = sendMock.mock.calls[0]?.[0] as Uint8Array;
     const decoded = JSON.parse(new TextDecoder().decode(payload));
     expect(decoded).toEqual(
       expect.objectContaining({
@@ -108,7 +108,7 @@ describe("useReactions", () => {
         emoji: "thumbsUp",
         senderName: "Alice",
         ts: expect.any(Number),
-      }),
+      })
     );
     expect(sendMock).toHaveBeenCalledWith(expect.any(Uint8Array), {
       reliable: false,
@@ -118,8 +118,8 @@ describe("useReactions", () => {
   it("rate limits reactions within 300ms", async () => {
     const now = 1000;
     vi.spyOn(Date, "now")
-      .mockReturnValueOnce(now)       // first send
-      .mockReturnValueOnce(now + 100)  // second send (within 300ms)
+      .mockReturnValueOnce(now) // first send
+      .mockReturnValueOnce(now + 100) // second send (within 300ms)
       .mockReturnValueOnce(now + 400); // third send (after 300ms)
 
     const { sendReaction } = await getHook();
@@ -146,7 +146,7 @@ describe("useReactions", () => {
       ts: Date.now(),
     };
 
-    onMessageHandler!({
+    onMessageHandler?.({
       payload: encoder.encode(JSON.stringify(message)),
     });
 
@@ -157,7 +157,7 @@ describe("useReactions", () => {
           id: "remote-uuid",
           emoji: "clap",
         }),
-      ]),
+      ])
     );
   });
 
@@ -168,7 +168,7 @@ describe("useReactions", () => {
     const reactionsAfterSend = stateValue as Array<{ id: string }>;
     expect(reactionsAfterSend.length).toBe(1);
 
-    const reactionId = reactionsAfterSend[0]!.id;
+    const reactionId = reactionsAfterSend[0]?.id ?? "";
     removeReaction(reactionId);
 
     const reactionsAfterRemove = stateValue as Array<{ id: string }>;
@@ -184,7 +184,7 @@ describe("useReactions", () => {
         expect.objectContaining({ label: "thumbsUp" }),
         expect.objectContaining({ label: "heart" }),
         expect.objectContaining({ label: "fire" }),
-      ]),
+      ])
     );
     expect(mod.REACTION_EMOJIS.length).toBe(8);
   });

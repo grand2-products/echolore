@@ -3,8 +3,8 @@
  */
 
 import type {
-  AuthSessionDto,
   AuthMeResponseDto,
+  AuthSessionDto,
   BlockDto,
   FileMetadataDto,
   MeetingDto,

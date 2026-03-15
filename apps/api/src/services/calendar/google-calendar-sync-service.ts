@@ -1,4 +1,5 @@
 import { google, type calendar_v3 } from "googleapis";
+import { ONE_HOUR_MS, ONE_DAY_MS } from "../../lib/time.js";
 import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { meetings } from "../../db/schema.js";
@@ -22,7 +23,7 @@ export async function syncMeetingToCalendar(
   const calendar = google.calendar({ version: "v3", auth: client });
 
   const startTime = meeting.scheduledAt || meeting.createdAt;
-  const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hour default
+  const endTime = new Date(startTime.getTime() + ONE_HOUR_MS);
 
   const attendees = options?.attendeeEmails?.length
     ? options.attendeeEmails.map((email) => ({ email }))
@@ -70,7 +71,7 @@ export async function updateCalendarEvent(
   const calendar = google.calendar({ version: "v3", auth: client });
 
   const startTime = meeting.scheduledAt || meeting.createdAt;
-  const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
+  const endTime = new Date(startTime.getTime() + ONE_HOUR_MS);
 
   await calendar.events.update({
     calendarId,
@@ -126,7 +127,7 @@ export async function listUpcomingEvents(
   const calendar = google.calendar({ version: "v3", auth: client });
 
   const now = new Date();
-  const until = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+  const until = new Date(now.getTime() + days * ONE_DAY_MS);
 
   const res = await calendar.events.list({
     calendarId,

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { SpacePickerModal, ImportFileModal } from "@/components/wiki";
+import { ImportFileModal, SpacePickerModal } from "@/components/wiki";
 import { useWikiPagesQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useT } from "@/lib/i18n";
+import Link from "next/link";
+import { useState } from "react";
 
 function formatRelativeDate(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -34,9 +34,7 @@ export default function WikiListPage() {
     <div className="flex-1 overflow-auto p-8">
       <div className="mx-auto max-w-4xl">
         <h1 className="mb-4 text-3xl font-bold text-gray-900">{t("wiki.list.title")}</h1>
-        <p className="mb-8 text-gray-600">
-          {t("wiki.list.description")}
-        </p>
+        <p className="mb-8 text-gray-600">{t("wiki.list.description")}</p>
 
         <SpacePickerModal open={showSpacePicker} onClose={() => setShowSpacePicker(false)} />
         <ImportFileModal open={showImport} onClose={() => setShowImport(false)} />
@@ -74,7 +72,9 @@ export default function WikiListPage() {
           <div className="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
             <div className="mb-2 text-2xl">#</div>
             <h3 className="font-medium text-gray-900">{t("wiki.list.totalTitle")}</h3>
-            <p className="text-sm text-gray-500">{t("wiki.list.totalPages", { count: number(pages.length) })}</p>
+            <p className="text-sm text-gray-500">
+              {t("wiki.list.totalPages", { count: number(pages.length) })}
+            </p>
           </div>
         </div>
 
@@ -103,8 +103,19 @@ export default function WikiListPage() {
                   href={`/wiki/${page.id}`}
                   className="flex items-center gap-3 rounded-lg px-3 py-2 transition hover:bg-gray-50"
                 >
-                  <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <svg
+                    className="h-4 w-4 shrink-0 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
                   </svg>
                   <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
                     {page.title || t("wiki.newPage.defaultTitle")}

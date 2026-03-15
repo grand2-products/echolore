@@ -4,6 +4,7 @@ import { adminApi, getSiteIconUrl } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 import { useRef, useState } from "react";
+import { SettingsSectionShell } from "./SettingsSectionShell";
 
 const SITE_ICON_MAX_BYTES = 256 * 1024;
 const SITE_ICON_ALLOWED_EXTENSIONS = [".png", ".svg", ".ico"];
@@ -53,40 +54,50 @@ export function SiteIconSection({ initialHasSiteIcon }: SiteIconSectionProps) {
   };
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-6">
-      <h2 className="mb-1 text-lg font-semibold text-gray-900">{t("admin.settings.siteIcon")}</h2>
-      <p className="mb-4 text-sm text-gray-500">{t("admin.settings.siteIconDescription")}</p>
-
-      {iconError ? (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{iconError}</div>
-      ) : null}
-      {iconNotice ? (
-        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{iconNotice}</div>
-      ) : null}
-
+    <SettingsSectionShell
+      title={t("admin.settings.siteIcon")}
+      description={t("admin.settings.siteIconDescription")}
+      error={iconError}
+      notice={iconNotice}
+    >
       <div className="space-y-4">
         {hasSiteIcon && (
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`${getSiteIconUrl()}?v=${iconVersion}`} alt="Site icon" className="h-10 w-10 rounded border border-gray-200 object-contain" />
+            <img
+              src={`${getSiteIconUrl()}?v=${iconVersion}`}
+              alt="Site icon"
+              className="h-10 w-10 rounded border border-gray-200 object-contain"
+            />
             <span className="text-sm text-gray-500">{t("admin.settings.siteIcon")}</span>
           </div>
         )}
 
         {/* Drop zone + file input */}
         <div
-          onDragOver={(e) => { e.preventDefault(); setIconDragging(true); }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIconDragging(true);
+          }}
           onDragLeave={() => setIconDragging(false)}
           onDrop={(e) => {
             e.preventDefault();
             setIconDragging(false);
             const file = e.dataTransfer.files[0];
             if (file) {
-
               void handleIconUpload(file);
             }
           }}
           onClick={() => iconInputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              iconInputRef.current?.click();
+            }
+          }}
+          // biome-ignore lint/a11y/useSemanticElements: drag-drop zone with click handler
+          role="button"
+          tabIndex={0}
           className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
             iconDragging
               ? "border-blue-400 bg-blue-50"
@@ -108,7 +119,9 @@ export function SiteIconSection({ initialHasSiteIcon }: SiteIconSectionProps) {
             <span className="text-sm text-blue-600">{t("admin.settings.siteIconUploading")}</span>
           ) : (
             <>
-              <span className="text-sm font-medium text-gray-600">{t("admin.settings.siteIconDropHint")}</span>
+              <span className="text-sm font-medium text-gray-600">
+                {t("admin.settings.siteIconDropHint")}
+              </span>
               <span className="mt-1 text-xs text-gray-400">PNG / SVG / ICO, max 256KB</span>
             </>
           )}
@@ -127,17 +140,21 @@ export function SiteIconSection({ initialHasSiteIcon }: SiteIconSectionProps) {
                 setHasSiteIcon(false);
                 setIconNotice(t("admin.settings.siteIconRemoved"));
               } catch (removeError) {
-                setIconError(getApiErrorMessage(removeError, t("admin.settings.siteIconRemoveError")));
+                setIconError(
+                  getApiErrorMessage(removeError, t("admin.settings.siteIconRemoveError"))
+                );
               } finally {
                 setIconRemoving(false);
               }
             }}
             className="rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
           >
-            {iconRemoving ? t("admin.settings.siteIconRemoving") : t("admin.settings.siteIconRemove")}
+            {iconRemoving
+              ? t("admin.settings.siteIconRemoving")
+              : t("admin.settings.siteIconRemove")}
           </button>
         )}
       </div>
-    </section>
+    </SettingsSectionShell>
   );
 }

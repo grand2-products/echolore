@@ -1,11 +1,11 @@
 "use client";
 
+import { type Page, type WikiSearchMeta, wikiApi } from "@/lib/api";
+import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { wikiApi, type Page, type WikiSearchMeta } from "@/lib/api";
-import { useApiErrorMessage } from "@/lib/api-error-message";
-import { useT } from "@/lib/i18n";
 
 export default function SearchPage() {
   const router = useRouter();
@@ -56,6 +56,7 @@ export default function SearchPage() {
     }
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runSearch uses component state; re-run on searchParams change only
   useEffect(() => {
     const initialQuery = searchParams.get("q") ?? "";
     const semantic = searchParams.get("semantic") !== "0";
@@ -98,10 +99,18 @@ export default function SearchPage() {
                 viewBox="0 0 24 24"
                 aria-hidden="true"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
               </svg>
             </div>
-            <button type="submit" className="rounded-lg bg-blue-600 px-6 py-3 text-white hover:bg-blue-700">
+            <button
+              type="submit"
+              className="rounded-lg bg-blue-600 px-6 py-3 text-white hover:bg-blue-700"
+            >
               {t("search.submit")}
             </button>
           </div>
@@ -147,7 +156,9 @@ export default function SearchPage() {
         ) : results.length > 0 ? (
           <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
             <div className="border-b border-gray-200 px-4 py-3">
-              <span className="text-sm text-gray-500">{t("search.results", { count: results.length })}</span>
+              <span className="text-sm text-gray-500">
+                {t("search.results", { count: results.length })}
+              </span>
               {searchMeta?.semanticApplied && (
                 <span className="ml-3 rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">
                   {t("search.hybrid", { model: searchMeta.model ?? "Gemini" })}
@@ -156,7 +167,11 @@ export default function SearchPage() {
             </div>
             <div className="divide-y divide-gray-100">
               {results.map((page) => (
-                <Link key={page.id} href={`/wiki/${page.id}`} className="flex items-center gap-3 p-4 transition hover:bg-gray-50">
+                <Link
+                  key={page.id}
+                  href={`/wiki/${page.id}`}
+                  className="flex items-center gap-3 p-4 transition hover:bg-gray-50"
+                >
                   <span className="text-gray-400">-</span>
                   <div>
                     <h3 className="font-medium text-gray-900">{page.title}</h3>

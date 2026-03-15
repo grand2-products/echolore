@@ -15,8 +15,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     const persisted = window.localStorage.getItem(STORAGE_KEYS.locale);
     if (persisted) return;
 
-    const browserLocale =
-      typeof navigator !== "undefined" ? navigator.language : defaultLocale;
+    const browserLocale = typeof navigator !== "undefined" ? navigator.language : defaultLocale;
     hydrateLocale(browserLocale);
   }, [hydrateLocale]);
 

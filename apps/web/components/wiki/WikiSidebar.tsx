@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { type Space, wikiApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
-import { PageTree, type PageNode } from "./PageTree";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useRef, useState } from "react";
+import { type PageNode, PageTree } from "./PageTree";
 import { SpacePickerModal } from "./SpacePickerModal";
-import { wikiApi, type Space } from "@/lib/api";
 
 interface WikiSidebarProps {
   spaces?: Space[];
@@ -99,7 +99,16 @@ function SpaceSection({
   );
 }
 
-export function WikiSidebar({ spaces, pagesBySpace, pages, activeId, onReparent, onAddSubPage, onRenamePage, onDeletePage }: WikiSidebarProps) {
+export function WikiSidebar({
+  spaces,
+  pagesBySpace,
+  pages,
+  activeId,
+  onReparent,
+  onAddSubPage,
+  onRenamePage,
+  onDeletePage,
+}: WikiSidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showSpacePicker, setShowSpacePicker] = useState(false);
   const t = useT();

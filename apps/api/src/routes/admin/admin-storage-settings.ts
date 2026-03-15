@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { createStorageProvider, setStorageProvider } from "../../lib/file-storage.js";
+import { maskSecrets, stripMaskedValues } from "../../lib/secret-mask.js";
 import {
   getStorageSettings,
   updateStorageSettings,
@@ -10,33 +11,24 @@ import {
 } from "../../services/admin/admin-service.js";
 import { updateStorageSettingsSchema } from "./schemas.js";
 
+const SECRET_FIELDS = ["s3SecretKey", "gcsKeyJson"] as const;
+
 export const adminStorageSettingsRoutes = new Hono<AppEnv>();
 
 adminStorageSettingsRoutes.get("/storage-settings", withErrorHandler(async (c) => {
   const settings = await getStorageSettings();
-  return c.json({
-    ...settings,
-    s3SecretKey: settings.s3SecretKey ? "••••••••" : null,
-    gcsKeyJson: settings.gcsKeyJson ? "••••••••" : null,
-  });
+  return c.json(maskSecrets(settings, [...SECRET_FIELDS]));
 }, "ADMIN_STORAGE_SETTINGS_FETCH_FAILED", "Failed to fetch storage settings"));
 
 adminStorageSettingsRoutes.put("/storage-settings", zValidator("json", updateStorageSettingsSchema), withErrorHandler(async (c) => {
-  const data = c.req.valid("json");
-  // Strip masked placeholder values so we don't overwrite real secrets
-  if (data.s3SecretKey === "••••••••") delete data.s3SecretKey;
-  if (data.gcsKeyJson === "••••••••") delete data.gcsKeyJson;
+  const data = stripMaskedValues(c.req.valid("json"), [...SECRET_FIELDS]);
   const updated = await updateStorageSettings(data);
 
   // Apply the new provider immediately
   const config = await buildStorageConfig(updated);
   setStorageProvider(createStorageProvider(config));
 
-  return c.json({
-    ...updated,
-    s3SecretKey: updated.s3SecretKey ? "••••••••" : null,
-    gcsKeyJson: updated.gcsKeyJson ? "••••••••" : null,
-  });
+  return c.json(maskSecrets(updated, [...SECRET_FIELDS]));
 }, "ADMIN_STORAGE_SETTINGS_UPDATE_FAILED", "Failed to update storage settings"));
 
 adminStorageSettingsRoutes.post("/storage-settings/test", async (c) => {

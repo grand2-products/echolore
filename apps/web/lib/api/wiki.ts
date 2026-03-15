@@ -1,11 +1,11 @@
 import type {
   CreateBlockRequest,
   CreateBlockResponse,
+  CreatePageRequest,
   GetPageResponse,
   ListPagesResponse,
   SuccessResponse,
   UpdateBlockRequest,
-  CreatePageRequest,
   UpdatePageRequest,
 } from "@contracts/index";
 import { executeApiRequest, fetchApi, parseApiError } from "./fetch";
@@ -109,7 +109,11 @@ export const wikiApi = {
     }),
 
   // Import
-  importFile: async (file: File, spaceId: string, parentId?: string): Promise<{ page: Page; blocks: Block[] }> => {
+  importFile: async (
+    file: File,
+    spaceId: string,
+    parentId?: string
+  ): Promise<{ page: Page; blocks: Block[] }> => {
     const formData = new FormData();
     formData.append("file", file, file.name);
     formData.append("spaceId", spaceId);
@@ -167,7 +171,9 @@ export const wikiChatApi = {
     }),
 
   getConversation: (id: string) =>
-    fetchApi<{ conversation: WikiChatConversation; messages: WikiChatMessage[] }>(`/wiki-chat/${id}`),
+    fetchApi<{ conversation: WikiChatConversation; messages: WikiChatMessage[] }>(
+      `/wiki-chat/${id}`
+    ),
 
   updateConversation: (id: string, data: { title?: string; visibility?: "team" | "private" }) =>
     fetchApi<{ conversation: WikiChatConversation }>(`/wiki-chat/${id}`, {

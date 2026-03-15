@@ -9,6 +9,7 @@ export type WorkerConfig = {
   livekitApiSecret: string;
   pollIntervalMs: number;
   webhookPort: number;
+  healthPort: number;
 };
 
 function requireEnv(name: string) {
@@ -30,5 +31,6 @@ export function getWorkerConfig(): WorkerConfig {
     livekitApiSecret: process.env.LIVEKIT_API_SECRET || "",
     pollIntervalMs: Number(process.env.ROOM_AI_POLL_INTERVAL_MS || "15000"),
     webhookPort: Number(process.env.ROOM_AI_WEBHOOK_PORT || "8787"),
+    healthPort: Number(process.env.ROOM_AI_HEALTH_PORT || "8788"),
   };
 }

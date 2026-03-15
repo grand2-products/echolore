@@ -1,9 +1,9 @@
 "use client";
 
+import { type WikiChatMessage, wikiChatApi } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { wikiChatApi, type WikiChatMessage } from "@/lib/api";
-import { useT } from "@/lib/i18n";
 import { ChatMessageBubble } from "./chat-message-bubble";
 import { TypingIndicator } from "./typing-indicator";
 
@@ -24,6 +24,7 @@ export function FloatingChat() {
     }
   }, [open]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on new messages/pending state only
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isPending]);
@@ -92,11 +93,28 @@ export function FloatingChat() {
         aria-label={t("floatingChat.toggle")}
       >
         {open ? (
-          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         ) : (
-          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -122,8 +140,19 @@ export function FloatingChat() {
                     title={t("floatingChat.openFull")}
                     onClick={() => setOpen(false)}
                   >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      />
                     </svg>
                   </Link>
                   <button
@@ -132,8 +161,19 @@ export function FloatingChat() {
                     className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                     title={t("floatingChat.newChat")}
                   >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
                     </svg>
                   </button>
                 </>
@@ -144,9 +184,7 @@ export function FloatingChat() {
           {/* Messages */}
           <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
             {messages.length === 0 && !isPending && (
-              <p className="pt-8 text-center text-sm text-gray-400">
-                {t("floatingChat.empty")}
-              </p>
+              <p className="pt-8 text-center text-sm text-gray-400">{t("floatingChat.empty")}</p>
             )}
             {messages.map((msg) => (
               <ChatMessageBubble key={msg.id} message={msg} />
@@ -157,9 +195,7 @@ export function FloatingChat() {
 
           {/* Input */}
           <div className="border-t border-gray-200 px-3 py-3">
-            {error && (
-              <p className="mb-2 text-xs text-red-600">{error}</p>
-            )}
+            {error && <p className="mb-2 text-xs text-red-600">{error}</p>}
             <div className="flex gap-2">
               <textarea
                 ref={textareaRef}
@@ -177,8 +213,19 @@ export function FloatingChat() {
                 disabled={!input.trim() || isPending}
                 className="shrink-0 rounded-xl bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                  />
                 </svg>
               </button>
             </div>

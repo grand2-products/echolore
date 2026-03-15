@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
 import { wikiApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
+import { useRouter } from "next/navigation";
+import { useCallback, useState } from "react";
 
 interface UseWikiPageActionsOptions {
   /** Called after a mutation succeeds so the caller can refresh its data. */
@@ -31,7 +31,7 @@ export function useWikiPageActions({ onMutate, currentPageId }: UseWikiPageActio
         setActionError(getApiErrorMessage(err, t("wiki.list.reparentError")));
       }
     },
-    [onMutate, t, getApiErrorMessage],
+    [onMutate, t, getApiErrorMessage]
   );
 
   const handleAddSubPage = useCallback(
@@ -46,7 +46,7 @@ export function useWikiPageActions({ onMutate, currentPageId }: UseWikiPageActio
           setActionError(getApiErrorMessage(err, t("wiki.newPage.createError")));
         });
     },
-    [onMutate, router, t, getApiErrorMessage],
+    [onMutate, router, t, getApiErrorMessage]
   );
 
   const handleRenamePage = useCallback(
@@ -58,7 +58,7 @@ export function useWikiPageActions({ onMutate, currentPageId }: UseWikiPageActio
         setActionError(getApiErrorMessage(err, t("wiki.detail.saveError")));
       }
     },
-    [onMutate, t, getApiErrorMessage],
+    [onMutate, t, getApiErrorMessage]
   );
 
   const handleDeletePage = useCallback(
@@ -74,7 +74,7 @@ export function useWikiPageActions({ onMutate, currentPageId }: UseWikiPageActio
         setActionError(getApiErrorMessage(err, t("wiki.tree.deleteError")));
       }
     },
-    [onMutate, currentPageId, router, t, getApiErrorMessage],
+    [onMutate, currentPageId, router, t, getApiErrorMessage]
   );
 
   return {

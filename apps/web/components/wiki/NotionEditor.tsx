@@ -1,12 +1,9 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import type { BlockDto } from "@contracts/index";
+import dynamic from "next/dynamic";
 
-const NotionEditorInner = dynamic(
-  () => import("./NotionEditorInner"),
-  { ssr: false },
-);
+const NotionEditorInner = dynamic(() => import("./NotionEditorInner"), { ssr: false });
 
 interface NotionEditorProps {
   pageId: string;

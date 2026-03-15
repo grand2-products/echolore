@@ -3,11 +3,11 @@
 import { useT } from "@/lib/i18n";
 import { useSiteSettings } from "@/lib/site-settings-context";
 import { useCallback, useState } from "react";
-import { SiteSettingsSection } from "./_components/SiteSettingsSection";
-import { SiteIconSection } from "./_components/SiteIconSection";
-import { MeetingVideoSection } from "./_components/MeetingVideoSection";
 import { CoworkingVideoSection } from "./_components/CoworkingVideoSection";
 import { EmailSettingsSection } from "./_components/EmailSettingsSection";
+import { MeetingVideoSection } from "./_components/MeetingVideoSection";
+import { SiteIconSection } from "./_components/SiteIconSection";
+import { SiteSettingsSection } from "./_components/SiteSettingsSection";
 import { StorageSettingsSection } from "./_components/StorageSettingsSection";
 import { TestConnectionModal, type TestModalState } from "./_components/TestConnectionModal";
 
@@ -70,6 +70,7 @@ export default function AdminSettingsPage() {
       ) : (
         <div className="space-y-6">
           {[...Array(5)].map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholders
             <div key={i} className="rounded-xl border border-gray-200 bg-white p-6">
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center text-gray-500">
                 {t("admin.settings.loading")}
@@ -79,9 +80,7 @@ export default function AdminSettingsPage() {
         </div>
       )}
 
-      {testModal && (
-        <TestConnectionModal modal={testModal} onClose={() => setTestModal(null)} />
-      )}
+      {testModal && <TestConnectionModal modal={testModal} onClose={() => setTestModal(null)} />}
     </div>
   );
 }

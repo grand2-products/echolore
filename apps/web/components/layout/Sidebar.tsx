@@ -1,9 +1,9 @@
 "use client";
 
-import type { SessionUser } from "@/lib/api";
 import { getVisibleNavigationItems } from "@/components/layout/navigation";
-import { useT } from "@/lib/i18n";
+import type { SessionUser } from "@/lib/api";
 import { useCoworkingRoom } from "@/lib/coworking-room-context";
+import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 

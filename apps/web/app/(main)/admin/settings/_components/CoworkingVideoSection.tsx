@@ -1,12 +1,11 @@
 "use client";
 
-import { adminApi, livekitApi, type LivekitParticipantInfo } from "@/lib/api";
-import { COWORKING_ROOM_NAME } from "@/lib/livekit";
+import { type LivekitParticipantInfo, adminApi, livekitApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
+import { COWORKING_ROOM_NAME } from "@/lib/livekit";
 import { useCallback, useState } from "react";
-
-const INPUT_CLASS = "mt-1 w-full rounded-md border border-gray-300 px-3 py-2";
+import { INPUT_CLASS, SettingsCheckbox, SettingsSectionShell } from "./SettingsSectionShell";
 
 interface CoworkingVideoSectionProps {
   refetchSiteSettings: () => void;
@@ -91,16 +90,21 @@ export function CoworkingVideoSection({
   };
 
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-6">
-      <h2 className="mb-1 text-lg font-semibold text-gray-900">{t("admin.settings.coworkingVideoTitle")}</h2>
-      <p className="mb-4 text-sm text-gray-500">{t("admin.settings.coworkingVideoDescription")}</p>
-      {cwVideoError ? <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{cwVideoError}</div> : null}
-      {cwVideoNotice ? <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{cwVideoNotice}</div> : null}
+    <SettingsSectionShell
+      title={t("admin.settings.coworkingVideoTitle")}
+      description={t("admin.settings.coworkingVideoDescription")}
+      error={cwVideoError}
+      notice={cwVideoNotice}
+    >
       <div className="space-y-3">
         {/* Mode selector */}
         <label className="block text-sm text-gray-700">
           {t("admin.settings.cwMode")}
-          <select value={cwMode} onChange={(e) => setCwMode(e.target.value as "sfu" | "mcu")} className={`${INPUT_CLASS} cursor-pointer`}>
+          <select
+            value={cwMode}
+            onChange={(e) => setCwMode(e.target.value as "sfu" | "mcu")}
+            className={`${INPUT_CLASS} cursor-pointer`}
+          >
             <option value="sfu">{t("admin.settings.cwModeSfu")}</option>
             <option value="mcu">{t("admin.settings.cwModeMcu")}</option>
           </select>
@@ -108,18 +112,24 @@ export function CoworkingVideoSection({
 
         {cwMode === "sfu" && (
           <>
-            <label className="flex items-start gap-3 rounded-lg border border-gray-200 p-3 text-sm text-gray-700">
-              <input type="checkbox" checked={cwSimulcast} onChange={(e) => setCwSimulcast(e.target.checked)} className="mt-0.5 rounded border-gray-300" />
-              <div><div className="font-medium">{t("admin.settings.simulcast")}</div><div className="mt-0.5 text-xs text-gray-500">{t("admin.settings.simulcastHint")}</div></div>
-            </label>
-            <label className="flex items-start gap-3 rounded-lg border border-gray-200 p-3 text-sm text-gray-700">
-              <input type="checkbox" checked={cwDynacast} onChange={(e) => setCwDynacast(e.target.checked)} className="mt-0.5 rounded border-gray-300" />
-              <div><div className="font-medium">{t("admin.settings.dynacast")}</div><div className="mt-0.5 text-xs text-gray-500">{t("admin.settings.dynacastHint")}</div></div>
-            </label>
-            <label className="flex items-start gap-3 rounded-lg border border-gray-200 p-3 text-sm text-gray-700">
-              <input type="checkbox" checked={cwAdaptiveStream} onChange={(e) => setCwAdaptiveStream(e.target.checked)} className="mt-0.5 rounded border-gray-300" />
-              <div><div className="font-medium">{t("admin.settings.adaptiveStream")}</div><div className="mt-0.5 text-xs text-gray-500">{t("admin.settings.adaptiveStreamHint")}</div></div>
-            </label>
+            <SettingsCheckbox
+              checked={cwSimulcast}
+              onChange={setCwSimulcast}
+              label={t("admin.settings.simulcast")}
+              hint={t("admin.settings.simulcastHint")}
+            />
+            <SettingsCheckbox
+              checked={cwDynacast}
+              onChange={setCwDynacast}
+              label={t("admin.settings.dynacast")}
+              hint={t("admin.settings.dynacastHint")}
+            />
+            <SettingsCheckbox
+              checked={cwAdaptiveStream}
+              onChange={setCwAdaptiveStream}
+              label={t("admin.settings.adaptiveStream")}
+              hint={t("admin.settings.adaptiveStreamHint")}
+            />
           </>
         )}
 
@@ -129,19 +139,42 @@ export function CoworkingVideoSection({
             <div className="grid grid-cols-2 gap-3">
               <label className="block text-sm text-gray-700">
                 {t("admin.settings.cwMcuWidth")}
-                <input type="number" value={cwMcuWidth} onChange={(e) => setCwMcuWidth(Number(e.target.value))} min={320} max={1920} className={INPUT_CLASS} />
+                <input
+                  type="number"
+                  value={cwMcuWidth}
+                  onChange={(e) => setCwMcuWidth(Number(e.target.value))}
+                  min={320}
+                  max={1920}
+                  className={INPUT_CLASS}
+                />
               </label>
               <label className="block text-sm text-gray-700">
                 {t("admin.settings.cwMcuHeight")}
-                <input type="number" value={cwMcuHeight} onChange={(e) => setCwMcuHeight(Number(e.target.value))} min={240} max={1080} className={INPUT_CLASS} />
+                <input
+                  type="number"
+                  value={cwMcuHeight}
+                  onChange={(e) => setCwMcuHeight(Number(e.target.value))}
+                  min={240}
+                  max={1080}
+                  className={INPUT_CLASS}
+                />
               </label>
             </div>
             <label className="block text-sm text-gray-700">
               {t("admin.settings.cwMcuFps")}
-              <input type="number" value={cwMcuFps} onChange={(e) => setCwMcuFps(Number(e.target.value))} min={1} max={30} className={INPUT_CLASS} />
+              <input
+                type="number"
+                value={cwMcuFps}
+                onChange={(e) => setCwMcuFps(Number(e.target.value))}
+                min={1}
+                max={30}
+                className={INPUT_CLASS}
+              />
             </label>
             <div className="space-y-1.5">
-              <span className="block text-sm font-medium text-gray-700">{t("admin.settings.cwFocusIdentity")}</span>
+              <span className="block text-sm font-medium text-gray-700">
+                {t("admin.settings.cwFocusIdentity")}
+              </span>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -195,16 +228,25 @@ export function CoworkingVideoSection({
                   ))}
                 </div>
               )}
-              <span className="block text-xs text-gray-500">{t("admin.settings.cwFocusIdentityHint")}</span>
-              <span className="block text-xs text-amber-600">{t("admin.settings.cwFocusIdentityRestartNote")}</span>
+              <span className="block text-xs text-gray-500">
+                {t("admin.settings.cwFocusIdentityHint")}
+              </span>
+              <span className="block text-xs text-amber-600">
+                {t("admin.settings.cwFocusIdentityRestartNote")}
+              </span>
             </div>
           </div>
         )}
 
-        <button type="button" onClick={() => void handleCwVideoSave()} disabled={cwVideoSaving} className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60">
+        <button
+          type="button"
+          onClick={() => void handleCwVideoSave()}
+          disabled={cwVideoSaving}
+          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+        >
           {cwVideoSaving ? t("admin.settings.saving") : t("admin.settings.save")}
         </button>
       </div>
-    </section>
+    </SettingsSectionShell>
   );
 }

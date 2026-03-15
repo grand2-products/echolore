@@ -55,9 +55,7 @@ export function CollaboratorAvatars({ provider }: CollaboratorAvatarsProps) {
           {u.name.charAt(0).toUpperCase()}
         </div>
       ))}
-      <span className="ml-1 text-xs text-gray-500">
-        {users.length > 0 && `${users.length}`}
-      </span>
+      <span className="ml-1 text-xs text-gray-500">{users.length > 0 && `${users.length}`}</span>
     </div>
   );
 }

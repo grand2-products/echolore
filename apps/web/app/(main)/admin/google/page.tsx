@@ -2,8 +2,8 @@
 
 import { useT } from "@/lib/i18n";
 import { AuthSettingsSection } from "../settings/_components/AuthSettingsSection";
-import { GcpCredentialsSection } from "../settings/_components/GcpCredentialsSection";
 import { EmbeddingSettingsSection } from "../settings/_components/EmbeddingSettingsSection";
+import { GcpCredentialsSection } from "../settings/_components/GcpCredentialsSection";
 
 export default function AdminGooglePage() {
   const t = useT();

@@ -30,6 +30,7 @@ import { coworkingHlsRoutes } from "./routes/coworking-hls.js";
 import { egressLayoutRoutes } from "./routes/egress-layout.js";
 import { createWikiCollabRoutes } from "./routes/wiki-collab.js";
 import { createNodeWebSocket } from "@hono/node-ws";
+import { shutdownCollab } from "./services/wiki/yjs-collab-service.js";
 
 // ---------------------------------------------------------------------------
 // Required environment variable validation (fail-fast on startup)
@@ -154,5 +155,17 @@ injectWebSocket(server);
 
 // Start autonomous agent evaluation loop
 startAutonomousAgentLoop();
+
+// Graceful shutdown: persist all Yjs documents before exit
+let shuttingDown = false;
+async function gracefulShutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[server] ${signal} received, shutting down gracefully`);
+  await shutdownCollab();
+  process.exit(0);
+}
+process.on("SIGTERM", () => void gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => void gracefulShutdown("SIGINT"));
 
 export { app };

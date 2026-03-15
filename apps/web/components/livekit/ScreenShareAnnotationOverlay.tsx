@@ -1,11 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import type {
-  AnnotationMark,
-  AnnotationPoint,
-  AnnotationTool,
-} from "./annotation-types";
+import type { AnnotationMark, AnnotationPoint, AnnotationTool } from "./annotation-types";
 
 interface ScreenShareAnnotationOverlayProps {
   marks: AnnotationMark[];
@@ -62,7 +58,7 @@ export default function ScreenShareAnnotationOverlay({
         y: (clientY - rect.top) / rect.height,
       };
     },
-    [],
+    []
   );
 
   const handlePointerDown = useCallback(
@@ -82,7 +78,7 @@ export default function ScreenShareAnnotationOverlay({
         highlightStartRef.current = point;
       }
     },
-    [enabled, activeTool, getNormalized, onPointer, onFreehandStart],
+    [enabled, activeTool, getNormalized, onPointer, onFreehandStart]
   );
 
   const handlePointerMove = useCallback(
@@ -102,7 +98,7 @@ export default function ScreenShareAnnotationOverlay({
         }
       }
     },
-    [enabled, activeTool, getNormalized, onPointer, onFreehandMove],
+    [enabled, activeTool, getNormalized, onPointer, onFreehandMove]
   );
 
   const handlePointerUp = useCallback(
@@ -127,14 +123,7 @@ export default function ScreenShareAnnotationOverlay({
         highlightStartRef.current = null;
       }
     },
-    [
-      enabled,
-      activeTool,
-      getNormalized,
-      onFreehandMove,
-      onFreehandEnd,
-      onHighlight,
-    ],
+    [enabled, activeTool, getNormalized, onFreehandMove, onFreehandEnd, onHighlight]
   );
 
   // Keep marks in a ref so the render loop always sees the latest without re-creating the effect
@@ -203,10 +192,12 @@ export default function ScreenShareAnnotationOverlay({
           ctx.lineWidth = mark.lineWidth ?? 3;
           ctx.lineJoin = "round";
           ctx.lineCap = "round";
-          const first = mark.points[0]!;
+          const first = mark.points[0];
+          if (!first) continue;
           ctx.moveTo(first.x * w, first.y * h);
           for (let i = 1; i < mark.points.length; i++) {
-            const p = mark.points[i]!;
+            const p = mark.points[i];
+            if (!p) continue;
             ctx.lineTo(p.x * w, p.y * h);
           }
           ctx.stroke();
@@ -216,7 +207,7 @@ export default function ScreenShareAnnotationOverlay({
           const r = (mark.radius ?? 0.05) * Math.min(w, h);
           ctx.beginPath();
           ctx.arc(cx, cy, r, 0, Math.PI * 2);
-          ctx.fillStyle = mark.color + "33"; // semi-transparent
+          ctx.fillStyle = `${mark.color}33`; // semi-transparent
           ctx.fill();
           ctx.strokeStyle = mark.color;
           ctx.lineWidth = 2;

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { and, eq, exists, gte, sql } from "drizzle-orm";
 import { withErrorHandler } from "../lib/api-error.js";
+import { ONE_DAY_MS } from "../lib/time.js";
 import { db } from "../db/index.js";
 import { auditLogs, meetings, summaries, transcripts } from "../db/schema.js";
 
@@ -22,7 +23,7 @@ const SECURITY_ALERT_THRESHOLDS = {
 metricsRoutes.get("/overview", withErrorHandler(async (c) => {
   const rawWindowDays = Number(c.req.query("windowDays") ?? "30");
   const windowDays = Number.isFinite(rawWindowDays) ? Math.max(1, Math.min(365, rawWindowDays)) : 30;
-  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
+  const since = new Date(Date.now() - windowDays * ONE_DAY_MS);
 
   const [mauRow] = await db
     .select({

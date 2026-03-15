@@ -1,13 +1,9 @@
 "use client";
 
-import {
-  adminApi,
-  type AdminGroup,
-  type AdminUserRecord,
-} from "@/lib/api";
+import { type AdminGroup, type AdminUserRecord, adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 type Props = {
   groups: AdminGroup[];
@@ -60,10 +56,10 @@ export function UserMembershipSection({ groups, users, onRefresh, setError, setN
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-6">
       <div className="mb-4">
-        <h2 className="text-xl font-semibold text-gray-900">{t("admin.access.membershipsTitle")}</h2>
-        <p className="mt-1 text-sm text-gray-600">
-          {t("admin.access.membershipsDescription")}
-        </p>
+        <h2 className="text-xl font-semibold text-gray-900">
+          {t("admin.access.membershipsTitle")}
+        </h2>
+        <p className="mt-1 text-sm text-gray-600">{t("admin.access.membershipsDescription")}</p>
       </div>
 
       <label className="mb-4 block text-sm text-gray-700">
@@ -124,9 +120,7 @@ export function UserMembershipSection({ groups, users, onRefresh, setError, setN
             disabled={isSavingMemberships}
             className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
           >
-            {isSavingMemberships
-              ? t("admin.access.saving")
-              : t("admin.access.saveMemberships")}
+            {isSavingMemberships ? t("admin.access.saving") : t("admin.access.saveMemberships")}
           </button>
         </div>
       ) : (

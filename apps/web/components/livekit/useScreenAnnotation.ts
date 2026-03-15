@@ -3,11 +3,11 @@
 import { useDataChannel } from "@livekit/components-react";
 import { useCallback, useRef, useState } from "react";
 import {
+  ANNOTATION_COLORS,
   type AnnotationMark,
   type AnnotationMessage,
   type AnnotationPoint,
   type AnnotationTool,
-  ANNOTATION_COLORS,
   DEFAULT_COLOR,
   DEFAULT_TOOL,
 } from "./annotation-types";
@@ -15,10 +15,7 @@ import {
 const FADE_START = 3000;
 const FADE_END = 5000;
 
-export function useScreenAnnotation(
-  sharerIdentity: string,
-  localIdentity: string,
-) {
+export function useScreenAnnotation(sharerIdentity: string, localIdentity: string) {
   const [activeTool, setActiveTool] = useState<AnnotationTool>(DEFAULT_TOOL);
   const [activeColor, setActiveColor] = useState<string>(DEFAULT_COLOR);
   const marksRef = useRef<AnnotationMark[]>([]);
@@ -30,9 +27,7 @@ export function useScreenAnnotation(
 
   const pruneMarks = useCallback(() => {
     const now = Date.now();
-    marksRef.current = marksRef.current.filter(
-      (m) => now - m.createdAt < FADE_END,
-    );
+    marksRef.current = marksRef.current.filter((m) => now - m.createdAt < FADE_END);
   }, []);
 
   const addMark = useCallback(
@@ -41,15 +36,13 @@ export function useScreenAnnotation(
       marksRef.current.push(mark);
       triggerRender();
     },
-    [pruneMarks, triggerRender],
+    [pruneMarks, triggerRender]
   );
 
   const onMessage = useCallback(
     (msg: { payload: Uint8Array }) => {
       try {
-        const parsed: AnnotationMessage = JSON.parse(
-          decoderRef.current.decode(msg.payload),
-        );
+        const parsed: AnnotationMessage = JSON.parse(decoderRef.current.decode(msg.payload));
         if (parsed.type === "clear") {
           marksRef.current = [];
           triggerRender();
@@ -94,7 +87,7 @@ export function useScreenAnnotation(
         // ignore
       }
     },
-    [addMark, triggerRender],
+    [addMark, triggerRender]
   );
 
   const { send } = useDataChannel("screen-annotation", onMessage);
@@ -105,7 +98,7 @@ export function useScreenAnnotation(
       const reliable = msg.type === "clear";
       void send(payload, { reliable });
     },
-    [send],
+    [send]
   );
 
   const sendPointer = useCallback(
@@ -129,7 +122,7 @@ export function useScreenAnnotation(
         point,
       });
     },
-    [activeColor, localIdentity, sharerIdentity, sendMessage, addMark],
+    [activeColor, localIdentity, sharerIdentity, sendMessage, addMark]
   );
 
   const currentStrokeId = useRef<string | null>(null);
@@ -157,7 +150,7 @@ export function useScreenAnnotation(
         points: [point],
       });
     },
-    [activeColor, localIdentity, sharerIdentity, sendMessage, addMark],
+    [activeColor, localIdentity, sharerIdentity, sendMessage, addMark]
   );
 
   const sendFreehandMove = useCallback(
@@ -179,7 +172,7 @@ export function useScreenAnnotation(
         triggerRender();
       }
     },
-    [localIdentity, sharerIdentity, sendMessage, triggerRender],
+    [localIdentity, sharerIdentity, sendMessage, triggerRender]
   );
 
   const sendFreehandEnd = useCallback(() => {
@@ -219,7 +212,7 @@ export function useScreenAnnotation(
         radius,
       });
     },
-    [activeColor, localIdentity, sharerIdentity, sendMessage, addMark],
+    [activeColor, localIdentity, sharerIdentity, sendMessage, addMark]
   );
 
   const sendClear = useCallback(() => {

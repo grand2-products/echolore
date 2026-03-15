@@ -1,8 +1,8 @@
 "use client";
 
+import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useT } from "@/lib/i18n";
 
 export interface PageNode {
   id: string;
@@ -24,7 +24,13 @@ interface PageActionMenuProps {
   onDelete?: (pageId: string) => void;
 }
 
-function PageActionMenu({ page, onAddSubPage, onRename, onMoveToRoot, onDelete }: PageActionMenuProps) {
+function PageActionMenu({
+  page,
+  onAddSubPage,
+  onRename,
+  onMoveToRoot,
+  onDelete,
+}: PageActionMenuProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -52,7 +58,12 @@ function PageActionMenu({ page, onAddSubPage, onRename, onMoveToRoot, onDelete }
         className="flex h-5 w-5 items-center justify-center rounded opacity-0 transition hover:bg-gray-200 group-hover:opacity-100"
         aria-label={t("wiki.tree.actions")}
       >
-        <svg className="h-3.5 w-3.5 text-gray-500" viewBox="0 0 16 16" fill="currentColor">
+        <svg
+          className="h-3.5 w-3.5 text-gray-500"
+          viewBox="0 0 16 16"
+          fill="currentColor"
+          aria-hidden="true"
+        >
           <circle cx="8" cy="3" r="1.5" />
           <circle cx="8" cy="8" r="1.5" />
           <circle cx="8" cy="13" r="1.5" />
@@ -71,7 +82,14 @@ function PageActionMenu({ page, onAddSubPage, onRename, onMoveToRoot, onDelete }
                 onAddSubPage(page.id, page.spaceId);
               }}
             >
-              <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg
+                className="h-3.5 w-3.5 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden="true"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               {t("wiki.tree.addSubPage")}
@@ -87,8 +105,19 @@ function PageActionMenu({ page, onAddSubPage, onRename, onMoveToRoot, onDelete }
                 onRename(page.id, page.title);
               }}
             >
-              <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" />
+              <svg
+                className="h-3.5 w-3.5 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z"
+                />
               </svg>
               {t("wiki.tree.rename")}
             </button>
@@ -103,8 +132,19 @@ function PageActionMenu({ page, onAddSubPage, onRename, onMoveToRoot, onDelete }
                 onMoveToRoot(page.id);
               }}
             >
-              <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5-3L16.5 18m0 0L12 13.5m4.5 4.5V6" />
+              <svg
+                className="h-3.5 w-3.5 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5-3L16.5 18m0 0L12 13.5m4.5 4.5V6"
+                />
               </svg>
               {t("wiki.tree.moveToRoot")}
             </button>
@@ -122,8 +162,19 @@ function PageActionMenu({ page, onAddSubPage, onRename, onMoveToRoot, onDelete }
                 onDelete(page.id);
               }}
             >
-              <svg className="h-3.5 w-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+              <svg
+                className="h-3.5 w-3.5 text-red-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
+                />
               </svg>
               {t("wiki.tree.delete")}
             </button>
@@ -248,6 +299,7 @@ function PageTreeItem(props: PageTreeItemProps) {
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
@@ -331,7 +383,15 @@ function findNodeById(nodes: PageNode[], id: string): PageNode | null {
   return null;
 }
 
-export function PageTree({ pages, activeId, onExpand, onReparent, onAddSubPage, onRenamePage, onDeletePage }: PageTreeProps) {
+export function PageTree({
+  pages,
+  activeId,
+  onExpand,
+  onReparent,
+  onAddSubPage,
+  onRenamePage,
+  onDeletePage,
+}: PageTreeProps) {
   const t = useT();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -384,7 +444,7 @@ export function PageTree({ pages, activeId, onExpand, onReparent, onAddSubPage, 
       setRenamingId(null);
       await onRenamePage?.(pageId, newTitle);
     },
-    [onRenamePage],
+    [onRenamePage]
   );
 
   const handleRenameCancel = useCallback(() => {
@@ -395,7 +455,7 @@ export function PageTree({ pages, activeId, onExpand, onReparent, onAddSubPage, 
     (pageId: string) => {
       void onReparent?.(pageId, null);
     },
-    [onReparent],
+    [onReparent]
   );
 
   const handleDelete = useCallback(
@@ -404,7 +464,7 @@ export function PageTree({ pages, activeId, onExpand, onReparent, onAddSubPage, 
       if (!confirmed) return;
       void onDeletePage?.(pageId);
     },
-    [onDeletePage, t],
+    [onDeletePage, t]
   );
 
   return (

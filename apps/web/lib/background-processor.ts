@@ -1,11 +1,7 @@
 import type { LocalVideoTrack } from "livekit-client";
 import { STORAGE_KEYS } from "./constants/storage-keys";
 
-export type BackgroundEffect =
-  | "none"
-  | "blur-light"
-  | "blur"
-  | { type: "image"; url: string };
+export type BackgroundEffect = "none" | "blur-light" | "blur" | { type: "image"; url: string };
 
 export interface PresetBackground {
   id: string;
@@ -13,35 +9,78 @@ export interface PresetBackground {
   url: string;
 }
 
-export const BACKGROUND_CATEGORIES = ["office", "interior", "nature", "creative", "tech", "seasonal"] as const;
+export const BACKGROUND_CATEGORIES = [
+  "office",
+  "interior",
+  "nature",
+  "creative",
+  "tech",
+  "seasonal",
+] as const;
 
 export const PRESET_BACKGROUNDS: PresetBackground[] = [
   // Office
   { id: "office-modern", category: "office", url: "/virtual-backgrounds/office-modern.webp" },
   { id: "office-home", category: "office", url: "/virtual-backgrounds/office-home.webp" },
-  { id: "office-meeting-room", category: "office", url: "/virtual-backgrounds/office-meeting-room.webp" },
+  {
+    id: "office-meeting-room",
+    category: "office",
+    url: "/virtual-backgrounds/office-meeting-room.webp",
+  },
   { id: "office-coworking", category: "office", url: "/virtual-backgrounds/office-coworking.webp" },
   // Interior
   { id: "interior-nordic", category: "interior", url: "/virtual-backgrounds/interior-nordic.webp" },
-  { id: "interior-midcentury", category: "interior", url: "/virtual-backgrounds/interior-midcentury.webp" },
+  {
+    id: "interior-midcentury",
+    category: "interior",
+    url: "/virtual-backgrounds/interior-midcentury.webp",
+  },
   { id: "interior-cafe", category: "interior", url: "/virtual-backgrounds/interior-cafe.webp" },
-  { id: "interior-library", category: "interior", url: "/virtual-backgrounds/interior-library.webp" },
+  {
+    id: "interior-library",
+    category: "interior",
+    url: "/virtual-backgrounds/interior-library.webp",
+  },
   // Nature
   { id: "nature-forest", category: "nature", url: "/virtual-backgrounds/nature-forest.webp" },
   { id: "nature-mountain", category: "nature", url: "/virtual-backgrounds/nature-mountain.webp" },
   { id: "nature-beach", category: "nature", url: "/virtual-backgrounds/nature-beach.webp" },
-  { id: "nature-japanese-garden", category: "nature", url: "/virtual-backgrounds/nature-japanese-garden.webp" },
+  {
+    id: "nature-japanese-garden",
+    category: "nature",
+    url: "/virtual-backgrounds/nature-japanese-garden.webp",
+  },
   // Creative
-  { id: "creative-atelier", category: "creative", url: "/virtual-backgrounds/creative-atelier.webp" },
-  { id: "creative-gallery", category: "creative", url: "/virtual-backgrounds/creative-gallery.webp" },
-  { id: "creative-music-studio", category: "creative", url: "/virtual-backgrounds/creative-music-studio.webp" },
+  {
+    id: "creative-atelier",
+    category: "creative",
+    url: "/virtual-backgrounds/creative-atelier.webp",
+  },
+  {
+    id: "creative-gallery",
+    category: "creative",
+    url: "/virtual-backgrounds/creative-gallery.webp",
+  },
+  {
+    id: "creative-music-studio",
+    category: "creative",
+    url: "/virtual-backgrounds/creative-music-studio.webp",
+  },
   // Tech
   { id: "tech-cyberpunk", category: "tech", url: "/virtual-backgrounds/tech-cyberpunk.webp" },
   { id: "tech-lab", category: "tech", url: "/virtual-backgrounds/tech-lab.webp" },
-  { id: "tech-space-station", category: "tech", url: "/virtual-backgrounds/tech-space-station.webp" },
+  {
+    id: "tech-space-station",
+    category: "tech",
+    url: "/virtual-backgrounds/tech-space-station.webp",
+  },
   // Seasonal
   { id: "seasonal-sakura", category: "seasonal", url: "/virtual-backgrounds/seasonal-sakura.webp" },
-  { id: "seasonal-christmas", category: "seasonal", url: "/virtual-backgrounds/seasonal-christmas.webp" },
+  {
+    id: "seasonal-christmas",
+    category: "seasonal",
+    url: "/virtual-backgrounds/seasonal-christmas.webp",
+  },
 ];
 
 /** Serialize effect for localStorage */
@@ -108,10 +147,7 @@ export function effectEquals(a: BackgroundEffect, b: BackgroundEffect): boolean 
   return false;
 }
 
-export async function applyBackgroundEffect(
-  track: LocalVideoTrack,
-  effect: BackgroundEffect,
-) {
+export async function applyBackgroundEffect(track: LocalVideoTrack, effect: BackgroundEffect) {
   // Remove any existing processor first
   try {
     await track.stopProcessor();

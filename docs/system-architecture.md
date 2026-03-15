@@ -85,4 +85,4 @@ This document describes the currently implemented system architecture of `corp-i
 - the AI summary pipeline uses these STT transcripts as a fallback when no realtime transcript segments exist for a meeting
 
 ## Known Gaps
-- LiveKit WebSocket signaling (port 7880) is not yet routed through Traefik for TLS; clients currently use ws:// not wss:// on local dev
+- (none)

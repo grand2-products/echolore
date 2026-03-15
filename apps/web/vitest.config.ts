@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { defineConfig, type Plugin } from "vitest/config";
+import { type Plugin, defineConfig } from "vitest/config";
 
 /** Load .yaml files as raw strings, matching the Next.js webpack raw-loader config. */
 function yamlRawPlugin(): Plugin {

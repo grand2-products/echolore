@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useMeetingsQuery, useWikiPagesQuery } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
 import { useSiteTagline, useSiteTitle } from "@/lib/site-settings-context";
+import Link from "next/link";
 
 export default function HomePage() {
   const t = useT();

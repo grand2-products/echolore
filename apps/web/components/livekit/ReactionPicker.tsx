@@ -1,7 +1,7 @@
 "use client";
 
-import { useT } from "@/lib/i18n";
 import { REACTION_EMOJIS } from "@/lib/hooks/use-reactions";
+import { useT } from "@/lib/i18n";
 import { useEffect, useRef, useState } from "react";
 
 interface ReactionPickerProps {
@@ -9,10 +9,7 @@ interface ReactionPickerProps {
   variant?: "dark" | "light";
 }
 
-export default function ReactionPicker({
-  onReact,
-  variant = "light",
-}: ReactionPickerProps) {
+export default function ReactionPicker({ onReact, variant = "light" }: ReactionPickerProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -46,6 +43,7 @@ export default function ReactionPicker({
           viewBox="0 0 24 24"
           stroke="currentColor"
           strokeWidth={1.5}
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"

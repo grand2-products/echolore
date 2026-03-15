@@ -7,10 +7,7 @@ interface ReactionOverlayProps {
   onComplete: (id: string) => void;
 }
 
-export default function ReactionOverlay({
-  reactions,
-  onComplete,
-}: ReactionOverlayProps) {
+export default function ReactionOverlay({ reactions, onComplete }: ReactionOverlayProps) {
   if (reactions.length === 0) return null;
 
   return (

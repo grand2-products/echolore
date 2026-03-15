@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { wikiApi, type AdminGroup, type AdminPagePermissionRecord } from "@/lib/api";
+import { type AdminGroup, type AdminPagePermissionRecord, wikiApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
+import { useEffect, useState } from "react";
 
 interface PagePermissionsPanelProps {
   pageId: string;
@@ -37,7 +37,7 @@ export function PagePermissionsPanel({ pageId, onClose }: PagePermissionsPanelPr
         setRows(
           groupRes.groups.map((group) => {
             const existing = permRes.permissions.find(
-              (p: AdminPagePermissionRecord) => p.groupId === group.id,
+              (p: AdminPagePermissionRecord) => p.groupId === group.id
             );
             return {
               groupId: group.id,
@@ -46,11 +46,11 @@ export function PagePermissionsPanel({ pageId, onClose }: PagePermissionsPanelPr
               canWrite: existing?.canWrite ?? false,
               canDelete: existing?.canDelete ?? false,
             };
-          }),
+          })
         );
       })
       .catch((err) =>
-        setError(err instanceof Error ? err.message : t("wiki.permissions.loadError")),
+        setError(err instanceof Error ? err.message : t("wiki.permissions.loadError"))
       )
       .finally(() => setIsLoading(false));
   }, [pageId, t]);
@@ -83,14 +83,8 @@ export function PagePermissionsPanel({ pageId, onClose }: PagePermissionsPanelPr
   return (
     <div className="fixed inset-y-0 right-0 z-[55] flex w-80 flex-col border-l border-gray-200 bg-white shadow-lg">
       <div className="flex items-center justify-between border-b border-gray-200 p-4">
-        <h2 className="text-lg font-semibold text-gray-900">
-          {t("wiki.permissions.title")}
-        </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600"
-        >
+        <h2 className="text-lg font-semibold text-gray-900">{t("wiki.permissions.title")}</h2>
+        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
           X
         </button>
       </div>
@@ -131,54 +125,43 @@ export function PagePermissionsPanel({ pageId, onClose }: PagePermissionsPanelPr
               };
 
               return (
-                <div
-                  key={group.id}
-                  className="rounded-lg border border-gray-200 p-3"
-                >
+                <div key={group.id} className="rounded-lg border border-gray-200 p-3">
                   <label className="flex items-center justify-between gap-2 text-sm">
-                    <span className="font-medium text-gray-900">
-                      {group.name}
-                    </span>
+                    <span className="font-medium text-gray-900">{group.name}</span>
                     <input
                       type="checkbox"
                       checked={row.selected}
                       onChange={(e) =>
                         setRows((cur) =>
                           cur.map((r) =>
-                            r.groupId === group.id
-                              ? { ...r, selected: e.target.checked }
-                              : r,
-                          ),
+                            r.groupId === group.id ? { ...r, selected: e.target.checked } : r
+                          )
                         )
                       }
                     />
                   </label>
 
                   <div className="mt-2 grid grid-cols-3 gap-1 text-xs text-gray-600">
-                    {(["canRead", "canWrite", "canDelete"] as const).map(
-                      (field) => (
-                        <label
-                          key={field}
-                          className="flex items-center gap-1 rounded border border-gray-200 px-2 py-1.5"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={row[field]}
-                            disabled={!row.selected}
-                            onChange={(e) =>
-                              setRows((cur) =>
-                                cur.map((r) =>
-                                  r.groupId === group.id
-                                    ? { ...r, [field]: e.target.checked }
-                                    : r,
-                                ),
+                    {(["canRead", "canWrite", "canDelete"] as const).map((field) => (
+                      <label
+                        key={field}
+                        className="flex items-center gap-1 rounded border border-gray-200 px-2 py-1.5"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={row[field]}
+                          disabled={!row.selected}
+                          onChange={(e) =>
+                            setRows((cur) =>
+                              cur.map((r) =>
+                                r.groupId === group.id ? { ...r, [field]: e.target.checked } : r
                               )
-                            }
-                          />
-                          {t(`wiki.permissions.${field}`)}
-                        </label>
-                      ),
-                    )}
+                            )
+                          }
+                        />
+                        {t(`wiki.permissions.${field}`)}
+                      </label>
+                    ))}
                   </div>
                 </div>
               );

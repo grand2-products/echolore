@@ -60,7 +60,10 @@ function htmlToInlineContent(html: string): InlineItem[] {
       result.push({
         type: "link" as const,
         href,
-        content: linkContent.length > 0 ? linkContent : [{ type: "text" as const, text: href, styles: {} }],
+        content:
+          linkContent.length > 0
+            ? linkContent
+            : [{ type: "text" as const, text: href, styles: {} }],
       } as InlineItem);
       return;
     }
@@ -98,7 +101,9 @@ function htmlToInlineContent(html: string): InlineItem[] {
     processNode(child);
   }
 
-  return result.length > 0 ? result : [{ type: "text" as const, text: stripHtml(html), styles: {} }];
+  return result.length > 0
+    ? result
+    : [{ type: "text" as const, text: stripHtml(html), styles: {} }];
 }
 
 function stripHtml(html: string): string {
@@ -135,9 +140,7 @@ function blockDtoToBlockNote(dto: BlockDto): BlockNoteBlock {
         id: dto.id,
         type: "heading",
         props: { level },
-        content: dto.content
-          ? [{ type: "text" as const, text: dto.content, styles: {} }]
-          : [],
+        content: dto.content ? [{ type: "text" as const, text: dto.content, styles: {} }] : [],
         children: [],
       } as unknown as BlockNoteBlock;
     }
@@ -212,14 +215,11 @@ function blockDtoToBlockNote(dto: BlockDto): BlockNoteBlock {
         id: dto.id,
         type: "codeBlock",
         props: { language },
-        content: dto.content
-          ? [{ type: "text" as const, text: dto.content, styles: {} }]
-          : [],
+        content: dto.content ? [{ type: "text" as const, text: dto.content, styles: {} }] : [],
         children: [],
       } as unknown as BlockNoteBlock;
     }
 
-    case "text":
     default: {
       // Check if it's a serialized table
       if (props.blockNoteType === "table" && dto.content) {
@@ -246,4 +246,3 @@ export function blockDtosToBlocks(dtos: BlockDto[]): BlockNoteBlock[] {
   const sorted = [...dtos].sort((a, b) => a.sortOrder - b.sortOrder);
   return sorted.map(blockDtoToBlockNote);
 }
-

@@ -123,7 +123,9 @@ export const meetingsApi = {
     fetchApi<{ recordings: MeetingRecording[] }>(`/meetings/${id}/recordings`),
 
   getRecordingDownloadUrl: (meetingId: string, recordingId: string) =>
-    buildApiUrl(`/meetings/${encodeURIComponent(meetingId)}/recordings/${encodeURIComponent(recordingId)}/download`),
+    buildApiUrl(
+      `/meetings/${encodeURIComponent(meetingId)}/recordings/${encodeURIComponent(recordingId)}/download`
+    ),
 };
 
 export const livekitApi = {
@@ -150,10 +152,13 @@ export const livekitApi = {
     fetchApi<{ participants: LivekitParticipantInfo[] }>(`/livekit/rooms/${roomName}/participants`),
 
   startRecording: (roomName: string, meetingId: string) =>
-    fetchApi<{ egressId: string; recording: unknown }>(`/livekit/rooms/${roomName}/start-recording`, {
-      method: "POST",
-      body: JSON.stringify({ meetingId }),
-    }),
+    fetchApi<{ egressId: string; recording: unknown }>(
+      `/livekit/rooms/${roomName}/start-recording`,
+      {
+        method: "POST",
+        body: JSON.stringify({ meetingId }),
+      }
+    ),
 
   stopRecording: (roomName: string, egressId: string) =>
     fetchApi<{ success: boolean }>(`/livekit/rooms/${roomName}/stop-recording`, {
@@ -162,7 +167,7 @@ export const livekitApi = {
     }),
 
   getRecordingStatus: (roomName: string, meetingId: string) =>
-    fetchApi<{ recordings: Array<{ id: string; egressId: string; status: string; startedAt: string | null }> }>(
-      `/livekit/rooms/${roomName}/recording-status?meetingId=${meetingId}`,
-    ),
+    fetchApi<{
+      recordings: Array<{ id: string; egressId: string; status: string; startedAt: string | null }>;
+    }>(`/livekit/rooms/${roomName}/recording-status?meetingId=${meetingId}`),
 };

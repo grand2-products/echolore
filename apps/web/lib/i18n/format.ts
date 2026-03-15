@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { useLocale } from "./translate";
-import { translate, type TranslationValues } from "./translate";
 import type { SupportedLocale } from "./messages";
+import { useLocale } from "./translate";
+import { type TranslationValues, translate } from "./translate";
 
 export function formatDate(value: string | number | Date, locale: string) {
   return new Intl.DateTimeFormat(locale, {
@@ -34,7 +34,12 @@ export function formatNumber(value: number, locale: string) {
   return new Intl.NumberFormat(locale).format(value);
 }
 
-function translateEnum(locale: SupportedLocale, key: string, fallback: string, values?: TranslationValues) {
+function translateEnum(
+  locale: SupportedLocale,
+  key: string,
+  fallback: string,
+  values?: TranslationValues
+) {
   try {
     return translate(locale, key, values);
   } catch {
@@ -125,6 +130,6 @@ export function useFormatters() {
       interventionStyle: (value: string) => formatInterventionStyle(value, locale),
       eventType: (value: string) => formatMeetingAgentEventType(value, locale),
     }),
-    [locale],
+    [locale]
   );
 }

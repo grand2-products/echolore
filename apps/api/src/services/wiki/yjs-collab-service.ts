@@ -13,6 +13,9 @@ const MSG_PING = 9;
 const MSG_QUERY_AWARENESS = 3;
 
 const PING_INTERVAL_MS = 15_000;
+const PERSIST_DEBOUNCE_MS = 2_000;
+const PERSIST_MAX_RETRIES = 3;
+const PERSIST_RETRY_BASE_MS = 500;
 
 interface ConnInfo {
   ws: WSContext;
@@ -134,18 +137,27 @@ function schedulePersist(pageId: string): void {
   if (entry.saveTimer) clearTimeout(entry.saveTimer);
   entry.saveTimer = setTimeout(() => {
     void persistDoc(pageId);
-  }, 2000);
+  }, PERSIST_DEBOUNCE_MS);
 }
 
-async function persistDoc(pageId: string): Promise<void> {
+async function persistDoc(pageId: string, retries = PERSIST_MAX_RETRIES): Promise<void> {
   const entry = docs.get(pageId);
   if (!entry) return;
 
-  try {
-    const state = Y.encodeStateAsUpdate(entry.doc);
-    await upsertYjsState(pageId, Buffer.from(state));
-  } catch (err) {
-    console.error(`[yjs-collab] Failed to persist doc ${pageId}:`, err);
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const state = Y.encodeStateAsUpdate(entry.doc);
+      await upsertYjsState(pageId, Buffer.from(state));
+      return;
+    } catch (err) {
+      if (attempt < retries) {
+        const delay = PERSIST_RETRY_BASE_MS * 2 ** (attempt - 1);
+        console.warn(`[yjs-collab] Persist doc ${pageId} failed (attempt ${attempt}/${retries}), retrying in ${delay}ms`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        console.error(`[yjs-collab] Failed to persist doc ${pageId} after ${retries} attempts:`, err);
+      }
+    }
   }
 }
 
@@ -274,6 +286,29 @@ function trackControlledIds(
   } catch {
     // Malformed awareness update — skip tracking
   }
+}
+
+/**
+ * Persist all in-memory documents to the database.
+ * Called during graceful shutdown to avoid data loss.
+ */
+export async function shutdownCollab(): Promise<void> {
+  const entries = Array.from(docs.entries());
+  if (entries.length === 0) return;
+
+  console.log(`[yjs-collab] Shutting down: persisting ${entries.length} document(s)`);
+  await Promise.allSettled(
+    entries.map(async ([pageId, entry]) => {
+      if (entry.saveTimer) clearTimeout(entry.saveTimer);
+      if (entry.gcTimer) clearTimeout(entry.gcTimer);
+      if (entry.pingTimer) clearInterval(entry.pingTimer);
+      await persistDoc(pageId, 1);
+      entry.awareness.destroy();
+      entry.doc.destroy();
+    }),
+  );
+  docs.clear();
+  console.log("[yjs-collab] Shutdown complete");
 }
 
 export function removeConnection(pageId: string, ws: WSContext): void {

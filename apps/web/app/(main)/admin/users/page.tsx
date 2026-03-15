@@ -1,9 +1,9 @@
 "use client";
 
-import { adminApi, type AdminUserRecord } from "@/lib/api";
+import { type AdminUserRecord, adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
-import { useFormatters, useT } from "@/lib/i18n";
 import { useStableEvent } from "@/lib/hooks/use-stable-event";
+import { useFormatters, useT } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 
 export default function AdminUsersPage() {
@@ -105,11 +105,7 @@ export default function AdminUsersPage() {
                 <td className="whitespace-nowrap px-4 py-3">
                   <div className="flex items-center gap-2">
                     {user.avatarUrl ? (
-                      <img
-                        src={user.avatarUrl}
-                        alt=""
-                        className="h-7 w-7 rounded-full"
-                      />
+                      <img src={user.avatarUrl} alt="" className="h-7 w-7 rounded-full" />
                     ) : (
                       <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-medium text-white">
                         {user.name.charAt(0)}
@@ -118,18 +114,13 @@ export default function AdminUsersPage() {
                     <span className="text-sm font-medium text-gray-900">{user.name}</span>
                   </div>
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                  {user.email}
-                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{user.email}</td>
                 <td className="whitespace-nowrap px-4 py-3">
                   <select
                     value={user.role}
                     disabled={changingRoleId === user.id}
                     onChange={(event) =>
-                      void handleRoleChange(
-                        user.id,
-                        event.target.value as "admin" | "member"
-                      )
+                      void handleRoleChange(user.id, event.target.value as "admin" | "member")
                     }
                     className={`rounded-md border px-2 py-1 text-xs font-medium ${
                       user.role === "admin"

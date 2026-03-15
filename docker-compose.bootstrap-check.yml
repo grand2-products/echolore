@@ -33,6 +33,12 @@ services:
           max_participants: 100
         redis:
           address: valkey:6379
+        turn:
+          enabled: true
+          domain: ${LIVEKIT_TURN_DOMAIN:-localhost}
+          tls_port: ${LIVEKIT_TURN_TLS_PORT:-5349}
+          udp_port: 3478
+          external_tls: true
         logging:
           level: info
     depends_on:

@@ -60,6 +60,7 @@ export default function AnnotationToolbar({
           viewBox="0 0 24 24"
           stroke="currentColor"
           strokeWidth={1.5}
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -94,12 +95,9 @@ export default function AnnotationToolbar({
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                   strokeWidth={1.5}
+                  aria-hidden="true"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d={icon.path}
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" d={icon.path} />
                 </svg>
               </button>
             );

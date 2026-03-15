@@ -1,7 +1,7 @@
 "use client";
 
-import { useT } from "@/lib/i18n";
 import type { Space } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 const SPACE_ICON: Record<string, string> = { general: "G", team: "T", personal: "P" };
 
@@ -30,11 +30,15 @@ export function SpaceList({ spaces, selectedId, onSelect, size = "md" }: SpaceLi
               : "border-gray-200 bg-white hover:border-blue-500 hover:shadow-sm"
           }`}
         >
-          <span className={`flex items-center justify-center rounded-md bg-gray-100 font-medium text-gray-600 ${iconSize}`}>
+          <span
+            className={`flex items-center justify-center rounded-md bg-gray-100 font-medium text-gray-600 ${iconSize}`}
+          >
             {SPACE_ICON[space.type] ?? "?"}
           </span>
           <div>
-            <p className={`font-medium text-gray-900 ${size === "sm" ? "text-sm" : ""}`}>{space.name}</p>
+            <p className={`font-medium text-gray-900 ${size === "sm" ? "text-sm" : ""}`}>
+              {space.name}
+            </p>
             <p className="text-xs text-gray-500">{t(`wiki.spaces.${space.type}`)}</p>
           </div>
         </button>

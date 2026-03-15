@@ -19,6 +19,8 @@ services:
           urls:
             - http://host.docker.internal:${API_PORT:-17721}/api/livekit/webhook
           api_key: devkey
+        turn:
+          enabled: false
         logging:
           level: info
 

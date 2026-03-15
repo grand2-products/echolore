@@ -411,8 +411,7 @@ const messagesByLocale: Record<SupportedLocale, LocalizedMessages> = {
     MEETING_AGENT_SESSION_NOT_FOUND: "활성 AI 도우미 세션을 찾을 수 없습니다.",
     MEETING_AGENT_LEAVE_FAILED: "AI 도우미 세션 종료에 실패했습니다.",
     MEETING_AGENT_RESPONSE_FAILED: "AI 도우미 응답 생성에 실패했습니다.",
-    LIVEKIT_TOKEN_INPUT_REQUIRED:
-      "roomName, participantName, participantIdentity 값이 필요합니다.",
+    LIVEKIT_TOKEN_INPUT_REQUIRED: "roomName, participantName, participantIdentity 값이 필요합니다.",
     LIVEKIT_TOKEN_GENERATE_FAILED: "LiveKit 토큰 생성에 실패했습니다.",
     LIVEKIT_ROOMS_LIST_FAILED: "LiveKit 방 목록을 불러오지 못했습니다.",
     LIVEKIT_ROOM_NAME_REQUIRED: "방 이름이 필요합니다.",
@@ -463,8 +462,7 @@ export function getApiErrorMessage(
   if (isApiErrorLike(error)) {
     const code = error.code;
     if (code) {
-      const localized =
-        messagesByLocale[locale][code] ?? messagesByLocale[defaultLocale][code];
+      const localized = messagesByLocale[locale][code] ?? messagesByLocale[defaultLocale][code];
       if (localized) {
         return localized;
       }
@@ -479,8 +477,7 @@ export function getApiErrorMessage(
 export function useApiErrorMessage() {
   const locale = useLocale();
   return useCallback(
-    (error: unknown, fallbackMessage: string) =>
-      getApiErrorMessage(error, locale, fallbackMessage),
+    (error: unknown, fallbackMessage: string) => getApiErrorMessage(error, locale, fallbackMessage),
     [locale]
   );
 }

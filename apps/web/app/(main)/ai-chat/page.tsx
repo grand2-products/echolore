@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-  useWikiChatConversationsQuery,
-  useCreateWikiChatConversationMutation,
   type WikiChatConversation,
+  useCreateWikiChatConversationMutation,
+  useWikiChatConversationsQuery,
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useT } from "@/lib/i18n";
 import { useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function WikiChatListPage() {
   const t = useT();
@@ -73,9 +73,7 @@ export default function WikiChatListPage() {
               type="button"
               onClick={() => setTab("all")}
               className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                tab === "all"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-600 hover:bg-gray-100"
+                tab === "all" ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               {t("wikiChat.allTab")}
@@ -84,9 +82,7 @@ export default function WikiChatListPage() {
               type="button"
               onClick={() => setTab("my")}
               className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                tab === "my"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-600 hover:bg-gray-100"
+                tab === "my" ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               {t("wikiChat.myTab")}
@@ -126,9 +122,7 @@ export default function WikiChatListPage() {
               >
                 <div className="flex items-start justify-between">
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate font-medium text-gray-900">
-                      {conv.title}
-                    </h3>
+                    <h3 className="truncate font-medium text-gray-900">{conv.title}</h3>
                     {conv.lastMessagePreview ? (
                       <p className="mt-1 truncate text-sm text-gray-500">
                         {conv.lastMessagePreview}
@@ -139,9 +133,7 @@ export default function WikiChatListPage() {
                         <span>{t("wikiChat.createdBy", { name: conv.creatorName })}</span>
                       ) : null}
                       <span>{dateTime(new Date(conv.updatedAt))}</span>
-                      {conv.messageCount != null ? (
-                        <span>{conv.messageCount} messages</span>
-                      ) : null}
+                      {conv.messageCount != null ? <span>{conv.messageCount} messages</span> : null}
                     </div>
                   </div>
                   <span

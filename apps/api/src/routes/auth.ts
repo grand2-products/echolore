@@ -5,6 +5,7 @@ import { jsonError } from "../lib/api-error.js";
 import { writeAuditLog } from "../lib/audit.js";
 import type { AppEnv } from "../lib/auth.js";
 import { getRequestIp, isRateLimited } from "../lib/password-auth-guard.js";
+import { ONE_HOUR_MS } from "../lib/time.js";
 import {
   authenticatePasswordUser,
   exchangeGoogleIdToken,
@@ -60,7 +61,7 @@ authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
     action: "auth.password.register_attempt",
     email: payload.email,
     ipAddress,
-    windowMs: 60 * 60 * 1000,
+    windowMs: ONE_HOUR_MS,
     maxAttempts: 3,
   });
 

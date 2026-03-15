@@ -78,10 +78,14 @@ export async function startLiveKitWebhookServer(config: LiveKitWebhookServerConf
             `[room-ai-worker] webhook event=${event.event} room=${roomName} meeting=${meeting.id}`
           );
         } catch (error) {
-          console.warn(
-            `[room-ai-worker] webhook event=${event.event} room=${roomName} meeting unresolved`,
+          console.error(
+            `[room-ai-worker] webhook event=${event.event} room=${roomName} meeting sync failed`,
             error
           );
+          response.statusCode = 500;
+          response.setHeader("Content-Type", "application/json");
+          response.end(JSON.stringify({ error: "Meeting sync failed" }));
+          return;
         }
       } else {
         console.log(`[room-ai-worker] webhook event=${event.event}`);

@@ -1,7 +1,7 @@
 "use client";
 
-import type { AuthMeResponse } from "./api";
 import { createContext, useContext } from "react";
+import type { AuthMeResponse } from "./api";
 import { useCurrentAuth } from "./hooks/use-auth-session";
 
 type AuthContextValue = ReturnType<typeof useCurrentAuth> & {

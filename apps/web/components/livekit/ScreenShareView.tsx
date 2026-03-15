@@ -1,7 +1,7 @@
 "use client";
 
-import { VideoTrack } from "@livekit/components-react";
 import type { TrackReference } from "@livekit/components-core";
+import { VideoTrack } from "@livekit/components-react";
 import { useState } from "react";
 import AnnotationToolbar from "./AnnotationToolbar";
 import ScreenShareAnnotationOverlay from "./ScreenShareAnnotationOverlay";

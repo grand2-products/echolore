@@ -1,14 +1,10 @@
 "use client";
 
-import {
-  adminApi,
-  type AdminGroup,
-  type Space,
-} from "@/lib/api";
+import { type AdminGroup, type Space, adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
-import { useT } from "@/lib/i18n";
 import { useStableEvent } from "@/lib/hooks/use-stable-event";
-import { useState, useEffect } from "react";
+import { useT } from "@/lib/i18n";
+import { useEffect, useState } from "react";
 
 type SpacePermissionDraftRow = {
   groupId: string;
@@ -99,7 +95,9 @@ export function SpacePermissionsSection({ groups, spaces, setError, setNotice }:
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-6">
       <div className="mb-4">
-        <h2 className="text-xl font-semibold text-gray-900">{t("admin.access.spacePermissionsTitle")}</h2>
+        <h2 className="text-xl font-semibold text-gray-900">
+          {t("admin.access.spacePermissionsTitle")}
+        </h2>
         <p className="mt-1 text-sm text-gray-600">
           {t("admin.access.spacePermissionsDescription")}
         </p>
@@ -124,21 +122,18 @@ export function SpacePermissionsSection({ groups, spaces, setError, setNotice }:
         <div className="space-y-4">
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
             <div className="font-medium text-gray-900">{selectedSpace.name}</div>
-            <div className="mt-1 text-xs text-gray-500">
-              {selectedSpace.type}
-            </div>
+            <div className="mt-1 text-xs text-gray-500">{selectedSpace.type}</div>
           </div>
 
           <div className="space-y-2">
             {groups.map((group) => {
-              const row =
-                spacePermissionRows.find((item) => item.groupId === group.id) ?? {
-                  groupId: group.id,
-                  selected: false,
-                  canRead: true,
-                  canWrite: false,
-                  canDelete: false,
-                };
+              const row = spacePermissionRows.find((item) => item.groupId === group.id) ?? {
+                groupId: group.id,
+                selected: false,
+                canRead: true,
+                canWrite: false,
+                canDelete: false,
+              };
 
               return (
                 <div key={group.id} className="rounded-lg border border-gray-200 p-3">

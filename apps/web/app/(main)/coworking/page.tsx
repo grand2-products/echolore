@@ -1,21 +1,9 @@
 "use client";
 
-import { useCoworkingLivekitSettings } from "@/lib/site-settings-context";
-import { useCoworkingRoom } from "@/lib/coworking-room-context";
-import { useAuthContext } from "@/lib/auth-context";
-import {
-  ConnectionState,
-  RoomAudioRenderer,
-  RoomContext,
-  VideoTrack,
-  useTracks,
-  useParticipants,
-} from "@livekit/components-react";
-import { Track, type TrackPublication } from "livekit-client";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useT } from "@/lib/i18n";
+import BackgroundEffectButton from "@/components/livekit/BackgroundEffectButton";
+import MediaToggle from "@/components/livekit/MediaToggle";
 import { apiFetch } from "@/lib/api";
-import type { TrackReferenceOrPlaceholder } from "@livekit/components-core";
+import { useAuthContext } from "@/lib/auth-context";
 import {
   BACKGROUND_CATEGORIES,
   type BackgroundEffect,
@@ -27,11 +15,22 @@ import {
   removeCustomBackground,
   storeBackgroundEffect,
 } from "@/lib/background-processor";
-import BackgroundEffectButton from "@/components/livekit/BackgroundEffectButton";
-import MediaToggle from "@/components/livekit/MediaToggle";
+import { useCoworkingRoom } from "@/lib/coworking-room-context";
+import { useT } from "@/lib/i18n";
+import { useCoworkingLivekitSettings } from "@/lib/site-settings-context";
+import type { TrackReferenceOrPlaceholder } from "@livekit/components-core";
+import {
+  ConnectionState,
+  RoomAudioRenderer,
+  RoomContext,
+  VideoTrack,
+  useParticipants,
+  useTracks,
+} from "@livekit/components-react";
+import { Track, type TrackPublication } from "livekit-client";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { STORAGE_KEYS } from "@/lib/constants/storage-keys";
-
 
 function ParticipantCard({ trackRef }: { trackRef: TrackReferenceOrPlaceholder }) {
   const t = useT();
@@ -79,9 +78,7 @@ function ParticipantCard({ trackRef }: { trackRef: TrackReferenceOrPlaceholder }
             participant.isMicrophoneEnabled ? "bg-green-500" : "bg-gray-300"
           }`}
           title={
-            participant.isMicrophoneEnabled
-              ? t("coworking.micEnabled")
-              : t("coworking.micMuted")
+            participant.isMicrophoneEnabled ? t("coworking.micEnabled") : t("coworking.micMuted")
           }
         />
         <span className="truncate text-sm font-medium text-gray-900">{name}</span>
@@ -96,10 +93,9 @@ function ParticipantCard({ trackRef }: { trackRef: TrackReferenceOrPlaceholder }
 }
 
 function CoworkingBody() {
-  const tracks = useTracks(
-    [{ source: Track.Source.Camera, withPlaceholder: true }],
-    { onlySubscribed: false },
-  );
+  const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }], {
+    onlySubscribed: false,
+  });
   const t = useT();
 
   return (
@@ -126,17 +122,25 @@ function CoworkingBody() {
           {tracks.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {tracks.map((trackRef) => (
-                <ParticipantCard
-                  key={trackRef.participant.identity}
-                  trackRef={trackRef}
-                />
+                <ParticipantCard key={trackRef.participant.identity} trackRef={trackRef} />
               ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 py-20 text-center">
               <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-gray-200 text-gray-400">
-                <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                <svg
+                  className="h-7 w-7"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
+                  />
                 </svg>
               </div>
               <p className="text-sm font-medium text-gray-600">{t("coworking.empty")}</p>
@@ -195,10 +199,9 @@ function CoworkingMcuBody() {
   const t = useT();
   const videoRef = useRef<HTMLVideoElement>(null);
   const participants = useParticipants();
-  const tracks = useTracks(
-    [{ source: Track.Source.Camera, withPlaceholder: false }],
-    { onlySubscribed: false },
-  );
+  const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: false }], {
+    onlySubscribed: false,
+  });
   const [hlsError, setHlsError] = useState<string | null>(null);
   const [hlsLoading, setHlsLoading] = useState(true);
   const [hlsRetry, setHlsRetry] = useState(0);
@@ -207,78 +210,82 @@ function CoworkingMcuBody() {
 
   const hasPublishedTracks = tracks.length > 0;
 
-  const initHls = useCallback(async (signal: AbortSignal) => {
-    // Ensure composite is running
-    try {
-      await apiFetch("/livekit/coworking/start-composite", { method: "POST" });
-    } catch (err) {
-      console.warn("[coworking-mcu] Failed to start composite:", err);
-    }
+  const initHls = useCallback(
+    async (signal: AbortSignal) => {
+      // Ensure composite is running
+      try {
+        await apiFetch("/livekit/coworking/start-composite", { method: "POST" });
+      } catch (err) {
+        console.warn("[coworking-mcu] Failed to start composite:", err);
+      }
 
-    if (signal.aborted) return undefined;
+      if (signal.aborted) return undefined;
 
-    // Wait for Egress to produce initial HLS segments
-    const hlsReady = await waitForHls(signal);
-    if (!hlsReady || signal.aborted || !videoRef.current) return undefined;
+      // Wait for Egress to produce initial HLS segments
+      const hlsReady = await waitForHls(signal);
+      if (!hlsReady || signal.aborted || !videoRef.current) return undefined;
 
-    const Hls = (await import("hls.js")).default;
+      const Hls = (await import("hls.js")).default;
 
-    if (signal.aborted || !videoRef.current) return undefined;
+      if (signal.aborted || !videoRef.current) return undefined;
 
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-        liveSyncDurationCount: 3,
-      });
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          liveSyncDurationCount: 3,
+        });
 
-      hls.loadSource(getHlsStreamUrl());
-      hls.attachMedia(videoRef.current);
+        hls.loadSource(getHlsStreamUrl());
+        hls.attachMedia(videoRef.current);
 
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setHlsLoading(false);
-        setHlsError(null);
-        videoRef.current?.play().catch(() => {});
-      });
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setHlsLoading(false);
+          setHlsError(null);
+          videoRef.current?.play().catch(() => {});
+        });
 
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) {
-          setHlsError(t("coworking.mcu.hlsError"));
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            setTimeout(() => {
-              setHlsError(null);
-              setHlsLoading(true);
-              hls.startLoad();
-            }, 3000);
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          if (data.fatal) {
+            setHlsError(t("coworking.mcu.hlsError"));
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              setTimeout(() => {
+                setHlsError(null);
+                setHlsLoading(true);
+                hls.startLoad();
+              }, 3000);
+            }
           }
-        }
-      });
+        });
 
-      return () => {
-        hls.destroy();
-      };
-    }
+        return () => {
+          hls.destroy();
+        };
+      }
 
-    if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-      // Safari native HLS
-      const video = videoRef.current;
-      const onMeta = () => {
-        setHlsLoading(false);
-        video.play().catch(() => {});
-      };
-      video.src = getHlsStreamUrl();
-      video.addEventListener("loadedmetadata", onMeta);
-      return () => {
-        video.removeEventListener("loadedmetadata", onMeta);
-        video.src = "";
-      };
-    }
+      if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
+        // Safari native HLS
+        const video = videoRef.current;
+        const onMeta = () => {
+          setHlsLoading(false);
+          video.play().catch(() => {});
+        };
+        video.src = getHlsStreamUrl();
+        video.addEventListener("loadedmetadata", onMeta);
+        return () => {
+          video.removeEventListener("loadedmetadata", onMeta);
+          video.src = "";
+        };
+      }
 
-    setHlsError(t("coworking.mcu.hlsUnsupported"));
-    return undefined;
-  }, [t]);
+      setHlsError(t("coworking.mcu.hlsUnsupported"));
+      return undefined;
+    },
+    [t]
+  );
 
   // Start HLS only after at least one video track is published in the room
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional re-trigger on hlsRetry and hasPublishedTracks
   useEffect(() => {
     if (!hasPublishedTracks || compositeStarted.current) return;
     compositeStarted.current = true;
@@ -466,13 +473,25 @@ function PreviewBackgroundPicker() {
         }`}
         title={t("background.label")}
       >
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+        <svg
+          className="h-5 w-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"
+          />
         </svg>
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-xl"
+        <div
+          className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-xl"
           style={{ width: "min(420px, 90vw)" }}
         >
           {/* Blur options */}
@@ -492,12 +511,24 @@ function PreviewBackgroundPicker() {
                       : "border-gray-200 text-gray-500 hover:border-gray-300"
                   }`}
                 >
-                  {opt === "none" ? t("background.none") : (
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  {opt === "none" ? (
+                    t("background.none")
+                  ) : (
+                    <svg
+                      className="h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                      aria-hidden="true"
+                    >
                       {opt === "blur-light" ? (
                         <circle cx="12" cy="12" r="6" strokeDasharray="3 2" />
                       ) : (
-                        <><circle cx="12" cy="12" r="8" strokeDasharray="2 2" /><circle cx="12" cy="12" r="4" strokeDasharray="2 2" /></>
+                        <>
+                          <circle cx="12" cy="12" r="8" strokeDasharray="2 2" />
+                          <circle cx="12" cy="12" r="4" strokeDasharray="2 2" />
+                        </>
                       )}
                     </svg>
                   )}
@@ -564,7 +595,12 @@ function PreviewBackgroundPicker() {
                               : "border-gray-200 hover:border-gray-300"
                           }`}
                         >
-                          <img src={preset.url} alt={t(`background.preset.${preset.id}`)} className="h-full w-full object-cover" loading="lazy" />
+                          <img
+                            src={preset.url}
+                            alt={t(`background.preset.${preset.id}`)}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
                         </button>
                       );
                     })}
@@ -580,19 +616,34 @@ function PreviewBackgroundPicker() {
             onClick={() => fileInputRef.current?.click()}
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600 transition hover:border-gray-400 hover:bg-gray-50"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
             {t("background.upload")}
           </button>
-          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
         </div>
       )}
     </div>
   );
 }
 
-function CoworkingPreview({ onJoin }: { onJoin: (opts: { camera: boolean; mic: boolean; deviceId?: string }) => void }) {
+function CoworkingPreview({
+  onJoin,
+}: { onJoin: (opts: { camera: boolean; mic: boolean; deviceId?: string }) => void }) {
   const t = useT();
   const { user } = useAuthContext();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -602,28 +653,31 @@ function CoworkingPreview({ onJoin }: { onJoin: (opts: { camera: boolean; mic: b
   const [joining, setJoining] = useState(false);
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>(
-    () => (typeof window !== "undefined" && localStorage.getItem(STORAGE_KEYS.videoDevice)) || "",
+    () => (typeof window !== "undefined" && localStorage.getItem(STORAGE_KEYS.videoDevice)) || ""
   );
 
   // Enumerate video devices (once on mount)
   useEffect(() => {
-    navigator.mediaDevices.enumerateDevices().then((devices) => {
-      const cameras = devices.filter((d) => d.kind === "videoinput");
-      setVideoDevices(cameras);
-      setSelectedDeviceId((prev) => {
-        // Keep stored device if it still exists
-        if (prev && cameras.some((c) => c.deviceId === prev)) return prev;
-        // Fallback to first available
-        return cameras[0]?.deviceId ?? "";
-      });
-    }).catch(() => {});
+    navigator.mediaDevices
+      .enumerateDevices()
+      .then((devices) => {
+        const cameras = devices.filter((d) => d.kind === "videoinput");
+        setVideoDevices(cameras);
+        setSelectedDeviceId((prev) => {
+          // Keep stored device if it still exists
+          if (prev && cameras.some((c) => c.deviceId === prev)) return prev;
+          // Fallback to first available
+          return cameras[0]?.deviceId ?? "";
+        });
+      })
+      .catch(() => {});
   }, []);
 
   // Start local camera preview
   useEffect(() => {
     if (!cameraOn) {
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((tr) => tr.stop());
+        for (const tr of streamRef.current.getTracks()) tr.stop();
         streamRef.current = null;
       }
       if (videoRef.current) videoRef.current.srcObject = null;
@@ -640,22 +694,25 @@ function CoworkingPreview({ onJoin }: { onJoin: (opts: { camera: boolean; mic: b
       .getUserMedia(constraints)
       .then((stream) => {
         if (cancelled) {
-          stream.getTracks().forEach((tr) => tr.stop());
+          for (const tr of stream.getTracks()) tr.stop();
           return;
         }
         // Stop previous stream
         if (streamRef.current) {
-          streamRef.current.getTracks().forEach((tr) => tr.stop());
+          for (const tr of streamRef.current.getTracks()) tr.stop();
         }
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
         // Re-enumerate to get labels (requires active stream)
-        navigator.mediaDevices.enumerateDevices().then((devices) => {
-          const cameras = devices.filter((d) => d.kind === "videoinput");
-          setVideoDevices(cameras);
-        }).catch(() => {});
+        navigator.mediaDevices
+          .enumerateDevices()
+          .then((devices) => {
+            const cameras = devices.filter((d) => d.kind === "videoinput");
+            setVideoDevices(cameras);
+          })
+          .catch(() => {});
       })
       .catch(() => {
         setCameraOn(false);
@@ -664,7 +721,7 @@ function CoworkingPreview({ onJoin }: { onJoin: (opts: { camera: boolean; mic: b
     return () => {
       cancelled = true;
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((tr) => tr.stop());
+        for (const tr of streamRef.current.getTracks()) tr.stop();
         streamRef.current = null;
       }
     };
@@ -673,7 +730,9 @@ function CoworkingPreview({ onJoin }: { onJoin: (opts: { camera: boolean; mic: b
   // Clean up stream on unmount
   useEffect(() => {
     return () => {
-      streamRef.current?.getTracks().forEach((tr) => tr.stop());
+      if (streamRef.current) {
+        for (const tr of streamRef.current.getTracks()) tr.stop();
+      }
     };
   }, []);
 
@@ -683,7 +742,7 @@ function CoworkingPreview({ onJoin }: { onJoin: (opts: { camera: boolean; mic: b
   const handleJoin = async () => {
     setJoining(true);
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((tr) => tr.stop());
+      for (const tr of streamRef.current.getTracks()) tr.stop();
       streamRef.current = null;
     }
     try {
@@ -758,11 +817,27 @@ function CoworkingPreview({ onJoin }: { onJoin: (opts: { camera: boolean; mic: b
             }`}
             title={t("meetings.room.mic")}
           >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               {micOn ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4M12 15a3 3 0 003-3V5a3 3 0 00-6 0v7a3 3 0 003 3z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4M12 15a3 3 0 003-3V5a3 3 0 00-6 0v7a3 3 0 003 3z"
+                />
               ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
+                />
               )}
             </svg>
           </button>
@@ -777,11 +852,27 @@ function CoworkingPreview({ onJoin }: { onJoin: (opts: { camera: boolean; mic: b
             }`}
             title={t("meetings.room.camera")}
           >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               {cameraOn ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
               ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636"
+                />
               )}
             </svg>
           </button>
@@ -817,12 +908,16 @@ export default function CoworkingPage() {
     async (opts: { camera: boolean; mic: boolean; deviceId?: string }) => {
       try {
         setError(null);
-        await join({ enableCamera: opts.camera, enableMic: opts.mic, videoDeviceId: opts.deviceId });
+        await join({
+          enableCamera: opts.camera,
+          enableMic: opts.mic,
+          videoDeviceId: opts.deviceId,
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : t("coworking.tokenError"));
       }
     },
-    [join, t],
+    [join, t]
   );
 
   if (error) {

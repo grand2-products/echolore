@@ -18,8 +18,6 @@ describe("auth flow", () => {
 
     await logoutCurrentUser();
 
-    expect(assign).toHaveBeenCalledWith(
-      expect.stringContaining("/api/auth/signout"),
-    );
+    expect(assign).toHaveBeenCalledWith(expect.stringContaining("/api/auth/signout"));
   });
 });

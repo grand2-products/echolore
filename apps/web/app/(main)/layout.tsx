@@ -1,15 +1,15 @@
 "use client";
 
+import { CoworkingFloatingBar } from "@/components/coworking/floating-bar";
 import { Header, Sidebar } from "@/components/layout";
 import { FloatingChat } from "@/components/wiki-chat/floating-chat";
-import { CoworkingFloatingBar } from "@/components/coworking/floating-bar";
 import { isApiErrorStatus } from "@/lib/api";
 import { useAuthContext } from "@/lib/auth-context";
+import { CoworkingRoomProvider } from "@/lib/coworking-room-context";
 import { useAuthActions } from "@/lib/hooks/use-auth-actions";
 import { useT } from "@/lib/i18n";
 import { buildCurrentReturnTo, buildLoginUrl } from "@/lib/return-to";
 import { SiteSettingsProvider } from "@/lib/site-settings-context";
-import { CoworkingRoomProvider } from "@/lib/coworking-room-context";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
@@ -49,9 +49,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           <h1 className="text-lg font-semibold text-gray-900">
             {t("layout.sessionUnavailable.title")}
           </h1>
-          <p className="mt-2 text-sm text-gray-600">
-            {t("layout.sessionUnavailable.description")}
-          </p>
+          <p className="mt-2 text-sm text-gray-600">{t("layout.sessionUnavailable.description")}</p>
           <div className="mt-4 flex justify-center gap-3">
             <button
               type="button"

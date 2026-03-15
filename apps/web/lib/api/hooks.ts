@@ -125,10 +125,7 @@ export function useSendWikiChatMessageMutation(conversationId: string) {
     },
     onError: (_err, _content, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.wikiChatConversation(conversationId),
-          context.previous
-        );
+        queryClient.setQueryData(queryKeys.wikiChatConversation(conversationId), context.previous);
       }
     },
     onSettled: () => {

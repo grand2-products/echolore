@@ -127,11 +127,11 @@ describe("executeApiRequest silent-refresh integration", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
 
     // First call is the original request
-    expect(fetchMock.mock.calls[0]![0]).toBe(`${API_BASE}/wiki`);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${API_BASE}/wiki`);
     // Second call is the session check
-    expect(fetchMock.mock.calls[1]![0]).toBe(`${API_BASE}/auth/session`);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`${API_BASE}/auth/session`);
     // Third call is the retry
-    expect(fetchMock.mock.calls[2]![0]).toBe(`${API_BASE}/wiki`);
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(`${API_BASE}/wiki`);
   });
 
   it("does NOT retry when the Auth.js session check returns no user", async () => {
@@ -164,9 +164,7 @@ describe("executeApiRequest silent-refresh integration", () => {
       }
       if (url.endsWith("/wiki") || url.endsWith("/users")) {
         // First call for each endpoint returns 401, subsequent calls succeed
-        const callsForUrl = fetchMock.mock.calls.filter(
-          (c) => String(c[0]) === url
-        ).length;
+        const callsForUrl = fetchMock.mock.calls.filter((c) => String(c[0]) === url).length;
         if (callsForUrl <= 1) {
           return fakeResponse(401, { error: "Unauthorized" });
         }

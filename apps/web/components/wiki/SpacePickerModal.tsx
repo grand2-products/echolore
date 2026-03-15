@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { wikiApi, useSpacesQuery } from "@/lib/api";
+import { useSpacesQuery, wikiApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
+import { useRouter } from "next/navigation";
+import { useCallback, useRef, useState } from "react";
 import { ModalShell } from "./ModalShell";
 import { SpaceList } from "./SpaceList";
 
@@ -37,17 +37,13 @@ export function SpacePickerModal({ open, onClose }: SpacePickerModalProps) {
           creatingRef.current = false;
         });
     },
-    [router, t, onClose],
+    [router, t, onClose]
   );
 
   return (
     <ModalShell open={open} onClose={onClose}>
-      <h2 className="mb-1 text-lg font-bold text-gray-900">
-        {t("wiki.newPage.pickSpaceTitle")}
-      </h2>
-      <p className="mb-5 text-sm text-gray-500">
-        {t("wiki.newPage.pickSpaceDescription")}
-      </p>
+      <h2 className="mb-1 text-lg font-bold text-gray-900">{t("wiki.newPage.pickSpaceTitle")}</h2>
+      <p className="mb-5 text-sm text-gray-500">{t("wiki.newPage.pickSpaceDescription")}</p>
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">

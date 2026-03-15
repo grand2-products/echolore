@@ -6,6 +6,7 @@ import {
 } from "./internal-api-client.js";
 import { inspectRooms } from "./livekit-monitor.js";
 import { startLiveKitWebhookServer } from "./livekit-webhook-server.js";
+import { startHealthServer, setHealthy } from "./health.js";
 
 function getArgValue(flag: string) {
   const index = process.argv.indexOf(flag);
@@ -32,12 +33,14 @@ async function waitForApiReady(apiBaseUrl: string, timeoutMs = 30000) {
   throw new Error(`API did not become ready within ${timeoutMs}ms: ${apiBaseUrl}/health`);
 }
 
+const shutdownController = new AbortController();
+
 async function runMonitorMode() {
   const config = getWorkerConfig();
   await waitForApiReady(config.apiBaseUrl);
   console.log(`[room-ai-worker] monitor mode started; polling every ${config.pollIntervalMs}ms`);
 
-  while (true) {
+  while (!shutdownController.signal.aborted) {
     try {
       const rooms = await inspectRooms({
         host: config.livekitHost,
@@ -71,6 +74,7 @@ async function runMonitorMode() {
         });
       }
 
+      setHealthy(true);
       console.log(
         `[room-ai-worker] rooms=${rooms.length} ${rooms
           .map((room) => `${room.roomName}:${room.participantCount}`)
@@ -131,6 +135,9 @@ async function main() {
     return;
   }
 
+  // Start health server for long-running modes
+  startHealthServer(config.healthPort);
+
   if (config.mode === "webhook") {
     await runWebhookMode();
     return;
@@ -138,6 +145,17 @@ async function main() {
 
   await runMonitorMode();
 }
+
+// Graceful shutdown
+function gracefulShutdown(signal: string) {
+  console.log(`[room-ai-worker] ${signal} received, shutting down`);
+  setHealthy(false);
+  shutdownController.abort();
+  // Allow in-flight operations to finish
+  setTimeout(() => process.exit(0), 5000);
+}
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 void main().catch((error) => {
   console.error("[room-ai-worker] fatal error", error);

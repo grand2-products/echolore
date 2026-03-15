@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { metricsApi, type KpiOverviewResponse } from "@/lib/api";
+import { type KpiOverviewResponse, metricsApi } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
+import { useEffect, useState } from "react";
 
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 const alertTone = (critical: boolean, warning: boolean) => {
@@ -23,6 +23,7 @@ export default function KpiDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce is an intentional re-trigger
   useEffect(() => {
     let mounted = true;
 
@@ -56,129 +57,147 @@ export default function KpiDashboardPage() {
 
   return (
     <div>
-          <div className="mb-6 flex flex-wrap items-end justify-end gap-4">
-          <label className="text-sm text-gray-600">
-            {tt("admin.kpi.window", "Window")}
-            <select
-              value={windowDays}
-              onChange={(e) => setWindowDays(Number(e.target.value))}
-              className="ml-2 rounded border border-gray-300 px-2 py-1"
+      <div className="mb-6 flex flex-wrap items-end justify-end gap-4">
+        <label className="text-sm text-gray-600">
+          {tt("admin.kpi.window", "Window")}
+          <select
+            value={windowDays}
+            onChange={(e) => setWindowDays(Number(e.target.value))}
+            className="ml-2 rounded border border-gray-300 px-2 py-1"
+          >
+            <option value={7}>{tt("admin.kpi.days", "7 days", { count: 7 })}</option>
+            <option value={30}>{tt("admin.kpi.days", "30 days", { count: 30 })}</option>
+            <option value={90}>{tt("admin.kpi.days", "90 days", { count: 90 })}</option>
+          </select>
+        </label>
+      </div>
+
+      {error ? (
+        <div className="mb-4 space-y-3">
+          <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setRetryNonce((current) => current + 1)}
+              className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50"
             >
-              <option value={7}>{tt("admin.kpi.days", "7 days", { count: 7 })}</option>
-              <option value={30}>{tt("admin.kpi.days", "30 days", { count: 30 })}</option>
-              <option value={90}>{tt("admin.kpi.days", "90 days", { count: 90 })}</option>
-            </select>
-          </label>
+              {t("common.actions.retry")}
+            </button>
+          </div>
         </div>
+      ) : null}
 
-        {error ? (
-          <div className="mb-4 space-y-3">
-            <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setRetryNonce((current) => current + 1)}
-                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50"
-              >
-                {t("common.actions.retry")}
-              </button>
-            </div>
+      {isLoading ? (
+        <div className="rounded border border-gray-200 bg-white p-8 text-center text-gray-500">
+          {tt("admin.kpi.loading", "Loading KPI...")}
+        </div>
+      ) : data ? (
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded border border-gray-200 bg-white p-5">
+            <p className="text-xs uppercase tracking-wide text-gray-500">
+              {tt("admin.kpi.mauTitle", "MAU")}
+            </p>
+            <p className="mt-2 text-3xl font-semibold text-gray-900">{number(data.metrics.mau)}</p>
+            <p className="mt-1 text-xs text-gray-500">
+              {tt("admin.kpi.mauDescription", "Distinct authenticated users")}
+            </p>
           </div>
-        ) : null}
-
-        {isLoading ? (
-          <div className="rounded border border-gray-200 bg-white p-8 text-center text-gray-500">
-            {tt("admin.kpi.loading", "Loading KPI...")}
-          </div>
-        ) : data ? (
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded border border-gray-200 bg-white p-5">
-              <p className="text-xs uppercase tracking-wide text-gray-500">
-                {tt("admin.kpi.mauTitle", "MAU")}
-              </p>
-              <p className="mt-2 text-3xl font-semibold text-gray-900">{number(data.metrics.mau)}</p>
-              <p className="mt-1 text-xs text-gray-500">
-                {tt("admin.kpi.mauDescription", "Distinct authenticated users")}
-              </p>
-            </div>
-            <div className="rounded border border-gray-200 bg-white p-5">
-              <p className="text-xs uppercase tracking-wide text-gray-500">
-                {tt("admin.kpi.searchSuccessTitle", "Search Success")}
-              </p>
-              <p className="mt-2 text-3xl font-semibold text-gray-900">{percent(data.metrics.searchSuccessRate)}</p>
-              <p className="mt-1 text-xs text-gray-500">
-                {tt("admin.kpi.searchSuccessDescription", `${number(data.metrics.searchSuccess)} / ${number(data.metrics.searchTotal)} searches`, {
+          <div className="rounded border border-gray-200 bg-white p-5">
+            <p className="text-xs uppercase tracking-wide text-gray-500">
+              {tt("admin.kpi.searchSuccessTitle", "Search Success")}
+            </p>
+            <p className="mt-2 text-3xl font-semibold text-gray-900">
+              {percent(data.metrics.searchSuccessRate)}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              {tt(
+                "admin.kpi.searchSuccessDescription",
+                `${number(data.metrics.searchSuccess)} / ${number(data.metrics.searchTotal)} searches`,
+                {
                   success: number(data.metrics.searchSuccess),
                   total: number(data.metrics.searchTotal),
-                })}
-              </p>
-            </div>
-            <div className="rounded border border-gray-200 bg-white p-5">
-              <p className="text-xs uppercase tracking-wide text-gray-500">
-                {tt("admin.kpi.minutesTitle", "Minutes Utilization")}
-              </p>
-              <p className="mt-2 text-3xl font-semibold text-gray-900">{percent(data.metrics.minutesUtilizationRate)}</p>
-              <p className="mt-1 text-xs text-gray-500">
-                {tt("admin.kpi.minutesDescription", `${number(data.metrics.meetingsWithMinutes)} / ${number(data.metrics.meetingsTotal)} meetings`, {
+                }
+              )}
+            </p>
+          </div>
+          <div className="rounded border border-gray-200 bg-white p-5">
+            <p className="text-xs uppercase tracking-wide text-gray-500">
+              {tt("admin.kpi.minutesTitle", "Minutes Utilization")}
+            </p>
+            <p className="mt-2 text-3xl font-semibold text-gray-900">
+              {percent(data.metrics.minutesUtilizationRate)}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              {tt(
+                "admin.kpi.minutesDescription",
+                `${number(data.metrics.meetingsWithMinutes)} / ${number(data.metrics.meetingsTotal)} meetings`,
+                {
                   withMinutes: number(data.metrics.meetingsWithMinutes),
                   total: number(data.metrics.meetingsTotal),
-                })}
+                }
+              )}
+            </p>
+          </div>
+          <div className="rounded border border-gray-200 bg-white p-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500">
+                {tt("admin.kpi.authRejectedTitle", "Auth Rejected")}
               </p>
+              <span
+                className={`rounded border px-2 py-1 text-[11px] font-medium ${alertTone(
+                  data.alerts.authRejected.critical,
+                  data.alerts.authRejected.warning
+                )}`}
+              >
+                {alertLabel(data.alerts.authRejected.critical, data.alerts.authRejected.warning)}
+              </span>
             </div>
-            <div className="rounded border border-gray-200 bg-white p-5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs uppercase tracking-wide text-gray-500">
-                  {tt("admin.kpi.authRejectedTitle", "Auth Rejected")}
-                </p>
-                <span
-                  className={`rounded border px-2 py-1 text-[11px] font-medium ${alertTone(
-                    data.alerts.authRejected.critical,
-                    data.alerts.authRejected.warning
-                  )}`}
-                >
-                  {alertLabel(data.alerts.authRejected.critical, data.alerts.authRejected.warning)}
-                </span>
-              </div>
-              <p className="mt-2 text-3xl font-semibold text-gray-900">{number(data.security.authRejectedTotal)}</p>
-              <p className="mt-1 text-xs text-gray-500">
-                {tt(
-                  "admin.kpi.thresholds",
-                  `Warning ${number(data.alerts.authRejected.warningThreshold)} / Critical ${number(data.alerts.authRejected.criticalThreshold)}`,
-                  {
+            <p className="mt-2 text-3xl font-semibold text-gray-900">
+              {number(data.security.authRejectedTotal)}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              {tt(
+                "admin.kpi.thresholds",
+                `Warning ${number(data.alerts.authRejected.warningThreshold)} / Critical ${number(data.alerts.authRejected.criticalThreshold)}`,
+                {
                   warning: number(data.alerts.authRejected.warningThreshold),
                   critical: number(data.alerts.authRejected.criticalThreshold),
-                  }
-                )}
+                }
+              )}
+            </p>
+          </div>
+          <div className="rounded border border-gray-200 bg-white p-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs uppercase tracking-wide text-gray-500">
+                {tt("admin.kpi.authzDeniedTitle", "AuthZ Denied")}
               </p>
+              <span
+                className={`rounded border px-2 py-1 text-[11px] font-medium ${alertTone(
+                  data.alerts.authzDenied.critical,
+                  data.alerts.authzDenied.warning
+                )}`}
+              >
+                {alertLabel(data.alerts.authzDenied.critical, data.alerts.authzDenied.warning)}
+              </span>
             </div>
-            <div className="rounded border border-gray-200 bg-white p-5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs uppercase tracking-wide text-gray-500">
-                  {tt("admin.kpi.authzDeniedTitle", "AuthZ Denied")}
-                </p>
-                <span
-                  className={`rounded border px-2 py-1 text-[11px] font-medium ${alertTone(
-                    data.alerts.authzDenied.critical,
-                    data.alerts.authzDenied.warning
-                  )}`}
-                >
-                  {alertLabel(data.alerts.authzDenied.critical, data.alerts.authzDenied.warning)}
-                </span>
-              </div>
-              <p className="mt-2 text-3xl font-semibold text-gray-900">{number(data.security.authzDeniedTotal)}</p>
-              <p className="mt-1 text-xs text-gray-500">
-                {tt(
-                  "admin.kpi.thresholds",
-                  `Warning ${number(data.alerts.authzDenied.warningThreshold)} / Critical ${number(data.alerts.authzDenied.criticalThreshold)}`,
-                  {
+            <p className="mt-2 text-3xl font-semibold text-gray-900">
+              {number(data.security.authzDeniedTotal)}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              {tt(
+                "admin.kpi.thresholds",
+                `Warning ${number(data.alerts.authzDenied.warningThreshold)} / Critical ${number(data.alerts.authzDenied.criticalThreshold)}`,
+                {
                   warning: number(data.alerts.authzDenied.warningThreshold),
                   critical: number(data.alerts.authzDenied.criticalThreshold),
-                  }
-                )}
-              </p>
-            </div>
+                }
+              )}
+            </p>
           </div>
-        ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -25,9 +25,17 @@ function parseMarkdown(text: string): React.ReactNode[] {
   const flushList = () => {
     if (listItems.length > 0) {
       if (listType === "ol") {
-        elements.push(<ol key={`ol-${key++}`} className="my-1 list-decimal pl-5">{listItems}</ol>);
+        elements.push(
+          <ol key={`ol-${key++}`} className="my-1 list-decimal pl-5">
+            {listItems}
+          </ol>
+        );
       } else {
-        elements.push(<ul key={`ul-${key++}`} className="my-1 list-disc pl-5">{listItems}</ul>);
+        elements.push(
+          <ul key={`ul-${key++}`} className="my-1 list-disc pl-5">
+            {listItems}
+          </ul>
+        );
       }
       listItems = [];
       listType = null;
@@ -39,19 +47,31 @@ function parseMarkdown(text: string): React.ReactNode[] {
     const h3Match = line.match(/^### (.+)$/);
     if (h3Match) {
       flushList();
-      elements.push(<h3 key={key++} className="my-2 text-base font-semibold">{formatInline(h3Match[1]!)}</h3>);
+      elements.push(
+        <h3 key={key++} className="my-2 text-base font-semibold">
+          {formatInline(h3Match[1] ?? "")}
+        </h3>
+      );
       continue;
     }
     const h2Match = line.match(/^## (.+)$/);
     if (h2Match) {
       flushList();
-      elements.push(<h2 key={key++} className="my-2 text-lg font-semibold">{formatInline(h2Match[1]!)}</h2>);
+      elements.push(
+        <h2 key={key++} className="my-2 text-lg font-semibold">
+          {formatInline(h2Match[1] ?? "")}
+        </h2>
+      );
       continue;
     }
     const h1Match = line.match(/^# (.+)$/);
     if (h1Match) {
       flushList();
-      elements.push(<h1 key={key++} className="my-2 text-xl font-bold">{formatInline(h1Match[1]!)}</h1>);
+      elements.push(
+        <h1 key={key++} className="my-2 text-xl font-bold">
+          {formatInline(h1Match[1] ?? "")}
+        </h1>
+      );
       continue;
     }
 
@@ -60,7 +80,11 @@ function parseMarkdown(text: string): React.ReactNode[] {
     if (olMatch) {
       if (listType === "ul") flushList();
       listType = "ol";
-      listItems.push(<li key={`li-${key++}`} className="my-0">{formatInline(olMatch[1]!)}</li>);
+      listItems.push(
+        <li key={`li-${key++}`} className="my-0">
+          {formatInline(olMatch[1] ?? "")}
+        </li>
+      );
       continue;
     }
 
@@ -69,7 +93,11 @@ function parseMarkdown(text: string): React.ReactNode[] {
     if (liMatch) {
       if (listType === "ol") flushList();
       listType = "ul";
-      listItems.push(<li key={`li-${key++}`} className="my-0">{formatInline(liMatch[1]!)}</li>);
+      listItems.push(
+        <li key={`li-${key++}`} className="my-0">
+          {formatInline(liMatch[1] ?? "")}
+        </li>
+      );
       continue;
     }
 
@@ -81,7 +109,11 @@ function parseMarkdown(text: string): React.ReactNode[] {
 
     // Paragraph
     flushList();
-    elements.push(<p key={key++} className="my-1">{formatInline(line)}</p>);
+    elements.push(
+      <p key={key++} className="my-1">
+        {formatInline(line)}
+      </p>
+    );
   }
 
   flushList();
@@ -97,18 +129,18 @@ function formatInline(text: string): React.ReactNode[] {
     // Bold
     const boldMatch = remaining.match(/^(.*?)\*\*(.+?)\*\*(.*)/s);
     if (boldMatch) {
-      if (boldMatch[1]) parts.push(formatCodeInline(boldMatch[1]!, key++));
-      parts.push(<strong key={`b-${key++}`}>{formatCodeInline(boldMatch[2]!, key++)}</strong>);
-      remaining = boldMatch[3]!;
+      if (boldMatch[1]) parts.push(formatCodeInline(boldMatch[1] ?? "", key++));
+      parts.push(<strong key={`b-${key++}`}>{formatCodeInline(boldMatch[2] ?? "", key++)}</strong>);
+      remaining = boldMatch[3] ?? "";
       continue;
     }
 
     // Italic
     const italicMatch = remaining.match(/^(.*?)\*(.+?)\*(.*)/s);
     if (italicMatch) {
-      if (italicMatch[1]) parts.push(formatCodeInline(italicMatch[1]!, key++));
-      parts.push(<em key={`i-${key++}`}>{formatCodeInline(italicMatch[2]!, key++)}</em>);
-      remaining = italicMatch[3]!;
+      if (italicMatch[1]) parts.push(formatCodeInline(italicMatch[1] ?? "", key++));
+      parts.push(<em key={`i-${key++}`}>{formatCodeInline(italicMatch[2] ?? "", key++)}</em>);
+      remaining = italicMatch[3] ?? "";
       continue;
     }
 
@@ -126,6 +158,7 @@ function formatCodeInline(text: string, baseKey: number): React.ReactNode {
 
   return parts.map((part, i) =>
     i % 2 === 1 ? (
+      // biome-ignore lint/suspicious/noArrayIndexKey: split parts have no unique id
       <code key={`c-${baseKey}-${i}`} className="rounded bg-gray-200 px-1 py-0.5 text-xs">
         {part}
       </code>

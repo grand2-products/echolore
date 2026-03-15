@@ -2,11 +2,14 @@
 
 import { type AgentDefinition, type CreateAgentRequest, adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
-import { useFormatters, useT } from "@/lib/i18n";
 import { useStableEvent } from "@/lib/hooks/use-stable-event";
+import { useFormatters, useT } from "@/lib/i18n";
 import { useEffect, useState } from "react";
 import { LlmSettingsSection } from "../settings/_components/LlmSettingsSection";
-import { TestConnectionModal, type TestModalState } from "../settings/_components/TestConnectionModal";
+import {
+  TestConnectionModal,
+  type TestModalState,
+} from "../settings/_components/TestConnectionModal";
 
 const emptyForm: CreateAgentRequest = {
   name: "",
@@ -77,7 +80,6 @@ export default function AdminAgentsPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <section className="rounded-xl border border-gray-200 bg-white p-6">
-
           {error ? (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               <span>{error}</span>
@@ -115,7 +117,11 @@ export default function AdminAgentsPage() {
                       systemPrompt: agent.systemPrompt,
                       voiceProfile: agent.voiceProfile,
                       interventionStyle: agent.interventionStyle,
-                      defaultProvider: (["google", "vertex", "zhipu"].includes(agent.defaultProvider) ? agent.defaultProvider : "google") as CreateAgentRequest["defaultProvider"],
+                      defaultProvider: (["google", "vertex", "zhipu"].includes(
+                        agent.defaultProvider
+                      )
+                        ? agent.defaultProvider
+                        : "google") as CreateAgentRequest["defaultProvider"],
                       isActive: agent.isActive,
                       autonomousEnabled: agent.autonomousEnabled,
                       autonomousCooldownSec: agent.autonomousCooldownSec,
@@ -147,8 +153,8 @@ export default function AdminAgentsPage() {
                       </span>
                     </div>
                   </div>
-                    <div className="mt-3 text-xs text-gray-500">
-                      {t("admin.agents.meta", {
+                  <div className="mt-3 text-xs text-gray-500">
+                    {t("admin.agents.meta", {
                       style: formatters.interventionStyle(agent.interventionStyle),
                       provider: formatters.provider(agent.defaultProvider),
                     })}
@@ -311,9 +317,7 @@ export default function AdminAgentsPage() {
         </section>
       </div>
 
-      {testModal && (
-        <TestConnectionModal modal={testModal} onClose={() => setTestModal(null)} />
-      )}
+      {testModal && <TestConnectionModal modal={testModal} onClose={() => setTestModal(null)} />}
     </div>
   );
 }

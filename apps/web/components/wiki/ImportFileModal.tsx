@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { wikiApi, useSpacesQuery } from "@/lib/api";
+import { useSpacesQuery, wikiApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
+import { useRouter } from "next/navigation";
+import { useCallback, useRef, useState } from "react";
 import { ModalShell } from "./ModalShell";
 import { SpaceList } from "./SpaceList";
 
@@ -66,12 +66,8 @@ export function ImportFileModal({ open, onClose }: ImportFileModalProps) {
 
   return (
     <ModalShell open={open} onClose={handleClose}>
-      <h2 className="mb-1 text-lg font-bold text-gray-900">
-        {t("wiki.import.title")}
-      </h2>
-      <p className="mb-5 text-sm text-gray-500">
-        {t("wiki.import.description")}
-      </p>
+      <h2 className="mb-1 text-lg font-bold text-gray-900">{t("wiki.import.title")}</h2>
+      <p className="mb-5 text-sm text-gray-500">{t("wiki.import.description")}</p>
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -81,10 +77,11 @@ export function ImportFileModal({ open, onClose }: ImportFileModalProps) {
 
       {/* File picker */}
       <div className="mb-4">
-        <label className="mb-1 block text-sm font-medium text-gray-700">
+        <label htmlFor="import-file-input" className="mb-1 block text-sm font-medium text-gray-700">
           {t("wiki.import.fileLabel")}
         </label>
         <input
+          id="import-file-input"
           ref={fileInputRef}
           type="file"
           accept={ACCEPT}
@@ -100,7 +97,10 @@ export function ImportFileModal({ open, onClose }: ImportFileModalProps) {
 
       {/* Space picker */}
       <div className="mb-4">
-        <label className="mb-1 block text-sm font-medium text-gray-700">
+        <label
+          htmlFor="import-space-select"
+          className="mb-1 block text-sm font-medium text-gray-700"
+        >
           {t("wiki.import.spaceLabel")}
         </label>
         {isLoading ? (

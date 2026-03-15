@@ -42,8 +42,9 @@ export function groupPagesBySpace(pages: Page[], spaces: Space[]): Record<string
     grouped[space.id] = [];
   }
   for (const page of pages) {
-    const bucket = grouped[page.spaceId] ?? (grouped[page.spaceId] = []);
+    const bucket = grouped[page.spaceId] ?? [];
     bucket.push(page);
+    grouped[page.spaceId] = bucket;
   }
 
   const result: Record<string, PageNode[]> = {};

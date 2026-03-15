@@ -1,11 +1,11 @@
 "use client";
 
+import { getVisibleNavigationItems } from "@/components/layout/navigation";
 import type { AuthMeResponse, Page, SessionUser, Space } from "@/lib/api";
 import { useSpacesQuery, wikiApi } from "@/lib/api";
-import { getVisibleNavigationItems } from "@/components/layout/navigation";
+import { useAuthActions } from "@/lib/hooks/use-auth-actions";
 import { useT } from "@/lib/i18n";
 import { useSiteTitle } from "@/lib/site-settings-context";
-import { useAuthActions } from "@/lib/hooks/use-auth-actions";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -44,15 +44,11 @@ function SearchSuggestions({
   const t = useT();
 
   if (isLoading) {
-    return (
-      <div className="px-4 py-3 text-sm text-gray-500">{t("search.searching")}</div>
-    );
+    return <div className="px-4 py-3 text-sm text-gray-500">{t("search.searching")}</div>;
   }
 
   if (results.length === 0) {
-    return (
-      <div className="px-4 py-3 text-sm text-gray-500">{t("search.empty")}</div>
-    );
+    return <div className="px-4 py-3 text-sm text-gray-500">{t("search.empty")}</div>;
   }
 
   return (
@@ -66,14 +62,27 @@ function SearchSuggestions({
             onClick={onSelect}
             className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100"
           >
-            <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <svg
+              className="h-4 w-4 shrink-0 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
             </svg>
             <span className="min-w-0 flex-1 truncate text-gray-700">
               {page.title || t("wiki.newPage.defaultTitle")}
             </span>
             <span className="shrink-0 text-xs text-gray-400">
-              {space ? space.name : ""}{space ? " · " : ""}{formatRelativeDate(page.updatedAt)}
+              {space ? space.name : ""}
+              {space ? " · " : ""}
+              {formatRelativeDate(page.updatedAt)}
             </span>
           </Link>
         );
@@ -118,6 +127,7 @@ export function Header({ user }: HeaderProps) {
   const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: close menus on route change only
   useEffect(() => {
     setIsUserMenuOpen(false);
     setIsMobileMenuOpen(false);
@@ -136,8 +146,10 @@ export function Header({ user }: HeaderProps) {
     function handleClick(e: MouseEvent) {
       const target = e.target as Node;
       if (
-        searchContainerRef.current && !searchContainerRef.current.contains(target) &&
-        mobileSearchContainerRef.current && !mobileSearchContainerRef.current.contains(target)
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(target) &&
+        mobileSearchContainerRef.current &&
+        !mobileSearchContainerRef.current.contains(target)
       ) {
         setShowSuggestions(false);
       }
@@ -204,7 +216,7 @@ export function Header({ user }: HeaderProps) {
       setShowSuggestions(false);
       router.push(normalized ? `/search?q=${encodeURIComponent(normalized)}` : "/search");
     },
-    [router],
+    [router]
   );
 
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -239,8 +251,19 @@ export function Header({ user }: HeaderProps) {
             onClick={() => setIsMobileMenuOpen((open) => !open)}
             aria-label={t("common.openMobileNavigation")}
           >
-            <svg aria-hidden="true" className="h-6 w-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            <svg
+              aria-hidden="true"
+              className="h-6 w-6 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 12h16M4 18h16"
+              />
             </svg>
           </button>
 
@@ -249,13 +272,18 @@ export function Header({ user }: HeaderProps) {
           </Link>
         </div>
 
-        <form onSubmit={handleSearchSubmit} className="hidden min-w-0 flex-1 justify-center px-4 md:flex">
+        <form
+          onSubmit={handleSearchSubmit}
+          className="hidden min-w-0 flex-1 justify-center px-4 md:flex"
+        >
           <div ref={searchContainerRef} className="relative w-full max-w-md">
             <input
               type="text"
               value={query}
               onChange={(event) => handleQueryChange(event.target.value)}
-              onFocus={() => { if (query.trim() && suggestions.length > 0) setShowSuggestions(true); }}
+              onFocus={() => {
+                if (query.trim() && suggestions.length > 0) setShowSuggestions(true);
+              }}
               placeholder={t("search.placeholder")}
               className="w-full rounded-lg border border-gray-300 px-4 py-2 pl-10 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
@@ -279,46 +307,48 @@ export function Header({ user }: HeaderProps) {
 
         <div className="flex items-center gap-3">
           <div className="relative">
-          <button
-            type="button"
-            onClick={() => setIsUserMenuOpen((open) => !open)}
-            className="flex items-center gap-2 rounded-full p-1 transition hover:bg-gray-100"
-          >
-            {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.name} className="h-8 w-8 rounded-full" />
-            ) : (
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-medium text-white">
-                {user?.name?.charAt(0) || "U"}
+            <button
+              type="button"
+              onClick={() => setIsUserMenuOpen((open) => !open)}
+              className="flex items-center gap-2 rounded-full p-1 transition hover:bg-gray-100"
+            >
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.name} className="h-8 w-8 rounded-full" />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-medium text-white">
+                  {user?.name?.charAt(0) || "U"}
+                </div>
+              )}
+              <span className="hidden text-sm font-medium text-gray-700 md:block">
+                {user?.name || t("common.userFallback")}
+              </span>
+            </button>
+
+            {isUserMenuOpen && (
+              <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                <div className="border-b border-gray-100 px-4 py-2">
+                  <p className="text-sm font-medium text-gray-900">
+                    {user?.name || t("common.userFallback")}
+                  </p>
+                  <p className="text-xs text-gray-500">{user?.email || "user@example.com"}</p>
+                </div>
+                <Link
+                  href="/settings"
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={() => setIsUserMenuOpen(false)}
+                >
+                  {t("common.nav.settings")}
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void handleLogout()}
+                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  {t("common.nav.logout")}
+                </button>
               </div>
             )}
-            <span className="hidden text-sm font-medium text-gray-700 md:block">
-              {user?.name || t("common.userFallback")}
-            </span>
-          </button>
-
-          {isUserMenuOpen && (
-            <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-              <div className="border-b border-gray-100 px-4 py-2">
-                <p className="text-sm font-medium text-gray-900">{user?.name || t("common.userFallback")}</p>
-                <p className="text-xs text-gray-500">{user?.email || "user@example.com"}</p>
-              </div>
-              <Link
-                href="/settings"
-                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                onClick={() => setIsUserMenuOpen(false)}
-              >
-                {t("common.nav.settings")}
-              </Link>
-              <button
-                type="button"
-                onClick={() => void handleLogout()}
-                className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-              >
-                {t("common.nav.logout")}
-              </button>
-            </div>
-          )}
-        </div>
+          </div>
         </div>
       </div>
 
@@ -330,7 +360,9 @@ export function Header({ user }: HeaderProps) {
                 type="text"
                 value={query}
                 onChange={(event) => handleQueryChange(event.target.value)}
-                onFocus={() => { if (query.trim() && suggestions.length > 0) setShowSuggestions(true); }}
+                onFocus={() => {
+                  if (query.trim() && suggestions.length > 0) setShowSuggestions(true);
+                }}
                 placeholder={t("search.placeholder")}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
@@ -355,7 +387,10 @@ export function Header({ user }: HeaderProps) {
                 </Link>
               );
             })}
-            <Link href="/settings" className="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+            <Link
+              href="/settings"
+              className="block rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
               {t("common.nav.settings")}
             </Link>
             <button

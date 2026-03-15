@@ -8,7 +8,7 @@ corp-internal を本番環境（VPS）にデプロイするための手順書で
 - OS: Debian 12 / Ubuntu 22.04 以降（Linux）
 - メモリ: 2GB 以上推奨
 - ストレージ: 20GB 以上
-- ポート開放: 80, 443, 50000-50200/udp（LiveKit RTC メディア用）
+- ポート開放: 80, 443, 3478/udp, 5349/tcp（TURN）, 50000-50200/udp（LiveKit RTC メディア用）
 
 ### 外部サービス
 - ドメイン名（DNS の A レコードをサーバー IP に設定済み）
@@ -92,6 +92,12 @@ GOOGLE_CLIENT_SECRET=<OAuth クライアントシークレット>
 LIVEKIT_HOST=http://livekit:7880
 LIVEKIT_API_KEY=<LiveKit API キー>
 LIVEKIT_API_SECRET=<LiveKit API シークレット>
+
+# TURN サーバー（UDP が使えない環境向けフォールバック）
+# LIVEKIT_TURN_DOMAIN は DOMAIN と同じ値、またはサブドメイン（turn.your-domain.com）
+# DNS の A レコードがサーバー IP を指している必要があります
+LIVEKIT_TURN_DOMAIN=your-domain.com
+LIVEKIT_TURN_TLS_PORT=5349
 
 # GHCR 認証（プライベートリポジトリの場合）
 GHCR_USER=<GitHub ユーザー名>

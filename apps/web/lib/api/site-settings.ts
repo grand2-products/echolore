@@ -16,5 +16,7 @@ export function getSiteIconUrl() {
 }
 
 export function getWikiFileDownloadUrl(pageId: string, fileId: string) {
-  return buildApiUrl(`/wiki/${encodeURIComponent(pageId)}/files/${encodeURIComponent(fileId)}/download`);
+  return buildApiUrl(
+    `/wiki/${encodeURIComponent(pageId)}/files/${encodeURIComponent(fileId)}/download`
+  );
 }

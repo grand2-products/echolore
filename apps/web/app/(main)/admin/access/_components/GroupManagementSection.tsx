@@ -1,14 +1,10 @@
 "use client";
 
-import {
-  adminApi,
-  type AdminGroup,
-  type CreateAdminGroupRequest,
-} from "@/lib/api";
+import { type AdminGroup, type CreateAdminGroupRequest, adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 import { ALL_GROUP_PERMISSIONS, type GroupPermission } from "@corp-internal/shared/contracts";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 /** Map "wiki.read" -> "permWikiRead" for i18n key lookup */
 function permI18nKey(perm: GroupPermission): string {
@@ -165,103 +161,101 @@ export function GroupManagementSection({ groups, onRefresh, setError, setNotice 
       </div>
 
       {showGroupForm ? (
-      <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">
-            {selectedGroup
-              ? t("admin.access.editGroup", { name: selectedGroup.name })
-              : t("admin.access.createGroup")}
-          </h3>
-          <button
-            type="button"
-            onClick={() => setShowGroupForm(false)}
-            className="text-gray-400 hover:text-gray-600"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-
-        <label className="block text-sm text-gray-700">
-          {t("admin.access.name")}
-          <input
-            value={groupForm.name}
-            onChange={(event) =>
-              setGroupForm((current) => ({ ...current, name: event.target.value }))
-            }
-            disabled={selectedGroup?.isSystem}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100"
-          />
-        </label>
-
-        <label className="block text-sm text-gray-700">
-          {t("admin.access.descriptionLabel")}
-          <input
-            value={groupForm.description ?? ""}
-            onChange={(event) =>
-              setGroupForm((current) => ({ ...current, description: event.target.value }))
-            }
-            disabled={selectedGroup?.isSystem}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100"
-          />
-        </label>
-
-        <fieldset className="text-sm text-gray-700" disabled={selectedGroup?.isSystem}>
-          <legend className="mb-2 font-medium">{t("admin.access.permissionLabels")}</legend>
-          <div className="grid grid-cols-1 gap-1.5">
-            {ALL_GROUP_PERMISSIONS.map((perm) => (
-              <label
-                key={perm}
-                className="flex items-center gap-2 rounded border border-gray-200 px-2.5 py-2 text-xs"
-              >
-                <input
-                  type="checkbox"
-                  checked={groupForm.permissions.includes(perm)}
-                  onChange={(event) =>
-                    setGroupForm((current) => ({
-                      ...current,
-                      permissions: event.target.checked
-                        ? [...current.permissions, perm]
-                        : current.permissions.filter((p) => p !== perm),
-                    }))
-                  }
-                />
-                <span>
-                  <span className="font-medium text-gray-900">{t(permI18nKey(perm))}</span>
-                  <span className="ml-1.5 text-gray-400">{perm}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={submitGroup}
-            disabled={
-              isSavingGroup || !groupForm.name.trim() || Boolean(selectedGroup?.isSystem)
-            }
-            className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-          >
-            {isSavingGroup
-              ? t("admin.access.saving")
-              : selectedGroup
-                ? t("admin.access.updateGroup")
-                : t("admin.access.createGroupAction")}
-          </button>
-          {selectedGroup && !selectedGroup.isSystem ? (
+        <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900">
+              {selectedGroup
+                ? t("admin.access.editGroup", { name: selectedGroup.name })
+                : t("admin.access.createGroup")}
+            </h3>
             <button
               type="button"
-              onClick={removeGroup}
-              disabled={isSavingGroup}
-              className="rounded-md border border-red-300 px-4 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"
+              onClick={() => setShowGroupForm(false)}
+              className="text-gray-400 hover:text-gray-600"
+              aria-label="Close"
             >
-              {t("admin.access.delete")}
+              ✕
             </button>
-          ) : null}
+          </div>
+
+          <label className="block text-sm text-gray-700">
+            {t("admin.access.name")}
+            <input
+              value={groupForm.name}
+              onChange={(event) =>
+                setGroupForm((current) => ({ ...current, name: event.target.value }))
+              }
+              disabled={selectedGroup?.isSystem}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+            />
+          </label>
+
+          <label className="block text-sm text-gray-700">
+            {t("admin.access.descriptionLabel")}
+            <input
+              value={groupForm.description ?? ""}
+              onChange={(event) =>
+                setGroupForm((current) => ({ ...current, description: event.target.value }))
+              }
+              disabled={selectedGroup?.isSystem}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 disabled:bg-gray-100"
+            />
+          </label>
+
+          <fieldset className="text-sm text-gray-700" disabled={selectedGroup?.isSystem}>
+            <legend className="mb-2 font-medium">{t("admin.access.permissionLabels")}</legend>
+            <div className="grid grid-cols-1 gap-1.5">
+              {ALL_GROUP_PERMISSIONS.map((perm) => (
+                <label
+                  key={perm}
+                  className="flex items-center gap-2 rounded border border-gray-200 px-2.5 py-2 text-xs"
+                >
+                  <input
+                    type="checkbox"
+                    checked={groupForm.permissions.includes(perm)}
+                    onChange={(event) =>
+                      setGroupForm((current) => ({
+                        ...current,
+                        permissions: event.target.checked
+                          ? [...current.permissions, perm]
+                          : current.permissions.filter((p) => p !== perm),
+                      }))
+                    }
+                  />
+                  <span>
+                    <span className="font-medium text-gray-900">{t(permI18nKey(perm))}</span>
+                    <span className="ml-1.5 text-gray-400">{perm}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={submitGroup}
+              disabled={isSavingGroup || !groupForm.name.trim() || Boolean(selectedGroup?.isSystem)}
+              className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+            >
+              {isSavingGroup
+                ? t("admin.access.saving")
+                : selectedGroup
+                  ? t("admin.access.updateGroup")
+                  : t("admin.access.createGroupAction")}
+            </button>
+            {selectedGroup && !selectedGroup.isSystem ? (
+              <button
+                type="button"
+                onClick={removeGroup}
+                disabled={isSavingGroup}
+                className="rounded-md border border-red-300 px-4 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"
+              >
+                {t("admin.access.delete")}
+              </button>
+            ) : null}
+          </div>
         </div>
-      </div>
       ) : null}
     </section>
   );

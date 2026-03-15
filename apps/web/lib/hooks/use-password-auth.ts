@@ -4,12 +4,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { authService } from "../auth-service";
 import { normalizeReturnTo } from "../return-to";
-import { useStableEvent } from "./use-stable-event";
 import { invalidateAuthQueries } from "./use-auth-session";
+import { useStableEvent } from "./use-stable-event";
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
 
-async function signInWithCredentials(input: { email: string; password: string }, callbackUrl: string) {
+async function signInWithCredentials(
+  input: { email: string; password: string },
+  callbackUrl: string
+) {
   // 1. Fetch CSRF token from Auth.js
   const csrfRes = await fetch(`${apiBase}/api/auth/csrf`, { credentials: "include" });
   if (!csrfRes.ok) throw new Error("Failed to fetch CSRF token");
@@ -48,29 +51,28 @@ export function usePasswordAuth() {
     router.refresh();
   });
 
-  const signIn = useStableEvent(async (
-    input: { email: string; password: string },
-    returnTo?: string | null,
-  ) => {
-    const destination = normalizeReturnTo(returnTo) ?? "/";
-    const callbackUrl = typeof window !== "undefined"
-      ? new URL(destination, window.location.origin).toString()
-      : destination;
-    await signInWithCredentials(input, callbackUrl);
-    await completeAuthenticatedRedirect(returnTo);
-  });
-
-  const register = useStableEvent(async (
-    input: { name: string; email: string; password: string },
-    returnTo?: string | null,
-  ) => {
-    const result = await authService.registerWithPassword(input);
-    // First user is created immediately without email verification — auto sign-in
-    if (result.immediate) {
-      await signIn({ email: input.email, password: input.password }, returnTo);
+  const signIn = useStableEvent(
+    async (input: { email: string; password: string }, returnTo?: string | null) => {
+      const destination = normalizeReturnTo(returnTo) ?? "/";
+      const callbackUrl =
+        typeof window !== "undefined"
+          ? new URL(destination, window.location.origin).toString()
+          : destination;
+      await signInWithCredentials(input, callbackUrl);
+      await completeAuthenticatedRedirect(returnTo);
     }
-    return result;
-  });
+  );
+
+  const register = useStableEvent(
+    async (input: { name: string; email: string; password: string }, returnTo?: string | null) => {
+      const result = await authService.registerWithPassword(input);
+      // First user is created immediately without email verification — auto sign-in
+      if (result.immediate) {
+        await signIn({ email: input.email, password: input.password }, returnTo);
+      }
+      return result;
+    }
+  );
 
   const verifyEmail = useStableEvent(async (token: string, _returnTo?: string | null) => {
     // Verify email through our API (creates user + identity).

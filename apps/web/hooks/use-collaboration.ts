@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import * as Y from "yjs";
-import { WebsocketProvider } from "y-websocket";
 import { IndexeddbPersistence } from "y-indexeddb";
+import { WebsocketProvider } from "y-websocket";
+import * as Y from "yjs";
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
@@ -13,9 +13,7 @@ interface UseCollaborationOptions {
 }
 
 function getWsBaseUrl(): string {
-  const apiUrl =
-    process.env.NEXT_PUBLIC_API_URL ??
-    `http://${window.location.hostname}:3001`;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? `http://${window.location.hostname}:3001`;
   const url = new URL(apiUrl);
   const protocol = url.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${url.host}/ws/wiki/collab`;
@@ -36,8 +34,7 @@ interface CollabState {
  * StrictMode which remounts effects in development.
  */
 export function useCollaboration({ pageId, user }: UseCollaborationOptions) {
-  const [connectionStatus, setConnectionStatus] =
-    useState<ConnectionStatus>("connecting");
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const stateRef = useRef<CollabState | null>(null);
   const [state, setState] = useState<CollabState | null>(null);
 
@@ -63,7 +60,7 @@ export function useCollaboration({ pageId, user }: UseCollaborationOptions) {
           ? "connected"
           : status === "connecting"
             ? "connecting"
-            : "disconnected",
+            : "disconnected"
       );
     };
     provider.on("status", onStatus);

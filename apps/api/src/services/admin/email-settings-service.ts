@@ -1,7 +1,4 @@
-import {
-  getSiteSetting,
-  upsertSiteSetting,
-} from "../../repositories/admin/admin-repository.js";
+import { createSettingsCache } from "./create-settings-cache.js";
 
 export type EmailProvider = "none" | "resend" | "smtp";
 
@@ -17,28 +14,20 @@ export interface EmailSettings {
   smtpFrom: string | null;
 }
 
-const EMAIL_SETTING_KEYS = [
-  "emailProvider",
-  "emailResendApiKey",
-  "emailResendFrom",
-  "emailSmtpHost",
-  "emailSmtpPort",
-  "emailSmtpSecure",
-  "emailSmtpUser",
-  "emailSmtpPass",
-  "emailSmtpFrom",
-] as const;
-
-export async function getEmailSettings(): Promise<EmailSettings> {
-  const entries = await Promise.all(
-    EMAIL_SETTING_KEYS.map(async (key) => {
-      const row = await getSiteSetting(key);
-      return [key, row?.value ?? null] as const;
-    }),
-  );
-  const map = Object.fromEntries(entries) as Record<string, string | null>;
-
-  return {
+const cache = createSettingsCache<EmailSettings>({
+  keys: [
+    "emailProvider",
+    "emailResendApiKey",
+    "emailResendFrom",
+    "emailSmtpHost",
+    "emailSmtpPort",
+    "emailSmtpSecure",
+    "emailSmtpUser",
+    "emailSmtpPass",
+    "emailSmtpFrom",
+  ],
+  cacheTtlMs: false,
+  mapToSettings: (map) => ({
     provider: (map.emailProvider as EmailProvider) || "none",
     resendApiKey: map.emailResendApiKey || null,
     resendFrom: map.emailResendFrom || null,
@@ -48,11 +37,8 @@ export async function getEmailSettings(): Promise<EmailSettings> {
     smtpUser: map.emailSmtpUser || null,
     smtpPass: map.emailSmtpPass || null,
     smtpFrom: map.emailSmtpFrom || null,
-  };
-}
-
-export async function updateEmailSettings(input: Partial<EmailSettings>) {
-  const keyMap: Record<string, string | undefined> = {
+  }),
+  mapToKeyValues: (input) => ({
     emailProvider: input.provider,
     emailResendApiKey: input.resendApiKey ?? undefined,
     emailResendFrom: input.resendFrom ?? undefined,
@@ -62,13 +48,8 @@ export async function updateEmailSettings(input: Partial<EmailSettings>) {
     emailSmtpUser: input.smtpUser ?? undefined,
     emailSmtpPass: input.smtpPass ?? undefined,
     emailSmtpFrom: input.smtpFrom ?? undefined,
-  };
+  }),
+});
 
-  for (const [key, value] of Object.entries(keyMap)) {
-    if (value !== undefined) {
-      await upsertSiteSetting(key, value);
-    }
-  }
-
-  return getEmailSettings();
-}
+export const getEmailSettings = cache.get;
+export const updateEmailSettings = cache.update;

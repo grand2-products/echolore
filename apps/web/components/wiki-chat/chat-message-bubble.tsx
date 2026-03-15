@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import type { WikiChatMessage } from "@/lib/api";
 import { useT } from "@/lib/i18n";
+import Link from "next/link";
 import { MarkdownContent } from "./markdown-content";
 
 interface ChatMessageBubbleProps {
@@ -53,7 +53,13 @@ function CitationChips({
             href={`/wiki/${citation.pageId}`}
             className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700 hover:bg-blue-100"
           >
-            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="h-3 w-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"

@@ -1,14 +1,10 @@
 "use client";
 
-import {
-  wikiApi,
-  type AdminGroup,
-  type Page,
-} from "@/lib/api";
+import { type AdminGroup, type Page, wikiApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
-import { useT } from "@/lib/i18n";
 import { useStableEvent } from "@/lib/hooks/use-stable-event";
-import { useState, useEffect } from "react";
+import { useT } from "@/lib/i18n";
+import { useEffect, useState } from "react";
 
 type PermissionDraftRow = {
   groupId: string;
@@ -45,18 +41,20 @@ export function PagePermissionsSection({ groups, pages, setError, setNotice }: P
       try {
         const detail = await wikiApi.getPagePermissions(pageId);
         setInheritFromParent(detail.inheritFromParent);
-      setPermissionRows(
-        availableGroups.map((group) => {
-          const existing = detail.permissions.find((permission) => permission.groupId === group.id);
-          return {
-            groupId: group.id,
-            selected: Boolean(existing),
-            canRead: existing?.canRead ?? true,
-            canWrite: existing?.canWrite ?? false,
-            canDelete: existing?.canDelete ?? false,
-          };
-        })
-      );
+        setPermissionRows(
+          availableGroups.map((group) => {
+            const existing = detail.permissions.find(
+              (permission) => permission.groupId === group.id
+            );
+            return {
+              groupId: group.id,
+              selected: Boolean(existing),
+              canRead: existing?.canRead ?? true,
+              canWrite: existing?.canWrite ?? false,
+              canDelete: existing?.canDelete ?? false,
+            };
+          })
+        );
       } catch (loadError) {
         setError(getApiErrorMessage(loadError, t("admin.access.permissionsLoadError")));
       }
@@ -102,10 +100,10 @@ export function PagePermissionsSection({ groups, pages, setError, setNotice }: P
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-6">
       <div className="mb-4">
-        <h2 className="text-xl font-semibold text-gray-900">{t("admin.access.pagePermissionsTitle")}</h2>
-        <p className="mt-1 text-sm text-gray-600">
-          {t("admin.access.pagePermissionsDescription")}
-        </p>
+        <h2 className="text-xl font-semibold text-gray-900">
+          {t("admin.access.pagePermissionsTitle")}
+        </h2>
+        <p className="mt-1 text-sm text-gray-600">{t("admin.access.pagePermissionsDescription")}</p>
       </div>
 
       <label className="mb-4 block text-sm text-gray-700">
@@ -143,14 +141,13 @@ export function PagePermissionsSection({ groups, pages, setError, setNotice }: P
 
           <div className="space-y-2">
             {groups.map((group) => {
-              const row =
-                permissionRows.find((item) => item.groupId === group.id) ?? {
-                  groupId: group.id,
-                  selected: false,
-                  canRead: true,
-                  canWrite: false,
-                  canDelete: false,
-                };
+              const row = permissionRows.find((item) => item.groupId === group.id) ?? {
+                groupId: group.id,
+                selected: false,
+                canRead: true,
+                canWrite: false,
+                canDelete: false,
+              };
 
               return (
                 <div key={group.id} className="rounded-lg border border-gray-200 p-3">
@@ -240,9 +237,7 @@ export function PagePermissionsSection({ groups, pages, setError, setNotice }: P
             disabled={isSavingPermissions}
             className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
           >
-            {isSavingPermissions
-              ? t("admin.access.saving")
-              : t("admin.access.savePagePermissions")}
+            {isSavingPermissions ? t("admin.access.saving") : t("admin.access.savePagePermissions")}
           </button>
         </div>
       ) : (

@@ -4,9 +4,9 @@ import enYaml from "./locales/en.yaml";
 // @ts-expect-error -- .yaml files are loaded as raw strings via webpack/turbopack config
 import jaYaml from "./locales/ja.yaml";
 // @ts-expect-error -- .yaml files are loaded as raw strings via webpack/turbopack config
-import zhCNYaml from "./locales/zh-CN.yaml";
-// @ts-expect-error -- .yaml files are loaded as raw strings via webpack/turbopack config
 import koYaml from "./locales/ko.yaml";
+// @ts-expect-error -- .yaml files are loaded as raw strings via webpack/turbopack config
+import zhCNYaml from "./locales/zh-CN.yaml";
 
 export const supportedLocales = ["ja", "en", "zh-CN", "ko"] as const;
 

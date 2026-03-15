@@ -40,22 +40,17 @@ export function useReactions(senderName: string) {
   const decoderRef = useRef(new TextDecoder());
   const lastSendRef = useRef(0);
 
-  const onMessage = useCallback(
-    (msg: { payload: Uint8Array }) => {
-      try {
-        const parsed: ReactionMessage = JSON.parse(
-          decoderRef.current.decode(msg.payload),
-        );
-        setReactions((prev) => [
-          ...prev,
-          { id: parsed.id, emoji: parsed.emoji, x: randomX(), createdAt: Date.now() },
-        ]);
-      } catch {
-        // ignore malformed messages
-      }
-    },
-    [],
-  );
+  const onMessage = useCallback((msg: { payload: Uint8Array }) => {
+    try {
+      const parsed: ReactionMessage = JSON.parse(decoderRef.current.decode(msg.payload));
+      setReactions((prev) => [
+        ...prev,
+        { id: parsed.id, emoji: parsed.emoji, x: randomX(), createdAt: Date.now() },
+      ]);
+    } catch {
+      // ignore malformed messages
+    }
+  }, []);
 
   const { send } = useDataChannel("reaction", onMessage);
 
@@ -80,7 +75,7 @@ export function useReactions(senderName: string) {
         { id: msg.id, emoji: msg.emoji, x: randomX(), createdAt: now },
       ]);
     },
-    [send, senderName],
+    [send, senderName]
   );
 
   const removeReaction = useCallback((id: string) => {

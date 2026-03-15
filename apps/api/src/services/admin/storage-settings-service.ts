@@ -1,8 +1,5 @@
 import type { StorageProviderType, StorageProviderConfig } from "../../lib/file-storage.js";
-import {
-  getSiteSetting,
-  upsertSiteSetting,
-} from "../../repositories/admin/admin-repository.js";
+import { createSettingsCache } from "./create-settings-cache.js";
 import { getGcpCredentials } from "./gcp-credentials-service.js";
 
 export interface StorageSettings {
@@ -20,31 +17,23 @@ export interface StorageSettings {
   gcsKeyJson: string | null;
 }
 
-const STORAGE_SETTING_KEYS = [
-  "storageProvider",
-  "storageLocalPath",
-  "storageS3Endpoint",
-  "storageS3Region",
-  "storageS3Bucket",
-  "storageS3AccessKey",
-  "storageS3SecretKey",
-  "storageS3ForcePathStyle",
-  "storageGcsBucket",
-  "storageGcsUseGcpDefaults",
-  "storageGcsProjectId",
-  "storageGcsKeyJson",
-] as const;
-
-export async function getStorageSettings(): Promise<StorageSettings> {
-  const entries = await Promise.all(
-    STORAGE_SETTING_KEYS.map(async (key) => {
-      const row = await getSiteSetting(key);
-      return [key, row?.value ?? null] as const;
-    }),
-  );
-  const map = Object.fromEntries(entries) as Record<string, string | null>;
-
-  return {
+const cache = createSettingsCache<StorageSettings>({
+  keys: [
+    "storageProvider",
+    "storageLocalPath",
+    "storageS3Endpoint",
+    "storageS3Region",
+    "storageS3Bucket",
+    "storageS3AccessKey",
+    "storageS3SecretKey",
+    "storageS3ForcePathStyle",
+    "storageGcsBucket",
+    "storageGcsUseGcpDefaults",
+    "storageGcsProjectId",
+    "storageGcsKeyJson",
+  ],
+  cacheTtlMs: false,
+  mapToSettings: (map) => ({
     provider: (map.storageProvider as StorageProviderType) || "local",
     localPath: map.storageLocalPath || null,
     s3Endpoint: map.storageS3Endpoint || null,
@@ -57,8 +46,25 @@ export async function getStorageSettings(): Promise<StorageSettings> {
     gcsUseGcpDefaults: map.storageGcsUseGcpDefaults !== "false",
     gcsProjectId: map.storageGcsProjectId || null,
     gcsKeyJson: map.storageGcsKeyJson || null,
-  };
-}
+  }),
+  mapToKeyValues: (input) => ({
+    storageProvider: input.provider,
+    storageLocalPath: input.localPath ?? undefined,
+    storageS3Endpoint: input.s3Endpoint ?? undefined,
+    storageS3Region: input.s3Region ?? undefined,
+    storageS3Bucket: input.s3Bucket ?? undefined,
+    storageS3AccessKey: input.s3AccessKey ?? undefined,
+    storageS3SecretKey: input.s3SecretKey ?? undefined,
+    storageS3ForcePathStyle: input.s3ForcePathStyle !== undefined ? String(input.s3ForcePathStyle) : undefined,
+    storageGcsBucket: input.gcsBucket ?? undefined,
+    storageGcsUseGcpDefaults: input.gcsUseGcpDefaults !== undefined ? String(input.gcsUseGcpDefaults) : undefined,
+    storageGcsProjectId: input.gcsProjectId ?? undefined,
+    storageGcsKeyJson: input.gcsKeyJson ?? undefined,
+  }),
+});
+
+export const getStorageSettings = cache.get;
+export const updateStorageSettings = cache.update;
 
 export async function buildStorageConfig(settings: StorageSettings): Promise<StorageProviderConfig> {
   let gcsProjectId = settings.gcsProjectId ?? undefined;
@@ -85,29 +91,4 @@ export async function buildStorageConfig(settings: StorageSettings): Promise<Sto
     gcsProjectId,
     gcsKeyJson,
   };
-}
-
-export async function updateStorageSettings(input: Partial<StorageSettings>) {
-  const keyMap: Record<string, string | undefined> = {
-    storageProvider: input.provider,
-    storageLocalPath: input.localPath ?? undefined,
-    storageS3Endpoint: input.s3Endpoint ?? undefined,
-    storageS3Region: input.s3Region ?? undefined,
-    storageS3Bucket: input.s3Bucket ?? undefined,
-    storageS3AccessKey: input.s3AccessKey ?? undefined,
-    storageS3SecretKey: input.s3SecretKey ?? undefined,
-    storageS3ForcePathStyle: input.s3ForcePathStyle !== undefined ? String(input.s3ForcePathStyle) : undefined,
-    storageGcsBucket: input.gcsBucket ?? undefined,
-    storageGcsUseGcpDefaults: input.gcsUseGcpDefaults !== undefined ? String(input.gcsUseGcpDefaults) : undefined,
-    storageGcsProjectId: input.gcsProjectId ?? undefined,
-    storageGcsKeyJson: input.gcsKeyJson ?? undefined,
-  };
-
-  for (const [key, value] of Object.entries(keyMap)) {
-    if (value !== undefined) {
-      await upsertSiteSetting(key, value);
-    }
-  }
-
-  return getStorageSettings();
 }

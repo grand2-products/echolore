@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { wikiApi, type Page } from "@/lib/api";
+import { type Page, wikiApi } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 
 export default function WikiTrashPage() {
   const t = useT();
@@ -16,40 +16,49 @@ export default function WikiTrashPage() {
   const loadTrash = useCallback(() => {
     setIsLoading(true);
     setError(null);
-    wikiApi.listTrash()
+    wikiApi
+      .listTrash()
       .then((res) => setPages(res.pages))
       .catch((err) => setError(err instanceof Error ? err.message : t("wiki.trash.loadError")))
       .finally(() => setIsLoading(false));
   }, [t]);
 
-  useEffect(() => { loadTrash(); }, [loadTrash]);
+  useEffect(() => {
+    loadTrash();
+  }, [loadTrash]);
 
-  const handleRestore = useCallback(async (pageId: string) => {
-    if (actionInProgress) return;
-    setActionInProgress(pageId);
-    try {
-      await wikiApi.restoreFromTrash(pageId);
-      loadTrash();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("wiki.trash.restoreError"));
-    } finally {
-      setActionInProgress(null);
-    }
-  }, [actionInProgress, loadTrash, t]);
+  const handleRestore = useCallback(
+    async (pageId: string) => {
+      if (actionInProgress) return;
+      setActionInProgress(pageId);
+      try {
+        await wikiApi.restoreFromTrash(pageId);
+        loadTrash();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("wiki.trash.restoreError"));
+      } finally {
+        setActionInProgress(null);
+      }
+    },
+    [actionInProgress, loadTrash, t]
+  );
 
-  const handlePermanentDelete = useCallback(async (pageId: string) => {
-    if (actionInProgress) return;
-    if (!confirm(t("wiki.trash.permanentDeleteConfirm"))) return;
-    setActionInProgress(pageId);
-    try {
-      await wikiApi.permanentDelete(pageId);
-      loadTrash();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("wiki.trash.deleteError"));
-    } finally {
-      setActionInProgress(null);
-    }
-  }, [actionInProgress, loadTrash, t]);
+  const handlePermanentDelete = useCallback(
+    async (pageId: string) => {
+      if (actionInProgress) return;
+      if (!confirm(t("wiki.trash.permanentDeleteConfirm"))) return;
+      setActionInProgress(pageId);
+      try {
+        await wikiApi.permanentDelete(pageId);
+        loadTrash();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("wiki.trash.deleteError"));
+      } finally {
+        setActionInProgress(null);
+      }
+    },
+    [actionInProgress, loadTrash, t]
+  );
 
   return (
     <div className="mx-auto max-w-4xl p-8">
@@ -61,7 +70,9 @@ export default function WikiTrashPage() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
       )}
 
       {isLoading ? (
@@ -73,7 +84,10 @@ export default function WikiTrashPage() {
       ) : (
         <div className="space-y-2">
           {pages.map((page) => (
-            <div key={page.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4">
+            <div
+              key={page.id}
+              className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4"
+            >
               <div>
                 <h3 className="font-medium text-gray-900">{page.title}</h3>
                 <p className="text-xs text-gray-500">

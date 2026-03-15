@@ -1,19 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
-import { useCreateBlockNote } from "@blocknote/react";
-import { BlockNoteView } from "@blocknote/shadcn";
-import { useQueryClient } from "@tanstack/react-query";
-import type { BlockDto } from "@contracts/index";
-import type { XmlFragment } from "yjs";
-import type { WebsocketProvider } from "y-websocket";
-import { blockDtosToBlocks } from "@/lib/wiki-serializer";
+import { type ConnectionStatus, useCollaboration } from "@/hooks/use-collaboration";
 import { filesApi, getWikiFileDownloadUrl, wikiApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
-import {
-  useCollaboration,
-  type ConnectionStatus,
-} from "@/hooks/use-collaboration";
+import { blockDtosToBlocks } from "@/lib/wiki-serializer";
+import { useCreateBlockNote } from "@blocknote/react";
+import { BlockNoteView } from "@blocknote/shadcn";
+import type { BlockDto } from "@contracts/index";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef } from "react";
+import type { WebsocketProvider } from "y-websocket";
+import type { XmlFragment } from "yjs";
 import { CollaboratorAvatars } from "./CollaboratorAvatars";
 
 import "@blocknote/shadcn/style.css";
@@ -61,7 +58,7 @@ export default function NotionEditorInner({
         }
       }, 2000);
     },
-    [onTitleChange, pageId, queryClient],
+    [onTitleChange, pageId, queryClient]
   );
 
   // Cleanup timers
@@ -100,9 +97,7 @@ export default function NotionEditorInner({
           <span
             className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs ${statusConfig.className}`}
           >
-            <span
-              className={`inline-block h-2 w-2 rounded-full ${statusConfig.dotClassName}`}
-            />
+            <span className={`inline-block h-2 w-2 rounded-full ${statusConfig.dotClassName}`} />
             {statusConfig.label}
           </span>
         </div>
@@ -208,13 +203,12 @@ function CollabEditor({
       if (block.type !== "paragraph") return;
 
       // Extract inline text content from the block
-      const text =
-        Array.isArray(block.content)
-          ? (block.content as Array<{ type: string; text?: string }>)
-              .filter((i) => i.type === "text")
-              .map((i) => i.text ?? "")
-              .join("")
-          : "";
+      const text = Array.isArray(block.content)
+        ? (block.content as Array<{ type: string; text?: string }>)
+            .filter((i) => i.type === "text")
+            .map((i) => i.text ?? "")
+            .join("")
+        : "";
 
       const match = text.match(/^```(\w*)$/);
       if (!match) return;
@@ -227,9 +221,10 @@ function CollabEditor({
         type: "codeBlock",
         props: language ? { language } : {},
         content: "",
+        // biome-ignore lint/suspicious/noExplicitAny: BlockNoteEditor types require casting for custom block updates
       } as any);
     },
-    [editor],
+    [editor]
   );
 
   return (
@@ -244,7 +239,7 @@ function CollabEditor({
 
 function getStatusConfig(
   status: ConnectionStatus,
-  t: (key: string) => string,
+  t: (key: string) => string
 ): { label: string; className: string; dotClassName: string } {
   switch (status) {
     case "connected":

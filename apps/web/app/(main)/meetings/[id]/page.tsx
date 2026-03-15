@@ -10,15 +10,15 @@ import {
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAuthContext } from "@/lib/auth-context";
-import { useMeetingLivekitSettings } from "@/lib/site-settings-context";
+import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { translate, useLocale, useT } from "@/lib/i18n";
 import { fetchLiveKitToken, getLiveKitUrl } from "@/lib/livekit";
-import { useStableEvent } from "@/lib/hooks/use-stable-event";
+import { useMeetingLivekitSettings } from "@/lib/site-settings-context";
 import { LiveKitRoom } from "@livekit/components-react";
 import { Room } from "livekit-client";
-import RoomBody from "./RoomBody";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import RoomBody from "./RoomBody";
 
 /* ─── Page ─── */
 
@@ -42,6 +42,7 @@ export default function MeetingRoomPage() {
   const [retryNonce, setRetryNonce] = useState(0);
   const agentRoomMapRef = useRef<Map<string, Room>>(new Map());
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce is an intentional re-trigger; locale is stable
   useEffect(() => {
     const run = async () => {
       try {
@@ -53,12 +54,10 @@ export default function MeetingRoomPage() {
         setRoomName(detail.meeting.roomName);
         setAgents(agentList.agents);
 
-        const participantIdentity =
-          user?.id ?? `user-${Math.random().toString(36).slice(2, 10)}`;
+        const participantIdentity = user?.id ?? `user-${Math.random().toString(36).slice(2, 10)}`;
         const fetched = await fetchLiveKitToken({
           roomName: detail.meeting.roomName,
-          participantName:
-            user?.name ?? translate(locale, "meetings.room.guestUser"),
+          participantName: user?.name ?? translate(locale, "meetings.room.guestUser"),
           participantIdentity,
         });
         setToken(fetched);
@@ -68,9 +67,9 @@ export default function MeetingRoomPage() {
     };
 
     void run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meetingId, retryNonce, user?.id, user?.name]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce is an intentional re-trigger; locale is stable
   useEffect(() => {
     const sync = async () => {
       try {
@@ -84,7 +83,11 @@ export default function MeetingRoomPage() {
         setActiveAgentSessions(sessionResult.sessions);
         setSyncError(null);
       } catch (syncFailure) {
-        setSyncError(syncFailure instanceof Error ? syncFailure.message : translate(locale, "meetings.room.syncError"));
+        setSyncError(
+          syncFailure instanceof Error
+            ? syncFailure.message
+            : translate(locale, "meetings.room.syncError")
+        );
       }
     };
 
@@ -94,7 +97,6 @@ export default function MeetingRoomPage() {
     }, 5000);
 
     return () => window.clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meetingId, retryNonce]);
 
   const connectAgentParticipant = useStableEvent(async (agentId: string) => {
@@ -184,11 +186,24 @@ export default function MeetingRoomPage() {
     return (
       <div className="flex h-full items-center justify-center bg-gray-950">
         <div className="flex items-center gap-3 text-gray-400">
-          <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
           </svg>
-          <span className="text-sm">{t("meetings.room.loadingWithLabel", { label: meetingLabel })}</span>
+          <span className="text-sm">
+            {t("meetings.room.loadingWithLabel", { label: meetingLabel })}
+          </span>
         </div>
       </div>
     );

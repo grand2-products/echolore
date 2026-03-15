@@ -1,5 +1,32 @@
 import { readFile } from "node:fs/promises";
 
+const MAX_RETRIES = 3;
+const RETRY_BASE_MS = 500;
+
+async function fetchWithRetry(url: string, init: RequestInit, retries = MAX_RETRIES): Promise<Response> {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, init);
+      if (response.status >= 500 && attempt < retries) {
+        const delay = RETRY_BASE_MS * 2 ** (attempt - 1);
+        console.warn(`[api-client] ${init.method ?? "GET"} ${url} returned ${response.status}, retrying in ${delay}ms (${attempt}/${retries})`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      return response;
+    } catch (err) {
+      if (attempt < retries) {
+        const delay = RETRY_BASE_MS * 2 ** (attempt - 1);
+        console.warn(`[api-client] ${init.method ?? "GET"} ${url} failed, retrying in ${delay}ms (${attempt}/${retries})`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw new Error("fetchWithRetry: unreachable");
+}
+
 export type SubmitAudioForTranscriptionInput = {
   apiBaseUrl: string;
   workerSecret: string;
@@ -64,7 +91,7 @@ async function parseJsonOrThrow(response: Response) {
 }
 
 export async function resolveMeetingByRoomName(input: ResolveMeetingByRoomNameInput) {
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `${input.apiBaseUrl}/internal/room-ai/meetings/by-room/${encodeURIComponent(input.roomName)}`,
     {
       headers: {
@@ -85,7 +112,7 @@ export async function resolveMeetingByRoomName(input: ResolveMeetingByRoomNameIn
 }
 
 export async function listMeetingsByStatus(input: ListMeetingsByStatusInput) {
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `${input.apiBaseUrl}/internal/room-ai/meetings?status=${input.status}`,
     {
       headers: {
@@ -107,7 +134,7 @@ export async function listMeetingsByStatus(input: ListMeetingsByStatusInput) {
 
 export async function submitAudioFileForTranscription(input: SubmitAudioForTranscriptionInput) {
   const audio = await readFile(input.filePath);
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `${input.apiBaseUrl}/internal/room-ai/meetings/${input.meetingId}/transcribe`,
     {
       method: "POST",
@@ -133,7 +160,7 @@ export async function submitAudioFileForTranscription(input: SubmitAudioForTrans
 }
 
 export async function submitTranscriptSegment(input: SubmitTranscriptSegmentInput) {
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `${input.apiBaseUrl}/internal/room-ai/meetings/${input.meetingId}/transcript-segments`,
     {
       method: "POST",
@@ -160,7 +187,7 @@ export async function submitTranscriptSegment(input: SubmitTranscriptSegmentInpu
 }
 
 export async function syncMeetingStatus(input: SyncMeetingStatusInput) {
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `${input.apiBaseUrl}/internal/room-ai/meetings/${input.meetingId}/status`,
     {
       method: "PATCH",

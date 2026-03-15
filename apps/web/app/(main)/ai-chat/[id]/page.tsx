@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { ChatInput, ChatMessageBubble, TypingIndicator } from "@/components/wiki-chat";
 import {
-  useWikiChatConversationQuery,
-  useSendWikiChatMessageMutation,
-  wikiChatApi,
   type WikiChatMessage,
+  useSendWikiChatMessageMutation,
+  useWikiChatConversationQuery,
+  wikiChatApi,
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChatMessageBubble, ChatInput, TypingIndicator } from "@/components/ai-chat";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 export default function WikiChatPage() {
   const params = useParams();
@@ -29,6 +29,7 @@ export default function WikiChatPage() {
   const conversation = data?.conversation;
   const messages: WikiChatMessage[] = data?.messages ?? [];
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on message count change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
@@ -80,8 +81,19 @@ export default function WikiChatPage() {
           href="/ai-chat"
           className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
         >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </Link>
         <h1 className="flex-1 truncate text-lg font-semibold text-gray-900">
@@ -102,7 +114,13 @@ export default function WikiChatPage() {
           className="rounded-lg p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
           title="Delete"
         >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"

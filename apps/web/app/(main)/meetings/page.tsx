@@ -1,19 +1,19 @@
 ﻿"use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  type Meeting,
+  calendarApi,
+  meetingsApi,
+  useCalendarEventsQuery,
+  useCalendarStatusQuery,
   useCreateMeetingMutation,
   useMeetingsQuery,
-  type Meeting,
-  meetingsApi,
   usersApi,
-  calendarApi,
-  useCalendarStatusQuery,
-  useCalendarEventsQuery,
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useT } from "@/lib/i18n";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export default function MeetingsPage() {
   const t = useT();
@@ -61,7 +61,7 @@ export default function MeetingsPage() {
         ...m,
         createdAtLabel: dateTime(m.createdAt),
       })),
-    [data?.meetings, dateTime],
+    [data?.meetings, dateTime]
   );
 
   const creatorOptions = useMemo(() => {
@@ -70,8 +70,9 @@ export default function MeetingsPage() {
   }, [allMeetings, creatorLabels]);
 
   const meetings = useMemo(
-    () => filterCreatorId ? allMeetings.filter((m) => m.creatorId === filterCreatorId) : allMeetings,
-    [allMeetings, filterCreatorId],
+    () =>
+      filterCreatorId ? allMeetings.filter((m) => m.creatorId === filterCreatorId) : allMeetings,
+    [allMeetings, filterCreatorId]
   );
 
   const resetCreateForm = () => {
@@ -85,7 +86,7 @@ export default function MeetingsPage() {
 
   const addAttendeeEmail = () => {
     const email = attendeeInput.trim();
-    if (email && email.includes("@") && !attendeeEmails.includes(email)) {
+    if (email?.includes("@") && !attendeeEmails.includes(email)) {
       setAttendeeEmails((prev) => [...prev, email]);
       setAttendeeInput("");
     }
@@ -190,7 +191,11 @@ export default function MeetingsPage() {
           </div>
         </div>
 
-        {message && <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">{message}</div>}
+        {message && (
+          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+            {message}
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 space-y-3">
@@ -230,7 +235,10 @@ export default function MeetingsPage() {
           </div>
           <div className="divide-y divide-gray-100">
             {meetings.map((meeting) => (
-              <div key={meeting.id} className="flex items-center justify-between gap-4 p-4 hover:bg-gray-50">
+              <div
+                key={meeting.id}
+                className="flex items-center justify-between gap-4 p-4 hover:bg-gray-50"
+              >
                 <div>
                   <h3 className="font-medium text-gray-900">{meeting.title}</h3>
                   <p className="text-sm text-gray-500">
@@ -289,15 +297,15 @@ export default function MeetingsPage() {
               <div className="mb-4">
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   {t("meetings.create.fieldTitle")}
+                  <input
+                    type="text"
+                    value={newMeetingTitle}
+                    onChange={(e) => setNewMeetingTitle(e.target.value)}
+                    placeholder={t("meetings.create.placeholder")}
+                    disabled={createMeetingMutation.isPending}
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 font-normal focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
                 </label>
-                <input
-                  type="text"
-                  value={newMeetingTitle}
-                  onChange={(e) => setNewMeetingTitle(e.target.value)}
-                  placeholder={t("meetings.create.placeholder")}
-                  disabled={createMeetingMutation.isPending}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
               </div>
               <div className="mb-4">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -310,7 +318,9 @@ export default function MeetingsPage() {
                         const now = new Date();
                         const ms = 15 * 60 * 1000;
                         const rounded = new Date(Math.ceil(now.getTime() / ms) * ms);
-                        const local = new Date(rounded.getTime() - rounded.getTimezoneOffset() * 60000);
+                        const local = new Date(
+                          rounded.getTime() - rounded.getTimezoneOffset() * 60000
+                        );
                         setNewScheduledAt(local.toISOString().slice(0, 16));
                       } else {
                         setNewScheduledAt("");
@@ -333,11 +343,15 @@ export default function MeetingsPage() {
               </div>
               {isCalendarConnected && (
                 <div className="mb-4">
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="attendee-email-input"
+                    className="mb-1 block text-sm font-medium text-gray-700"
+                  >
                     {t("meetings.create.attendees")}
                   </label>
                   <div className="flex gap-2">
                     <input
+                      id="attendee-email-input"
                       type="email"
                       value={attendeeInput}
                       onChange={(e) => setAttendeeInput(e.target.value)}
@@ -370,7 +384,9 @@ export default function MeetingsPage() {
                           {email}
                           <button
                             type="button"
-                            onClick={() => setAttendeeEmails((prev) => prev.filter((e) => e !== email))}
+                            onClick={() =>
+                              setAttendeeEmails((prev) => prev.filter((e) => e !== email))
+                            }
                             className="ml-0.5 text-blue-600 hover:text-blue-900"
                           >
                             &times;
@@ -379,9 +395,7 @@ export default function MeetingsPage() {
                       ))}
                     </div>
                   )}
-                  <p className="mt-1 text-xs text-gray-500">
-                    {t("meetings.create.attendeeHint")}
-                  </p>
+                  <p className="mt-1 text-xs text-gray-500">{t("meetings.create.attendeeHint")}</p>
                 </div>
               )}
               <div className="flex justify-end gap-2">
@@ -469,11 +483,20 @@ function CreatorFilter({
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        onClick={() => { setOpen(!open); setQuery(""); }}
+        onClick={() => {
+          setOpen(!open);
+          setQuery("");
+        }}
         className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
       >
         <span className="max-w-[150px] truncate">{selectedLabel}</span>
-        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg
+          className="h-4 w-4 text-gray-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
@@ -485,14 +508,16 @@ function CreatorFilter({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={placeholder}
-              autoFocus
               className="w-full rounded border border-gray-200 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
           <div className="max-h-48 overflow-y-auto py-1">
             <button
               type="button"
-              onClick={() => { onChange(""); setOpen(false); }}
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
               className={`w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 ${!value ? "font-medium text-blue-600" : "text-gray-700"}`}
             >
               {allLabel}
@@ -501,7 +526,10 @@ function CreatorFilter({
               <button
                 key={opt.id}
                 type="button"
-                onClick={() => { onChange(opt.id); setOpen(false); }}
+                onClick={() => {
+                  onChange(opt.id);
+                  setOpen(false);
+                }}
                 className={`w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 ${value === opt.id ? "font-medium text-blue-600" : "text-gray-700"}`}
               >
                 {opt.label}
@@ -548,9 +576,7 @@ function CalendarImportModal({
               <div key={event.id} className="flex items-center justify-between gap-3 py-3">
                 <div>
                   <p className="text-sm font-medium text-gray-900">{event.summary}</p>
-                  <p className="text-xs text-gray-500">
-                    {dateTime(event.start)}
-                  </p>
+                  <p className="text-xs text-gray-500">{dateTime(event.start)}</p>
                 </div>
                 <button
                   type="button"

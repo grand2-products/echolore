@@ -4,10 +4,10 @@ import { authApi, siteSettingsApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { appTitle } from "@/lib/app-config";
 import { useAuthContext } from "@/lib/auth-context";
-import { useLocale, type SupportedLocale } from "@/lib/i18n";
-import { normalizeReturnTo } from "@/lib/return-to";
 import { useAuthActions } from "@/lib/hooks/use-auth-actions";
 import { usePasswordAuth } from "@/lib/hooks/use-password-auth";
+import { type SupportedLocale, useLocale } from "@/lib/i18n";
+import { normalizeReturnTo } from "@/lib/return-to";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -110,8 +110,7 @@ const loginCopy: Record<SupportedLocale, LoginCopy> = {
     name: "姓名",
     signInWithEmail: "使用邮箱登录",
     signingIn: "登录中...",
-    registrationHint:
-      "注册会在邮箱验证后完成。在本地开发环境中，验证链接会写入 API 日志。",
+    registrationHint: "注册会在邮箱验证后完成。在本地开发环境中，验证链接会写入 API 日志。",
     createAccount: "创建账户",
     creatingAccount: "正在创建账户...",
     registrationClosed: "当前不接受新注册。请联系管理员。",
@@ -173,8 +172,14 @@ export default function LoginPage() {
   }, [returnTo, router, user]);
 
   useEffect(() => {
-    void authApi.registrationStatus().then((res) => setRegistrationOpen(res.open)).catch(() => setRegistrationOpen(false));
-    void siteSettingsApi.get().then((s) => setSiteTitle(s.siteTitle || appTitle)).catch(() => {});
+    void authApi
+      .registrationStatus()
+      .then((res) => setRegistrationOpen(res.open))
+      .catch(() => setRegistrationOpen(false));
+    void siteSettingsApi
+      .get()
+      .then((s) => setSiteTitle(s.siteTitle || appTitle))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -239,7 +244,7 @@ export default function LoginPage() {
     try {
       const result = await register(
         { name: registerName, email: registerEmail, password: registerPassword },
-        returnTo,
+        returnTo
       );
       // immediate registration (first admin) auto-signs in via the hook
       if (result.immediate) return;
@@ -327,7 +332,10 @@ export default function LoginPage() {
         {view === "signin" || !registrationOpen ? (
           <form onSubmit={handleSignIn} className="mt-6 space-y-4 border-t border-slate-200 pt-6">
             <div>
-              <label htmlFor="signin-email" className="mb-1 block text-sm font-medium text-slate-700">
+              <label
+                htmlFor="signin-email"
+                className="mb-1 block text-sm font-medium text-slate-700"
+              >
                 {copy.email}
               </label>
               <input

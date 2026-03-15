@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  type BackgroundEffect,
   BACKGROUND_CATEGORIES,
+  type BackgroundEffect,
   PRESET_BACKGROUNDS,
   addCustomBackground,
   applyBackgroundEffect,
@@ -14,7 +14,7 @@ import {
 } from "@/lib/background-processor";
 import { useT } from "@/lib/i18n";
 import { useLocalParticipant } from "@livekit/components-react";
-import { Track, type LocalVideoTrack } from "livekit-client";
+import { type LocalVideoTrack, Track } from "livekit-client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 interface BackgroundEffectButtonProps {
@@ -123,8 +123,19 @@ export default function BackgroundEffectButton({ variant = "light" }: Background
         disabled={applying}
         className={`inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors disabled:opacity-60 ${buttonClasses}`}
       >
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+        <svg
+          className="h-5 w-5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={1.5}
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"
+          />
         </svg>
       </button>
       {!open && (
@@ -134,7 +145,8 @@ export default function BackgroundEffectButton({ variant = "light" }: Background
       )}
 
       {open && (
-        <div className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-xl"
+        <div
+          className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-xl"
           style={{ width: "min(420px, 90vw)" }}
         >
           {/* Blur options */}
@@ -163,7 +175,14 @@ export default function BackgroundEffectButton({ variant = "light" }: Background
                     : "border-gray-200 text-gray-500 hover:border-gray-300"
                 }`}
               >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                >
                   <circle cx="12" cy="12" r="6" strokeDasharray="3 2" />
                 </svg>
               </button>
@@ -176,7 +195,14 @@ export default function BackgroundEffectButton({ variant = "light" }: Background
                     : "border-gray-200 text-gray-500 hover:border-gray-300"
                 }`}
               >
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                >
                   <circle cx="12" cy="12" r="8" strokeDasharray="2 2" />
                   <circle cx="12" cy="12" r="4" strokeDasharray="2 2" />
                 </svg>
@@ -263,7 +289,14 @@ export default function BackgroundEffectButton({ variant = "light" }: Background
             onClick={() => fileInputRef.current?.click()}
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600 transition hover:border-gray-400 hover:bg-gray-50"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
             {t("background.upload")}

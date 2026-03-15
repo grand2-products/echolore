@@ -58,9 +58,7 @@ export function isApiErrorStatus(error: unknown, status: number) {
 export async function parseApiError(response: Response) {
   const error = await response
     .json()
-    .catch(
-      (): ErrorResponse => ({ error: "Unknown error", code: "UNKNOWN_ERROR" })
-    );
+    .catch((): ErrorResponse => ({ error: "Unknown error", code: "UNKNOWN_ERROR" }));
 
   let message: string;
   if (typeof error.error === "string") {
@@ -68,12 +66,15 @@ export async function parseApiError(response: Response) {
   } else if (error.error && typeof error.error === "object") {
     // Zod validation errors return { success: false, error: { issues: [...] } }
     const issues = Array.isArray(error.error.issues) ? error.error.issues : [];
-    message = issues.length > 0
-      ? issues.map((i: { path?: string[]; message?: string }) => {
-          const field = i.path?.join(".") ?? "";
-          return field ? `${field}: ${i.message}` : (i.message ?? "");
-        }).join("; ")
-      : `HTTP error! status: ${response.status}`;
+    message =
+      issues.length > 0
+        ? issues
+            .map((i: { path?: string[]; message?: string }) => {
+              const field = i.path?.join(".") ?? "";
+              return field ? `${field}: ${i.message}` : (i.message ?? "");
+            })
+            .join("; ")
+        : `HTTP error! status: ${response.status}`;
   } else {
     message = `HTTP error! status: ${response.status}`;
   }
@@ -100,10 +101,9 @@ function shouldAttemptSilentRefresh(path: string) {
 
 async function refreshPasswordSession() {
   if (!refreshSessionPromise) {
-    refreshSessionPromise = fetch(
-      API_BASE.replace(/\/api$/, "") + "/api/auth/session",
-      { credentials: "include" },
-    )
+    refreshSessionPromise = fetch(`${API_BASE.replace(/\/api$/, "")}/api/auth/session`, {
+      credentials: "include",
+    })
       .then(async (response) => {
         if (!response.ok) return false;
         const session = await response.json().catch(() => null);

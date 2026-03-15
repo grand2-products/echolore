@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback } from "react";
-import { defaultLocale, messagesByLocale, type SupportedLocale, type TranslationDictionary } from "./messages";
+import {
+  type SupportedLocale,
+  type TranslationDictionary,
+  defaultLocale,
+  messagesByLocale,
+} from "./messages";
 import { useI18nStore } from "./store";
 
 export type TranslationValues = Record<string, string | number>;
@@ -31,9 +36,7 @@ function interpolate(template: string, values?: TranslationValues) {
 export function translate(locale: SupportedLocale, key: string, values?: TranslationValues) {
   const dictionary = messagesByLocale[locale] ?? messagesByLocale[defaultLocale];
   const message =
-    readPath(dictionary, key) ??
-    readPath(messagesByLocale[defaultLocale], key) ??
-    key;
+    readPath(dictionary, key) ?? readPath(messagesByLocale[defaultLocale], key) ?? key;
 
   return interpolate(message, values);
 }
@@ -50,6 +53,6 @@ export function useT() {
   const locale = useLocale();
   return useCallback(
     (key: string, values?: TranslationValues) => translate(locale, key, values),
-    [locale],
+    [locale]
   );
 }

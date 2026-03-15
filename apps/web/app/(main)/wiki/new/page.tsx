@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { wikiApi, useSpacesQuery, type Space } from "@/lib/api";
+import { type Space, useSpacesQuery, wikiApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const SPACE_ICON: Record<string, string> = { general: "G", team: "T", personal: "P" };
 
@@ -30,12 +30,8 @@ function SpacePicker({
   return (
     <div className="flex h-full items-center justify-center">
       <div className="w-full max-w-md">
-        <h1 className="mb-2 text-xl font-bold text-gray-900">
-          {t("wiki.newPage.pickSpaceTitle")}
-        </h1>
-        <p className="mb-6 text-sm text-gray-500">
-          {t("wiki.newPage.pickSpaceDescription")}
-        </p>
+        <h1 className="mb-2 text-xl font-bold text-gray-900">{t("wiki.newPage.pickSpaceTitle")}</h1>
+        <p className="mb-6 text-sm text-gray-500">{t("wiki.newPage.pickSpaceDescription")}</p>
         <div className="space-y-2">
           {spaces.map((space) => (
             <button
@@ -49,9 +45,7 @@ function SpacePicker({
               </span>
               <div>
                 <p className="font-medium text-gray-900">{space.name}</p>
-                <p className="text-xs text-gray-500">
-                  {t(`wiki.spaces.${space.type}`)}
-                </p>
+                <p className="text-xs text-gray-500">{t(`wiki.spaces.${space.type}`)}</p>
               </div>
             </button>
           ))}
@@ -139,13 +133,7 @@ export default function NewWikiPage() {
 
   // No spaceId provided and none selected yet → show picker
   if (!spaceIdParam && !selectedSpaceId) {
-    return (
-      <SpacePicker
-        spaces={spaces}
-        isLoading={spacesLoading}
-        onSelect={setSelectedSpaceId}
-      />
-    );
+    return <SpacePicker spaces={spaces} isLoading={spacesLoading} onSelect={setSelectedSpaceId} />;
   }
 
   return (

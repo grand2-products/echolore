@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, apiFetch, authApi, usersApi, wikiApi } from "./api";
+import { type ApiError, apiFetch, authApi, usersApi, wikiApi } from "./api";
 
 describe("api client", () => {
   afterEach(() => {
@@ -29,10 +29,13 @@ describe("api client", () => {
 
   it("encodes wiki search queries and semantic flags", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ pages: [], searchMeta: { mode: "lexical", semanticApplied: false } }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      })
+      new Response(
+        JSON.stringify({ pages: [], searchMeta: { mode: "lexical", semanticApplied: false } }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
     );
 
     await wikiApi.searchPages("foo bar", { semantic: false });
@@ -47,10 +50,13 @@ describe("api client", () => {
 
   it("surfaces API error payload messages and codes", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ error: "Forbidden", code: "FORBIDDEN", message: "Denied by policy" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      })
+      new Response(
+        JSON.stringify({ error: "Forbidden", code: "FORBIDDEN", message: "Denied by policy" }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
     );
 
     await expect(apiFetch("/denied")).rejects.toMatchObject({

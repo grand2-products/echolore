@@ -32,7 +32,7 @@ export function normalizeReturnTo(rawValue: string | null | undefined) {
 
 export function buildCurrentReturnTo(
   pathname: string,
-  searchParams?: Pick<URLSearchParams, "toString"> | null,
+  searchParams?: Pick<URLSearchParams, "toString"> | null
 ) {
   const query = searchParams?.toString();
   return query ? `${pathname}?${query}` : pathname;

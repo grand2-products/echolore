@@ -1,5 +1,5 @@
-import { apiFetch } from "./api";
 import type { LivekitTokenResponse } from "@contracts/index";
+import { apiFetch } from "./api";
 
 export const COWORKING_ROOM_NAME = "everybody-coworking";
 
@@ -18,4 +18,3 @@ export async function fetchLiveKitToken(params: {
   });
   return result.token;
 }
-

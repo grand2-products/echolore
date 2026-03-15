@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Noto_Sans_JP } from "next/font/google";
 import "@livekit/components-styles";
-import { appTagline, appTitle } from "@/lib/app-config";
 import { DynamicFavicon } from "@/components/DynamicFavicon";
+import { appTagline, appTitle } from "@/lib/app-config";
 import { AuthProvider } from "@/lib/auth-context";
 import { I18nProvider } from "@/lib/i18n";
 import { QueryProvider } from "@/lib/query-client";

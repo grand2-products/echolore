@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { NotionEditor } from "@/components/wiki/NotionEditor";
 import { PagePermissionsPanel } from "@/components/wiki/PagePermissionsPanel";
 import { VersionHistoryPanel } from "@/components/wiki/VersionHistoryPanel";
-import { useParams } from "next/navigation";
-import Link from "next/link";
-import { NotionEditor } from "@/components/wiki/NotionEditor";
 import { useAuthMeQuery, useWikiPageQuery, wikiApi } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 function stringToColor(str: string): string {
   let hash = 0;
@@ -82,14 +82,17 @@ export default function WikiDetailPage() {
 
   const [showHistory, setShowHistory] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
-  const [snapshotStatus, setSnapshotStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [snapshotStatus, setSnapshotStatus] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle"
+  );
   const snapshotStatusRef = useRef(snapshotStatus);
   snapshotStatusRef.current = snapshotStatus;
 
   const createSnapshot = useCallback(() => {
     if (snapshotStatusRef.current === "saving") return;
     setSnapshotStatus("saving");
-    wikiApi.createRevision(pageId)
+    wikiApi
+      .createRevision(pageId)
       .then(() => {
         setSnapshotStatus("saved");
         setTimeout(() => setSnapshotStatus("idle"), 2000);
@@ -131,7 +134,7 @@ export default function WikiDetailPage() {
   const userName = authData?.user?.name ?? "User";
   const userColor = useMemo(
     () => (authData?.user?.id ? stringToColor(authData.user.id) : "#3b82f6"),
-    [authData?.user?.id],
+    [authData?.user?.id]
   );
 
   if (isLoading) {
@@ -146,7 +149,9 @@ export default function WikiDetailPage() {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <h1 className="mb-4 text-2xl font-bold text-gray-900">{t("wiki.detail.notFoundTitle")}</h1>
+          <h1 className="mb-4 text-2xl font-bold text-gray-900">
+            {t("wiki.detail.notFoundTitle")}
+          </h1>
           <p className="mb-4 text-gray-600">
             {error instanceof Error ? error.message : t("wiki.detail.notFoundDescription")}
           </p>
@@ -158,7 +163,10 @@ export default function WikiDetailPage() {
             >
               {t("common.actions.retry")}
             </button>
-            <Link href="/wiki" className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+            <Link
+              href="/wiki"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+            >
               {t("wiki.detail.backToWiki")}
             </Link>
           </div>
@@ -178,13 +186,14 @@ export default function WikiDetailPage() {
             <ActionMenu
               items={[
                 {
-                  label: snapshotStatus === "saving"
-                    ? t("common.status.loading")
-                    : snapshotStatus === "saved"
-                      ? t("wiki.history.snapshotSaved")
-                      : snapshotStatus === "error"
-                        ? t("wiki.history.snapshotError")
-                        : t("wiki.actions.snapshot"),
+                  label:
+                    snapshotStatus === "saving"
+                      ? t("common.status.loading")
+                      : snapshotStatus === "saved"
+                        ? t("wiki.history.snapshotSaved")
+                        : snapshotStatus === "error"
+                          ? t("wiki.history.snapshotError")
+                          : t("wiki.actions.snapshot"),
                   disabled: snapshotStatus === "saving",
                   onClick: createSnapshot,
                 },
@@ -193,10 +202,12 @@ export default function WikiDetailPage() {
                   onClick: () => setShowHistory(true),
                 },
                 ...(authData?.user?.role === "admin" || authData?.user?.id === currentPage.authorId
-                  ? [{
-                      label: t("wiki.actions.permissions"),
-                      onClick: () => setShowPermissions(true),
-                    }]
+                  ? [
+                      {
+                        label: t("wiki.actions.permissions"),
+                        onClick: () => setShowPermissions(true),
+                      },
+                    ]
                   : []),
               ]}
             />
@@ -214,10 +225,7 @@ export default function WikiDetailPage() {
       </div>
 
       {showPermissions && (
-        <PagePermissionsPanel
-          pageId={pageId}
-          onClose={() => setShowPermissions(false)}
-        />
+        <PagePermissionsPanel pageId={pageId} onClose={() => setShowPermissions(false)} />
       )}
 
       {showHistory && (

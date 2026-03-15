@@ -2,7 +2,15 @@
 
 import { type SiteSettings, siteSettingsApi } from "@/lib/api";
 import { appTagline, appTitle } from "@/lib/app-config";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 const defaultSettings: SiteSettings = {
   siteTitle: appTitle,
@@ -58,6 +66,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
     setFetchNonce((n) => n + 1);
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchNonce is an intentional re-trigger
   useEffect(() => {
     void siteSettingsApi
       .get()
@@ -69,11 +78,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({ settings, refetch }), [settings, refetch]);
 
-  return (
-    <SiteSettingsContext.Provider value={value}>
-      {children}
-    </SiteSettingsContext.Provider>
-  );
+  return <SiteSettingsContext.Provider value={value}>{children}</SiteSettingsContext.Provider>;
 }
 
 export function useSiteSettings() {

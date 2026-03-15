@@ -32,7 +32,9 @@ export default function RecordingsList({ meetingId }: RecordingsListProps) {
   const formatDuration = (ms: number | null) => {
     if (ms == null) return "--:--";
     const totalSec = Math.floor(ms / 1000);
-    const m = Math.floor(totalSec / 60).toString().padStart(2, "0");
+    const m = Math.floor(totalSec / 60)
+      .toString()
+      .padStart(2, "0");
     const s = (totalSec % 60).toString().padStart(2, "0");
     return `${m}:${s}`;
   };
@@ -52,7 +54,9 @@ export default function RecordingsList({ meetingId }: RecordingsListProps) {
           <div key={rec.id}>
             <div className="flex items-center justify-between rounded-lg bg-gray-800/80 px-3 py-2">
               <div className="flex items-center gap-4 text-sm text-gray-300">
-                <span>{t("meetings.room.recordingDuration", { value: formatDuration(rec.durationMs) })}</span>
+                <span>
+                  {t("meetings.room.recordingDuration", { value: formatDuration(rec.durationMs) })}
+                </span>
                 <span>{t("meetings.room.recordingSize", { value: formatSize(rec.fileSize) })}</span>
                 <span className="text-xs text-gray-500">
                   {t("meetings.room.recordingDate", {
@@ -83,6 +87,7 @@ export default function RecordingsList({ meetingId }: RecordingsListProps) {
             </div>
             {playingId === rec.id && (
               <div className="mt-1 rounded-lg bg-gray-800/60 p-2">
+                {/* biome-ignore lint/a11y/useMediaCaption: recording playback does not have captions */}
                 <video
                   src={meetingsApi.getRecordingDownloadUrl(meetingId, rec.id)}
                   controls

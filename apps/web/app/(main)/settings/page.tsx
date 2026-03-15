@@ -3,12 +3,16 @@
 import { calendarApi, useCalendarStatusQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAuthContext } from "@/lib/auth-context";
-import { supportedLocales, useFormatters, useLocale, useSetLocale, useT, type SupportedLocale } from "@/lib/i18n";
 import { useAuthActions } from "@/lib/hooks/use-auth-actions";
+import { useCurrentAuthSessions, useRevokeCurrentAuthSession } from "@/lib/hooks/use-auth-session";
 import {
-  useCurrentAuthSessions,
-  useRevokeCurrentAuthSession,
-} from "@/lib/hooks/use-auth-session";
+  type SupportedLocale,
+  supportedLocales,
+  useFormatters,
+  useLocale,
+  useSetLocale,
+  useT,
+} from "@/lib/i18n";
 import { buildLoginUrl } from "@/lib/return-to";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -23,7 +27,9 @@ export default function SettingsPage() {
   const router = useRouter();
   const { logout } = useAuthActions();
   const [revokeError, setRevokeError] = useState<string | null>(null);
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
+    "default"
+  );
   const sessionsQuery = useCurrentAuthSessions(Boolean(user));
   const revokeSessionMutation = useRevokeCurrentAuthSession();
   const calendarStatus = useCalendarStatusQuery(Boolean(user));
@@ -38,7 +44,7 @@ export default function SettingsPage() {
     }
   }, []);
 
-  // Handle calendar callback redirect
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run once on mount to handle calendar redirect
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -102,18 +108,14 @@ export default function SettingsPage() {
     <div className="p-8">
       <div className="mx-auto max-w-3xl">
         <h1 className="mb-2 text-3xl font-bold text-gray-900">{t("settings.title")}</h1>
-        <p className="mb-8 text-gray-600">
-          {t("settings.description")}
-        </p>
+        <p className="mb-8 text-gray-600">{t("settings.description")}</p>
 
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           {isLoading ? (
             <p className="text-sm text-gray-500">{t("settings.loading")}</p>
           ) : isError || !user ? (
             <div className="space-y-3">
-              <p className="text-sm text-red-600">
-                {t("settings.error")}
-              </p>
+              <p className="text-sm text-red-600">{t("settings.error")}</p>
               <button
                 type="button"
                 onClick={() => void refetchAuth()}
@@ -144,9 +146,7 @@ export default function SettingsPage() {
 
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">{t("settings.language")}</h2>
-                <p className="mt-2 text-sm text-gray-600">
-                  {t("settings.languageDescription")}
-                </p>
+                <p className="mt-2 text-sm text-gray-600">{t("settings.languageDescription")}</p>
                 <select
                   value={locale}
                   onChange={(event) => setLocale(event.target.value as SupportedLocale)}
@@ -162,9 +162,7 @@ export default function SettingsPage() {
 
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">{t("settings.session")}</h2>
-                <p className="mt-2 text-sm text-gray-600">
-                  {t(sessionDescriptionKey)}
-                </p>
+                <p className="mt-2 text-sm text-gray-600">{t(sessionDescriptionKey)}</p>
                 {revokeError ? (
                   <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                     {revokeError}
@@ -172,7 +170,9 @@ export default function SettingsPage() {
                 ) : null}
                 <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50">
                   {sessionsQuery.isLoading ? (
-                    <p className="px-4 py-4 text-sm text-gray-500">{t("settings.sessionsLoading")}</p>
+                    <p className="px-4 py-4 text-sm text-gray-500">
+                      {t("settings.sessionsLoading")}
+                    </p>
                   ) : sessionsQuery.isError ? (
                     <div className="space-y-3 px-4 py-4">
                       <p className="text-sm text-red-600">
@@ -189,7 +189,10 @@ export default function SettingsPage() {
                   ) : sessionsQuery.data?.sessions.length ? (
                     <ul className="divide-y divide-gray-200">
                       {sessionsQuery.data.sessions.map((session) => (
-                        <li key={session.id} className="flex items-center justify-between gap-4 px-4 py-4">
+                        <li
+                          key={session.id}
+                          className="flex items-center justify-between gap-4 px-4 py-4"
+                        >
                           <div>
                             <p className="text-sm font-medium text-gray-900">
                               {session.deviceName || t("settings.deviceUnknown")}
@@ -206,7 +209,9 @@ export default function SettingsPage() {
                               })}
                             </p>
                             <p className="mt-1 text-xs text-gray-500">
-                              {t("settings.sessionExpiry", { value: formatters.dateTime(session.expiresAt) })}
+                              {t("settings.sessionExpiry", {
+                                value: formatters.dateTime(session.expiresAt),
+                              })}
                             </p>
                           </div>
                           <button
@@ -215,7 +220,9 @@ export default function SettingsPage() {
                             disabled={revokeSessionMutation.isPending}
                             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {session.current ? t("settings.revokeCurrentSession") : t("settings.revokeSession")}
+                            {session.current
+                              ? t("settings.revokeCurrentSession")
+                              : t("settings.revokeSession")}
                           </button>
                         </li>
                       ))}
@@ -235,13 +242,17 @@ export default function SettingsPage() {
 
               {notifPermission !== "unsupported" && (
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">{t("settings.notifications")}</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {t("settings.notifications")}
+                  </h2>
                   <p className="mt-2 text-sm text-gray-600">
                     {t("settings.notificationsDescription")}
                   </p>
                   <div className="mt-3">
                     {notifPermission === "granted" ? (
-                      <p className="text-sm text-emerald-600">{t("settings.notificationsEnabled")}</p>
+                      <p className="text-sm text-emerald-600">
+                        {t("settings.notificationsEnabled")}
+                      </p>
                     ) : notifPermission === "denied" ? (
                       <p className="text-sm text-red-600">{t("settings.notificationsBlocked")}</p>
                     ) : (
@@ -258,10 +269,10 @@ export default function SettingsPage() {
               )}
 
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">{t("settings.calendar.title")}</h2>
-                <p className="mt-2 text-sm text-gray-600">
-                  {t("settings.calendar.description")}
-                </p>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {t("settings.calendar.title")}
+                </h2>
+                <p className="mt-2 text-sm text-gray-600">{t("settings.calendar.description")}</p>
                 {calendarMessage && (
                   <p className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
                     {calendarMessage}
@@ -272,7 +283,9 @@ export default function SettingsPage() {
                     <p className="text-sm text-gray-500">{t("common.status.loading")}</p>
                   ) : calendarStatus.data?.connected ? (
                     <div className="flex items-center gap-3">
-                      <span className="text-sm text-emerald-600">{t("settings.calendar.statusConnected")}</span>
+                      <span className="text-sm text-emerald-600">
+                        {t("settings.calendar.statusConnected")}
+                      </span>
                       <button
                         type="button"
                         onClick={() => void handleCalendarDisconnect()}

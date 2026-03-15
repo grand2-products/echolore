@@ -67,7 +67,9 @@ export default function AgentPanel(props: AgentPanelProps) {
   }, [props.agents, selectedAgentId]);
 
   const selectedAgent = props.agents.find((agent) => agent.id === selectedAgentId) ?? null;
-  const selectedAgentIsActive = selectedAgentId ? props.activeAgentIds.includes(selectedAgentId) : false;
+  const selectedAgentIsActive = selectedAgentId
+    ? props.activeAgentIds.includes(selectedAgentId)
+    : false;
   const reversedEvents = useMemo(() => [...props.events].reverse(), [props.events]);
 
   const invokeAgent = async () => {
@@ -105,7 +107,13 @@ export default function AgentPanel(props: AgentPanelProps) {
           audioRef.current.pause();
           audioRef.current.src = "";
         }
-        const ALLOWED_AUDIO_TYPES = ["audio/mp3", "audio/mpeg", "audio/wav", "audio/webm", "audio/ogg"];
+        const ALLOWED_AUDIO_TYPES = [
+          "audio/mp3",
+          "audio/mpeg",
+          "audio/wav",
+          "audio/webm",
+          "audio/ogg",
+        ];
         if (!ALLOWED_AUDIO_TYPES.includes(result.audio.mimeType)) {
           setVoiceStatus(t("meetings.room.voiceUnavailable"));
         } else {
@@ -151,12 +159,16 @@ export default function AgentPanel(props: AgentPanelProps) {
         <div
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity"
           onClick={props.onClose}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") props.onClose();
+          }}
+          role="presentation"
         />
       )}
 
       {/* Drawer */}
-      <aside
-        role="dialog"
+      <dialog
+        open={props.open}
         aria-modal="true"
         aria-label={t("meetings.room.aiEmployee")}
         className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-gray-700/50 bg-gray-900 shadow-2xl transition-transform duration-300 ${
@@ -182,7 +194,14 @@ export default function AgentPanel(props: AgentPanelProps) {
             onClick={props.onClose}
             className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -210,7 +229,9 @@ export default function AgentPanel(props: AgentPanelProps) {
 
           {selectedAgent ? (
             <div className="rounded-lg bg-gray-800/80 p-3.5">
-              <div className="text-sm text-gray-300">{selectedAgent.description || t("meetings.room.noDescription")}</div>
+              <div className="text-sm text-gray-300">
+                {selectedAgent.description || t("meetings.room.noDescription")}
+              </div>
               <div className="mt-2 text-xs text-gray-500">
                 {t("meetings.room.agentMeta", {
                   style: interventionStyle(selectedAgent.interventionStyle),
@@ -261,16 +282,28 @@ export default function AgentPanel(props: AgentPanelProps) {
             {isResponding ? t("meetings.room.generating") : t("meetings.room.getResponse")}
           </button>
 
-          {error ? <div className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div> : null}
-          {notice ? <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{notice}</div> : null}
-          {voiceStatus ? <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{voiceStatus}</div> : null}
+          {error ? (
+            <div className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>
+          ) : null}
+          {notice ? (
+            <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+              {notice}
+            </div>
+          ) : null}
+          {voiceStatus ? (
+            <div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+              {voiceStatus}
+            </div>
+          ) : null}
 
           {response ? (
             <div className="space-y-2 rounded-lg border border-gray-700/50 bg-gray-800/80 p-3.5">
               <div className="text-xs font-medium uppercase tracking-wide text-gray-400">
                 {response.agent.name}
               </div>
-              <pre className="whitespace-pre-wrap text-sm leading-relaxed text-gray-100">{response.responseText}</pre>
+              <pre className="whitespace-pre-wrap text-sm leading-relaxed text-gray-100">
+                {response.responseText}
+              </pre>
               <div className="text-xs text-gray-500">
                 {t("meetings.room.audio", {
                   value: response.audio ? response.audio.mimeType : t("meetings.room.notAvailable"),
@@ -303,9 +336,7 @@ export default function AgentPanel(props: AgentPanelProps) {
                     <div
                       key={event.id}
                       className={`rounded-lg p-2.5 ${
-                        isAuto
-                          ? "border border-purple-500/30 bg-purple-900/20"
-                          : "bg-gray-900/70"
+                        isAuto ? "border border-purple-500/30 bg-purple-900/20" : "bg-gray-900/70"
                       }`}
                     >
                       <div className="flex items-center justify-between text-xs text-gray-400">
@@ -334,7 +365,7 @@ export default function AgentPanel(props: AgentPanelProps) {
             </div>
           </div>
         </div>
-      </aside>
+      </dialog>
     </>
   );
 }
