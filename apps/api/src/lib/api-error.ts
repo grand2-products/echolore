@@ -28,6 +28,7 @@ export function jsonError(
  * type inference (including `zValidator` augmented context types) continues
  * to work correctly.
  */
+// biome-ignore lint/suspicious/noExplicitAny: Hono handler generic requires any for context type inference
 export function withErrorHandler<H extends (c: any) => Promise<Response>>(
   handler: H,
   errorCode: string,
@@ -38,6 +39,8 @@ export function withErrorHandler<H extends (c: any) => Promise<Response>>(
     try {
       return await handler(c);
     } catch (error) {
+      // findOrFail / requireOwnerOrAdmin throw Response objects — propagate as-is
+      if (error instanceof Response) return error;
       console.error(`${errorMessage}:`, error);
       return jsonError(c, statusCode, errorCode, errorMessage);
     }

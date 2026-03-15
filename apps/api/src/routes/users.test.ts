@@ -2,6 +2,7 @@ import { UserRole } from "@echolore/shared/contracts";
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type AppEnv, authGuard } from "../lib/auth.js";
+import { memberUser } from "../test-utils/index.js";
 import { usersRoutes } from "./users.js";
 
 const {
@@ -60,13 +61,7 @@ describe("usersRoutes", () => {
 
   it("serves /api/users/me through bearer auth", async () => {
     resolveAccessTokenSessionMock.mockResolvedValue({
-      user: {
-        id: "user_1",
-        email: "member@example.com",
-        name: "Member",
-        role: UserRole.Member,
-        avatarUrl: null,
-      },
+      user: memberUser(),
       authMode: "password",
     });
     getUserByIdMock.mockResolvedValue({
@@ -105,13 +100,7 @@ describe("usersRoutes", () => {
 
   it("lists current user auth sessions", async () => {
     resolveAccessTokenSessionMock.mockResolvedValue({
-      user: {
-        id: "user_1",
-        email: "member@example.com",
-        name: "Member",
-        role: UserRole.Member,
-        avatarUrl: null,
-      },
+      user: memberUser(),
       authMode: "password",
     });
     listAuthSessionsForUserMock.mockResolvedValue([
@@ -152,13 +141,7 @@ describe("usersRoutes", () => {
 
   it("revokes a session by id", async () => {
     resolveAccessTokenSessionMock.mockResolvedValue({
-      user: {
-        id: "user_1",
-        email: "member@example.com",
-        name: "Member",
-        role: UserRole.Member,
-        avatarUrl: null,
-      },
+      user: memberUser(),
       authMode: "password",
     });
     revokeAuthSessionByIdMock.mockResolvedValue(true);

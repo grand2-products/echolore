@@ -1,6 +1,7 @@
 import { and, desc, eq, exists, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { blocks, type NewBlock, type NewPage, pages, spaces, users } from "../../db/schema.js";
+import { escapeLikePattern, firstOrNull } from "../../lib/db-utils.js";
 
 export async function listPagesOrderedByUpdatedAt() {
   const rows = await db
@@ -30,8 +31,7 @@ export async function listPagesOrderedByUpdatedAt() {
 }
 
 export async function getPageById(id: string) {
-  const [page] = await db.select().from(pages).where(eq(pages.id, id));
-  return page ?? null;
+  return firstOrNull(await db.select().from(pages).where(eq(pages.id, id)));
 }
 
 export async function getPageParentId(id: string) {
@@ -63,7 +63,11 @@ export async function searchPagesLexically(query: string) {
     .where(
       and(
         isNull(pages.deletedAt),
-        or(titleMatch, blockMatch, sql<boolean>`coalesce(${pages.title}, '') ilike ${`%${query}%`}`)
+        or(
+          titleMatch,
+          blockMatch,
+          sql<boolean>`coalesce(${pages.title}, '') ilike ${`%${escapeLikePattern(query)}%`}`
+        )
       )
     )
     .orderBy(desc(pages.updatedAt));
@@ -81,16 +85,14 @@ export async function listBlockContentsByPageIds(pageIds: string[]) {
 }
 
 export async function createPage(newPage: NewPage) {
-  const [page] = await db.insert(pages).values(newPage).returning();
-  return page ?? null;
+  return firstOrNull(await db.insert(pages).values(newPage).returning());
 }
 
 export async function updatePage(
   id: string,
   updatePayload: { title?: string; parentId?: string | null; updatedAt: Date }
 ) {
-  const [page] = await db.update(pages).set(updatePayload).where(eq(pages.id, id)).returning();
-  return page ?? null;
+  return firstOrNull(await db.update(pages).set(updatePayload).where(eq(pages.id, id)).returning());
 }
 
 export async function deletePage(id: string) {
@@ -98,13 +100,11 @@ export async function deletePage(id: string) {
 }
 
 export async function getBlockById(id: string) {
-  const [block] = await db.select().from(blocks).where(eq(blocks.id, id));
-  return block ?? null;
+  return firstOrNull(await db.select().from(blocks).where(eq(blocks.id, id)));
 }
 
 export async function createBlock(newBlock: NewBlock) {
-  const [block] = await db.insert(blocks).values(newBlock).returning();
-  return block ?? null;
+  return firstOrNull(await db.insert(blocks).values(newBlock).returning());
 }
 
 export async function updateBlock(
@@ -117,8 +117,9 @@ export async function updateBlock(
     updatedAt: Date;
   }
 ) {
-  const [block] = await db.update(blocks).set(updatePayload).where(eq(blocks.id, id)).returning();
-  return block ?? null;
+  return firstOrNull(
+    await db.update(blocks).set(updatePayload).where(eq(blocks.id, id)).returning()
+  );
 }
 
 export async function deleteBlock(id: string) {
@@ -126,21 +127,15 @@ export async function deleteBlock(id: string) {
 }
 
 export async function softDeletePage(id: string) {
-  const [page] = await db
-    .update(pages)
-    .set({ deletedAt: new Date() })
-    .where(eq(pages.id, id))
-    .returning();
-  return page ?? null;
+  return firstOrNull(
+    await db.update(pages).set({ deletedAt: new Date() }).where(eq(pages.id, id)).returning()
+  );
 }
 
 export async function restorePage(id: string) {
-  const [page] = await db
-    .update(pages)
-    .set({ deletedAt: null })
-    .where(eq(pages.id, id))
-    .returning();
-  return page ?? null;
+  return firstOrNull(
+    await db.update(pages).set({ deletedAt: null }).where(eq(pages.id, id)).returning()
+  );
 }
 
 export async function listDeletedPages() {

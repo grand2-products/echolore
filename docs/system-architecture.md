@@ -63,6 +63,7 @@ This document describes the currently implemented system architecture of `echolo
 - `./ops-runbook.md`
 - `./observability-architecture.md`
 - `./rollback-recovery-architecture.md`
+- `./enterprise-deployment-guide.md`
 
 ## LangChain Agent Architecture
 - the AI agent subsystem uses LangChain.js with a tool-calling Agent pattern

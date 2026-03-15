@@ -4,11 +4,8 @@ const {
   createMessageMock,
   getRecentMessagesMock,
   updateConversationMock,
-  getLlmSettingsMock,
+  initLlmWithSettingsMock,
   searchVisibleChunksMock,
-  createChatModelMock,
-  isTextGenerationEnabledMock,
-  resolveTextProviderMock,
   createAiChatAgentMock,
   createAiChatSearchToolMock,
   createAiChatReadPageToolMock,
@@ -16,11 +13,8 @@ const {
   createMessageMock: vi.fn(),
   getRecentMessagesMock: vi.fn(),
   updateConversationMock: vi.fn(),
-  getLlmSettingsMock: vi.fn(),
+  initLlmWithSettingsMock: vi.fn(),
   searchVisibleChunksMock: vi.fn(),
-  createChatModelMock: vi.fn(),
-  isTextGenerationEnabledMock: vi.fn(),
-  resolveTextProviderMock: vi.fn(),
   createAiChatAgentMock: vi.fn(),
   createAiChatSearchToolMock: vi.fn(),
   createAiChatReadPageToolMock: vi.fn(),
@@ -32,18 +26,12 @@ vi.mock("../../repositories/ai-chat/ai-chat-repository.js", () => ({
   updateConversation: updateConversationMock,
 }));
 
-vi.mock("../admin/admin-service.js", () => ({
-  getLlmSettings: getLlmSettingsMock,
-}));
-
 vi.mock("../wiki/vector-search-service.js", () => ({
   searchVisibleChunks: searchVisibleChunksMock,
 }));
 
 vi.mock("../../ai/llm/index.js", () => ({
-  createChatModel: createChatModelMock,
-  isTextGenerationEnabled: isTextGenerationEnabledMock,
-  resolveTextProvider: resolveTextProviderMock,
+  initLlmWithSettings: initLlmWithSettingsMock,
 }));
 
 vi.mock("../../ai/agent/create-ai-chat-agent.js", () => ({
@@ -72,11 +60,8 @@ describe("ai-chat-ai-service", () => {
     createMessageMock.mockReset();
     getRecentMessagesMock.mockReset();
     updateConversationMock.mockReset();
-    getLlmSettingsMock.mockReset();
+    initLlmWithSettingsMock.mockReset();
     searchVisibleChunksMock.mockReset();
-    createChatModelMock.mockReset();
-    isTextGenerationEnabledMock.mockReset();
-    resolveTextProviderMock.mockReset();
     createAiChatAgentMock.mockReset();
     createAiChatSearchToolMock.mockReset();
     createAiChatReadPageToolMock.mockReset();
@@ -98,13 +83,14 @@ describe("ai-chat-ai-service", () => {
       });
     getRecentMessagesMock.mockResolvedValue([]);
     updateConversationMock.mockResolvedValue({});
-    getLlmSettingsMock.mockResolvedValue({ provider: "gemini", geminiApiKey: "key" });
-    resolveTextProviderMock.mockReturnValue("gemini");
-    isTextGenerationEnabledMock.mockReturnValue(true);
+    initLlmWithSettingsMock.mockResolvedValue({
+      model: {},
+      provider: "gemini",
+      overrides: {},
+    });
     searchVisibleChunksMock.mockResolvedValue([]);
     createAiChatSearchToolMock.mockReturnValue({ searchTool: {}, referencedPages: [] });
     createAiChatReadPageToolMock.mockReturnValue({ readPageTool: {}, referencedPages: [] });
-    createChatModelMock.mockReturnValue({});
 
     const fakeAgent = {
       invoke: vi.fn().mockResolvedValue({
@@ -175,9 +161,7 @@ describe("ai-chat-ai-service", () => {
         });
       getRecentMessagesMock.mockResolvedValue([]);
       updateConversationMock.mockResolvedValue({});
-      getLlmSettingsMock.mockResolvedValue({ provider: null });
-      resolveTextProviderMock.mockReturnValue(null);
-      isTextGenerationEnabledMock.mockReturnValue(false);
+      initLlmWithSettingsMock.mockResolvedValue(null);
 
       const { sendMessageAndGetResponse } = await import("./ai-chat-ai-service.js");
       await sendMessageAndGetResponse(testUser, "conv-1", "Hello");
@@ -207,15 +191,16 @@ describe("ai-chat-ai-service", () => {
         });
       getRecentMessagesMock.mockResolvedValue([]);
       updateConversationMock.mockResolvedValue({});
-      getLlmSettingsMock.mockResolvedValue({ provider: "gemini", geminiApiKey: "key" });
-      resolveTextProviderMock.mockReturnValue("gemini");
-      isTextGenerationEnabledMock.mockReturnValue(true);
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: {},
+        provider: "gemini",
+        overrides: {},
+      });
       searchVisibleChunksMock.mockResolvedValue([
         { pageId: "page-1", pageTitle: "Deploy Guide", chunkText: "Step 1: ...", similarity: 0.9 },
       ]);
       createAiChatSearchToolMock.mockReturnValue({ searchTool: {}, referencedPages: [] });
       createAiChatReadPageToolMock.mockReturnValue({ readPageTool: {}, referencedPages: [] });
-      createChatModelMock.mockReturnValue({});
       createAiChatAgentMock.mockReturnValue({
         invoke: vi.fn().mockResolvedValue({
           messages: [{ _getType: () => "ai", content: "Answer" }],
@@ -252,13 +237,14 @@ describe("ai-chat-ai-service", () => {
         });
       getRecentMessagesMock.mockResolvedValue([]);
       updateConversationMock.mockResolvedValue({});
-      getLlmSettingsMock.mockResolvedValue({ provider: "gemini", geminiApiKey: "key" });
-      resolveTextProviderMock.mockReturnValue("gemini");
-      isTextGenerationEnabledMock.mockReturnValue(true);
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: {},
+        provider: "gemini",
+        overrides: {},
+      });
       searchVisibleChunksMock.mockResolvedValue([]);
       createAiChatSearchToolMock.mockReturnValue({ searchTool: {}, referencedPages: [] });
       createAiChatReadPageToolMock.mockReturnValue({ readPageTool: {}, referencedPages: [] });
-      createChatModelMock.mockReturnValue({});
       createAiChatAgentMock.mockReturnValue({
         invoke: vi.fn().mockRejectedValue(new Error("LLM timeout")),
       });

@@ -1,19 +1,18 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { users } from "../../db/schema.js";
+import { firstOrNull } from "../../lib/db-utils.js";
 
 export async function listUsers() {
   return db.select().from(users);
 }
 
 export async function getUserById(id: string) {
-  const [user] = await db.select().from(users).where(eq(users.id, id));
-  return user ?? null;
+  return firstOrNull(await db.select().from(users).where(eq(users.id, id)));
 }
 
 export async function getUserByEmail(email: string) {
-  const [user] = await db.select().from(users).where(eq(users.email, email));
-  return user ?? null;
+  return firstOrNull(await db.select().from(users).where(eq(users.email, email)));
 }
 
 export async function createUser(input: {
@@ -25,8 +24,7 @@ export async function createUser(input: {
   createdAt: Date;
   updatedAt: Date;
 }) {
-  const [user] = await db.insert(users).values(input).returning();
-  return user ?? null;
+  return firstOrNull(await db.insert(users).values(input).returning());
 }
 
 export async function updateUser(
@@ -37,11 +35,9 @@ export async function updateUser(
     updatedAt: Date;
   }
 ) {
-  const [user] = await db.update(users).set(input).where(eq(users.id, id)).returning();
-  return user ?? null;
+  return firstOrNull(await db.update(users).set(input).where(eq(users.id, id)).returning());
 }
 
 export async function deleteUser(id: string) {
-  const [user] = await db.delete(users).where(eq(users.id, id)).returning();
-  return user ?? null;
+  return firstOrNull(await db.delete(users).where(eq(users.id, id)).returning());
 }

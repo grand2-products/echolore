@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import { db } from "../../db/index.js";
 import { type Space, spacePermissions, userGroupMemberships, userGroups } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
+import { ensureRecord } from "../../lib/db-utils.js";
 import {
   createSpace,
   getGeneralSpace,
@@ -15,32 +16,21 @@ import {
 export const GENERAL_SPACE_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function ensureGeneralSpace(): Promise<Space> {
-  const existing = await getGeneralSpace();
-  if (existing) return existing;
-
   const now = new Date();
-  try {
-    const space = await createSpace({
-      id: GENERAL_SPACE_ID,
-      name: "General",
-      type: "general",
-      ownerUserId: null,
-      groupId: null,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    if (!space) {
-      throw new Error("Failed to create general space");
-    }
-
-    return space;
-  } catch {
-    // Race condition: another request may have created it concurrently
-    const retry = await getGeneralSpace();
-    if (retry) return retry;
-    throw new Error("Failed to create general space");
-  }
+  return ensureRecord({
+    find: () => getGeneralSpace(),
+    create: () =>
+      createSpace({
+        id: GENERAL_SPACE_ID,
+        name: "General",
+        type: "general",
+        ownerUserId: null,
+        groupId: null,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    errorMessage: "Failed to create general space",
+  });
 }
 
 async function ensureTeamSpacesForAllGroups(): Promise<void> {
@@ -114,32 +104,21 @@ export async function listVisibleSpaces(user: SessionUser): Promise<Space[]> {
 }
 
 export async function getOrCreatePersonalSpace(user: SessionUser): Promise<Space> {
-  const existing = await getPersonalSpaceByUserId(user.id);
-  if (existing) return existing;
-
   const now = new Date();
-  try {
-    const space = await createSpace({
-      id: `space_${nanoid(12)}`,
-      name: user.name,
-      type: "personal",
-      ownerUserId: user.id,
-      groupId: null,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    if (!space) {
-      throw new Error("Failed to create personal space");
-    }
-
-    return space;
-  } catch {
-    // Race condition: another request may have created it concurrently
-    const retry = await getPersonalSpaceByUserId(user.id);
-    if (retry) return retry;
-    throw new Error("Failed to create personal space");
-  }
+  return ensureRecord({
+    find: () => getPersonalSpaceByUserId(user.id),
+    create: () =>
+      createSpace({
+        id: `space_${nanoid(12)}`,
+        name: user.name,
+        type: "personal",
+        ownerUserId: user.id,
+        groupId: null,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    errorMessage: "Failed to create personal space",
+  });
 }
 
 export async function canAccessSpace(
@@ -182,30 +161,19 @@ export async function canAccessSpace(
 }
 
 export async function ensureTeamSpaceForGroup(groupId: string, groupName: string): Promise<Space> {
-  const existing = await getTeamSpaceByGroupId(groupId);
-  if (existing) return existing;
-
   const now = new Date();
-  try {
-    const space = await createSpace({
-      id: `space_${nanoid(12)}`,
-      name: groupName,
-      type: "team",
-      ownerUserId: null,
-      groupId,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    if (!space) {
-      throw new Error("Failed to create team space");
-    }
-
-    return space;
-  } catch {
-    // Race condition: another request may have created it concurrently
-    const retry = await getTeamSpaceByGroupId(groupId);
-    if (retry) return retry;
-    throw new Error("Failed to create team space");
-  }
+  return ensureRecord({
+    find: () => getTeamSpaceByGroupId(groupId),
+    create: () =>
+      createSpace({
+        id: `space_${nanoid(12)}`,
+        name: groupName,
+        type: "team",
+        ownerUserId: null,
+        groupId,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    errorMessage: "Failed to create team space",
+  });
 }

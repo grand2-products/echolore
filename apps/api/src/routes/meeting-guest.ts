@@ -7,6 +7,7 @@ import { db } from "../db/index.js";
 import { meetingGuestRequests, meetingInvites, meetings } from "../db/schema.js";
 import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import { livekitApiKey, livekitApiSecret, livekitHost } from "../lib/livekit-config.js";
+import { getRequestIp } from "../lib/password-auth-guard.js";
 import { getValkey } from "../lib/valkey.js";
 
 const roomService = new RoomServiceClient(livekitHost, livekitApiKey, livekitApiSecret);
@@ -88,7 +89,7 @@ meetingGuestRoutes.post(
   zValidator("json", joinRequestSchema),
   withErrorHandler(
     async (c) => {
-      const ip = c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? "unknown";
+      const ip = getRequestIp(c.req.raw.headers) ?? "unknown";
       if (!(await checkRateLimit(ip))) {
         return jsonError(c, 429, "RATE_LIMITED", "Too many requests");
       }

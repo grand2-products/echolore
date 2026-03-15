@@ -1,18 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  createTranscriptMock,
-  getLlmSettingsMock,
-  createChatModelMock,
-  isTextGenerationEnabledMock,
-  resolveTextProviderMock,
-  loadFileMock,
-} = vi.hoisted(() => ({
+const { createTranscriptMock, initLlmWithSettingsMock, loadFileMock } = vi.hoisted(() => ({
   createTranscriptMock: vi.fn(),
-  getLlmSettingsMock: vi.fn(),
-  createChatModelMock: vi.fn(),
-  isTextGenerationEnabledMock: vi.fn(),
-  resolveTextProviderMock: vi.fn(),
+  initLlmWithSettingsMock: vi.fn(),
   loadFileMock: vi.fn(),
 }));
 
@@ -20,14 +10,8 @@ vi.mock("../../repositories/meeting/meeting-repository.js", () => ({
   createTranscript: createTranscriptMock,
 }));
 
-vi.mock("../admin/admin-service.js", () => ({
-  getLlmSettings: getLlmSettingsMock,
-}));
-
 vi.mock("../../ai/llm/index.js", () => ({
-  createChatModel: createChatModelMock,
-  isTextGenerationEnabled: isTextGenerationEnabledMock,
-  resolveTextProvider: resolveTextProviderMock,
+  initLlmWithSettings: initLlmWithSettingsMock,
 }));
 
 vi.mock("../../lib/file-storage.js", () => ({
@@ -49,34 +33,16 @@ vi.mock("@langchain/core/messages", () => {
   return { HumanMessage: MockHumanMessage };
 });
 
-const defaultLlmSettings = {
-  provider: "gemini",
-  geminiApiKey: "test-key",
-  geminiTextModel: "gemini-pro",
-  vertexProject: null,
-  vertexLocation: null,
-  vertexModel: null,
-  zhipuApiKey: null,
-  zhipuTextModel: null,
-};
-
 describe("recording-transcription-service", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     createTranscriptMock.mockReset();
-    getLlmSettingsMock.mockReset();
-    createChatModelMock.mockReset();
-    isTextGenerationEnabledMock.mockReset();
-    resolveTextProviderMock.mockReset();
+    initLlmWithSettingsMock.mockReset();
     loadFileMock.mockReset();
-
-    getLlmSettingsMock.mockResolvedValue(defaultLlmSettings);
-    resolveTextProviderMock.mockReturnValue("gemini");
   });
 
   describe("transcribeRecording", () => {
     it("sends base64 audio to LLM and stores parsed transcript segments", async () => {
-      isTextGenerationEnabledMock.mockReturnValue(true);
       loadFileMock.mockResolvedValue(Buffer.from("fake-audio-data"));
 
       const invokeMock = vi.fn().mockResolvedValue({
@@ -86,7 +52,11 @@ describe("recording-transcription-service", () => {
           "[01:30] Speaker 1: Let us begin",
         ].join("\n"),
       });
-      createChatModelMock.mockReturnValue({ invoke: invokeMock });
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: { invoke: invokeMock },
+        provider: "gemini",
+        overrides: {},
+      });
       createTranscriptMock.mockResolvedValue(undefined);
 
       vi.spyOn(crypto, "randomUUID")
@@ -138,13 +108,16 @@ describe("recording-transcription-service", () => {
     });
 
     it("handles fallback lines without the expected format", async () => {
-      isTextGenerationEnabledMock.mockReturnValue(true);
       loadFileMock.mockResolvedValue(Buffer.from("audio"));
 
       const invokeMock = vi.fn().mockResolvedValue({
         content: "Just some plain text without timestamps",
       });
-      createChatModelMock.mockReturnValue({ invoke: invokeMock });
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: { invoke: invokeMock },
+        provider: "gemini",
+        overrides: {},
+      });
       createTranscriptMock.mockResolvedValue(undefined);
 
       vi.spyOn(crypto, "randomUUID").mockReturnValue(
@@ -164,11 +137,14 @@ describe("recording-transcription-service", () => {
     });
 
     it("returns segmentCount 0 for empty LLM response", async () => {
-      isTextGenerationEnabledMock.mockReturnValue(true);
       loadFileMock.mockResolvedValue(Buffer.from("audio"));
 
       const invokeMock = vi.fn().mockResolvedValue({ content: "" });
-      createChatModelMock.mockReturnValue({ invoke: invokeMock });
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: { invoke: invokeMock },
+        provider: "gemini",
+        overrides: {},
+      });
 
       const { transcribeRecording } = await import("./recording-transcription-service.js");
       const result = await transcribeRecording("meeting_1", "path/to/file");
@@ -178,7 +154,7 @@ describe("recording-transcription-service", () => {
     });
 
     it("returns segmentCount 0 when LLM is not configured", async () => {
-      isTextGenerationEnabledMock.mockReturnValue(false);
+      initLlmWithSettingsMock.mockResolvedValue(null);
 
       const { transcribeRecording } = await import("./recording-transcription-service.js");
       const result = await transcribeRecording("meeting_1", "path/to/file");
@@ -189,11 +165,14 @@ describe("recording-transcription-service", () => {
     });
 
     it("returns segmentCount 0 when LLM invocation throws", async () => {
-      isTextGenerationEnabledMock.mockReturnValue(true);
       loadFileMock.mockResolvedValue(Buffer.from("audio"));
 
       const invokeMock = vi.fn().mockRejectedValue(new Error("API failure"));
-      createChatModelMock.mockReturnValue({ invoke: invokeMock });
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: { invoke: invokeMock },
+        provider: "gemini",
+        overrides: {},
+      });
 
       const { transcribeRecording } = await import("./recording-transcription-service.js");
       const result = await transcribeRecording("meeting_1", "path/to/file");

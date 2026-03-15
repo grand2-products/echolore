@@ -1,13 +1,8 @@
+import crypto from "node:crypto";
 import { HumanMessage } from "@langchain/core/messages";
-import type { LlmOverrides } from "../../ai/llm/index.js";
-import {
-  createChatModel,
-  isTextGenerationEnabled,
-  resolveTextProvider,
-} from "../../ai/llm/index.js";
+import { initLlmWithSettings } from "../../ai/llm/index.js";
 import { loadFile } from "../../lib/file-storage.js";
 import { createTranscript } from "../../repositories/meeting/meeting-repository.js";
-import { getLlmSettings } from "../admin/admin-service.js";
 
 /**
  * Transcribe a completed recording using the configured LLM provider.
@@ -32,20 +27,9 @@ export async function transcribeRecording(
     return { segmentCount: 0 };
   }
 
-  const dbSettings = await getLlmSettings();
-  const overrides: LlmOverrides = {
-    geminiApiKey: dbSettings.geminiApiKey,
-    geminiTextModel: dbSettings.geminiTextModel,
-    vertexProject: dbSettings.vertexProject,
-    vertexLocation: dbSettings.vertexLocation,
-    vertexModel: dbSettings.vertexModel,
-    zhipuApiKey: dbSettings.zhipuApiKey,
-    zhipuTextModel: dbSettings.zhipuTextModel,
-    zhipuUseCodingPlan: dbSettings.zhipuUseCodingPlan,
-  };
-  const provider = resolveTextProvider(dbSettings.provider);
+  const result = await initLlmWithSettings({ temperature: 0 });
 
-  if (!isTextGenerationEnabled(provider, overrides)) {
+  if (!result) {
     console.warn("[recording-transcription] LLM not configured, skipping transcription");
     return { segmentCount: 0 };
   }
@@ -66,7 +50,7 @@ export async function transcribeRecording(
   ].join("\n");
 
   try {
-    const model = createChatModel({ provider, temperature: 0, overrides });
+    const model = result.model;
     const response = await model.invoke([
       new HumanMessage({
         content: [

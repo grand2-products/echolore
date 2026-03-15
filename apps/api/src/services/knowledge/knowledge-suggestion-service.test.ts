@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  getLlmSettingsMock,
-  resolveTextProviderMock,
-  isTextGenerationEnabledMock,
-  createChatModelMock,
+  initLlmWithSettingsMock,
   dbMock,
   createSuggestionMock,
   getSuggestionByIdMock,
@@ -22,10 +19,7 @@ const {
   }));
   const selectFromOrderByMock = vi.fn(() => ({ limit: vi.fn().mockResolvedValue([]) }));
   return {
-    getLlmSettingsMock: vi.fn(),
-    resolveTextProviderMock: vi.fn(),
-    isTextGenerationEnabledMock: vi.fn(),
-    createChatModelMock: vi.fn(),
+    initLlmWithSettingsMock: vi.fn(),
     dbMock: {
       transaction: vi.fn(),
       select: vi.fn(() => ({
@@ -58,14 +52,13 @@ const {
   };
 });
 
-vi.mock("../admin/admin-service.js", () => ({
-  getLlmSettings: getLlmSettingsMock,
-}));
+vi.mock("node:crypto", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:crypto")>();
+  return { ...actual, default: { ...actual, randomUUID: vi.fn(() => "page_new") } };
+});
 
 vi.mock("../../ai/llm/index.js", () => ({
-  resolveTextProvider: resolveTextProviderMock,
-  isTextGenerationEnabled: isTextGenerationEnabledMock,
-  createChatModel: createChatModelMock,
+  initLlmWithSettings: initLlmWithSettingsMock,
 }));
 
 vi.mock("../../ai/agent/knowledge-suggestion-prompt.js", () => ({
@@ -111,10 +104,7 @@ import {
 describe("knowledge-suggestion-service", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    getLlmSettingsMock.mockReset();
-    resolveTextProviderMock.mockReset();
-    isTextGenerationEnabledMock.mockReset();
-    createChatModelMock.mockReset();
+    initLlmWithSettingsMock.mockReset();
     createSuggestionMock.mockReset();
     getSuggestionByIdMock.mockReset();
     updateSuggestionMock.mockReset();
@@ -135,35 +125,15 @@ describe("knowledge-suggestion-service", () => {
       targetSpaceId: "space_1",
     };
 
-    const defaultSettings = {
-      provider: "google",
-      geminiApiKey: "test-key",
-      geminiTextModel: "gemini-pro",
-      vertexProject: null,
-      vertexLocation: null,
-      vertexModel: null,
-      zhipuApiKey: null,
-      zhipuTextModel: null,
-      zhipuUseCodingPlan: false,
-      embeddingEnabled: true,
-      embeddingModel: null,
-    };
-
     it("skips when LLM is not configured", async () => {
-      getLlmSettingsMock.mockResolvedValue(defaultSettings);
-      resolveTextProviderMock.mockReturnValue("google");
-      isTextGenerationEnabledMock.mockReturnValue(false);
+      initLlmWithSettingsMock.mockResolvedValue(null);
 
       await generateSuggestions(defaultInput);
 
-      expect(createChatModelMock).not.toHaveBeenCalled();
       expect(createSuggestionMock).not.toHaveBeenCalled();
     });
 
     it("generates suggestions from valid LLM JSON response", async () => {
-      getLlmSettingsMock.mockResolvedValue(defaultSettings);
-      resolveTextProviderMock.mockReturnValue("google");
-      isTextGenerationEnabledMock.mockReturnValue(true);
       buildKnowledgeSuggestionPromptMock.mockReturnValue("test prompt");
 
       // Mock db.select for existing pages and blocks
@@ -186,8 +156,11 @@ describe("knowledge-suggestion-service", () => {
         },
       ]);
 
-      const invokeResultMock = { content: llmResponse };
-      createChatModelMock.mockReturnValue({ invoke: vi.fn().mockResolvedValue(invokeResultMock) });
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: { invoke: vi.fn().mockResolvedValue({ content: llmResponse }) },
+        provider: "gemini",
+        overrides: {},
+      });
       createSuggestionMock.mockResolvedValue({ id: "suggestion_1" });
 
       await generateSuggestions(defaultInput);
@@ -205,9 +178,6 @@ describe("knowledge-suggestion-service", () => {
     });
 
     it("parses JSON wrapped in markdown code blocks", async () => {
-      getLlmSettingsMock.mockResolvedValue(defaultSettings);
-      resolveTextProviderMock.mockReturnValue("google");
-      isTextGenerationEnabledMock.mockReturnValue(true);
       buildKnowledgeSuggestionPromptMock.mockReturnValue("test prompt");
       dbMock._selectFromWhereLimitMock.mockResolvedValueOnce([]);
 
@@ -224,8 +194,10 @@ describe("knowledge-suggestion-service", () => {
         ]) +
         "\n```";
 
-      createChatModelMock.mockReturnValue({
-        invoke: vi.fn().mockResolvedValue({ content: llmResponse }),
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: { invoke: vi.fn().mockResolvedValue({ content: llmResponse }) },
+        provider: "gemini",
+        overrides: {},
       });
       createSuggestionMock.mockResolvedValue({ id: "suggestion_1" });
 
@@ -235,9 +207,6 @@ describe("knowledge-suggestion-service", () => {
     });
 
     it("skips invalid items that fail Zod validation", async () => {
-      getLlmSettingsMock.mockResolvedValue(defaultSettings);
-      resolveTextProviderMock.mockReturnValue("google");
-      isTextGenerationEnabledMock.mockReturnValue(true);
       buildKnowledgeSuggestionPromptMock.mockReturnValue("test prompt");
       dbMock._selectFromWhereLimitMock.mockResolvedValueOnce([]);
 
@@ -257,8 +226,10 @@ describe("knowledge-suggestion-service", () => {
         },
       ]);
 
-      createChatModelMock.mockReturnValue({
-        invoke: vi.fn().mockResolvedValue({ content: llmResponse }),
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: { invoke: vi.fn().mockResolvedValue({ content: llmResponse }) },
+        provider: "gemini",
+        overrides: {},
       });
       createSuggestionMock.mockResolvedValue({ id: "suggestion_1" });
 
@@ -272,14 +243,13 @@ describe("knowledge-suggestion-service", () => {
     });
 
     it("handles non-JSON LLM responses gracefully", async () => {
-      getLlmSettingsMock.mockResolvedValue(defaultSettings);
-      resolveTextProviderMock.mockReturnValue("google");
-      isTextGenerationEnabledMock.mockReturnValue(true);
       buildKnowledgeSuggestionPromptMock.mockReturnValue("test prompt");
       dbMock._selectFromWhereLimitMock.mockResolvedValueOnce([]);
 
-      createChatModelMock.mockReturnValue({
-        invoke: vi.fn().mockResolvedValue({ content: "This is not JSON at all" }),
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: { invoke: vi.fn().mockResolvedValue({ content: "This is not JSON at all" }) },
+        provider: "gemini",
+        overrides: {},
       });
 
       await generateSuggestions(defaultInput);
@@ -288,14 +258,13 @@ describe("knowledge-suggestion-service", () => {
     });
 
     it("handles LLM invocation errors gracefully", async () => {
-      getLlmSettingsMock.mockResolvedValue(defaultSettings);
-      resolveTextProviderMock.mockReturnValue("google");
-      isTextGenerationEnabledMock.mockReturnValue(true);
       buildKnowledgeSuggestionPromptMock.mockReturnValue("test prompt");
       dbMock._selectFromWhereLimitMock.mockResolvedValueOnce([]);
 
-      createChatModelMock.mockReturnValue({
-        invoke: vi.fn().mockRejectedValue(new Error("LLM API error")),
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: { invoke: vi.fn().mockRejectedValue(new Error("LLM API error")) },
+        provider: "gemini",
+        overrides: {},
       });
 
       // Should not throw
@@ -305,14 +274,13 @@ describe("knowledge-suggestion-service", () => {
     });
 
     it("handles non-array JSON responses", async () => {
-      getLlmSettingsMock.mockResolvedValue(defaultSettings);
-      resolveTextProviderMock.mockReturnValue("google");
-      isTextGenerationEnabledMock.mockReturnValue(true);
       buildKnowledgeSuggestionPromptMock.mockReturnValue("test prompt");
       dbMock._selectFromWhereLimitMock.mockResolvedValueOnce([]);
 
-      createChatModelMock.mockReturnValue({
-        invoke: vi.fn().mockResolvedValue({ content: '{"not": "an array"}' }),
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: { invoke: vi.fn().mockResolvedValue({ content: '{"not": "an array"}' }) },
+        provider: "gemini",
+        overrides: {},
       });
 
       await generateSuggestions(defaultInput);

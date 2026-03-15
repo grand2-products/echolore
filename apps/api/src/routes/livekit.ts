@@ -7,6 +7,7 @@ import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import { requireRole } from "../lib/auth.js";
 import { livekitApiKey, livekitApiSecret, livekitHost } from "../lib/livekit-config.js";
+import { isOwnerOrAdmin } from "../lib/route-helpers.js";
 import { getMeetingById } from "../repositories/meeting/meeting-repository.js";
 import * as coworkingMcu from "../services/coworking/coworking-mcu-service.js";
 import * as recordingService from "../services/meeting/recording-service.js";
@@ -17,6 +18,15 @@ const livekitTokenSchema = z.object({
   roomName: z.string().min(1).max(200),
   participantName: z.string().min(1).max(200),
   participantIdentity: z.string().min(1).max(200),
+});
+
+const startRecordingBody = z.object({
+  meetingId: z.string().min(1),
+});
+
+const stopRecordingBody = z.object({
+  egressId: z.string().min(1),
+  meetingId: z.string().min(1),
 });
 
 const apiKey = livekitApiKey;
@@ -164,16 +174,15 @@ livekitRoutes.post(
       const user = c.get("user");
 
       const body = await c.req.json().catch(() => ({}));
-      const meetingId = (body as Record<string, string>).meetingId;
-      if (!meetingId) {
-        return jsonError(c, 400, "MEETING_ID_REQUIRED", "meetingId is required");
+      const parsed = startRecordingBody.safeParse(body);
+      if (!parsed.success) {
+        return jsonError(c, 400, "VALIDATION_ERROR", "meetingId is required");
       }
+      const { meetingId } = parsed.data;
 
-      if (user.role !== UserRole.Admin) {
-        const meeting = await getMeetingById(meetingId);
-        if (!meeting || meeting.creatorId !== user.id) {
-          return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
-        }
+      const meeting = await getMeetingById(meetingId);
+      if (!meeting || !isOwnerOrAdmin(user, meeting.creatorId)) {
+        return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
       }
 
       const { egressInfo, recording } = await recordingService.startRecording(
@@ -194,22 +203,16 @@ livekitRoutes.post(
   withErrorHandler(
     async (c) => {
       const user = c.get("user");
-      const body = await c.req.json();
-      const egressId = (body as Record<string, string>).egressId;
-      if (!egressId) {
-        return jsonError(c, 400, "EGRESS_ID_REQUIRED", "egressId is required");
+      const body = await c.req.json().catch(() => ({}));
+      const parsed = stopRecordingBody.safeParse(body);
+      if (!parsed.success) {
+        return jsonError(c, 400, "VALIDATION_ERROR", "egressId and meetingId are required");
       }
+      const { egressId, meetingId } = parsed.data;
 
-      const meetingId = (body as Record<string, string>).meetingId;
-      if (!meetingId) {
-        return jsonError(c, 400, "MEETING_ID_REQUIRED", "meetingId is required");
-      }
-
-      if (user.role !== UserRole.Admin) {
-        const meeting = await getMeetingById(meetingId);
-        if (!meeting || meeting.creatorId !== user.id) {
-          return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
-        }
+      const meeting = await getMeetingById(meetingId);
+      if (!meeting || !isOwnerOrAdmin(user, meeting.creatorId)) {
+        return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
       }
 
       await recordingService.stopRecording(egressId);
@@ -231,11 +234,9 @@ livekitRoutes.get(
         return jsonError(c, 400, "MEETING_ID_REQUIRED", "meetingId query param is required");
       }
 
-      if (user.role !== UserRole.Admin) {
-        const meeting = await getMeetingById(meetingId);
-        if (!meeting || meeting.creatorId !== user.id) {
-          return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
-        }
+      const meeting = await getMeetingById(meetingId);
+      if (!meeting || !isOwnerOrAdmin(user, meeting.creatorId)) {
+        return jsonError(c, 403, "RECORDING_FORBIDDEN", "Forbidden");
       }
 
       const recordings = await recordingService.getRecordingStatus(meetingId);

@@ -1,14 +1,10 @@
+import crypto from "node:crypto";
 import type { KnowledgeSuggestionSourceType } from "@echolore/shared/contracts";
 import { HumanMessage } from "@langchain/core/messages";
 import { desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { buildKnowledgeSuggestionPrompt } from "../../ai/agent/knowledge-suggestion-prompt.js";
-import type { LlmOverrides } from "../../ai/llm/index.js";
-import {
-  createChatModel,
-  isTextGenerationEnabled,
-  resolveTextProvider,
-} from "../../ai/llm/index.js";
+import { initLlmWithSettings } from "../../ai/llm/index.js";
 import { db } from "../../db/index.js";
 import { blocks, pages } from "../../db/schema.js";
 import {
@@ -16,7 +12,6 @@ import {
   getSuggestionById,
   updateSuggestion,
 } from "../../repositories/knowledge/knowledge-suggestion-repository.js";
-import { getLlmSettings } from "../admin/admin-service.js";
 import { indexPage } from "../wiki/embedding-service.js";
 import { createPageRevision, createPageWithAccessDefaults } from "../wiki/wiki-service.js";
 
@@ -42,20 +37,9 @@ interface LlmSuggestion {
 }
 
 export async function generateSuggestions(input: SuggestionInput): Promise<void> {
-  const dbSettings = await getLlmSettings();
-  const overrides: LlmOverrides = {
-    geminiApiKey: dbSettings.geminiApiKey,
-    geminiTextModel: dbSettings.geminiTextModel,
-    vertexProject: dbSettings.vertexProject,
-    vertexLocation: dbSettings.vertexLocation,
-    vertexModel: dbSettings.vertexModel,
-    zhipuApiKey: dbSettings.zhipuApiKey,
-    zhipuTextModel: dbSettings.zhipuTextModel,
-    zhipuUseCodingPlan: dbSettings.zhipuUseCodingPlan,
-  };
-  const provider = resolveTextProvider(dbSettings.provider);
+  const result = await initLlmWithSettings({ temperature: 0.3 });
 
-  if (!isTextGenerationEnabled(provider, overrides)) {
+  if (!result) {
     console.warn("[knowledge-suggestion] LLM not configured, skipping");
     return;
   }
@@ -95,7 +79,7 @@ export async function generateSuggestions(input: SuggestionInput): Promise<void>
   });
 
   try {
-    const model = createChatModel({ provider, temperature: 0.3, overrides });
+    const model = result.model;
     const response = await model.invoke([new HumanMessage(prompt)]);
     const text =
       typeof response.content === "string"

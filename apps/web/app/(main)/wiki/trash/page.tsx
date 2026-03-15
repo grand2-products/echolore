@@ -1,42 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ErrorBanner, LoadingState } from "@/components/ui";
 import { type Page, wikiApi } from "@/lib/api";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useFormatters, useT } from "@/lib/i18n";
 
 export default function WikiTrashPage() {
   const t = useT();
   const { dateTime } = useFormatters();
-  const [pages, setPages] = useState<Page[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: pages,
+    isLoading,
+    error: loadError,
+    refetch: loadTrash,
+  } = useAsyncData<Page[]>([], async () => {
+    const res = await wikiApi.listTrash();
+    return res.pages;
+  });
+  const [actionError, setActionError] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
-  const loadTrash = useCallback(() => {
-    setIsLoading(true);
-    setError(null);
-    wikiApi
-      .listTrash()
-      .then((res) => setPages(res.pages))
-      .catch((err) => setError(err instanceof Error ? err.message : t("wiki.trash.loadError")))
-      .finally(() => setIsLoading(false));
-  }, [t]);
-
-  useEffect(() => {
-    loadTrash();
-  }, [loadTrash]);
+  const error = loadError ?? actionError;
 
   const handleRestore = useCallback(
     async (pageId: string) => {
       if (actionInProgress) return;
       setActionInProgress(pageId);
+      setActionError(null);
       try {
         await wikiApi.restoreFromTrash(pageId);
-        loadTrash();
+        await loadTrash();
       } catch (err) {
-        setError(err instanceof Error ? err.message : t("wiki.trash.restoreError"));
+        setActionError(err instanceof Error ? err.message : t("wiki.trash.restoreError"));
       } finally {
         setActionInProgress(null);
       }
@@ -49,11 +46,12 @@ export default function WikiTrashPage() {
       if (actionInProgress) return;
       if (!confirm(t("wiki.trash.permanentDeleteConfirm"))) return;
       setActionInProgress(pageId);
+      setActionError(null);
       try {
         await wikiApi.permanentDelete(pageId);
-        loadTrash();
+        await loadTrash();
       } catch (err) {
-        setError(err instanceof Error ? err.message : t("wiki.trash.deleteError"));
+        setActionError(err instanceof Error ? err.message : t("wiki.trash.deleteError"));
       } finally {
         setActionInProgress(null);
       }

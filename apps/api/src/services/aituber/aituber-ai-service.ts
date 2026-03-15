@@ -1,9 +1,9 @@
 import crypto from "node:crypto";
 import type { AituberDataEvent } from "@echolore/shared/contracts";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { createChatModel, resolveTextProvider } from "../../ai/llm/create-chat-model.js";
+import { initLlmWithSettings } from "../../ai/llm/index.js";
+import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
 import type { AituberCharacter, AituberMessage } from "../../db/schema.js";
-import { getLlmSettings } from "../admin/llm-settings-service.js";
 import * as livekitService from "./aituber-livekit-service.js";
 import * as aituberService from "./aituber-service.js";
 import * as ttsService from "./aituber-tts-service.js";
@@ -79,6 +79,13 @@ async function processNextMessage(
       roomName
     );
 
+    // Skip saving and broadcasting when LLM is not configured (empty response)
+    if (!responseText) {
+      console.warn(`[aituber-ai] LLM returned empty response for session ${sessionId}, skipping`);
+      await sendDataEvent(roomName, { type: "avatar-state", state: "idle" });
+      return;
+    }
+
     // Send completion event
     const assistantMsgId = crypto.randomUUID();
     await sendDataEvent(roomName, {
@@ -130,22 +137,11 @@ async function generateStreamingResponse(
   viewerMessage: AituberMessage,
   roomName: string
 ): Promise<string> {
-  const dbSettings = await getLlmSettings();
-  const provider = resolveTextProvider(dbSettings.provider);
-  const chatModel = createChatModel({
-    provider,
-    temperature: 0.7,
-    maxTokens: 500,
-    overrides: {
-      geminiApiKey: dbSettings.geminiApiKey,
-      geminiTextModel: dbSettings.geminiTextModel,
-      vertexProject: dbSettings.vertexProject,
-      vertexLocation: dbSettings.vertexLocation,
-      vertexModel: dbSettings.vertexModel,
-      zhipuApiKey: dbSettings.zhipuApiKey,
-      zhipuTextModel: dbSettings.zhipuTextModel,
-    },
-  });
+  const result = await initLlmWithSettings({ temperature: 0.7, maxTokens: 500 });
+  if (!result) {
+    return "";
+  }
+  const chatModel = result.model;
 
   // Build messages with context
   const history = await aituberService.getMessageHistory(sessionId, 20);
@@ -176,10 +172,10 @@ async function generateStreamingResponse(
 
 function buildSystemPrompt(character: AituberCharacter): string {
   let prompt = character.systemPrompt;
-  prompt += `\n\nキャラクター名: ${character.name}`;
-  prompt += `\n性格: ${character.personality}`;
+  prompt += `\n\nキャラクター名: ${escapeXmlTags(character.name)}`;
+  prompt += `\n性格: ${escapeXmlTags(character.personality)}`;
   if (character.speakingStyle) {
-    prompt += `\n話し方: ${character.speakingStyle}`;
+    prompt += `\n話し方: ${escapeXmlTags(character.speakingStyle)}`;
   }
   prompt += "\n\n視聴者からのメッセージに対して、キャラクターとして自然に応答してください。";
   prompt += "\n応答は簡潔にし、1-3文程度で返してください。";

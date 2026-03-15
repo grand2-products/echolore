@@ -4,7 +4,7 @@ const {
   aituberServiceMock,
   ttsServiceMock,
   livekitServiceMock,
-  getLlmSettingsMock,
+  initLlmWithSettingsMock,
   chatModelMock,
 } = vi.hoisted(() => ({
   aituberServiceMock: {
@@ -20,7 +20,7 @@ const {
   livekitServiceMock: {
     sendDataToRoom: vi.fn(),
   },
-  getLlmSettingsMock: vi.fn(),
+  initLlmWithSettingsMock: vi.fn(),
   chatModelMock: {
     stream: vi.fn(),
   },
@@ -32,13 +32,8 @@ vi.mock("./aituber-tts-service.js", () => ttsServiceMock);
 
 vi.mock("./aituber-livekit-service.js", () => livekitServiceMock);
 
-vi.mock("../admin/llm-settings-service.js", () => ({
-  getLlmSettings: getLlmSettingsMock,
-}));
-
-vi.mock("../../ai/llm/create-chat-model.js", () => ({
-  createChatModel: vi.fn(() => chatModelMock),
-  resolveTextProvider: vi.fn(() => "gemini"),
+vi.mock("../../ai/llm/index.js", () => ({
+  initLlmWithSettings: initLlmWithSettingsMock,
 }));
 
 vi.mock("@langchain/core/messages", () => ({
@@ -102,7 +97,7 @@ describe("aituber-ai-service", () => {
     ttsServiceMock.splitIntoSentences.mockReset();
     ttsServiceMock.synthesizeSpeech.mockReset();
     livekitServiceMock.sendDataToRoom.mockReset();
-    getLlmSettingsMock.mockReset();
+    initLlmWithSettingsMock.mockReset();
     chatModelMock.stream.mockReset();
   });
 
@@ -119,10 +114,10 @@ describe("aituber-ai-service", () => {
       aituberServiceMock.getMessageHistory.mockResolvedValue([]);
       aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
 
-      getLlmSettingsMock.mockResolvedValue({
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: chatModelMock,
         provider: "gemini",
-        geminiApiKey: "key",
-        geminiTextModel: "model",
+        overrides: {},
       });
 
       // Create an async iterable for the stream
@@ -196,10 +191,10 @@ describe("aituber-ai-service", () => {
       aituberServiceMock.getMessageHistory.mockResolvedValue(historyMessages);
       aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
 
-      getLlmSettingsMock.mockResolvedValue({
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: chatModelMock,
         provider: "gemini",
-        geminiApiKey: "key",
-        geminiTextModel: "model",
+        overrides: {},
       });
 
       chatModelMock.stream.mockResolvedValue(
@@ -241,10 +236,10 @@ describe("aituber-ai-service", () => {
       aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
       aituberServiceMock.getMessageHistory.mockResolvedValue([]);
 
-      getLlmSettingsMock.mockResolvedValue({
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: chatModelMock,
         provider: "gemini",
-        geminiApiKey: "key",
-        geminiTextModel: "model",
+        overrides: {},
       });
 
       chatModelMock.stream.mockRejectedValue(new Error("LLM provider error"));
@@ -278,10 +273,10 @@ describe("aituber-ai-service", () => {
       aituberServiceMock.getMessageHistory.mockResolvedValue([]);
       aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
 
-      getLlmSettingsMock.mockResolvedValue({
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: chatModelMock,
         provider: "gemini",
-        geminiApiKey: "key",
-        geminiTextModel: "model",
+        overrides: {},
       });
 
       chatModelMock.stream.mockResolvedValue(

@@ -1,7 +1,5 @@
-import { UserRole } from "@echolore/shared/contracts";
-import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppEnv, SessionUser } from "../lib/auth.js";
+import { createTestApp, memberUser } from "../test-utils/index.js";
 import { meetingsRoutes } from "./meetings/index.js";
 
 const {
@@ -103,16 +101,8 @@ vi.mock("../services/meeting/meeting-agent-runtime-service.js", () => ({
   generateMeetingAgentResponse: vi.fn(),
 }));
 
-function createApp(sessionUser: SessionUser) {
-  const app = new Hono<AppEnv>();
-
-  app.use("/api/*", async (c, next) => {
-    c.set("user", sessionUser);
-    await next();
-  });
-
-  app.route("/api/meetings", meetingsRoutes);
-  return app;
+function createApp(user: ReturnType<typeof memberUser>) {
+  return createTestApp("/api/meetings", meetingsRoutes, user);
 }
 
 describe("meetingsRoutes", () => {
@@ -140,12 +130,7 @@ describe("meetingsRoutes", () => {
   });
 
   it("returns meeting detail DTOs with ISO timestamps for the owner", async () => {
-    const app = createApp({
-      id: "user_1",
-      email: "owner@example.com",
-      name: "Owner",
-      role: UserRole.Member,
-    });
+    const app = createApp(memberUser({ email: "owner@example.com", name: "Owner" }));
 
     getMeetingByIdMock.mockResolvedValue({
       id: "meeting_1",
@@ -216,12 +201,7 @@ describe("meetingsRoutes", () => {
   });
 
   it("rejects meeting detail access for non-owners", async () => {
-    const app = createApp({
-      id: "user_2",
-      email: "member@example.com",
-      name: "Member",
-      role: UserRole.Member,
-    });
+    const app = createApp(memberUser({ id: "user_2" }));
 
     getMeetingByIdMock.mockResolvedValue({
       id: "meeting_1",
@@ -246,12 +226,7 @@ describe("meetingsRoutes", () => {
   });
 
   it("ignores client-supplied creatorId and uses the session user for meeting creation", async () => {
-    const app = createApp({
-      id: "user_1",
-      email: "owner@example.com",
-      name: "Owner",
-      role: UserRole.Member,
-    });
+    const app = createApp(memberUser({ email: "owner@example.com", name: "Owner" }));
 
     createMeetingMock.mockImplementation(async (input) => ({
       ...input,
@@ -283,12 +258,7 @@ describe("meetingsRoutes", () => {
   });
 
   it("returns active agent sessions for authorized meeting readers", async () => {
-    const app = createApp({
-      id: "user_1",
-      email: "owner@example.com",
-      name: "Owner",
-      role: UserRole.Member,
-    });
+    const app = createApp(memberUser({ email: "owner@example.com", name: "Owner" }));
 
     getMeetingByIdMock.mockResolvedValue({
       id: "meeting_1",
@@ -333,12 +303,7 @@ describe("meetingsRoutes", () => {
   });
 
   it("rejects active agent session access for non-owners", async () => {
-    const app = createApp({
-      id: "user_2",
-      email: "member@example.com",
-      name: "Member",
-      role: UserRole.Member,
-    });
+    const app = createApp(memberUser({ id: "user_2" }));
 
     getMeetingByIdMock.mockResolvedValue({
       id: "meeting_1",
@@ -362,12 +327,7 @@ describe("meetingsRoutes", () => {
   });
 
   it("rejects agent invocation for non-writers", async () => {
-    const app = createApp({
-      id: "user_2",
-      email: "member@example.com",
-      name: "Member",
-      role: UserRole.Member,
-    });
+    const app = createApp(memberUser({ id: "user_2" }));
 
     getMeetingByIdMock.mockResolvedValue({
       id: "meeting_1",
@@ -398,12 +358,7 @@ describe("meetingsRoutes", () => {
   });
 
   it("allows meeting writers to leave an active agent session", async () => {
-    const app = createApp({
-      id: "user_1",
-      email: "owner@example.com",
-      name: "Owner",
-      role: UserRole.Member,
-    });
+    const app = createApp(memberUser({ email: "owner@example.com", name: "Owner" }));
 
     getMeetingByIdMock.mockResolvedValue({
       id: "meeting_1",

@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
+import { isOwnerOrAdmin } from "../lib/route-helpers.js";
 import * as aiService from "../services/aituber/aituber-ai-service.js";
 import * as livekitService from "../services/aituber/aituber-livekit-service.js";
 import * as aituberService from "../services/aituber/aituber-service.js";
@@ -57,8 +58,12 @@ aituberRoutes.get(
   withErrorHandler(
     async (c) => {
       const { id } = c.req.param();
+      const user = c.get("user");
       const character = await aituberService.getCharacter(id);
       if (!character) return jsonError(c, 404, "NOT_FOUND", "Character not found");
+      if (!character.isPublic && !isOwnerOrAdmin(user, character.createdBy)) {
+        return jsonError(c, 403, "FORBIDDEN", "Not authorized to view this character");
+      }
       return c.json({ character });
     },
     "AITUBER_CHARACTER_GET_FAILED",
@@ -86,7 +91,7 @@ aituberRoutes.patch(
       const user = c.get("user");
       const existing = await aituberService.getCharacter(id);
       if (!existing) return jsonError(c, 404, "NOT_FOUND", "Character not found");
-      if (existing.createdBy !== user.id && user.role !== "admin") {
+      if (!isOwnerOrAdmin(user, existing.createdBy)) {
         return jsonError(c, 403, "FORBIDDEN", "Not authorized to update this character");
       }
       const body = c.req.valid("json");
@@ -106,7 +111,7 @@ aituberRoutes.delete(
       const user = c.get("user");
       const existing = await aituberService.getCharacter(id);
       if (!existing) return jsonError(c, 404, "NOT_FOUND", "Character not found");
-      if (existing.createdBy !== user.id && user.role !== "admin") {
+      if (!isOwnerOrAdmin(user, existing.createdBy)) {
         return jsonError(c, 403, "FORBIDDEN", "Not authorized to delete this character");
       }
       await aituberService.deleteCharacter(id);
@@ -183,7 +188,7 @@ aituberRoutes.post(
       const user = c.get("user");
       const session = await aituberService.getSession(id);
       if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
-      if (session.creatorId !== user.id && user.role !== "admin") {
+      if (!isOwnerOrAdmin(user, session.creatorId)) {
         return jsonError(c, 403, "FORBIDDEN", "Not authorized to start this session");
       }
 
@@ -214,7 +219,7 @@ aituberRoutes.post(
       const user = c.get("user");
       const session = await aituberService.getSession(id);
       if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
-      if (session.creatorId !== user.id && user.role !== "admin") {
+      if (!isOwnerOrAdmin(user, session.creatorId)) {
         return jsonError(c, 403, "FORBIDDEN", "Not authorized to stop this session");
       }
 

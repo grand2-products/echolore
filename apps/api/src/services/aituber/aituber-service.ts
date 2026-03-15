@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { nanoid } from "nanoid";
 import type { AituberCharacter, AituberMessage, AituberSession } from "../../db/schema.js";
+import { createOrThrow } from "../../lib/db-utils.js";
 import * as repo from "../../repositories/aituber/aituber-repository.js";
 
 // --- Character Management ---
@@ -16,20 +17,22 @@ export async function createCharacter(input: {
   isPublic?: boolean;
   createdBy: string;
 }): Promise<AituberCharacter> {
-  const character = await repo.createCharacter({
-    id: crypto.randomUUID(),
-    name: input.name,
-    personality: input.personality,
-    systemPrompt: input.systemPrompt,
-    speakingStyle: input.speakingStyle ?? null,
-    languageCode: input.languageCode ?? "ja-JP",
-    voiceName: input.voiceName ?? null,
-    avatarUrl: input.avatarUrl ?? null,
-    isPublic: input.isPublic ?? false,
-    createdBy: input.createdBy,
-  });
-  if (!character) throw new Error("Failed to create character");
-  return character;
+  return createOrThrow(
+    () =>
+      repo.createCharacter({
+        id: crypto.randomUUID(),
+        name: input.name,
+        personality: input.personality,
+        systemPrompt: input.systemPrompt,
+        speakingStyle: input.speakingStyle ?? null,
+        languageCode: input.languageCode ?? "ja-JP",
+        voiceName: input.voiceName ?? null,
+        avatarUrl: input.avatarUrl ?? null,
+        isPublic: input.isPublic ?? false,
+        createdBy: input.createdBy,
+      }),
+    "Failed to create character"
+  );
 }
 
 export async function getCharacter(id: string): Promise<AituberCharacter | null> {
@@ -68,16 +71,18 @@ export async function createSession(input: {
   title: string;
 }): Promise<AituberSession> {
   const roomName = `aituber-${nanoid(12)}`;
-  const session = await repo.createSession({
-    id: crypto.randomUUID(),
-    characterId: input.characterId,
-    creatorId: input.creatorId,
-    title: input.title,
-    status: "created",
-    roomName,
-  });
-  if (!session) throw new Error("Failed to create session");
-  return session;
+  return createOrThrow(
+    () =>
+      repo.createSession({
+        id: crypto.randomUUID(),
+        characterId: input.characterId,
+        creatorId: input.creatorId,
+        title: input.title,
+        status: "created",
+        roomName,
+      }),
+    "Failed to create session"
+  );
 }
 
 export async function getSession(id: string): Promise<AituberSession | null> {
@@ -122,16 +127,18 @@ export async function sendViewerMessage(input: {
   senderName: string;
   content: string;
 }): Promise<AituberMessage> {
-  const message = await repo.createMessage({
-    id: crypto.randomUUID(),
-    sessionId: input.sessionId,
-    role: "viewer",
-    senderUserId: input.senderUserId ?? null,
-    senderName: input.senderName,
-    content: input.content,
-  });
-  if (!message) throw new Error("Failed to send message");
-  return message;
+  return createOrThrow(
+    () =>
+      repo.createMessage({
+        id: crypto.randomUUID(),
+        sessionId: input.sessionId,
+        role: "viewer",
+        senderUserId: input.senderUserId ?? null,
+        senderName: input.senderName,
+        content: input.content,
+      }),
+    "Failed to send message"
+  );
 }
 
 export async function saveAssistantMessage(input: {
@@ -139,17 +146,19 @@ export async function saveAssistantMessage(input: {
   content: string;
   characterName: string;
 }): Promise<AituberMessage> {
-  const message = await repo.createMessage({
-    id: crypto.randomUUID(),
-    sessionId: input.sessionId,
-    role: "assistant",
-    senderUserId: null,
-    senderName: input.characterName,
-    content: input.content,
-    processedAt: new Date(),
-  });
-  if (!message) throw new Error("Failed to save assistant message");
-  return message;
+  return createOrThrow(
+    () =>
+      repo.createMessage({
+        id: crypto.randomUUID(),
+        sessionId: input.sessionId,
+        role: "assistant",
+        senderUserId: null,
+        senderName: input.characterName,
+        content: input.content,
+        processedAt: new Date(),
+      }),
+    "Failed to save assistant message"
+  );
 }
 
 export async function getUnprocessedMessages(sessionId: string) {

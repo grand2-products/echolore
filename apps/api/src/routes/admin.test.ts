@@ -1,8 +1,7 @@
 import { UserRole } from "@echolore/shared/contracts";
-import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AppEnv, SessionUser } from "../lib/auth.js";
 import { requireRole } from "../lib/auth.js";
+import { createTestApp, memberUser } from "../test-utils/index.js";
 import { adminRoutes } from "./admin/index.js";
 
 const {
@@ -46,17 +45,8 @@ vi.mock("../lib/audit.js", () => ({
   writeAuditLog: writeAuditLogMock,
 }));
 
-function createApp(sessionUser: SessionUser) {
-  const app = new Hono<AppEnv>();
-
-  app.use("/api/*", async (c, next) => {
-    c.set("user", sessionUser);
-    await next();
-  });
-  app.use("/api/admin/*", requireRole(UserRole.Admin));
-  app.route("/api/admin", adminRoutes);
-
-  return app;
+function createApp(user: ReturnType<typeof memberUser>) {
+  return createTestApp("/api/admin", adminRoutes, user, [requireRole(UserRole.Admin)]);
 }
 
 describe("adminRoutes", () => {
@@ -107,12 +97,7 @@ describe("adminRoutes", () => {
       }),
     },
   ])("rejects $name for non-admin sessions", async ({ request }) => {
-    const app = createApp({
-      id: "user_1",
-      email: "member@example.com",
-      name: "Member",
-      role: UserRole.Member,
-    });
+    const app = createApp(memberUser());
 
     const { url, init } = request();
     const response = await app.request(url, init);

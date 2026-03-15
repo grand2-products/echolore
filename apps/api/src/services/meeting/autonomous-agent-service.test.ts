@@ -5,10 +5,7 @@ const {
   listFinalSegmentsAfterMock,
   getLastAutonomousEventTimeMock,
   updateSessionEvalCursorMock,
-  getLlmSettingsMock,
-  createChatModelMock,
-  isTextGenerationEnabledMock,
-  resolveTextProviderMock,
+  initLlmWithSettingsMock,
   buildAutonomousDecisionPromptMock,
   generateMeetingAgentResponseMock,
 } = vi.hoisted(() => ({
@@ -16,10 +13,7 @@ const {
   listFinalSegmentsAfterMock: vi.fn(),
   getLastAutonomousEventTimeMock: vi.fn(),
   updateSessionEvalCursorMock: vi.fn(),
-  getLlmSettingsMock: vi.fn(),
-  createChatModelMock: vi.fn(),
-  isTextGenerationEnabledMock: vi.fn(),
-  resolveTextProviderMock: vi.fn(),
+  initLlmWithSettingsMock: vi.fn(),
   buildAutonomousDecisionPromptMock: vi.fn(),
   generateMeetingAgentResponseMock: vi.fn(),
 }));
@@ -31,14 +25,8 @@ vi.mock("../../repositories/meeting/meeting-realtime-repository.js", () => ({
   updateSessionEvalCursor: updateSessionEvalCursorMock,
 }));
 
-vi.mock("../admin/admin-service.js", () => ({
-  getLlmSettings: getLlmSettingsMock,
-}));
-
 vi.mock("../../ai/llm/index.js", () => ({
-  createChatModel: createChatModelMock,
-  isTextGenerationEnabled: isTextGenerationEnabledMock,
-  resolveTextProvider: resolveTextProviderMock,
+  initLlmWithSettings: initLlmWithSettingsMock,
 }));
 
 vi.mock("../../ai/agent/autonomous-decision-prompt.js", () => ({
@@ -56,10 +44,7 @@ describe("autonomous-agent-service", () => {
     listFinalSegmentsAfterMock.mockReset();
     getLastAutonomousEventTimeMock.mockReset();
     updateSessionEvalCursorMock.mockReset();
-    getLlmSettingsMock.mockReset();
-    createChatModelMock.mockReset();
-    isTextGenerationEnabledMock.mockReset();
-    resolveTextProviderMock.mockReset();
+    initLlmWithSettingsMock.mockReset();
     buildAutonomousDecisionPromptMock.mockReset();
     generateMeetingAgentResponseMock.mockReset();
   });
@@ -119,9 +104,6 @@ describe("autonomous-agent-service", () => {
       getLastAutonomousEventTimeMock.mockResolvedValue(null);
       updateSessionEvalCursorMock.mockResolvedValue(undefined);
 
-      getLlmSettingsMock.mockResolvedValue({ provider: "gemini", geminiApiKey: "key" });
-      resolveTextProviderMock.mockReturnValue("gemini");
-      isTextGenerationEnabledMock.mockReturnValue(true);
       buildAutonomousDecisionPromptMock.mockReturnValue("decision prompt");
 
       const invokeResult = {
@@ -131,8 +113,10 @@ describe("autonomous-agent-service", () => {
           suggestedPrompt: "",
         }),
       };
-      createChatModelMock.mockReturnValue({
-        invoke: vi.fn().mockResolvedValue(invokeResult),
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: { invoke: vi.fn().mockResolvedValue(invokeResult) },
+        provider: "gemini",
+        overrides: {},
       });
 
       // Manually trigger the evaluation via dynamic import and internal flow
@@ -174,14 +158,13 @@ describe("autonomous-agent-service", () => {
       getLastAutonomousEventTimeMock.mockResolvedValue(null);
       updateSessionEvalCursorMock.mockResolvedValue(undefined);
 
-      getLlmSettingsMock.mockResolvedValue({ provider: "gemini", geminiApiKey: "key" });
-      resolveTextProviderMock.mockReturnValue("gemini");
-      isTextGenerationEnabledMock.mockReturnValue(true);
       buildAutonomousDecisionPromptMock.mockReturnValue("decision prompt");
 
       // Return invalid JSON from LLM
-      createChatModelMock.mockReturnValue({
-        invoke: vi.fn().mockResolvedValue({ content: "This is not JSON at all" }),
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: { invoke: vi.fn().mockResolvedValue({ content: "This is not JSON at all" }) },
+        provider: "gemini",
+        overrides: {},
       });
 
       const mod = await import("./autonomous-agent-service.js");
@@ -204,16 +187,17 @@ describe("autonomous-agent-service", () => {
       getLastAutonomousEventTimeMock.mockResolvedValue(null);
       updateSessionEvalCursorMock.mockResolvedValue(undefined);
 
-      getLlmSettingsMock.mockResolvedValue({ provider: "gemini", geminiApiKey: "key" });
-      resolveTextProviderMock.mockReturnValue("gemini");
-      isTextGenerationEnabledMock.mockReturnValue(true);
       buildAutonomousDecisionPromptMock.mockReturnValue("decision prompt");
 
       // Return valid JSON but with wrong schema (shouldIntervene is a string, not boolean)
-      createChatModelMock.mockReturnValue({
-        invoke: vi.fn().mockResolvedValue({
-          content: JSON.stringify({ shouldIntervene: "yes", reason: 42 }),
-        }),
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: {
+          invoke: vi.fn().mockResolvedValue({
+            content: JSON.stringify({ shouldIntervene: "yes", reason: 42 }),
+          }),
+        },
+        provider: "gemini",
+        overrides: {},
       });
 
       const mod = await import("./autonomous-agent-service.js");
@@ -239,7 +223,7 @@ describe("autonomous-agent-service", () => {
       mod.stopAutonomousAgentLoop();
 
       // Should not reach the LLM call
-      expect(createChatModelMock).not.toHaveBeenCalled();
+      expect(initLlmWithSettingsMock).not.toHaveBeenCalled();
       expect(generateMeetingAgentResponseMock).not.toHaveBeenCalled();
     });
 
@@ -257,7 +241,7 @@ describe("autonomous-agent-service", () => {
       await new Promise((resolve) => setTimeout(resolve, 150));
       mod.stopAutonomousAgentLoop();
 
-      expect(createChatModelMock).not.toHaveBeenCalled();
+      expect(initLlmWithSettingsMock).not.toHaveBeenCalled();
       expect(generateMeetingAgentResponseMock).not.toHaveBeenCalled();
     });
 
@@ -271,19 +255,20 @@ describe("autonomous-agent-service", () => {
       getLastAutonomousEventTimeMock.mockResolvedValue(null);
       updateSessionEvalCursorMock.mockResolvedValue(undefined);
 
-      getLlmSettingsMock.mockResolvedValue({ provider: "gemini", geminiApiKey: "key" });
-      resolveTextProviderMock.mockReturnValue("gemini");
-      isTextGenerationEnabledMock.mockReturnValue(true);
       buildAutonomousDecisionPromptMock.mockReturnValue("decision prompt");
 
-      createChatModelMock.mockReturnValue({
-        invoke: vi.fn().mockResolvedValue({
-          content: JSON.stringify({
-            shouldIntervene: true,
-            reason: "Topic is off-track",
-            suggestedPrompt: "Let me redirect the conversation",
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: {
+          invoke: vi.fn().mockResolvedValue({
+            content: JSON.stringify({
+              shouldIntervene: true,
+              reason: "Topic is off-track",
+              suggestedPrompt: "Let me redirect the conversation",
+            }),
           }),
-        }),
+        },
+        provider: "gemini",
+        overrides: {},
       });
       generateMeetingAgentResponseMock.mockResolvedValue(undefined);
 
@@ -313,19 +298,20 @@ describe("autonomous-agent-service", () => {
       getLastAutonomousEventTimeMock.mockResolvedValue(null);
       updateSessionEvalCursorMock.mockResolvedValue(undefined);
 
-      getLlmSettingsMock.mockResolvedValue({ provider: "gemini", geminiApiKey: "key" });
-      resolveTextProviderMock.mockReturnValue("gemini");
-      isTextGenerationEnabledMock.mockReturnValue(true);
       buildAutonomousDecisionPromptMock.mockReturnValue("decision prompt");
 
-      createChatModelMock.mockReturnValue({
-        invoke: vi.fn().mockResolvedValue({
-          content: JSON.stringify({
-            shouldIntervene: false,
-            reason: "Conversation is on-track",
-            suggestedPrompt: "",
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: {
+          invoke: vi.fn().mockResolvedValue({
+            content: JSON.stringify({
+              shouldIntervene: false,
+              reason: "Conversation is on-track",
+              suggestedPrompt: "",
+            }),
           }),
-        }),
+        },
+        provider: "gemini",
+        overrides: {},
       });
 
       const mod = await import("./autonomous-agent-service.js");
@@ -345,9 +331,7 @@ describe("autonomous-agent-service", () => {
       getLastAutonomousEventTimeMock.mockResolvedValue(null);
       updateSessionEvalCursorMock.mockResolvedValue(undefined);
 
-      getLlmSettingsMock.mockResolvedValue({ provider: null });
-      resolveTextProviderMock.mockReturnValue(null);
-      isTextGenerationEnabledMock.mockReturnValue(false);
+      initLlmWithSettingsMock.mockResolvedValue(null);
 
       const mod = await import("./autonomous-agent-service.js");
       mod.startAutonomousAgentLoop(50);
@@ -367,15 +351,16 @@ describe("autonomous-agent-service", () => {
       getLastAutonomousEventTimeMock.mockResolvedValue(null);
       updateSessionEvalCursorMock.mockResolvedValue(undefined);
 
-      getLlmSettingsMock.mockResolvedValue({ provider: "gemini", geminiApiKey: "key" });
-      resolveTextProviderMock.mockReturnValue("gemini");
-      isTextGenerationEnabledMock.mockReturnValue(true);
       buildAutonomousDecisionPromptMock.mockReturnValue("decision prompt");
 
-      createChatModelMock.mockReturnValue({
-        invoke: vi.fn().mockResolvedValue({
-          content: JSON.stringify({ shouldIntervene: false, reason: "OK", suggestedPrompt: "" }),
-        }),
+      initLlmWithSettingsMock.mockResolvedValue({
+        model: {
+          invoke: vi.fn().mockResolvedValue({
+            content: JSON.stringify({ shouldIntervene: false, reason: "OK", suggestedPrompt: "" }),
+          }),
+        },
+        provider: "gemini",
+        overrides: {},
       });
 
       const mod = await import("./autonomous-agent-service.js");

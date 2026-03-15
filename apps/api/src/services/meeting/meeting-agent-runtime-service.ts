@@ -1,13 +1,10 @@
+import crypto from "node:crypto";
 import { UserRole } from "@echolore/shared/contracts";
 import { HumanMessage } from "@langchain/core/messages";
 import { createMeetingAgent } from "../../ai/agent/create-meeting-agent.js";
 import { createSpeechGatewayBundle } from "../../ai/gateway/index.js";
-import type { LlmOverrides } from "../../ai/llm/index.js";
-import {
-  createChatModel,
-  isTextGenerationEnabled,
-  resolveTextProvider,
-} from "../../ai/llm/index.js";
+import { initLlmWithSettings } from "../../ai/llm/index.js";
+import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
 import { createAgentTools } from "../../ai/tools/index.js";
 import type { SessionUser } from "../../lib/auth.js";
 import {
@@ -17,7 +14,6 @@ import {
   listFinalTranscriptSegmentsByMeeting,
 } from "../../repositories/meeting/meeting-realtime-repository.js";
 import { getUserById } from "../../repositories/user/user-repository.js";
-import { getLlmSettings } from "../admin/admin-service.js";
 
 function buildFallbackResponse(agentName: string, prompt: string, transcriptLines: string[]) {
   return [
@@ -46,24 +42,16 @@ async function generateAgentTextResponse(input: {
   defaultProvider?: string;
   triggeredByUserId: string;
 }) {
-  const dbSettings = await getLlmSettings();
-  const overrides: LlmOverrides = {
-    geminiApiKey: dbSettings.geminiApiKey,
-    geminiTextModel: dbSettings.geminiTextModel,
-    vertexProject: dbSettings.vertexProject,
-    vertexLocation: dbSettings.vertexLocation,
-    vertexModel: dbSettings.vertexModel,
-    zhipuApiKey: dbSettings.zhipuApiKey,
-    zhipuTextModel: dbSettings.zhipuTextModel,
-    zhipuUseCodingPlan: dbSettings.zhipuUseCodingPlan,
-  };
-  const provider = resolveTextProvider(input.defaultProvider ?? dbSettings.provider);
-  if (!isTextGenerationEnabled(provider, overrides)) {
+  const llmResult = await initLlmWithSettings({
+    temperature: 0.4,
+    defaultProvider: input.defaultProvider,
+  });
+  if (!llmResult) {
     return buildFallbackResponse(input.agentName, input.prompt, input.transcriptLines);
   }
 
   try {
-    const chatModel = createChatModel({ provider, temperature: 0.4, overrides });
+    const chatModel = llmResult.model;
 
     const triggerUser = await getUserById(input.triggeredByUserId);
     const user: SessionUser = triggerUser
@@ -95,7 +83,7 @@ async function generateAgentTextResponse(input: {
     });
 
     const wrappedLines = input.transcriptLines.map(
-      (line) => `<transcript_line>${line}</transcript_line>`
+      (line) => `<transcript_line>${escapeXmlTags(line)}</transcript_line>`
     );
     const contextBlock =
       input.transcriptLines.length > 0

@@ -1,4 +1,3 @@
-import { UserRole } from "@echolore/shared/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
@@ -176,9 +175,7 @@ meetingInviteRoutes.get(
 );
 
 // POST /api/meetings/:id/guest-requests/:requestId/approve — Approve guest
-// Note: Any authenticated user can approve (matches plan: "any room member can approve").
-// The DataChannel notification only reaches in-room participants, so the UI naturally
-// restricts this to room members. Server-side does not enforce room membership.
+// Only the meeting owner or an admin can approve guest requests.
 meetingInviteRoutes.post(
   "/:id/guest-requests/:requestId/approve",
   withErrorHandler(
@@ -193,8 +190,14 @@ meetingInviteRoutes.post(
         return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
       }
 
-      if (meeting.creatorId !== user.id && user.role !== UserRole.Admin) {
-        return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+      const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
+      if (!authz.allowed) {
+        return jsonError(
+          c,
+          403,
+          "MEETING_FORBIDDEN",
+          "Only the meeting owner or an admin can approve guest requests"
+        );
       }
 
       const [updated] = await db
@@ -257,8 +260,14 @@ meetingInviteRoutes.post(
         return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
       }
 
-      if (meeting.creatorId !== user.id && user.role !== UserRole.Admin) {
-        return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+      const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
+      if (!authz.allowed) {
+        return jsonError(
+          c,
+          403,
+          "MEETING_FORBIDDEN",
+          "Only the meeting owner or an admin can reject guest requests"
+        );
       }
 
       const [updated] = await db

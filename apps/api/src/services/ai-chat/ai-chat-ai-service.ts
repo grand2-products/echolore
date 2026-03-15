@@ -1,11 +1,7 @@
 import { AIMessage, type BaseMessage, HumanMessage } from "@langchain/core/messages";
 import { nanoid } from "nanoid";
 import { createAiChatAgent } from "../../ai/agent/create-ai-chat-agent.js";
-import {
-  createChatModel,
-  isTextGenerationEnabled,
-  resolveTextProvider,
-} from "../../ai/llm/index.js";
+import { initLlmWithSettings } from "../../ai/llm/index.js";
 import {
   type AiChatToolResult,
   createAiChatReadPageTool,
@@ -17,7 +13,6 @@ import {
   getRecentMessages,
   updateConversation,
 } from "../../repositories/ai-chat/ai-chat-repository.js";
-import { getLlmSettings } from "../admin/admin-service.js";
 import { searchVisibleChunks, type VectorSearchResult } from "../wiki/vector-search-service.js";
 
 export async function sendMessageAndGetResponse(
@@ -76,10 +71,9 @@ async function invokeAgent(
   messageHistory: (HumanMessage | AIMessage)[],
   conversationId: string
 ): Promise<{ responseContent: string; citations: AiChatToolResult[] }> {
-  const llmSettings = await getLlmSettings();
-  const provider = resolveTextProvider(llmSettings.provider ?? undefined);
+  const llmResult = await initLlmWithSettings({ temperature: 0.3, maxTokens: 2048 });
 
-  if (!isTextGenerationEnabled(provider, llmSettings)) {
+  if (!llmResult) {
     return {
       responseContent:
         "I'm sorry, but the AI service is currently unavailable. Please try again later.",
@@ -135,12 +129,7 @@ async function invokeAgent(
   try {
     const generateStart = Date.now();
 
-    const chatModel = createChatModel({
-      provider,
-      temperature: 0.3,
-      maxTokens: 2048,
-      overrides: llmSettings,
-    });
+    const chatModel = llmResult.model;
 
     const agent = createAiChatAgent({
       chatModel,

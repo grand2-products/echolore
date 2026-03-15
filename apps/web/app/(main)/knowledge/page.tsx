@@ -1,56 +1,58 @@
 "use client";
 
 import type { KnowledgeSuggestionDto } from "@echolore/shared/contracts";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { isApiErrorStatus, knowledgeApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useFormatters, useT } from "@/lib/i18n";
 import { SuggestionDetailModal } from "./_components/SuggestionDetailModal";
 
 const STATUS_OPTIONS = ["", "pending", "approved", "rejected"] as const;
 const SOURCE_OPTIONS = ["", "file_upload", "transcription", "periodic_scan"] as const;
+const VALID_STATUSES = ["pending", "approved", "rejected", "applied", "dismissed"] as const;
+type ValidStatus = (typeof VALID_STATUSES)[number];
 
 export default function KnowledgeSuggestionsPage() {
   const t = useT();
   const { date } = useFormatters();
   const getApiErrorMessage = useApiErrorMessage();
-  const [suggestions, setSuggestions] = useState<KnowledgeSuggestionDto[]>([]);
-  const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const loadSuggestions = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await knowledgeApi.listSuggestions({
-        status: statusFilter || undefined,
-        sourceType: sourceFilter || undefined,
-      });
-      setSuggestions(response.suggestions);
-      setTotal(response.total);
-    } catch (loadError) {
-      if (isApiErrorStatus(loadError, 403)) {
-        setForbidden(true);
-      } else {
-        setError(getApiErrorMessage(loadError, t("admin.knowledge.loadError")));
+  const {
+    data: { suggestions, total },
+    isLoading,
+    error: loadError,
+    refetch: loadSuggestions,
+  } = useAsyncData<{ suggestions: KnowledgeSuggestionDto[]; total: number }>(
+    { suggestions: [], total: 0 },
+    async () => {
+      try {
+        const response = await knowledgeApi.listSuggestions({
+          status: statusFilter || undefined,
+          sourceType: sourceFilter || undefined,
+        });
+        return { suggestions: response.suggestions, total: response.total };
+      } catch (err) {
+        if (isApiErrorStatus(err, 403)) {
+          setForbidden(true);
+          return { suggestions: [], total: 0 };
+        }
+        throw err;
       }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [statusFilter, sourceFilter, getApiErrorMessage, t]);
+    },
+    { deps: [statusFilter, sourceFilter] }
+  );
 
-  useEffect(() => {
-    void loadSuggestions();
-  }, [loadSuggestions]);
+  const error = loadError ?? actionError;
 
   const handleApprove = async (id: string) => {
-    setError(null);
+    setActionError(null);
     setNotice(null);
     try {
       await knowledgeApi.approveSuggestion(id);
@@ -58,12 +60,12 @@ export default function KnowledgeSuggestionsPage() {
       setSelectedId(null);
       void loadSuggestions();
     } catch (err) {
-      setError(getApiErrorMessage(err, t("admin.knowledge.approveError")));
+      setActionError(getApiErrorMessage(err, t("admin.knowledge.approveError")));
     }
   };
 
   const handleReject = async (id: string, reason: string) => {
-    setError(null);
+    setActionError(null);
     setNotice(null);
     try {
       await knowledgeApi.rejectSuggestion(id, reason);
@@ -71,21 +73,24 @@ export default function KnowledgeSuggestionsPage() {
       setSelectedId(null);
       void loadSuggestions();
     } catch (err) {
-      setError(getApiErrorMessage(err, t("admin.knowledge.rejectError")));
+      setActionError(getApiErrorMessage(err, t("admin.knowledge.rejectError")));
     }
   };
 
   const statusBadge = (status: string) => {
+    const safeStatus: string = VALID_STATUSES.includes(status as ValidStatus) ? status : "unknown";
     const colors: Record<string, string> = {
       pending: "bg-yellow-100 text-yellow-800",
       approved: "bg-green-100 text-green-800",
       rejected: "bg-red-100 text-red-800",
+      applied: "bg-blue-100 text-blue-800",
+      dismissed: "bg-gray-200 text-gray-700",
     };
     return (
       <span
-        className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${colors[status] ?? "bg-gray-100 text-gray-800"}`}
+        className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${colors[safeStatus] ?? "bg-gray-100 text-gray-800"}`}
       >
-        {status}
+        {safeStatus}
       </span>
     );
   };

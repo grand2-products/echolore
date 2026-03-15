@@ -8,19 +8,18 @@ import {
   userGroups,
   users,
 } from "../../db/schema.js";
+import { firstOrNull } from "../../lib/db-utils.js";
 
 export async function listGroups() {
   return db.select().from(userGroups);
 }
 
 export async function getGroupById(id: string) {
-  const [group] = await db.select().from(userGroups).where(eq(userGroups.id, id));
-  return group ?? null;
+  return firstOrNull(await db.select().from(userGroups).where(eq(userGroups.id, id)));
 }
 
 export async function getGroupByName(name: string) {
-  const [group] = await db.select().from(userGroups).where(eq(userGroups.name, name));
-  return group ?? null;
+  return firstOrNull(await db.select().from(userGroups).where(eq(userGroups.name, name)));
 }
 
 export async function createGroup(input: {
@@ -32,8 +31,7 @@ export async function createGroup(input: {
   createdAt: Date;
   updatedAt: Date;
 }) {
-  const [group] = await db.insert(userGroups).values(input).returning();
-  return group ?? null;
+  return firstOrNull(await db.insert(userGroups).values(input).returning());
 }
 
 export async function updateGroup(
@@ -45,8 +43,9 @@ export async function updateGroup(
     updatedAt: Date;
   }
 ) {
-  const [group] = await db.update(userGroups).set(input).where(eq(userGroups.id, id)).returning();
-  return group ?? null;
+  return firstOrNull(
+    await db.update(userGroups).set(input).where(eq(userGroups.id, id)).returning()
+  );
 }
 
 export async function deleteGroup(id: string) {
@@ -63,11 +62,14 @@ export async function listMembershipsByGroup(groupId: string) {
 }
 
 export async function deleteMembership(groupId: string, userId: string) {
-  const [membership] = await db
-    .delete(userGroupMemberships)
-    .where(and(eq(userGroupMemberships.groupId, groupId), eq(userGroupMemberships.userId, userId)))
-    .returning();
-  return membership ?? null;
+  return firstOrNull(
+    await db
+      .delete(userGroupMemberships)
+      .where(
+        and(eq(userGroupMemberships.groupId, groupId), eq(userGroupMemberships.userId, userId))
+      )
+      .returning()
+  );
 }
 
 export async function listUsersWithIds(userIds: string[]) {
@@ -84,49 +86,48 @@ export async function listPagePermissions(pageId: string) {
 }
 
 export async function getPageInheritance(pageId: string) {
-  const [inheritance] = await db
-    .select()
-    .from(pageInheritance)
-    .where(eq(pageInheritance.pageId, pageId));
-  return inheritance ?? null;
+  return firstOrNull(
+    await db.select().from(pageInheritance).where(eq(pageInheritance.pageId, pageId))
+  );
 }
 
 export async function deletePagePermission(pageId: string, groupId: string) {
-  const [permission] = await db
-    .delete(pagePermissions)
-    .where(and(eq(pagePermissions.pageId, pageId), eq(pagePermissions.groupId, groupId)))
-    .returning();
-  return permission ?? null;
+  return firstOrNull(
+    await db
+      .delete(pagePermissions)
+      .where(and(eq(pagePermissions.pageId, pageId), eq(pagePermissions.groupId, groupId)))
+      .returning()
+  );
 }
 
 export async function getSiteSetting(key: string) {
-  const [row] = await db.select().from(siteSettings).where(eq(siteSettings.key, key));
-  return row ?? null;
+  return firstOrNull(await db.select().from(siteSettings).where(eq(siteSettings.key, key)));
 }
 
 export async function updateUserRole(userId: string, role: string) {
-  const [user] = await db
-    .update(users)
-    .set({ role, updatedAt: new Date() })
-    .where(eq(users.id, userId))
-    .returning();
-  return user ?? null;
+  return firstOrNull(
+    await db
+      .update(users)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning()
+  );
 }
 
 export async function upsertSiteSetting(key: string, value: string) {
   const now = new Date();
-  const [row] = await db
-    .insert(siteSettings)
-    .values({ key, value, updatedAt: now })
-    .onConflictDoUpdate({
-      target: siteSettings.key,
-      set: { value, updatedAt: now },
-    })
-    .returning();
-  return row ?? null;
+  return firstOrNull(
+    await db
+      .insert(siteSettings)
+      .values({ key, value, updatedAt: now })
+      .onConflictDoUpdate({
+        target: siteSettings.key,
+        set: { value, updatedAt: now },
+      })
+      .returning()
+  );
 }
 
 export async function deleteSiteSetting(key: string) {
-  const [row] = await db.delete(siteSettings).where(eq(siteSettings.key, key)).returning();
-  return row ?? null;
+  return firstOrNull(await db.delete(siteSettings).where(eq(siteSettings.key, key)).returning());
 }

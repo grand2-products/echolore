@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import { canApproveKnowledge } from "../policies/authorization-policy.js";
@@ -10,6 +11,10 @@ import {
   approveSuggestion,
   rejectSuggestion,
 } from "../services/knowledge/knowledge-suggestion-service.js";
+
+const rejectBody = z.object({
+  reason: z.string().min(1),
+});
 
 export const knowledgeSuggestionsRoutes = new Hono<AppEnv>();
 
@@ -29,8 +34,14 @@ knowledgeSuggestionsRoutes.get(
     async (c) => {
       const status = c.req.query("status");
       const sourceType = c.req.query("sourceType");
-      const limit = Math.min(Number(c.req.query("limit")) || 50, 100);
-      const offset = Number(c.req.query("offset")) || 0;
+      const limit = Math.min(
+        Math.max(z.coerce.number().int().positive().catch(50).parse(c.req.query("limit")), 1),
+        100
+      );
+      const offset = Math.max(
+        z.coerce.number().int().nonnegative().catch(0).parse(c.req.query("offset")),
+        0
+      );
 
       const { rows, total } = await listSuggestions({
         status: status || undefined,
@@ -87,12 +98,13 @@ knowledgeSuggestionsRoutes.post(
       const { id } = c.req.param();
       const user = c.get("user");
 
-      const body = (await c.req.json()) as { reason?: string };
-      if (!body.reason) {
+      const raw = await c.req.json().catch(() => ({}));
+      const parsed = rejectBody.safeParse(raw);
+      if (!parsed.success) {
         return jsonError(c, 400, "REASON_REQUIRED", "Rejection reason is required");
       }
 
-      await rejectSuggestion(id, user.id, body.reason);
+      await rejectSuggestion(id, user.id, parsed.data.reason);
       return c.json({ success: true });
     },
     "KNOWLEDGE_REJECT_FAILED",

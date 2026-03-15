@@ -2,6 +2,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import type { Page, Summary } from "../../db/schema.js";
 import { blocks, meetings, pages, summaries, transcripts } from "../../db/schema.js";
+import { firstOrNull } from "../../lib/db-utils.js";
 import { createPageWithAccessDefaultsTx } from "../../services/wiki/wiki-service.js";
 
 type MeetingWriteTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -27,13 +28,11 @@ export async function listMeetingsByStatus(status: string) {
 }
 
 export async function getMeetingById(id: string) {
-  const [meeting] = await db.select().from(meetings).where(eq(meetings.id, id));
-  return meeting ?? null;
+  return firstOrNull(await db.select().from(meetings).where(eq(meetings.id, id)));
 }
 
 export async function getMeetingByRoomName(roomName: string) {
-  const [meeting] = await db.select().from(meetings).where(eq(meetings.roomName, roomName));
-  return meeting ?? null;
+  return firstOrNull(await db.select().from(meetings).where(eq(meetings.roomName, roomName)));
 }
 
 export async function getMeetingTranscripts(meetingId: string) {
@@ -53,30 +52,31 @@ export async function getMeetingSummaries(meetingId: string) {
 }
 
 export async function getLatestMeetingSummary(meetingId: string) {
-  const [summary] = await db
-    .select()
-    .from(summaries)
-    .where(eq(summaries.meetingId, meetingId))
-    .orderBy(desc(summaries.createdAt))
-    .limit(1);
-  return summary ?? null;
+  return firstOrNull(
+    await db
+      .select()
+      .from(summaries)
+      .where(eq(summaries.meetingId, meetingId))
+      .orderBy(desc(summaries.createdAt))
+      .limit(1)
+  );
 }
 
 export async function getRoomAiWikiPageByMeetingId(meetingId: string) {
-  const [page] = await db
-    .select({ id: pages.id, title: pages.title })
-    .from(pages)
-    .innerJoin(
-      blocks,
-      and(
-        eq(blocks.pageId, pages.id),
-        sql<boolean>`${blocks.properties} ->> 'sourceMeetingId' = ${meetingId}`,
-        sql<boolean>`${blocks.properties} ->> 'source' = 'room-ai-mvp'`
+  return firstOrNull(
+    await db
+      .select({ id: pages.id, title: pages.title })
+      .from(pages)
+      .innerJoin(
+        blocks,
+        and(
+          eq(blocks.pageId, pages.id),
+          sql<boolean>`${blocks.properties} ->> 'sourceMeetingId' = ${meetingId}`,
+          sql<boolean>`${blocks.properties} ->> 'source' = 'room-ai-mvp'`
+        )
       )
-    )
-    .limit(1);
-
-  return page ?? null;
+      .limit(1)
+  );
 }
 
 export async function createMeeting(input: {
@@ -89,25 +89,20 @@ export async function createMeeting(input: {
   googleCalendarEventId?: string | null;
   createdAt: Date;
 }) {
-  const [meeting] = await db.insert(meetings).values(input).returning();
-  return meeting ?? null;
+  return firstOrNull(await db.insert(meetings).values(input).returning());
 }
 
 export async function updateMeeting(
   id: string,
   updateData: Partial<Omit<typeof meetings.$inferInsert, "id">>
 ) {
-  const [meeting] = await db
-    .update(meetings)
-    .set(updateData)
-    .where(eq(meetings.id, id))
-    .returning();
-  return meeting ?? null;
+  return firstOrNull(
+    await db.update(meetings).set(updateData).where(eq(meetings.id, id)).returning()
+  );
 }
 
 export async function deleteMeeting(id: string) {
-  const [meeting] = await db.delete(meetings).where(eq(meetings.id, id)).returning();
-  return meeting ?? null;
+  return firstOrNull(await db.delete(meetings).where(eq(meetings.id, id)).returning());
 }
 
 export async function createTranscript(input: {
@@ -118,8 +113,7 @@ export async function createTranscript(input: {
   timestamp: Date;
   createdAt: Date;
 }) {
-  const [transcript] = await db.insert(transcripts).values(input).returning();
-  return transcript ?? null;
+  return firstOrNull(await db.insert(transcripts).values(input).returning());
 }
 
 export async function createSummary(input: {
@@ -128,8 +122,7 @@ export async function createSummary(input: {
   content: string;
   createdAt: Date;
 }) {
-  const [summary] = await db.insert(summaries).values(input).returning();
-  return summary ?? null;
+  return firstOrNull(await db.insert(summaries).values(input).returning());
 }
 
 /**

@@ -1,19 +1,14 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { z } from "zod";
 import { buildAutonomousDecisionPrompt } from "../../ai/agent/autonomous-decision-prompt.js";
-import type { LlmOverrides } from "../../ai/llm/index.js";
-import {
-  createChatModel,
-  isTextGenerationEnabled,
-  resolveTextProvider,
-} from "../../ai/llm/index.js";
+import { initLlmWithSettings } from "../../ai/llm/index.js";
+import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
 import {
   getLastAutonomousEventTime,
   listAutonomousActiveSessions,
   listFinalSegmentsAfter,
   updateSessionEvalCursor,
 } from "../../repositories/meeting/meeting-realtime-repository.js";
-import { getLlmSettings } from "../admin/admin-service.js";
 import { generateMeetingAgentResponse } from "./meeting-agent-runtime-service.js";
 
 const MIN_NEW_SEGMENTS = 3;
@@ -100,7 +95,8 @@ async function evaluateAgent(
 
   // Stage 2: LLM decision
   const recentLines = newSegments.map(
-    (seg) => `<transcript_line>${seg.speakerLabel}: ${seg.content}</transcript_line>`
+    (seg) =>
+      `<transcript_line>${escapeXmlTags(`${seg.speakerLabel}: ${seg.content}`)}</transcript_line>`
   );
 
   const decision = await callDecisionLlm(agent, recentLines);
@@ -127,34 +123,22 @@ async function callDecisionLlm(
   },
   recentTranscriptLines: string[]
 ): Promise<{ shouldIntervene: boolean; reason: string; suggestedPrompt: string }> {
-  const dbSettings = await getLlmSettings();
-  const overrides: LlmOverrides = {
-    geminiApiKey: dbSettings.geminiApiKey,
-    geminiTextModel: dbSettings.geminiTextModel,
-    vertexProject: dbSettings.vertexProject,
-    vertexLocation: dbSettings.vertexLocation,
-    vertexModel: dbSettings.vertexModel,
-    zhipuApiKey: dbSettings.zhipuApiKey,
-    zhipuTextModel: dbSettings.zhipuTextModel,
-    zhipuUseCodingPlan: dbSettings.zhipuUseCodingPlan,
-  };
-  const provider = resolveTextProvider(agent.defaultProvider ?? dbSettings.provider);
+  const result = await initLlmWithSettings({
+    temperature: 0,
+    maxTokens: 200,
+    defaultProvider: agent.defaultProvider,
+  });
 
-  if (!isTextGenerationEnabled(provider, overrides)) {
+  if (!result) {
     return { shouldIntervene: false, reason: "LLM not configured", suggestedPrompt: "" };
   }
 
   try {
-    const chatModel = createChatModel({
-      provider,
-      temperature: 0,
-      maxTokens: 200,
-      overrides,
-    });
+    const chatModel = result.model;
 
     const prompt = buildAutonomousDecisionPrompt({
-      agentName: agent.name,
-      interventionStyle: agent.interventionStyle,
+      agentName: escapeXmlTags(agent.name),
+      interventionStyle: escapeXmlTags(agent.interventionStyle),
       systemPrompt: agent.systemPrompt,
       recentTranscriptLines,
     });

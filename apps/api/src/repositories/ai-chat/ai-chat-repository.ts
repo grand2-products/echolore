@@ -7,15 +7,16 @@ import {
   type NewAiChatMessage,
   users,
 } from "../../db/schema.js";
+import { escapeLikePattern, firstOrNull } from "../../lib/db-utils.js";
 
 export async function createConversation(conversation: NewAiChatConversation) {
-  const [row] = await db.insert(aiChatConversations).values(conversation).returning();
-  return row ?? null;
+  return firstOrNull(await db.insert(aiChatConversations).values(conversation).returning());
 }
 
 export async function getConversationById(id: string) {
-  const [row] = await db.select().from(aiChatConversations).where(eq(aiChatConversations.id, id));
-  return row ?? null;
+  return firstOrNull(
+    await db.select().from(aiChatConversations).where(eq(aiChatConversations.id, id))
+  );
 }
 
 export async function listConversations(opts: { userId?: string; query?: string }) {
@@ -31,7 +32,7 @@ export async function listConversations(opts: { userId?: string; query?: string 
 
   if (opts.query) {
     conditions.push(
-      sql<boolean>`coalesce(${aiChatConversations.title}, '') ilike ${`%${opts.query}%`}`
+      sql<boolean>`coalesce(${aiChatConversations.title}, '') ilike ${`%${escapeLikePattern(opts.query)}%`}`
     );
   }
 
@@ -50,12 +51,13 @@ export async function updateConversation(
   id: string,
   payload: { title?: string; visibility?: string; updatedAt: Date }
 ) {
-  const [row] = await db
-    .update(aiChatConversations)
-    .set(payload)
-    .where(eq(aiChatConversations.id, id))
-    .returning();
-  return row ?? null;
+  return firstOrNull(
+    await db
+      .update(aiChatConversations)
+      .set(payload)
+      .where(eq(aiChatConversations.id, id))
+      .returning()
+  );
 }
 
 export async function deleteConversation(id: string) {
@@ -63,8 +65,7 @@ export async function deleteConversation(id: string) {
 }
 
 export async function createMessage(message: NewAiChatMessage) {
-  const [row] = await db.insert(aiChatMessages).values(message).returning();
-  return row ?? null;
+  return firstOrNull(await db.insert(aiChatMessages).values(message).returning());
 }
 
 export async function listMessagesByConversationId(conversationId: string) {

@@ -8,17 +8,16 @@ import {
   type NewAituberMessage,
   type NewAituberSession,
 } from "../../db/schema.js";
+import { firstOrNull } from "../../lib/db-utils.js";
 
 // --- Characters ---
 
 export async function createCharacter(character: NewAituberCharacter) {
-  const [row] = await db.insert(aituberCharacters).values(character).returning();
-  return row ?? null;
+  return firstOrNull(await db.insert(aituberCharacters).values(character).returning());
 }
 
 export async function getCharacterById(id: string) {
-  const [row] = await db.select().from(aituberCharacters).where(eq(aituberCharacters.id, id));
-  return row ?? null;
+  return firstOrNull(await db.select().from(aituberCharacters).where(eq(aituberCharacters.id, id)));
 }
 
 export async function listCharacters(opts?: { createdBy?: string }) {
@@ -47,12 +46,9 @@ export async function updateCharacter(
     updatedAt: Date;
   }>
 ) {
-  const [row] = await db
-    .update(aituberCharacters)
-    .set(payload)
-    .where(eq(aituberCharacters.id, id))
-    .returning();
-  return row ?? null;
+  return firstOrNull(
+    await db.update(aituberCharacters).set(payload).where(eq(aituberCharacters.id, id)).returning()
+  );
 }
 
 export async function deleteCharacter(id: string) {
@@ -62,13 +58,11 @@ export async function deleteCharacter(id: string) {
 // --- Sessions ---
 
 export async function createSession(session: NewAituberSession) {
-  const [row] = await db.insert(aituberSessions).values(session).returning();
-  return row ?? null;
+  return firstOrNull(await db.insert(aituberSessions).values(session).returning());
 }
 
 export async function getSessionById(id: string) {
-  const [row] = await db.select().from(aituberSessions).where(eq(aituberSessions.id, id));
-  return row ?? null;
+  return firstOrNull(await db.select().from(aituberSessions).where(eq(aituberSessions.id, id)));
 }
 
 export async function listSessions(opts?: { status?: string; creatorId?: string }) {
@@ -94,19 +88,15 @@ export async function updateSession(
     endedAt: Date;
   }>
 ) {
-  const [row] = await db
-    .update(aituberSessions)
-    .set(payload)
-    .where(eq(aituberSessions.id, id))
-    .returning();
-  return row ?? null;
+  return firstOrNull(
+    await db.update(aituberSessions).set(payload).where(eq(aituberSessions.id, id)).returning()
+  );
 }
 
 // --- Messages ---
 
 export async function createMessage(message: NewAituberMessage) {
-  const [row] = await db.insert(aituberMessages).values(message).returning();
-  return row ?? null;
+  return firstOrNull(await db.insert(aituberMessages).values(message).returning());
 }
 
 export async function getUnprocessedMessages(sessionId: string, limit = 10) {
@@ -125,12 +115,13 @@ export async function getUnprocessedMessages(sessionId: string, limit = 10) {
 }
 
 export async function markMessageProcessed(id: string) {
-  const [row] = await db
-    .update(aituberMessages)
-    .set({ processedAt: new Date() })
-    .where(eq(aituberMessages.id, id))
-    .returning();
-  return row ?? null;
+  return firstOrNull(
+    await db
+      .update(aituberMessages)
+      .set({ processedAt: new Date() })
+      .where(eq(aituberMessages.id, id))
+      .returning()
+  );
 }
 
 export async function listMessagesBySession(sessionId: string, limit = 50) {

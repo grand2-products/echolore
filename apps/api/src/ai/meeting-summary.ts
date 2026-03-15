@@ -1,8 +1,6 @@
 import { HumanMessage } from "@langchain/core/messages";
 import type { Transcript } from "../db/schema.js";
-import { getLlmSettings } from "../services/admin/admin-service.js";
-import type { LlmOverrides } from "./llm/index.js";
-import { createChatModel, isTextGenerationEnabled, resolveTextProvider } from "./llm/index.js";
+import { initLlmWithSettings } from "./llm/index.js";
 
 const clip = (value: string, max = 12000) => value.slice(0, max);
 
@@ -30,20 +28,9 @@ export async function generateMeetingSummary(
   meetingTitle: string,
   transcripts: Array<Pick<Transcript, "speakerId" | "content" | "timestamp">>
 ): Promise<string> {
-  const dbSettings = await getLlmSettings();
-  const overrides: LlmOverrides = {
-    geminiApiKey: dbSettings.geminiApiKey,
-    geminiTextModel: dbSettings.geminiTextModel,
-    vertexProject: dbSettings.vertexProject,
-    vertexLocation: dbSettings.vertexLocation,
-    vertexModel: dbSettings.vertexModel,
-    zhipuApiKey: dbSettings.zhipuApiKey,
-    zhipuTextModel: dbSettings.zhipuTextModel,
-    zhipuUseCodingPlan: dbSettings.zhipuUseCodingPlan,
-  };
-  const provider = resolveTextProvider(dbSettings.provider);
+  const result = await initLlmWithSettings({ temperature: 0.2 });
 
-  if (!isTextGenerationEnabled(provider, overrides)) {
+  if (!result) {
     return fallbackSummary(transcripts);
   }
 
@@ -71,7 +58,7 @@ export async function generateMeetingSummary(
   ].join("\n");
 
   try {
-    const model = createChatModel({ provider, temperature: 0.2, overrides });
+    const model = result.model;
     const response = await model.invoke([new HumanMessage(prompt)]);
     const text =
       typeof response.content === "string"

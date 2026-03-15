@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { type AgentDefinition, adminApi, type CreateAgentRequest } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
-import { useStableEvent } from "@/lib/hooks/use-stable-event";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useFormatters, useT } from "@/lib/i18n";
 import { LlmSettingsSection } from "../settings/_components/LlmSettingsSection";
 import {
   TestConnectionModal,
   type TestModalState,
 } from "../settings/_components/TestConnectionModal";
+
+const VALID_PROVIDERS = ["google", "vertex", "zhipu"] as const;
+const VALID_INTERVENTION_STYLES = ["facilitator", "observer", "active"] as const;
 
 const emptyForm: CreateAgentRequest = {
   name: "",
@@ -27,35 +30,27 @@ export default function AdminAgentsPage() {
   const t = useT();
   const formatters = useFormatters();
   const getApiErrorMessage = useApiErrorMessage();
-  const [agents, setAgents] = useState<AgentDefinition[]>([]);
+  const {
+    data: agents,
+    isLoading,
+    error,
+    refetch: loadAgents,
+  } = useAsyncData<AgentDefinition[]>([], async () => {
+    const response = await adminApi.listAgents();
+    return response.agents;
+  });
   const [form, setForm] = useState<CreateAgentRequest>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [testModal, setTestModal] = useState<TestModalState | null>(null);
 
-  const loadAgents = useStableEvent(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await adminApi.listAgents();
-      setAgents(response.agents);
-    } catch (loadError) {
-      setError(getApiErrorMessage(loadError, t("admin.agents.loadError")));
-    } finally {
-      setIsLoading(false);
-    }
-  });
-
-  useEffect(() => {
-    void loadAgents();
-  }, [loadAgents]);
+  const displayError = error ?? saveError;
 
   const submit = async () => {
     setIsSaving(true);
-    setError(null);
+    setSaveError(null);
     try {
       if (editingId) {
         await adminApi.updateAgent(editingId, form);
@@ -67,8 +62,8 @@ export default function AdminAgentsPage() {
       setForm(emptyForm);
       setEditingId(null);
       await loadAgents();
-    } catch (saveError) {
-      setError(getApiErrorMessage(saveError, t("admin.agents.saveError")));
+    } catch (err) {
+      setSaveError(getApiErrorMessage(err, t("admin.agents.saveError")));
     } finally {
       setIsSaving(false);
     }
@@ -80,9 +75,9 @@ export default function AdminAgentsPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <section className="rounded-xl border border-gray-200 bg-white p-6">
-          {error ? (
+          {displayError ? (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              <span>{error}</span>
+              <span>{displayError}</span>
               <button
                 type="button"
                 onClick={() => void loadAgents()}
@@ -210,13 +205,26 @@ export default function AdminAgentsPage() {
 
             <label className="block text-sm text-gray-700">
               {t("admin.agents.interventionStyle")}
-              <input
+              <select
                 value={form.interventionStyle}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, interventionStyle: event.target.value }))
-                }
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (
+                    !VALID_INTERVENTION_STYLES.includes(
+                      value as (typeof VALID_INTERVENTION_STYLES)[number]
+                    )
+                  )
+                    return;
+                  setForm((current) => ({ ...current, interventionStyle: value }));
+                }}
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-              />
+              >
+                {VALID_INTERVENTION_STYLES.map((style) => (
+                  <option key={style} value={style}>
+                    {style}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="block text-sm text-gray-700">
@@ -234,12 +242,14 @@ export default function AdminAgentsPage() {
               {t("admin.agents.providerLabel")}
               <select
                 value={form.defaultProvider}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (!VALID_PROVIDERS.includes(value as (typeof VALID_PROVIDERS)[number])) return;
                   setForm((current) => ({
                     ...current,
-                    defaultProvider: event.target.value as CreateAgentRequest["defaultProvider"],
-                  }))
-                }
+                    defaultProvider: value as CreateAgentRequest["defaultProvider"],
+                  }));
+                }}
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
               >
                 <option value="google">{formatters.provider("google")}</option>

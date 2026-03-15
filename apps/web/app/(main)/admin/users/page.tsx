@@ -1,51 +1,51 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { type AdminUserRecord, adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
-import { useStableEvent } from "@/lib/hooks/use-stable-event";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useFormatters, useT } from "@/lib/i18n";
+
+const isValidImageUrl = (url: string | null | undefined): boolean => {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
 
 export default function AdminUsersPage() {
   const t = useT();
   const { date } = useFormatters();
   const getApiErrorMessage = useApiErrorMessage();
-  const [users, setUsers] = useState<AdminUserRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: users,
+    isLoading,
+    error,
+    refetch: loadUsers,
+  } = useAsyncData<AdminUserRecord[]>([], async () => {
+    const response = await adminApi.listUsers();
+    return response.users;
+  });
   const [notice, setNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [changingRoleId, setChangingRoleId] = useState<string | null>(null);
 
-  const loadUsers = useStableEvent(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await adminApi.listUsers();
-      setUsers(response.users);
-    } catch (loadError) {
-      setError(getApiErrorMessage(loadError, t("admin.users.loadError")));
-    } finally {
-      setIsLoading(false);
-    }
-  });
-
-  useEffect(() => {
-    void loadUsers();
-  }, [loadUsers]);
+  const displayError = error ?? actionError;
 
   const handleRoleChange = async (userId: string, newRole: "admin" | "member") => {
     setChangingRoleId(userId);
-    setError(null);
     setNotice(null);
+    setActionError(null);
     try {
-      const updated = await adminApi.updateUserRole(userId, newRole);
-      setUsers((current) =>
-        current.map((u) => (u.id === userId ? { ...u, role: updated.user?.role ?? newRole } : u))
-      );
+      await adminApi.updateUserRole(userId, newRole);
       setNotice(t("admin.users.roleUpdated"));
+      await loadUsers();
     } catch (saveError) {
-      setError(getApiErrorMessage(saveError, t("admin.users.roleUpdateError")));
+      setActionError(getApiErrorMessage(saveError, t("admin.users.roleUpdateError")));
     } finally {
       setChangingRoleId(null);
     }
@@ -61,9 +61,9 @@ export default function AdminUsersPage() {
 
   return (
     <div>
-      {error ? (
+      {displayError ? (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          <span>{error}</span>
+          <span>{displayError}</span>
           <button
             type="button"
             onClick={() => void loadUsers()}
@@ -105,9 +105,9 @@ export default function AdminUsersPage() {
               <tr key={user.id} className="hover:bg-gray-50">
                 <td className="whitespace-nowrap px-4 py-3">
                   <div className="flex items-center gap-2">
-                    {user.avatarUrl ? (
+                    {isValidImageUrl(user.avatarUrl) ? (
                       <Image
-                        src={user.avatarUrl}
+                        src={user.avatarUrl as string}
                         alt=""
                         width={28}
                         height={28}
