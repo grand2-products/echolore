@@ -22,11 +22,13 @@
     "db:generate": "pnpm --filter api db:generate",
     "db:migrate": "pnpm --filter api db:migrate",
     "db:push": "pnpm --filter api db:push",
-    "db:studio": "pnpm --filter api db:studio"
+    "db:studio": "pnpm --filter api db:studio",
+    "prepare": "lefthook install"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "dotenv-cli": "^11.0.0",
+    "lefthook": "^2.1.4",
     "turbo": "^2.4.4",
     "typescript": "^5.7.3"
   },

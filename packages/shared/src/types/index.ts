@@ -1,4 +1,6 @@
-import type { UserRole } from "../contracts/index.js";
+import type { BlockType, MeetingStatus, UserRole } from "../contracts/index.js";
+
+export type { BlockType, MeetingStatus } from "../contracts/index.js";
 
 // User types
 export interface User {
@@ -32,21 +34,6 @@ export interface Block {
   updatedAt: Date;
 }
 
-export type BlockType =
-  | "text"
-  | "heading1"
-  | "heading2"
-  | "heading3"
-  | "bulletList"
-  | "orderedList"
-  | "numberedList"
-  | "image"
-  | "file"
-  | "code"
-  | "codeBlock"
-  | "quote"
-  | "divider";
-
 // Meeting types
 export interface Meeting {
   id: string;
@@ -58,8 +45,6 @@ export interface Meeting {
   endedAt?: Date;
   createdAt: Date;
 }
-
-export type MeetingStatus = "scheduled" | "active" | "ended";
 
 export interface Transcript {
   id: string;
