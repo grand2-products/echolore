@@ -1,14 +1,18 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { buildAutonomousDecisionPrompt } from "../../ai/agent/autonomous-decision-prompt.js";
-import { createChatModel, isTextGenerationEnabled, resolveTextProvider } from "../../ai/llm/index.js";
+import {
+  createChatModel,
+  isTextGenerationEnabled,
+  resolveTextProvider,
+} from "../../ai/llm/index.js";
 import type { LlmOverrides } from "../../ai/llm/index.js";
-import { getLlmSettings } from "../admin/admin-service.js";
 import {
   getLastAutonomousEventTime,
   listAutonomousActiveSessions,
   listFinalSegmentsAfter,
   updateSessionEvalCursor,
 } from "../../repositories/meeting/meeting-realtime-repository.js";
+import { getLlmSettings } from "../admin/admin-service.js";
 import { generateMeetingAgentResponse } from "./meeting-agent-runtime-service.js";
 
 const MIN_NEW_SEGMENTS = 3;
@@ -43,10 +47,7 @@ async function runEvaluationTick(): Promise<void> {
       try {
         await evaluateAgent(row.session, row.agent);
       } catch (err) {
-        console.error(
-          `Autonomous eval error for session ${row.session.id}:`,
-          err
-        );
+        console.error(`Autonomous eval error for session ${row.session.id}:`, err);
       }
     }
   } catch (err) {
@@ -84,10 +85,7 @@ async function evaluateAgent(
   }
 
   // Stage 1b: Cooldown check
-  const lastAutoTime = await getLastAutonomousEventTime(
-    session.meetingId,
-    agent.id
-  );
+  const lastAutoTime = await getLastAutonomousEventTime(session.meetingId, agent.id);
   if (lastAutoTime) {
     const elapsed = (Date.now() - lastAutoTime.getTime()) / 1000;
     if (elapsed < agent.autonomousCooldownSec) {
@@ -96,13 +94,11 @@ async function evaluateAgent(
   }
 
   // Update cursor regardless of decision outcome
-  const latestSegmentId = newSegments[newSegments.length - 1]!.id;
+  const latestSegmentId = newSegments[newSegments.length - 1]?.id ?? "";
   await updateSessionEvalCursor(session.id, latestSegmentId);
 
   // Stage 2: LLM decision
-  const recentLines = newSegments.map(
-    (seg) => `${seg.speakerLabel}: ${seg.content}`
-  );
+  const recentLines = newSegments.map((seg) => `${seg.speakerLabel}: ${seg.content}`);
 
   const decision = await callDecisionLlm(agent, recentLines);
   if (!decision.shouldIntervene) {
@@ -139,9 +135,7 @@ async function callDecisionLlm(
     zhipuTextModel: dbSettings.zhipuTextModel,
     zhipuUseCodingPlan: dbSettings.zhipuUseCodingPlan,
   };
-  const provider = resolveTextProvider(
-    agent.defaultProvider ?? dbSettings.provider
-  );
+  const provider = resolveTextProvider(agent.defaultProvider ?? dbSettings.provider);
 
   if (!isTextGenerationEnabled(provider, overrides)) {
     return { shouldIntervene: false, reason: "LLM not configured", suggestedPrompt: "" };
@@ -164,9 +158,7 @@ async function callDecisionLlm(
 
     const result = await chatModel.invoke([new HumanMessage(prompt)]);
     const text =
-      typeof result.content === "string"
-        ? result.content.trim()
-        : String(result.content).trim();
+      typeof result.content === "string" ? result.content.trim() : String(result.content).trim();
 
     // Parse JSON response
     const parsed = JSON.parse(text) as {

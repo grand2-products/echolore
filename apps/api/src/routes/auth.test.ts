@@ -1,6 +1,6 @@
+import { UserRole } from "@corp-internal/shared/contracts";
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { UserRole } from "@corp-internal/shared/contracts";
 import type { AppEnv } from "../lib/auth.js";
 import { authRoutes } from "./auth.js";
 
@@ -76,7 +76,11 @@ describe("authRoutes", () => {
     const response = await createApp().request("http://localhost/api/auth/register", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "member@example.com", name: "Member", password: "password123" }),
+      body: JSON.stringify({
+        email: "member@example.com",
+        name: "Member",
+        password: "password123",
+      }),
     });
 
     expect(response.status).toBe(201);
@@ -130,7 +134,11 @@ describe("authRoutes", () => {
     const response = await createApp().request("http://localhost/api/auth/token", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "mobile@example.com", password: "secret", deviceName: "iPhone" }),
+      body: JSON.stringify({
+        email: "mobile@example.com",
+        password: "secret",
+        deviceName: "iPhone",
+      }),
     });
 
     expect(response.status).toBe(200);

@@ -127,8 +127,8 @@ export function Header({ user }: HeaderProps) {
   const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: close menus on route change only
   useEffect(() => {
+    void pathname; // close menus on route change
     setIsUserMenuOpen(false);
     setIsMobileMenuOpen(false);
   }, [pathname]);

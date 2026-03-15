@@ -1,5 +1,6 @@
 "use client";
 
+import { ErrorBanner } from "@/components/ui";
 import { useSpacesQuery, wikiApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { useRouter } from "next/navigation";
@@ -69,11 +70,7 @@ export function ImportFileModal({ open, onClose }: ImportFileModalProps) {
       <h2 className="mb-1 text-lg font-bold text-gray-900">{t("wiki.import.title")}</h2>
       <p className="mb-5 text-sm text-gray-500">{t("wiki.import.description")}</p>
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner message={error} className="mb-4" />}
 
       {/* File picker */}
       <div className="mb-4">

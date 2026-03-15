@@ -1,11 +1,11 @@
-import * as Y from "yjs";
-import * as syncProtocol from "y-protocols/sync";
-import * as awarenessProtocol from "y-protocols/awareness";
-import * as encoding from "lib0/encoding";
-import * as decoding from "lib0/decoding";
 import type { WSContext } from "hono/ws";
-import { getYjsState, upsertYjsState } from "../../repositories/wiki/yjs-document-repository.js";
+import * as decoding from "lib0/decoding";
+import * as encoding from "lib0/encoding";
+import * as awarenessProtocol from "y-protocols/awareness";
+import * as syncProtocol from "y-protocols/sync";
+import * as Y from "yjs";
 import type { SessionUser } from "../../lib/auth.js";
+import { getYjsState, upsertYjsState } from "../../repositories/wiki/yjs-document-repository.js";
 
 const MSG_SYNC = 0;
 const MSG_AWARENESS = 1;
@@ -43,11 +43,7 @@ function send(ws: WSContext, message: Uint8Array): void {
   }
 }
 
-function broadcast(
-  entry: DocEntry,
-  sender: WSContext | null,
-  message: Uint8Array,
-): void {
+function broadcast(entry: DocEntry, sender: WSContext | null, message: Uint8Array): void {
   for (const [connWs] of entry.conns) {
     if (connWs !== sender) {
       send(connWs, message);
@@ -111,7 +107,7 @@ async function getOrCreateDoc(pageId: string): Promise<DocEntry> {
     "update",
     (
       { added, updated, removed }: { added: number[]; updated: number[]; removed: number[] },
-      origin: unknown,
+      origin: unknown
     ) => {
       const changedClients = added.concat(updated, removed);
       if (changedClients.length === 0) return;
@@ -120,11 +116,11 @@ async function getOrCreateDoc(pageId: string): Promise<DocEntry> {
       encoding.writeVarUint(encoder, MSG_AWARENESS);
       encoding.writeVarUint8Array(
         encoder,
-        awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients),
+        awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients)
       );
       const msg = encoding.toUint8Array(encoder);
       broadcast(entry, origin as WSContext | null, msg);
-    },
+    }
   );
 
   return entry;
@@ -152,10 +148,15 @@ async function persistDoc(pageId: string, retries = PERSIST_MAX_RETRIES): Promis
     } catch (err) {
       if (attempt < retries) {
         const delay = PERSIST_RETRY_BASE_MS * 2 ** (attempt - 1);
-        console.warn(`[yjs-collab] Persist doc ${pageId} failed (attempt ${attempt}/${retries}), retrying in ${delay}ms`);
+        console.warn(
+          `[yjs-collab] Persist doc ${pageId} failed (attempt ${attempt}/${retries}), retrying in ${delay}ms`
+        );
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
-        console.error(`[yjs-collab] Failed to persist doc ${pageId} after ${retries} attempts:`, err);
+        console.error(
+          `[yjs-collab] Failed to persist doc ${pageId} after ${retries} attempts:`,
+          err
+        );
       }
     }
   }
@@ -164,7 +165,7 @@ async function persistDoc(pageId: string, retries = PERSIST_MAX_RETRIES): Promis
 export async function addConnection(
   pageId: string,
   ws: WSContext,
-  user: SessionUser,
+  user: SessionUser
 ): Promise<void> {
   const entry = await getOrCreateDoc(pageId);
   entry.conns.set(ws, { ws, user, controlledIds: new Set() });
@@ -189,20 +190,13 @@ export async function addConnection(
     encoding.writeVarUint(awarenessEncoder, MSG_AWARENESS);
     encoding.writeVarUint8Array(
       awarenessEncoder,
-      awarenessProtocol.encodeAwarenessUpdate(
-        entry.awareness,
-        Array.from(states.keys()),
-      ),
+      awarenessProtocol.encodeAwarenessUpdate(entry.awareness, Array.from(states.keys()))
     );
     send(ws, encoding.toUint8Array(awarenessEncoder));
   }
 }
 
-export function handleMessage(
-  pageId: string,
-  ws: WSContext,
-  data: ArrayBuffer | string,
-): void {
+export function handleMessage(pageId: string, ws: WSContext, data: ArrayBuffer | string): void {
   const entry = docs.get(pageId);
   if (!entry) return;
 
@@ -250,8 +244,8 @@ export function handleMessage(
           encoder,
           awarenessProtocol.encodeAwarenessUpdate(
             entry.awareness,
-            Array.from(entry.awareness.getStates().keys()),
-          ),
+            Array.from(entry.awareness.getStates().keys())
+          )
         );
         send(ws, encoding.toUint8Array(encoder));
         break;
@@ -266,11 +260,7 @@ export function handleMessage(
  * Parse an awareness update to extract clientIDs and track them per connection.
  * This allows us to clean up awareness states when a connection closes.
  */
-function trackControlledIds(
-  entry: DocEntry,
-  ws: WSContext,
-  update: Uint8Array,
-): void {
+function trackControlledIds(entry: DocEntry, ws: WSContext, update: Uint8Array): void {
   const conn = entry.conns.get(ws);
   if (!conn) return;
 
@@ -305,7 +295,7 @@ export async function shutdownCollab(): Promise<void> {
       await persistDoc(pageId, 1);
       entry.awareness.destroy();
       entry.doc.destroy();
-    }),
+    })
   );
   docs.clear();
   console.log("[yjs-collab] Shutdown complete");
@@ -319,11 +309,7 @@ export function removeConnection(pageId: string, ws: WSContext): void {
 
   // Remove awareness states controlled by this connection
   if (conn && conn.controlledIds.size > 0) {
-    awarenessProtocol.removeAwarenessStates(
-      entry.awareness,
-      Array.from(conn.controlledIds),
-      null,
-    );
+    awarenessProtocol.removeAwarenessStates(entry.awareness, Array.from(conn.controlledIds), null);
   }
 
   entry.conns.delete(ws);

@@ -32,8 +32,12 @@ const cache = createSettingsCache<EmailSettings>({
     resendApiKey: map.emailResendApiKey || null,
     resendFrom: map.emailResendFrom || null,
     smtpHost: map.emailSmtpHost || null,
-    smtpPort: map.emailSmtpPort ? Number(map.emailSmtpPort) : null,
-    smtpSecure: map.emailSmtpSecure !== "false",
+    smtpPort: map.emailSmtpPort
+      ? Number.isFinite(Number(map.emailSmtpPort))
+        ? Number(map.emailSmtpPort)
+        : null
+      : null,
+    smtpSecure: map.emailSmtpSecure === "true",
     smtpUser: map.emailSmtpUser || null,
     smtpPass: map.emailSmtpPass || null,
     smtpFrom: map.emailSmtpFrom || null,

@@ -10,7 +10,13 @@ export function extractRequestMeta(c: Context<AppEnv>) {
   };
 }
 
-export function auditAction(c: Context<AppEnv>, action: string, resourceType: string, resourceId: string, metadata?: Record<string, unknown>) {
+export function auditAction(
+  c: Context<AppEnv>,
+  action: string,
+  resourceType: string,
+  resourceId: string,
+  metadata?: Record<string, unknown>
+) {
   const user = c.get("user");
   return writeAuditLog({
     actorUserId: user?.id ?? null,

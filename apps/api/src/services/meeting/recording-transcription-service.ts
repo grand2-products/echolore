@@ -1,6 +1,4 @@
 import { HumanMessage } from "@langchain/core/messages";
-import { createTranscript } from "../../repositories/meeting/meeting-repository.js";
-import { getLlmSettings } from "../admin/admin-service.js";
 import {
   createChatModel,
   isTextGenerationEnabled,
@@ -8,6 +6,8 @@ import {
 } from "../../ai/llm/index.js";
 import type { LlmOverrides } from "../../ai/llm/index.js";
 import { loadFile } from "../../lib/file-storage.js";
+import { createTranscript } from "../../repositories/meeting/meeting-repository.js";
+import { getLlmSettings } from "../admin/admin-service.js";
 
 /**
  * Transcribe a completed recording using the configured LLM provider.
@@ -24,7 +24,7 @@ import { loadFile } from "../../lib/file-storage.js";
  */
 export async function transcribeRecording(
   meetingId: string,
-  storagePath: string,
+  storagePath: string
 ): Promise<{ segmentCount: number }> {
   // Guard against path traversal — storagePath comes from DB but validate anyway
   if (!storagePath || storagePath.includes("..")) {
@@ -98,9 +98,9 @@ export async function transcribeRecording(
       const match = line.match(/^\[(\d{1,2}:\d{2})\]\s*(.+?):\s*(.+)$/);
       if (match) {
         segments.push({
-          timestamp: match[1]!,
-          speaker: match[2]!.trim(),
-          content: match[3]!.trim(),
+          timestamp: match[1] ?? "00:00",
+          speaker: match[2]?.trim() ?? "Speaker 1",
+          content: match[3]?.trim() ?? "",
         });
       } else {
         // Fallback: line without expected format
@@ -130,7 +130,7 @@ export async function transcribeRecording(
     }
 
     console.log(
-      `[recording-transcription] Transcribed ${segments.length} segments for meeting ${meetingId}`,
+      `[recording-transcription] Transcribed ${segments.length} segments for meeting ${meetingId}`
     );
     return { segmentCount: segments.length };
   } catch (error) {
@@ -143,15 +143,11 @@ export async function transcribeRecording(
  * Check if a meeting has a completed recording and trigger transcription if needed.
  * Called after egress_ended webhook.
  */
-export async function maybeTranscribeCompletedRecording(
-  meetingId: string,
-): Promise<void> {
+export async function maybeTranscribeCompletedRecording(meetingId: string): Promise<void> {
   // Import here to avoid circular dependency
   const { getRecordingStatus } = await import("./recording-service.js");
   const recordings = await getRecordingStatus(meetingId);
-  const completed = recordings.find(
-    (r) => r.status === "completed" && r.storagePath,
-  );
+  const completed = recordings.find((r) => r.status === "completed" && r.storagePath);
 
   if (!completed?.storagePath) {
     return;

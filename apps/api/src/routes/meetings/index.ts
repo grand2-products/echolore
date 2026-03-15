@@ -1,11 +1,11 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../../lib/auth.js";
-import { meetingCrudRoutes } from "./meeting-crud.js";
-import { meetingTranscriptRoutes } from "./meeting-transcripts.js";
-import { meetingSummaryRoutes } from "./meeting-summaries.js";
-import { meetingPipelineRoutes } from "./meeting-pipeline.js";
 import { meetingAgentRoutes } from "./meeting-agents.js";
+import { meetingCrudRoutes } from "./meeting-crud.js";
+import { meetingPipelineRoutes } from "./meeting-pipeline.js";
 import { meetingRecordingRoutes } from "./meeting-recordings.js";
+import { meetingSummaryRoutes } from "./meeting-summaries.js";
+import { meetingTranscriptRoutes } from "./meeting-transcripts.js";
 
 export const meetingsRoutes = new Hono<AppEnv>();
 

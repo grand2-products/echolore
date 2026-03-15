@@ -2,7 +2,7 @@ common:
   nav:
     home: "首页"
     wiki: "Wiki"
-    wikiChat: "AI 聊天"
+    aiChat: "AI 聊天"
     meetings: "会议"
     coworking: "协作室"
     search: "搜索"
@@ -691,7 +691,7 @@ admin:
     critical: "严重"
     warning: "警告"
     normal: "正常"
-wikiChat:
+aiChat:
   title: "AI 聊天"
   description: "向 Wiki 知识库提问并获取答案。"
   newChat: "+ 新建聊天"

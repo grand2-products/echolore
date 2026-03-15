@@ -42,8 +42,8 @@ export default function MeetingRoomPage() {
   const [retryNonce, setRetryNonce] = useState(0);
   const agentRoomMapRef = useRef<Map<string, Room>>(new Map());
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce is an intentional re-trigger; locale is stable
   useEffect(() => {
+    void retryNonce; // re-trigger dependency
     const run = async () => {
       try {
         const [detail, agentList] = await Promise.all([
@@ -67,10 +67,10 @@ export default function MeetingRoomPage() {
     };
 
     void run();
-  }, [meetingId, retryNonce, user?.id, user?.name]);
+  }, [meetingId, retryNonce, locale, user?.id, user?.name]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce is an intentional re-trigger; locale is stable
   useEffect(() => {
+    void retryNonce; // re-trigger dependency
     const sync = async () => {
       try {
         const [transcriptResult, eventResult, sessionResult] = await Promise.all([
@@ -97,7 +97,7 @@ export default function MeetingRoomPage() {
     }, 5000);
 
     return () => window.clearInterval(timer);
-  }, [meetingId, retryNonce]);
+  }, [meetingId, retryNonce, locale]);
 
   const connectAgentParticipant = useStableEvent(async (agentId: string) => {
     if (!roomName || agentRoomMapRef.current.has(agentId)) {

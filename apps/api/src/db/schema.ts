@@ -1,5 +1,15 @@
 import { relations, sql } from "drizzle-orm";
-import { boolean, customType, foreignKey, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  customType,
+  foreignKey,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 const vector = customType<{ data: number[]; driverData: string }>({
   dataType() {
@@ -9,11 +19,7 @@ const vector = customType<{ data: number[]; driverData: string }>({
     return `[${value.join(",")}]`;
   },
   fromDriver(value: string): number[] {
-    return value
-      .replace(/^\[/, "")
-      .replace(/\]$/, "")
-      .split(",")
-      .map(Number);
+    return value.replace(/^\[/, "").replace(/\]$/, "").split(",").map(Number);
   },
 });
 
@@ -176,7 +182,14 @@ export const pageRevisions = pgTable(
       .notNull(),
     revisionNumber: integer("revision_number").notNull(),
     title: text("title").notNull(),
-    blocks: jsonb("blocks").notNull().$type<Array<{ type: string; content: string | null; properties: Record<string, unknown> | null; sortOrder: number }>>(),
+    blocks: jsonb("blocks").notNull().$type<
+      Array<{
+        type: string;
+        content: string | null;
+        properties: Record<string, unknown> | null;
+        sortOrder: number;
+      }>
+    >(),
     authorId: text("author_id")
       .references(() => users.id)
       .notNull(),
@@ -209,8 +222,12 @@ export const spacePermissions = pgTable(
   "space_permissions",
   {
     id: text("id").primaryKey(),
-    spaceId: text("space_id").references(() => spaces.id, { onDelete: "cascade" }).notNull(),
-    groupId: text("group_id").references(() => userGroups.id, { onDelete: "cascade" }).notNull(),
+    spaceId: text("space_id")
+      .references(() => spaces.id, { onDelete: "cascade" })
+      .notNull(),
+    groupId: text("group_id")
+      .references(() => userGroups.id, { onDelete: "cascade" })
+      .notNull(),
     canRead: boolean("can_read").default(true).notNull(),
     canWrite: boolean("can_write").default(false).notNull(),
     canDelete: boolean("can_delete").default(false).notNull(),
@@ -218,7 +235,10 @@ export const spacePermissions = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    spaceGroupUnique: uniqueIndex("space_permissions_space_group_unique").on(table.spaceId, table.groupId),
+    spaceGroupUnique: uniqueIndex("space_permissions_space_group_unique").on(
+      table.spaceId,
+      table.groupId
+    ),
   })
 );
 
@@ -404,8 +424,8 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Wiki Chat conversations table
-export const wikiChatConversations = pgTable("wiki_chat_conversations", {
+// AI Chat conversations table
+export const aiChatConversations = pgTable("ai_chat_conversations", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
   creatorId: text("creator_id")
@@ -416,21 +436,26 @@ export const wikiChatConversations = pgTable("wiki_chat_conversations", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Wiki Chat messages table
-export const wikiChatMessages = pgTable("wiki_chat_messages", {
-  id: text("id").primaryKey(),
-  conversationId: text("conversation_id").notNull(),
-  role: text("role").notNull(), // 'user' | 'assistant'
-  content: text("content").notNull(),
-  citations: jsonb("citations").$type<Array<{ pageId: string; pageTitle: string; snippet?: string }>>(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (table) => [
-  foreignKey({
-    name: "wiki_chat_msgs_conversation_id_fk",
-    columns: [table.conversationId],
-    foreignColumns: [wikiChatConversations.id],
-  }).onDelete("cascade"),
-]);
+// AI Chat messages table
+export const aiChatMessages = pgTable(
+  "ai_chat_messages",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id").notNull(),
+    role: text("role").notNull(), // 'user' | 'assistant'
+    content: text("content").notNull(),
+    citations:
+      jsonb("citations").$type<Array<{ pageId: string; pageTitle: string; snippet?: string }>>(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "ai_chat_msgs_conversation_id_fk",
+      columns: [table.conversationId],
+      foreignColumns: [aiChatConversations.id],
+    }).onDelete("cascade"),
+  ]
+);
 
 // Yjs document state table (CRDT persistence)
 export const yjsDocuments = pgTable("yjs_documents", {
@@ -484,7 +509,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   createdAgents: many(agents),
   invokedAgentSessions: many(meetingAgentSessions),
   triggeredAgentEvents: many(meetingAgentEvents),
-  wikiChatConversations: many(wikiChatConversations),
+  aiChatConversations: many(aiChatConversations),
 }));
 
 export const authIdentitiesRelations = relations(authIdentities, ({ one }) => ({
@@ -717,18 +742,18 @@ export const filesRelations = relations(files, ({ one }) => ({
   }),
 }));
 
-export const wikiChatConversationsRelations = relations(wikiChatConversations, ({ one, many }) => ({
+export const aiChatConversationsRelations = relations(aiChatConversations, ({ one, many }) => ({
   creator: one(users, {
-    fields: [wikiChatConversations.creatorId],
+    fields: [aiChatConversations.creatorId],
     references: [users.id],
   }),
-  messages: many(wikiChatMessages),
+  messages: many(aiChatMessages),
 }));
 
-export const wikiChatMessagesRelations = relations(wikiChatMessages, ({ one }) => ({
-  conversation: one(wikiChatConversations, {
-    fields: [wikiChatMessages.conversationId],
-    references: [wikiChatConversations.id],
+export const aiChatMessagesRelations = relations(aiChatMessages, ({ one }) => ({
+  conversation: one(aiChatConversations, {
+    fields: [aiChatMessages.conversationId],
+    references: [aiChatConversations.id],
   }),
 }));
 
@@ -802,10 +827,10 @@ export type SiteSetting = typeof siteSettings.$inferSelect;
 export type NewSiteSetting = typeof siteSettings.$inferInsert;
 export type MeetingRecording = typeof meetingRecordings.$inferSelect;
 export type NewMeetingRecording = typeof meetingRecordings.$inferInsert;
-export type WikiChatConversation = typeof wikiChatConversations.$inferSelect;
-export type NewWikiChatConversation = typeof wikiChatConversations.$inferInsert;
-export type WikiChatMessage = typeof wikiChatMessages.$inferSelect;
-export type NewWikiChatMessage = typeof wikiChatMessages.$inferInsert;
+export type AiChatConversation = typeof aiChatConversations.$inferSelect;
+export type NewAiChatConversation = typeof aiChatConversations.$inferInsert;
+export type AiChatMessage = typeof aiChatMessages.$inferSelect;
+export type NewAiChatMessage = typeof aiChatMessages.$inferInsert;
 export type GoogleCalendarToken = typeof googleCalendarTokens.$inferSelect;
 export type NewGoogleCalendarToken = typeof googleCalendarTokens.$inferInsert;
 export type YjsDocument = typeof yjsDocuments.$inferSelect;

@@ -144,11 +144,7 @@ export async function restorePage(id: string) {
 }
 
 export async function listDeletedPages() {
-  return db
-    .select()
-    .from(pages)
-    .where(isNotNull(pages.deletedAt))
-    .orderBy(desc(pages.deletedAt));
+  return db.select().from(pages).where(isNotNull(pages.deletedAt)).orderBy(desc(pages.deletedAt));
 }
 
 export async function permanentDeletePage(id: string) {

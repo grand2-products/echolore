@@ -1,67 +1,15 @@
 "use client";
 
-import {
-  type AdminGroup,
-  type AdminUserRecord,
-  type Page,
-  type Space,
-  adminApi,
-  wikiApi,
-} from "@/lib/api";
-import { useApiErrorMessage } from "@/lib/api-error-message";
-import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useT } from "@/lib/i18n";
-import { useEffect, useState } from "react";
+import { AdminAccessProvider, useAdminAccess } from "./_components/AdminAccessContext";
 import { GroupManagementSection } from "./_components/GroupManagementSection";
 import { PagePermissionsSection } from "./_components/PagePermissionsSection";
 import { SpacePermissionsSection } from "./_components/SpacePermissionsSection";
 import { UserMembershipSection } from "./_components/UserMembershipSection";
 
-export default function AdminAccessPage() {
+function AdminAccessContent() {
   const t = useT();
-  const getApiErrorMessage = useApiErrorMessage();
-  const [groups, setGroups] = useState<AdminGroup[]>([]);
-  const [users, setUsers] = useState<AdminUserRecord[]>([]);
-  const [pages, setPages] = useState<Page[]>([]);
-  const [spaces, setSpaces] = useState<Space[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  const loadAdminData = useStableEvent(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [groupResult, userResult, pageResult, spaceResult] = await Promise.all([
-        adminApi.listGroups(),
-        adminApi.listUsers(),
-        wikiApi.listPages(),
-        wikiApi.listSpaces(),
-      ]);
-
-      setGroups(groupResult.groups);
-      setUsers(userResult.users);
-      setPages(pageResult.pages);
-      setSpaces(spaceResult.spaces);
-    } catch (loadError) {
-      setError(getApiErrorMessage(loadError, t("admin.access.loadError")));
-    } finally {
-      setIsLoading(false);
-    }
-  });
-
-  useEffect(() => {
-    void loadAdminData();
-  }, [loadAdminData]);
-
-  const onRefresh = async () => {
-    const [groupResult, userResult] = await Promise.all([
-      adminApi.listGroups(),
-      adminApi.listUsers(),
-    ]);
-    setGroups(groupResult.groups);
-    setUsers(userResult.users);
-  };
+  const { error, notice, isLoading, loadAdminData } = useAdminAccess();
 
   return (
     <div className="space-y-6">
@@ -90,33 +38,20 @@ export default function AdminAccessPage() {
         </div>
       ) : (
         <div className="grid gap-6 xl:grid-cols-2">
-          <GroupManagementSection
-            groups={groups}
-            onRefresh={onRefresh}
-            setError={setError}
-            setNotice={setNotice}
-          />
-          <UserMembershipSection
-            groups={groups}
-            users={users}
-            onRefresh={onRefresh}
-            setError={setError}
-            setNotice={setNotice}
-          />
-          <PagePermissionsSection
-            groups={groups}
-            pages={pages}
-            setError={setError}
-            setNotice={setNotice}
-          />
-          <SpacePermissionsSection
-            groups={groups}
-            spaces={spaces}
-            setError={setError}
-            setNotice={setNotice}
-          />
+          <GroupManagementSection />
+          <UserMembershipSection />
+          <PagePermissionsSection />
+          <SpacePermissionsSection />
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminAccessPage() {
+  return (
+    <AdminAccessProvider>
+      <AdminAccessContent />
+    </AdminAccessProvider>
   );
 }

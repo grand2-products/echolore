@@ -1,17 +1,13 @@
+import path from "node:path";
+import { SegmentedFileSuffix } from "@livekit/protocol";
 import {
   EgressClient,
+  EncodingOptions,
   SegmentedFileOutput,
   SegmentedFileProtocol,
-  EncodingOptions,
   VideoCodec,
 } from "livekit-server-sdk";
-import { SegmentedFileSuffix } from "@livekit/protocol";
-import path from "node:path";
-import {
-  livekitApiKey,
-  livekitApiSecret,
-  livekitHost,
-} from "../../lib/livekit-config.js";
+import { livekitApiKey, livekitApiSecret, livekitHost } from "../../lib/livekit-config.js";
 import { getSiteSetting } from "../../repositories/admin/admin-repository.js";
 
 const egressClient = new EgressClient(livekitHost, livekitApiKey, livekitApiSecret);
@@ -131,15 +127,11 @@ async function doStartComposite(): Promise<CompositeStatus> {
   }
 
   // Video only — audio is delivered via WebRTC (lower latency)
-  const info = await egressClient.startRoomCompositeEgress(
-    COWORKING_ROOM,
-    segmentOutput,
-    {
-      encodingOptions: encoding,
-      videoOnly: true,
-      ...(customBaseUrl ? { customBaseUrl } : {}),
-    },
-  );
+  const info = await egressClient.startRoomCompositeEgress(COWORKING_ROOM, segmentOutput, {
+    encodingOptions: encoding,
+    videoOnly: true,
+    ...(customBaseUrl ? { customBaseUrl } : {}),
+  });
 
   activeEgressId = info.egressId;
   activeEgressStartedAt = new Date().toISOString();

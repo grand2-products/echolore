@@ -17,9 +17,9 @@ export async function isEmbeddingEnabled() {
   try {
     const settings = await getLlmSettings();
     if (settings.embeddingEnabled === false) return false;
-    return Boolean(settings.geminiApiKey || process.env.GEMINI_API_KEY);
+    return Boolean(settings.geminiApiKey);
   } catch {
-    return Boolean(process.env.GEMINI_API_KEY);
+    return false;
   }
 }
 
@@ -27,8 +27,10 @@ export async function getEmbeddingModel() {
   try {
     const settings = await getLlmSettings();
     if (settings.embeddingModel) return settings.embeddingModel;
-  } catch { /* fall through */ }
-  return process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-002";
+  } catch {
+    /* fall through */
+  }
+  return "gemini-embedding-002";
 }
 
 export function vectorToJson(values: number[]) {
@@ -63,11 +65,11 @@ export async function embedText(
   try {
     const settings = await getLlmSettings();
     if (settings.embeddingEnabled === false) return null;
-    apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY || null;
-    model = settings.embeddingModel || process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-002";
+    apiKey = settings.geminiApiKey || null;
+    model = settings.embeddingModel || "gemini-embedding-002";
   } catch {
-    apiKey = process.env.GEMINI_API_KEY || null;
-    model = process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-002";
+    apiKey = null;
+    model = "gemini-embedding-002";
   }
   if (!apiKey) return null;
   const body = {
@@ -76,9 +78,7 @@ export async function embedText(
       parts: [{ text }],
     },
     ...(options.taskType ? { taskType: options.taskType } : {}),
-    ...(options.outputDimensionality
-      ? { outputDimensionality: options.outputDimensionality }
-      : {}),
+    ...(options.outputDimensionality ? { outputDimensionality: options.outputDimensionality } : {}),
   };
 
   const response = await fetch(

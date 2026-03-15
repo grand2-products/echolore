@@ -1,5 +1,6 @@
 "use client";
 
+import { ErrorBanner } from "@/components/ui";
 import { type KpiOverviewResponse, metricsApi } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
 import { useEffect, useState } from "react";
@@ -23,8 +24,8 @@ export default function KpiDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce is an intentional re-trigger
   useEffect(() => {
+    void retryNonce; // re-trigger dependency
     let mounted = true;
 
     const load = async () => {
@@ -73,20 +74,11 @@ export default function KpiDashboardPage() {
       </div>
 
       {error ? (
-        <div className="mb-4 space-y-3">
-          <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
-          </div>
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setRetryNonce((current) => current + 1)}
-              className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50"
-            >
-              {t("common.actions.retry")}
-            </button>
-          </div>
-        </div>
+        <ErrorBanner
+          message={error}
+          onRetry={() => setRetryNonce((current) => current + 1)}
+          className="mb-4"
+        />
       ) : null}
 
       {isLoading ? (

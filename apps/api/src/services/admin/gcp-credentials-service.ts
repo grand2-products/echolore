@@ -6,10 +6,7 @@ export interface GcpCredentials {
 }
 
 const cache = createSettingsCache<GcpCredentials>({
-  keys: [
-    "gcpProjectId",
-    "gcpServiceAccountKeyJson",
-  ],
+  keys: ["gcpProjectId", "gcpServiceAccountKeyJson"],
   mapToSettings: (map) => ({
     gcpProjectId: map.gcpProjectId || null,
     gcpServiceAccountKeyJson: map.gcpServiceAccountKeyJson || null,

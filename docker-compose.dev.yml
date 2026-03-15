@@ -109,6 +109,7 @@ services:
       ROOM_AI_API_BASE_URL: http://api:3001
       ROOM_AI_WORKER_SECRET: ${ROOM_AI_WORKER_SECRET:-local-dev-worker-secret}
       ROOM_AI_POLL_INTERVAL_MS: "15000"
+      ROOM_AI_HEALTH_PORT: 8788
       LIVEKIT_HOST: http://livekit:7880
       LIVEKIT_API_KEY: devkey
       LIVEKIT_API_SECRET: secret
@@ -116,6 +117,12 @@ services:
       - .:/workspace
       - pnpm_store:/root/.local/share/pnpm/store
       - worker_workspace_node_modules:/workspace/node_modules
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8788/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
 volumes:
   pnpm_store:

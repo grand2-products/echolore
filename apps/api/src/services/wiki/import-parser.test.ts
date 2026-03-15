@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { parseMarkdown, parseTypst, type BlockDraft } from "./import-parser.js";
+import { describe, expect, it } from "vitest";
+import { type BlockDraft, parseMarkdown, parseTypst } from "./import-parser.js";
 
 // ---------------------------------------------------------------------------
 // Markdown parser
@@ -20,10 +20,10 @@ describe("parseMarkdown", () => {
     const md = "Hello **world** and *italic* and `code`";
     const blocks = parseMarkdown(md);
     expect(blocks).toHaveLength(1);
-    expect(blocks[0]!.type).toBe("text");
-    expect(blocks[0]!.content).toContain("<strong>world</strong>");
-    expect(blocks[0]!.content).toContain("<em>italic</em>");
-    expect(blocks[0]!.content).toContain("<code>code</code>");
+    expect(blocks[0]?.type).toBe("text");
+    expect(blocks[0]?.content).toContain("<strong>world</strong>");
+    expect(blocks[0]?.content).toContain("<em>italic</em>");
+    expect(blocks[0]?.content).toContain("<code>code</code>");
   });
 
   it("parses unordered list items", () => {
@@ -55,8 +55,8 @@ describe("parseMarkdown", () => {
   it("parses code blocks without language", () => {
     const md = "```\nhello\n```";
     const blocks = parseMarkdown(md);
-    expect(blocks[0]!.type).toBe("codeBlock");
-    expect(blocks[0]!.properties).toBeNull();
+    expect(blocks[0]?.type).toBe("codeBlock");
+    expect(blocks[0]?.properties).toBeNull();
   });
 
   it("parses blockquotes", () => {
@@ -70,23 +70,25 @@ describe("parseMarkdown", () => {
   it("parses thematic breaks", () => {
     const md = "---";
     const blocks = parseMarkdown(md);
-    expect(blocks).toEqual<BlockDraft[]>([
-      { type: "divider", content: null, properties: null },
-    ]);
+    expect(blocks).toEqual<BlockDraft[]>([{ type: "divider", content: null, properties: null }]);
   });
 
   it("parses standalone images", () => {
     const md = "![alt text](https://example.com/img.png)";
     const blocks = parseMarkdown(md);
     expect(blocks).toEqual<BlockDraft[]>([
-      { type: "image", content: null, properties: { src: "https://example.com/img.png", filename: "alt text" } },
+      {
+        type: "image",
+        content: null,
+        properties: { src: "https://example.com/img.png", filename: "alt text" },
+      },
     ]);
   });
 
   it("parses links inside paragraphs", () => {
     const md = "Visit [our site](https://example.com) today.";
     const blocks = parseMarkdown(md);
-    expect(blocks[0]!.content).toContain('<a href="https://example.com">our site</a>');
+    expect(blocks[0]?.content).toContain('<a href="https://example.com">our site</a>');
   });
 
   it("handles mixed content", () => {
@@ -124,8 +126,8 @@ describe("parseMarkdown", () => {
   it("escapes HTML in plain text", () => {
     const md = "Use <script> tags carefully & be safe.";
     const blocks = parseMarkdown(md);
-    expect(blocks[0]!.content).toContain("&lt;script&gt;");
-    expect(blocks[0]!.content).toContain("&amp;");
+    expect(blocks[0]?.content).toContain("&lt;script&gt;");
+    expect(blocks[0]?.content).toContain("&amp;");
   });
 });
 
@@ -173,17 +175,13 @@ describe("parseTypst", () => {
   it("parses dividers", () => {
     const src = "---";
     const blocks = parseTypst(src);
-    expect(blocks).toEqual<BlockDraft[]>([
-      { type: "divider", content: null, properties: null },
-    ]);
+    expect(blocks).toEqual<BlockDraft[]>([{ type: "divider", content: null, properties: null }]);
   });
 
   it("parses #line() divider", () => {
     const src = "#line()";
     const blocks = parseTypst(src);
-    expect(blocks).toEqual<BlockDraft[]>([
-      { type: "divider", content: null, properties: null },
-    ]);
+    expect(blocks).toEqual<BlockDraft[]>([{ type: "divider", content: null, properties: null }]);
   });
 
   it("parses images", () => {
@@ -197,17 +195,17 @@ describe("parseTypst", () => {
   it("converts inline formatting", () => {
     const src = "This is *bold* and _italic_ and `code`.";
     const blocks = parseTypst(src);
-    expect(blocks[0]!.content).toContain("<strong>bold</strong>");
-    expect(blocks[0]!.content).toContain("<em>italic</em>");
-    expect(blocks[0]!.content).toContain("<code>code</code>");
+    expect(blocks[0]?.content).toContain("<strong>bold</strong>");
+    expect(blocks[0]?.content).toContain("<em>italic</em>");
+    expect(blocks[0]?.content).toContain("<code>code</code>");
   });
 
   it("handles plain text paragraphs", () => {
     const src = "Hello world.\nThis is a continuation.";
     const blocks = parseTypst(src);
     expect(blocks).toHaveLength(1);
-    expect(blocks[0]!.type).toBe("text");
-    expect(blocks[0]!.content).toContain("Hello world.");
+    expect(blocks[0]?.type).toBe("text");
+    expect(blocks[0]?.content).toContain("Hello world.");
   });
 
   it("handles mixed content", () => {

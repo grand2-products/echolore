@@ -1,8 +1,8 @@
-import { nanoid } from "nanoid";
-import { and, eq, inArray } from "drizzle-orm";
 import { UserRole } from "@corp-internal/shared/contracts";
+import { and, eq, inArray } from "drizzle-orm";
+import { nanoid } from "nanoid";
 import { db } from "../../db/index.js";
-import { spacePermissions, userGroupMemberships, userGroups, type Space } from "../../db/schema.js";
+import { type Space, spacePermissions, userGroupMemberships, userGroups } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import {
   createSpace,
@@ -145,7 +145,7 @@ export async function getOrCreatePersonalSpace(user: SessionUser): Promise<Space
 export async function canAccessSpace(
   user: SessionUser,
   space: Space,
-  action: "read" | "write" | "delete" = "read",
+  action: "read" | "write" | "delete" = "read"
 ): Promise<boolean> {
   if (user.role === UserRole.Admin) return true;
   if (space.type === "personal") return space.ownerUserId === user.id;
@@ -162,10 +162,7 @@ export async function canAccessSpace(
       .select()
       .from(spacePermissions)
       .where(
-        and(
-          eq(spacePermissions.spaceId, space.id),
-          inArray(spacePermissions.groupId, groupIds),
-        )
+        and(eq(spacePermissions.spaceId, space.id), inArray(spacePermissions.groupId, groupIds))
       );
     if (perms.length > 0) {
       return perms.some((p) => {

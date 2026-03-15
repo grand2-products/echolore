@@ -1,10 +1,11 @@
 "use client";
 
-import { type AdminGroup, type CreateAdminGroupRequest, adminApi } from "@/lib/api";
+import { type CreateAdminGroupRequest, adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 import { ALL_GROUP_PERMISSIONS, type GroupPermission } from "@corp-internal/shared/contracts";
 import { useEffect, useState } from "react";
+import { useAdminAccess } from "./AdminAccessContext";
 
 /** Map "wiki.read" -> "permWikiRead" for i18n key lookup */
 function permI18nKey(perm: GroupPermission): string {
@@ -22,14 +23,8 @@ const emptyGroupForm: GroupFormState = {
   permissions: [],
 };
 
-type Props = {
-  groups: AdminGroup[];
-  onRefresh: () => Promise<void>;
-  setError: (error: string | null) => void;
-  setNotice: (notice: string | null) => void;
-};
-
-export function GroupManagementSection({ groups, onRefresh, setError, setNotice }: Props) {
+export function GroupManagementSection() {
+  const { groups, onRefresh, setError, setNotice } = useAdminAccess();
   const t = useT();
   const getApiErrorMessage = useApiErrorMessage();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);

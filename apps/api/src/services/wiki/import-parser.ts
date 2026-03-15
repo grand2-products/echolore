@@ -1,10 +1,10 @@
+import type { Content, ListItem, PhrasingContent, Root } from "mdast";
+import remarkGfm from "remark-gfm";
+import remarkParse from "remark-parse";
 /**
  * Markdown / Typst → BlockDraft[] parser for wiki page import.
  */
 import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import type { Root, Content, PhrasingContent, ListItem } from "mdast";
 
 export const MAX_BLOCKS = 500;
 
@@ -135,7 +135,7 @@ export function parseMarkdown(source: string): BlockDraft[] {
           c.heading(node.depth, phrasingToHtml(node.children));
           break;
         case "paragraph":
-          if (node.children.length === 1 && node.children[0]!.type === "image") {
+          if (node.children.length === 1 && node.children[0]?.type === "image") {
             const img = node.children[0]!;
             c.image(img.url, img.alt || null);
           } else {
@@ -152,7 +152,9 @@ export function parseMarkdown(source: string): BlockDraft[] {
           break;
         case "blockquote": {
           const inner = node.children
-            .filter((ch): ch is Extract<typeof ch, { type: "paragraph" }> => ch.type === "paragraph")
+            .filter(
+              (ch): ch is Extract<typeof ch, { type: "paragraph" }> => ch.type === "paragraph"
+            )
             .map((ch) => phrasingToHtml(ch.children))
             .join("<br />");
           c.quote(inner);
@@ -195,7 +197,7 @@ export function parseTypst(source: string): BlockDraft[] {
       const lang = codeMatch[1] || null;
       const codeLines: string[] = [];
       i++;
-      while (i < lines.length && !lines[i]!.startsWith("```")) {
+      while (i < lines.length && !lines[i]?.startsWith("```")) {
         codeLines.push(lines[i]!);
         i++;
       }
@@ -215,7 +217,7 @@ export function parseTypst(source: string): BlockDraft[] {
     // Heading
     const headingMatch = line.match(/^(={1,3})\s+(.+)$/);
     if (headingMatch) {
-      c.heading(headingMatch[1]!.length, typstInlineToHtml(headingMatch[2]!.trim()));
+      c.heading(headingMatch[1]?.length ?? 1, typstInlineToHtml(headingMatch[2]?.trim() ?? ""));
       i++;
       continue;
     }
@@ -253,7 +255,7 @@ export function parseTypst(source: string): BlockDraft[] {
     // Plain text paragraph — collect consecutive non-special lines
     const paraLines: string[] = [line];
     i++;
-    while (i < lines.length && lines[i]!.trim() !== "" && !TYPST_SPECIAL_LINE.test(lines[i]!)) {
+    while (i < lines.length && lines[i]?.trim() !== "" && !TYPST_SPECIAL_LINE.test(lines[i]!)) {
       paraLines.push(lines[i]!);
       i++;
     }

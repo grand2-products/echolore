@@ -76,7 +76,12 @@ export interface PageRevisionDto {
   pageId: string;
   revisionNumber: number;
   title: string;
-  blocks: Array<{ type: string; content: string | null; properties: Record<string, unknown> | null; sortOrder: number }>;
+  blocks: Array<{
+    type: string;
+    content: string | null;
+    properties: Record<string, unknown> | null;
+    sortOrder: number;
+  }>;
   authorId: string;
   createdAt: ISODateString;
 }
@@ -149,7 +154,7 @@ export class ErrorResponse {
   constructor(
     public error: string,
     public code?: string,
-    public message?: string,
+    public message?: string
   ) {}
 }
 
@@ -158,7 +163,10 @@ export class SuccessResponse {
 }
 
 export class ListUsersResponse {
-  constructor(public users: UserDto[], public total?: number) {}
+  constructor(
+    public users: UserDto[],
+    public total?: number
+  ) {}
 }
 
 export class GetUserResponse {
@@ -188,7 +196,7 @@ export class ListPagesResponse {
 export class GetPageResponse {
   constructor(
     public page: PageDto,
-    public blocks: BlockDto[],
+    public blocks: BlockDto[]
   ) {}
 }
 
@@ -320,14 +328,17 @@ export class CreateBlockResponse {
 }
 
 export class ListMeetingsResponse {
-  constructor(public meetings: MeetingDto[], public total?: number) {}
+  constructor(
+    public meetings: MeetingDto[],
+    public total?: number
+  ) {}
 }
 
 export class GetMeetingResponse {
   constructor(
     public meeting: MeetingDto,
     public transcripts: TranscriptDto[],
-    public summaries: SummaryDto[],
+    public summaries: SummaryDto[]
   ) {}
 }
 
@@ -365,7 +376,10 @@ export class CreateSummaryResponse {
 }
 
 export class ListFilesResponse {
-  constructor(public files: FileMetadataDto[], public total?: number) {}
+  constructor(
+    public files: FileMetadataDto[],
+    public total?: number
+  ) {}
 }
 
 export class GetFileResponse {
@@ -380,48 +394,48 @@ export class GetFileDownloadUrlResponse {
   constructor(public url: string) {}
 }
 
-// Wiki Chat
-export type WikiChatVisibility = "team" | "private";
-export type WikiChatMessageRole = "user" | "assistant";
+// AI Chat
+export type AiChatVisibility = "team" | "private";
+export type AiChatMessageRole = "user" | "assistant";
 
-export interface WikiChatCitationDto {
+export interface AiChatCitationDto {
   pageId: string;
   pageTitle: string;
   snippet?: string;
 }
 
-export interface WikiChatConversationDto {
+export interface AiChatConversationDto {
   id: string;
   title: string;
   creatorId: string;
   creatorName?: string | null;
-  visibility: WikiChatVisibility;
+  visibility: AiChatVisibility;
   messageCount?: number;
   lastMessagePreview?: string | null;
   createdAt: ISODateString;
   updatedAt: ISODateString;
 }
 
-export interface WikiChatMessageDto {
+export interface AiChatMessageDto {
   id: string;
   conversationId: string;
-  role: WikiChatMessageRole;
+  role: AiChatMessageRole;
   content: string;
-  citations: WikiChatCitationDto[] | null;
+  citations: AiChatCitationDto[] | null;
   createdAt: ISODateString;
 }
 
-export interface CreateWikiChatConversationRequest {
+export interface CreateAiChatConversationRequest {
   title?: string;
-  visibility?: WikiChatVisibility;
+  visibility?: AiChatVisibility;
 }
 
-export interface UpdateWikiChatConversationRequest {
+export interface UpdateAiChatConversationRequest {
   title?: string;
-  visibility?: WikiChatVisibility;
+  visibility?: AiChatVisibility;
 }
 
-export interface SendWikiChatMessageRequest {
+export interface SendAiChatMessageRequest {
   content: string;
 }
 

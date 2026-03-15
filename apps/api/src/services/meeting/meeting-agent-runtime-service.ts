@@ -1,12 +1,15 @@
 import { UserRole } from "@corp-internal/shared/contracts";
 import { HumanMessage } from "@langchain/core/messages";
-import { createChatModel, isTextGenerationEnabled, resolveTextProvider } from "../../ai/llm/index.js";
-import type { LlmOverrides } from "../../ai/llm/index.js";
 import { createMeetingAgent } from "../../ai/agent/create-meeting-agent.js";
-import { createAgentTools } from "../../ai/tools/index.js";
 import { createSpeechGatewayBundle } from "../../ai/gateway/index.js";
+import {
+  createChatModel,
+  isTextGenerationEnabled,
+  resolveTextProvider,
+} from "../../ai/llm/index.js";
+import type { LlmOverrides } from "../../ai/llm/index.js";
+import { createAgentTools } from "../../ai/tools/index.js";
 import type { SessionUser } from "../../lib/auth.js";
-import { getLlmSettings } from "../admin/admin-service.js";
 import {
   createMeetingAgentEvent,
   getActiveMeetingAgentSession,
@@ -14,6 +17,7 @@ import {
   listFinalTranscriptSegmentsByMeeting,
 } from "../../repositories/meeting/meeting-realtime-repository.js";
 import { getUserById } from "../../repositories/user/user-repository.js";
+import { getLlmSettings } from "../admin/admin-service.js";
 
 function buildFallbackResponse(agentName: string, prompt: string, transcriptLines: string[]) {
   return [
@@ -90,9 +94,10 @@ async function generateAgentTextResponse(input: {
       tools,
     });
 
-    const contextBlock = input.transcriptLines.length > 0
-      ? `\n\nRecent transcript:\n${input.transcriptLines.join("\n")}`
-      : "";
+    const contextBlock =
+      input.transcriptLines.length > 0
+        ? `\n\nRecent transcript:\n${input.transcriptLines.join("\n")}`
+        : "";
 
     const result = await executor.invoke({
       messages: [new HumanMessage(`${input.prompt}${contextBlock}`)],
@@ -158,9 +163,8 @@ export async function generateMeetingAgentResponse(input: {
     }
   }
 
-  const eventType = input.triggerMode === "autonomous"
-    ? "response.autonomous"
-    : "response.generated";
+  const eventType =
+    input.triggerMode === "autonomous" ? "response.autonomous" : "response.generated";
 
   await createMeetingAgentEvent({
     id: crypto.randomUUID(),

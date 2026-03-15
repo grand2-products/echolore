@@ -1,10 +1,10 @@
 import { sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 
-import { embedText, isEmbeddingEnabled } from "../../ai/embeddings.js";
-import { canReadPage } from "../../policies/authorization-policy.js";
-import type { SessionUser } from "../../lib/auth.js";
 import { UserRole } from "@corp-internal/shared/contracts";
+import { embedText, isEmbeddingEnabled } from "../../ai/embeddings.js";
+import type { SessionUser } from "../../lib/auth.js";
+import { canReadPage } from "../../policies/authorization-policy.js";
 
 const EMBEDDING_DIMENSIONS = 768;
 
@@ -18,10 +18,7 @@ export interface VectorSearchResult {
 /**
  * Search page embeddings by vector similarity.
  */
-export async function searchByVector(
-  queryText: string,
-  limit: number = 10
-): Promise<VectorSearchResult[]> {
+export async function searchByVector(queryText: string, limit = 10): Promise<VectorSearchResult[]> {
   const queryEmbedding = await embedText(queryText, {
     taskType: "RETRIEVAL_QUERY",
     outputDimensionality: EMBEDDING_DIMENSIONS,
@@ -44,12 +41,14 @@ export async function searchByVector(
     LIMIT ${limit}
   `);
 
-  return (results.rows as Array<{
-    page_id: string;
-    page_title: string;
-    chunk_text: string;
-    similarity: number;
-  }>).map((row) => ({
+  return (
+    results.rows as Array<{
+      page_id: string;
+      page_title: string;
+      chunk_text: string;
+      similarity: number;
+    }>
+  ).map((row) => ({
     pageId: row.page_id,
     pageTitle: row.page_title,
     chunkText: row.chunk_text,
@@ -63,7 +62,7 @@ export async function searchByVector(
 export async function searchVisibleChunks(
   user: SessionUser,
   queryText: string,
-  limit: number = 5
+  limit = 5
 ): Promise<VectorSearchResult[]> {
   if (!(await isEmbeddingEnabled())) {
     return fallbackIlikeSearch(queryText, limit);
@@ -124,12 +123,14 @@ async function fallbackIlikeSearch(
     LIMIT ${limit}
   `);
 
-  return (results.rows as Array<{
-    page_id: string;
-    page_title: string;
-    chunk_text: string;
-    similarity: number;
-  }>).map((row) => ({
+  return (
+    results.rows as Array<{
+      page_id: string;
+      page_title: string;
+      chunk_text: string;
+      similarity: number;
+    }>
+  ).map((row) => ({
     pageId: row.page_id,
     pageTitle: row.page_title,
     chunkText: row.chunk_text || "",

@@ -2,7 +2,7 @@ common:
   nav:
     home: "홈"
     wiki: "Wiki"
-    wikiChat: "AI 채팅"
+    aiChat: "AI 채팅"
     meetings: "회의"
     coworking: "코워킹"
     search: "검색"
@@ -691,7 +691,7 @@ admin:
     critical: "심각"
     warning: "경고"
     normal: "정상"
-wikiChat:
+aiChat:
   title: "AI 채팅"
   description: "Wiki 지식 기반에 질문하고 답변을 받으세요."
   newChat: "+ 새 채팅"

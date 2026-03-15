@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import type { AppEnv } from "../lib/auth.js";
 import { resolveAuthjsSession } from "../lib/auth.js";
-import { getPageById } from "../repositories/wiki/wiki-repository.js";
 import { evaluatePageWriteAccess } from "../policies/authorization-policy.js";
+import { getPageById } from "../repositories/wiki/wiki-repository.js";
 import {
   addConnection,
   handleMessage,
@@ -79,7 +79,7 @@ export function createWikiCollabRoutes(upgradeWebSocket: UpgradeWebSocket) {
           },
         };
       }
-    }),
+    })
   );
 
   return app;

@@ -4,8 +4,6 @@ import { z } from "zod";
 import { jsonError } from "../lib/api-error.js";
 import { writeAuditLog } from "../lib/audit.js";
 import type { AppEnv } from "../lib/auth.js";
-import { getRequestIp, isRateLimited } from "../lib/password-auth-guard.js";
-import { ONE_HOUR_MS } from "../lib/time.js";
 import {
   authenticatePasswordUser,
   exchangeGoogleIdToken,
@@ -16,6 +14,8 @@ import {
   revokeRefreshToken,
   verifyEmailRegistrationToken,
 } from "../lib/local-auth.js";
+import { getRequestIp, isRateLimited } from "../lib/password-auth-guard.js";
+import { ONE_HOUR_MS } from "../lib/time.js";
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -92,7 +92,10 @@ authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
     // Only expose known safe error messages to the client
     const KNOWN_MESSAGES: Record<string, { status: 400 | 403 | 409; message: string }> = {
       "Registration is closed": { status: 403, message: "Registration is closed" },
-      "Password login is already configured for this email address": { status: 409, message: "Password login is already configured for this email address" },
+      "Password login is already configured for this email address": {
+        status: 409,
+        message: "Password login is already configured for this email address",
+      },
       "Name is required": { status: 400, message: "Name is required" },
       "Email domain is not allowed": { status: 400, message: "Email domain is not allowed" },
     };
@@ -182,7 +185,11 @@ authRoutes.post("/token", zValidator("json", tokenAuthSchema), async (c) => {
       actorEmail: email,
       action: "auth.password.login_failed",
       resourceType: "auth",
-      metadata: { reason: "invalid-password-credentials", authMode: "password", transport: "bearer" },
+      metadata: {
+        reason: "invalid-password-credentials",
+        authMode: "password",
+        transport: "bearer",
+      },
       ipAddress,
       userAgent: c.req.header("user-agent") ?? null,
     });

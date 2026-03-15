@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from "hono";
-import type { AppEnv } from "./auth.js";
 import { jsonError } from "./api-error.js";
+import type { AppEnv } from "./auth.js";
 
 /**
  * Middleware that sets common security response headers.
@@ -50,7 +50,9 @@ export const csrfProtection: MiddlewareHandler<AppEnv> = async (c, next) => {
   }
 
   // Check Origin or Referer against allowed CORS origin
-  const allowedOrigin = process.env.CORS_ORIGIN ?? (process.env.NODE_ENV === "production" ? "https://app.example.com" : "http://localhost:3000");
+  const allowedOrigin =
+    process.env.CORS_ORIGIN ??
+    (process.env.NODE_ENV === "production" ? "https://app.example.com" : "http://localhost:3000");
   const origin = c.req.header("Origin");
   const referer = c.req.header("Referer");
 

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { eq, count } from "drizzle-orm";
 import { UserRole } from "@corp-internal/shared/contracts";
+import { count, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { users } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
@@ -88,7 +88,10 @@ export function toSessionUser(user: typeof users.$inferSelect): SessionUser {
 }
 
 export async function findUserByEmail(email: string) {
-  const [user] = await db.select().from(users).where(eq(users.email, normalizeEmail(email)));
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, normalizeEmail(email)));
   return user ?? null;
 }
 

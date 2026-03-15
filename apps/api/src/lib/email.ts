@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { getEmailSettings, type EmailSettings } from "../services/admin/admin-service.js";
+import { type EmailSettings, getEmailSettings } from "../services/admin/admin-service.js";
 
 type PasswordVerificationEmailInput = {
   email: string;
@@ -18,9 +18,10 @@ function buildSmtpConfig(settings: EmailSettings) {
     from: settings.smtpFrom,
     port,
     secure,
-    auth: settings.smtpUser && settings.smtpPass
-      ? { user: settings.smtpUser, pass: settings.smtpPass }
-      : undefined,
+    auth:
+      settings.smtpUser && settings.smtpPass
+        ? { user: settings.smtpUser, pass: settings.smtpPass }
+        : undefined,
   };
 }
 
@@ -31,7 +32,7 @@ function buildResendConfig(settings: EmailSettings) {
 
 async function sendWithResend(
   config: { apiKey: string; from: string },
-  input: PasswordVerificationEmailInput,
+  input: PasswordVerificationEmailInput
 ) {
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -59,7 +60,7 @@ async function sendWithResend(
 
 async function sendWithSmtp(
   config: ReturnType<typeof buildSmtpConfig> & {},
-  input: PasswordVerificationEmailInput,
+  input: PasswordVerificationEmailInput
 ) {
   const transport = nodemailer.createTransport({
     host: config.host,
@@ -106,6 +107,6 @@ export async function sendPasswordVerificationEmail(input: PasswordVerificationE
       email: input.email,
       verificationUrl: input.verificationUrl,
       expiresAt: input.expiresAt.toISOString(),
-    }),
+    })
   );
 }

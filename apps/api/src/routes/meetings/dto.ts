@@ -1,4 +1,4 @@
-import type { MeetingDto, SummaryDto, TranscriptDto } from "@contracts/index";
+import type { MeetingDto, SummaryDto, TranscriptDto } from "@corp-internal/shared/contracts";
 import type { meetings, summaries, transcripts } from "../../db/schema.js";
 
 export const toIso = (value: Date | null): string | null => (value ? value.toISOString() : null);

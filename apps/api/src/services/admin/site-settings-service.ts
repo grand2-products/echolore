@@ -1,14 +1,19 @@
-import {
-  getSiteSetting,
-  upsertSiteSetting,
-} from "../../repositories/admin/admin-repository.js";
+import { getSiteSetting, upsertSiteSetting } from "../../repositories/admin/admin-repository.js";
 
 export async function getSiteSettings() {
   const [
-    title, tagline,
-    meetingSimulcast, meetingDynacast, meetingAdaptiveStream,
-    coworkingSimulcast, coworkingDynacast, coworkingAdaptiveStream,
-    coworkingMode, coworkingMcuWidth, coworkingMcuHeight, coworkingMcuFps,
+    title,
+    tagline,
+    meetingSimulcast,
+    meetingDynacast,
+    meetingAdaptiveStream,
+    coworkingSimulcast,
+    coworkingDynacast,
+    coworkingAdaptiveStream,
+    coworkingMode,
+    coworkingMcuWidth,
+    coworkingMcuHeight,
+    coworkingMcuFps,
     coworkingFocusIdentity,
     siteIconPath,
   ] = await Promise.all([
@@ -70,8 +75,12 @@ export async function updateSiteSettings(input: {
     results.siteTagline = input.siteTagline;
   }
   const boolKeys = [
-    "livekitMeetingSimulcast", "livekitMeetingDynacast", "livekitMeetingAdaptiveStream",
-    "livekitCoworkingSimulcast", "livekitCoworkingDynacast", "livekitCoworkingAdaptiveStream",
+    "livekitMeetingSimulcast",
+    "livekitMeetingDynacast",
+    "livekitMeetingAdaptiveStream",
+    "livekitCoworkingSimulcast",
+    "livekitCoworkingDynacast",
+    "livekitCoworkingAdaptiveStream",
   ] as const;
   for (const key of boolKeys) {
     if (input[key] !== undefined) {
@@ -84,7 +93,9 @@ export async function updateSiteSettings(input: {
     results.livekitCoworkingMode = input.livekitCoworkingMode;
   }
   const numKeys = [
-    "livekitCoworkingMcuWidth", "livekitCoworkingMcuHeight", "livekitCoworkingMcuFps",
+    "livekitCoworkingMcuWidth",
+    "livekitCoworkingMcuHeight",
+    "livekitCoworkingMcuFps",
   ] as const;
   for (const key of numKeys) {
     if (input[key] !== undefined) {

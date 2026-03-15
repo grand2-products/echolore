@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { spaces, type NewSpace } from "../../db/schema.js";
+import { type NewSpace, spaces } from "../../db/schema.js";
 
 export async function getSpaceById(id: string) {
   const [space] = await db.select().from(spaces).where(eq(spaces.id, id));
@@ -8,11 +8,7 @@ export async function getSpaceById(id: string) {
 }
 
 export async function getGeneralSpace() {
-  const [space] = await db
-    .select()
-    .from(spaces)
-    .where(eq(spaces.type, "general"))
-    .limit(1);
+  const [space] = await db.select().from(spaces).where(eq(spaces.type, "general")).limit(1);
   return space ?? null;
 }
 

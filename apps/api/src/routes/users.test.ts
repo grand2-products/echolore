@@ -1,7 +1,7 @@
+import { UserRole } from "@corp-internal/shared/contracts";
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { UserRole } from "@corp-internal/shared/contracts";
-import { authGuard, type AppEnv } from "../lib/auth.js";
+import { type AppEnv, authGuard } from "../lib/auth.js";
 import { usersRoutes } from "./users.js";
 
 const {
@@ -163,12 +163,15 @@ describe("usersRoutes", () => {
     });
     revokeAuthSessionByIdMock.mockResolvedValue(true);
 
-    const response = await createApp().request("http://localhost/api/users/me/sessions/rt_current", {
-      method: "DELETE",
-      headers: {
-        authorization: "Bearer access-token",
-      },
-    });
+    const response = await createApp().request(
+      "http://localhost/api/users/me/sessions/rt_current",
+      {
+        method: "DELETE",
+        headers: {
+          authorization: "Bearer access-token",
+        },
+      }
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ success: true });

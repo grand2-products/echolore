@@ -1,8 +1,8 @@
 "use client";
 
+import { FloatingChat } from "@/components/ai-chat/floating-chat";
 import { CoworkingFloatingBar } from "@/components/coworking/floating-bar";
 import { Header, Sidebar } from "@/components/layout";
-import { FloatingChat } from "@/components/wiki-chat/floating-chat";
 import { isApiErrorStatus } from "@/lib/api";
 import { useAuthContext } from "@/lib/auth-context";
 import { CoworkingRoomProvider } from "@/lib/coworking-room-context";

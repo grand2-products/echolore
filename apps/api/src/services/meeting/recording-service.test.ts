@@ -1,11 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { meetingRecordings } from "../../db/schema.js";
 
-const {
-  dbMock,
-  egressClientMock,
-  getStorageSettingsMock,
-} = vi.hoisted(() => {
+const { dbMock, egressClientMock, getStorageSettingsMock } = vi.hoisted(() => {
   const updateSetWhereMock = vi.fn();
   const queryFindFirstMock = vi.fn();
   const queryFindManyMock = vi.fn();
@@ -105,7 +101,7 @@ describe("recording-service", () => {
       });
 
       vi.spyOn(crypto, "randomUUID").mockReturnValueOnce(
-        "11111111-1111-1111-1111-111111111111" as `${string}-${string}-${string}-${string}-${string}`,
+        "11111111-1111-1111-1111-111111111111" as `${string}-${string}-${string}-${string}-${string}`
       );
 
       const { startRecording } = await import("./recording-service.js");
@@ -113,7 +109,7 @@ describe("recording-service", () => {
 
       expect(egressClientMock.startRoomCompositeEgress).toHaveBeenCalledWith(
         "room-a",
-        expect.objectContaining({ file: expect.anything() }),
+        expect.objectContaining({ file: expect.anything() })
       );
       expect(dbMock.insert).toHaveBeenCalledWith(meetingRecordings);
       expect(result.egressInfo).toEqual(egressInfo);
@@ -146,9 +142,7 @@ describe("recording-service", () => {
         egressInfo: { egressId: "egress_1", status: 0 },
       });
 
-      expect(setMock).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "starting" }),
-      );
+      expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "starting" }));
     });
 
     it("maps status 1 to 'recording' and sets startedAt", async () => {
@@ -166,7 +160,7 @@ describe("recording-service", () => {
         expect.objectContaining({
           status: "recording",
           startedAt: expect.any(Date),
-        }),
+        })
       );
     });
 
@@ -205,7 +199,7 @@ describe("recording-service", () => {
           storagePath: "recordings/room-a/12345",
           fileSize: 1024,
           durationMs: 60000,
-        }),
+        })
       );
     });
 
@@ -229,7 +223,7 @@ describe("recording-service", () => {
           status: "failed",
           endedAt: expect.any(Date),
           errorMessage: "Disk full",
-        }),
+        })
       );
     });
 

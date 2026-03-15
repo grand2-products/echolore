@@ -1,8 +1,8 @@
-import nodemailer from "nodemailer";
 import { eq } from "drizzle-orm";
+import nodemailer from "nodemailer";
 import { db } from "../../db/index.js";
 import { users } from "../../db/schema.js";
-import { getEmailSettings, type EmailSettings } from "../admin/admin-service.js";
+import { type EmailSettings, getEmailSettings } from "../admin/admin-service.js";
 
 interface NotificationPayload {
   to: string;
@@ -36,11 +36,7 @@ async function sendEmail(settings: EmailSettings, payload: NotificationPayload) 
     return;
   }
 
-  if (
-    settings.provider === "smtp" &&
-    settings.smtpHost &&
-    settings.smtpFrom
-  ) {
+  if (settings.provider === "smtp" && settings.smtpHost && settings.smtpFrom) {
     const port = settings.smtpPort ?? 587;
     const transport = nodemailer.createTransport({
       host: settings.smtpHost,
@@ -75,7 +71,7 @@ async function sendEmail(settings: EmailSettings, payload: NotificationPayload) 
 export async function notifyRecordingComplete(
   _meetingId: string,
   meetingTitle: string,
-  initiatedByUserId: string | null,
+  initiatedByUserId: string | null
 ) {
   try {
     const settings = await getEmailSettings();
@@ -87,7 +83,10 @@ export async function notifyRecordingComplete(
         where: eq(users.id, initiatedByUserId),
       });
       if (user?.email) {
-        const safeTitle = meetingTitle.replace(/[\r\n\t]/g, " ").slice(0, 100).trim();
+        const safeTitle = meetingTitle
+          .replace(/[\r\n\t]/g, " ")
+          .slice(0, 100)
+          .trim();
         await sendEmail(settings, {
           to: user.email,
           subject: `Recording ready: ${safeTitle}`,
@@ -95,7 +94,7 @@ export async function notifyRecordingComplete(
             `Hi ${user.name},`,
             "",
             `The recording of "${safeTitle}" is now available.`,
-            `You can view or download it from the meeting detail page.`,
+            "You can view or download it from the meeting detail page.",
           ].join("\n"),
         });
       }
@@ -112,7 +111,7 @@ export async function notifyRecordingComplete(
 export async function notifyMeetingStarted(
   _meetingId: string,
   meetingTitle: string,
-  creatorId: string,
+  creatorId: string
 ) {
   try {
     const settings = await getEmailSettings();
@@ -124,9 +123,7 @@ export async function notifyMeetingStarted(
     if (!creator) return;
 
     // For now, just log. In the future, this can notify invited participants.
-    console.info(
-      `[notification] Meeting "${meetingTitle}" started by ${creator.name}`,
-    );
+    console.info(`[notification] Meeting "${meetingTitle}" started by ${creator.name}`);
   } catch (error) {
     console.error("[notification] Failed to send meeting-started notification:", error);
   }

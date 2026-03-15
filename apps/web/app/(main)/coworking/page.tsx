@@ -285,8 +285,8 @@ function CoworkingMcuBody() {
   );
 
   // Start HLS only after at least one video track is published in the room
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional re-trigger on hlsRetry and hasPublishedTracks
   useEffect(() => {
+    void hlsRetry; // re-trigger dependency
     if (!hasPublishedTracks || compositeStarted.current) return;
     compositeStarted.current = true;
 

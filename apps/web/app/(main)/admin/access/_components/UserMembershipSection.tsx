@@ -1,19 +1,13 @@
 "use client";
 
-import { type AdminGroup, type AdminUserRecord, adminApi } from "@/lib/api";
+import { adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 import { useEffect, useState } from "react";
+import { useAdminAccess } from "./AdminAccessContext";
 
-type Props = {
-  groups: AdminGroup[];
-  users: AdminUserRecord[];
-  onRefresh: () => Promise<void>;
-  setError: (error: string | null) => void;
-  setNotice: (notice: string | null) => void;
-};
-
-export function UserMembershipSection({ groups, users, onRefresh, setError, setNotice }: Props) {
+export function UserMembershipSection() {
+  const { groups, users, onRefresh, setError, setNotice } = useAdminAccess();
   const t = useT();
   const getApiErrorMessage = useApiErrorMessage();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);

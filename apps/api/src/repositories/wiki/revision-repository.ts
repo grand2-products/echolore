@@ -16,10 +16,7 @@ export async function listRevisionsByPageId(pageId: string) {
 }
 
 export async function getRevisionById(id: string) {
-  const [revision] = await db
-    .select()
-    .from(pageRevisions)
-    .where(eq(pageRevisions.id, id));
+  const [revision] = await db.select().from(pageRevisions).where(eq(pageRevisions.id, id));
   return revision ?? null;
 }
 

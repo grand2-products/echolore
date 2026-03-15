@@ -2,7 +2,7 @@ common:
   nav:
     home: "ホーム"
     wiki: "Wiki"
-    wikiChat: "AI チャット"
+    aiChat: "AI チャット"
     meetings: "会議"
     coworking: "コワーキング"
     search: "検索"
@@ -697,7 +697,7 @@ admin:
     critical: "重大"
     warning: "警告"
     normal: "正常"
-wikiChat:
+aiChat:
   title: "AI チャット"
   description: "Wikiのナレッジベースに質問して回答を得ましょう。"
   newChat: "+ 新規チャット"

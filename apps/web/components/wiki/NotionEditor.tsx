@@ -1,6 +1,6 @@
 "use client";
 
-import type { BlockDto } from "@contracts/index";
+import type { BlockDto } from "@corp-internal/shared/contracts";
 import dynamic from "next/dynamic";
 
 const NotionEditorInner = dynamic(() => import("./NotionEditorInner"), { ssr: false });

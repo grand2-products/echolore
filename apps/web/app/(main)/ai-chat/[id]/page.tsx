@@ -1,20 +1,21 @@
 "use client";
 
-import { ChatInput, ChatMessageBubble, TypingIndicator } from "@/components/wiki-chat";
+import { ChatInput, ChatMessageBubble, TypingIndicator } from "@/components/ai-chat";
 import {
-  type WikiChatMessage,
-  useSendWikiChatMessageMutation,
-  useWikiChatConversationQuery,
-  wikiChatApi,
+  type AiChatMessage,
+  aiChatApi,
+  useAiChatConversationQuery,
+  useSendAiChatMessageMutation,
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useScrollIntoView } from "@/lib/hooks/use-auto-scroll";
 import { useT } from "@/lib/i18n";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
-export default function WikiChatPage() {
+export default function AiChatPage() {
   const params = useParams();
   const router = useRouter();
   const t = useT();
@@ -22,27 +23,24 @@ export default function WikiChatPage() {
   const queryClient = useQueryClient();
   const id = params.id as string;
 
-  const { data, isLoading, error } = useWikiChatConversationQuery(id);
-  const sendMutation = useSendWikiChatMessageMutation(id);
+  const { data, isLoading, error } = useAiChatConversationQuery(id);
+  const sendMutation = useSendAiChatMessageMutation(id);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const conversation = data?.conversation;
-  const messages: WikiChatMessage[] = data?.messages ?? [];
+  const messages: AiChatMessage[] = data?.messages ?? [];
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on message count change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+  useScrollIntoView(messagesEndRef, messages.length);
 
   const handleSend = (content: string) => {
     sendMutation.mutate(content);
   };
 
   const handleDelete = async () => {
-    if (!confirm(t("wikiChat.deleteConfirm"))) return;
+    if (!confirm(t("aiChat.deleteConfirm"))) return;
     try {
-      await wikiChatApi.deleteConversation(id);
-      void queryClient.invalidateQueries({ queryKey: ["wiki-chat", "conversations"] });
+      await aiChatApi.deleteConversation(id);
+      void queryClient.invalidateQueries({ queryKey: ["ai-chat", "conversations"] });
       router.push("/ai-chat");
     } catch {
       // Ignore
@@ -52,7 +50,7 @@ export default function WikiChatPage() {
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-gray-500">{t("wikiChat.loading")}</p>
+        <p className="text-gray-500">{t("aiChat.loading")}</p>
       </div>
     );
   }
@@ -61,13 +59,13 @@ export default function WikiChatPage() {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4">
         <p className="text-gray-500">
-          {error ? getApiErrorMessage(error, t("wikiChat.notFound")) : t("wikiChat.notFound")}
+          {error ? getApiErrorMessage(error, t("aiChat.notFound")) : t("aiChat.notFound")}
         </p>
         <Link
           href="/ai-chat"
           className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
         >
-          {t("wikiChat.back")}
+          {t("aiChat.back")}
         </Link>
       </div>
     );
@@ -106,7 +104,7 @@ export default function WikiChatPage() {
               : "bg-blue-50 text-blue-600"
           }`}
         >
-          {t(`wikiChat.${conversation.visibility}`)}
+          {t(`aiChat.${conversation.visibility}`)}
         </span>
         <button
           type="button"

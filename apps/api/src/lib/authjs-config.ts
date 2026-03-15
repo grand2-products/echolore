@@ -1,20 +1,23 @@
 import type { AuthConfig } from "@auth/core";
-import Google from "@auth/core/providers/google";
 import Credentials from "@auth/core/providers/credentials";
+import Google from "@auth/core/providers/google";
 import { UserRole } from "@corp-internal/shared/contracts";
+import { eq } from "drizzle-orm";
+import { db } from "../db/index.js";
+import { users } from "../db/schema.js";
+import { getAuthSettings, resolveAllowedDomain } from "../services/admin/auth-settings-service.js";
 import {
   authenticatePasswordUser,
   isRegistrationOpen,
   reconcileGoogleIdentity,
 } from "../services/auth/password-auth-service.js";
-import { getAuthSettings, resolveAllowedDomain } from "../services/admin/auth-settings-service.js";
-import { db } from "../db/index.js";
-import { users } from "../db/schema.js";
-import { eq } from "drizzle-orm";
 
 const AUTH_SECRET = process.env.AUTH_SECRET || process.env.AUTH_SESSION_SECRET;
 
-async function resolveGoogleCredentials(): Promise<{ clientId: string | undefined; clientSecret: string | undefined }> {
+async function resolveGoogleCredentials(): Promise<{
+  clientId: string | undefined;
+  clientSecret: string | undefined;
+}> {
   try {
     const settings = await getAuthSettings();
     return {
@@ -92,7 +95,7 @@ export async function getAuthConfig(): Promise<AuthConfig> {
           if (account?.provider === "google") {
             const reconciledUser = await reconcileGoogleIdentity({
               email: user.email!,
-              name: user.name || user.email!.split("@")[0] || "User",
+              name: user.name || user.email?.split("@")[0] || "User",
             });
             token.userId = reconciledUser.id;
             token.role = reconciledUser.role;
@@ -102,8 +105,7 @@ export async function getAuthConfig(): Promise<AuthConfig> {
             // Credentials provider
             token.userId = user.id;
             token.role = (user as { role?: string }).role ?? UserRole.Member;
-            token.avatarUrl =
-              (user as { avatarUrl?: string | null }).avatarUrl ?? null;
+            token.avatarUrl = (user as { avatarUrl?: string | null }).avatarUrl ?? null;
             token.authMode = "password";
           }
         }

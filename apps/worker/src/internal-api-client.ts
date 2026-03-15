@@ -3,13 +3,19 @@ import { readFile } from "node:fs/promises";
 const MAX_RETRIES = 3;
 const RETRY_BASE_MS = 500;
 
-async function fetchWithRetry(url: string, init: RequestInit, retries = MAX_RETRIES): Promise<Response> {
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  retries = MAX_RETRIES
+): Promise<Response> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const response = await fetch(url, init);
       if (response.status >= 500 && attempt < retries) {
         const delay = RETRY_BASE_MS * 2 ** (attempt - 1);
-        console.warn(`[api-client] ${init.method ?? "GET"} ${url} returned ${response.status}, retrying in ${delay}ms (${attempt}/${retries})`);
+        console.warn(
+          `[api-client] ${init.method ?? "GET"} ${url} returned ${response.status}, retrying in ${delay}ms (${attempt}/${retries})`
+        );
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
@@ -17,7 +23,9 @@ async function fetchWithRetry(url: string, init: RequestInit, retries = MAX_RETR
     } catch (err) {
       if (attempt < retries) {
         const delay = RETRY_BASE_MS * 2 ** (attempt - 1);
-        console.warn(`[api-client] ${init.method ?? "GET"} ${url} failed, retrying in ${delay}ms (${attempt}/${retries})`);
+        console.warn(
+          `[api-client] ${init.method ?? "GET"} ${url} failed, retrying in ${delay}ms (${attempt}/${retries})`
+        );
         await new Promise((resolve) => setTimeout(resolve, delay));
       } else {
         throw err;

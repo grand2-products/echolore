@@ -7,17 +7,17 @@ import type {
   SuccessResponse,
   UpdateBlockRequest,
   UpdatePageRequest,
-} from "@contracts/index";
+} from "@corp-internal/shared/contracts";
 import { executeApiRequest, fetchApi, parseApiError } from "./fetch";
 import type {
   AdminGroup,
   AdminPagePermissionsResponse,
+  AiChatConversation,
+  AiChatMessage,
   Block,
   Page,
   PageRevision,
   Space,
-  WikiChatConversation,
-  WikiChatMessage,
   WikiSearchResponse,
 } from "./types";
 
@@ -155,40 +155,38 @@ export const wikiApi = {
     }),
 };
 
-export const wikiChatApi = {
+export const aiChatApi = {
   listConversations: (opts?: { mine?: boolean; query?: string }) => {
     const params = new URLSearchParams();
     if (opts?.mine) params.set("mine", "1");
     if (opts?.query) params.set("q", opts.query);
     const qs = params.toString();
-    return fetchApi<{ conversations: WikiChatConversation[] }>(`/wiki-chat${qs ? `?${qs}` : ""}`);
+    return fetchApi<{ conversations: AiChatConversation[] }>(`/ai-chat${qs ? `?${qs}` : ""}`);
   },
 
   createConversation: (data?: { title?: string; visibility?: "team" | "private" }) =>
-    fetchApi<{ conversation: WikiChatConversation }>("/wiki-chat", {
+    fetchApi<{ conversation: AiChatConversation }>("/ai-chat", {
       method: "POST",
       body: JSON.stringify(data ?? {}),
     }),
 
   getConversation: (id: string) =>
-    fetchApi<{ conversation: WikiChatConversation; messages: WikiChatMessage[] }>(
-      `/wiki-chat/${id}`
-    ),
+    fetchApi<{ conversation: AiChatConversation; messages: AiChatMessage[] }>(`/ai-chat/${id}`),
 
   updateConversation: (id: string, data: { title?: string; visibility?: "team" | "private" }) =>
-    fetchApi<{ conversation: WikiChatConversation }>(`/wiki-chat/${id}`, {
+    fetchApi<{ conversation: AiChatConversation }>(`/ai-chat/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
 
   deleteConversation: (id: string) =>
-    fetchApi<{ success: boolean }>(`/wiki-chat/${id}`, {
+    fetchApi<{ success: boolean }>(`/ai-chat/${id}`, {
       method: "DELETE",
     }),
 
   sendMessage: (conversationId: string, content: string) =>
-    fetchApi<{ userMessage: WikiChatMessage; assistantMessage: WikiChatMessage }>(
-      `/wiki-chat/${conversationId}/messages`,
+    fetchApi<{ userMessage: AiChatMessage; assistantMessage: AiChatMessage }>(
+      `/ai-chat/${conversationId}/messages`,
       {
         method: "POST",
         body: JSON.stringify({ content }),

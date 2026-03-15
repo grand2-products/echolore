@@ -3,14 +3,34 @@ import path from "node:path";
 import ts from "typescript";
 
 const repoRoot = process.cwd();
-const targets = [
-  path.join(repoRoot, "apps/web/app"),
-  path.join(repoRoot, "apps/web/components"),
-];
+const targets = [path.join(repoRoot, "apps/web/app"), path.join(repoRoot, "apps/web/components")];
 
-const allowedAttributeNames = new Set(["className", "href", "src", "id", "type", "role", "target", "rel"]);
+const allowedAttributeNames = new Set([
+  "className",
+  "href",
+  "src",
+  "id",
+  "type",
+  "role",
+  "target",
+  "rel",
+]);
 const checkedAttributeNames = new Set(["placeholder", "title", "aria-label", "alt"]);
-const allowedJsxTextLiterals = new Set(["+", "-", "/", "→", "B", "I", "S", "H1", "H2", "H3", "1.", "\"", "</>"]);
+const allowedJsxTextLiterals = new Set([
+  "+",
+  "-",
+  "/",
+  "→",
+  "B",
+  "I",
+  "S",
+  "H1",
+  "H2",
+  "H3",
+  "1.",
+  '"',
+  "</>",
+]);
 const localeLiteralPattern = /[A-Za-z\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/u;
 
 function collectFiles(dir) {
@@ -113,7 +133,13 @@ const issues = [];
 for (const dir of targets) {
   for (const file of collectFiles(dir)) {
     const sourceText = fs.readFileSync(file, "utf8");
-    const sourceFile = ts.createSourceFile(file, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const sourceFile = ts.createSourceFile(
+      file,
+      sourceText,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX
+    );
     visit(sourceFile, sourceFile, issues);
   }
 }

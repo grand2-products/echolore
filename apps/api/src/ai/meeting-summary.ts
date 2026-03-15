@@ -6,7 +6,9 @@ import type { LlmOverrides } from "./llm/index.js";
 
 const clip = (value: string, max = 12000) => value.slice(0, max);
 
-function fallbackSummary(transcripts: Array<Pick<Transcript, "speakerId" | "content" | "timestamp">>) {
+function fallbackSummary(
+  transcripts: Array<Pick<Transcript, "speakerId" | "content" | "timestamp">>
+) {
   const firstLines = transcripts
     .slice(0, 8)
     .map((t) => `- ${t.speakerId ?? "speaker"}: ${t.content}`)
@@ -26,7 +28,7 @@ function fallbackSummary(transcripts: Array<Pick<Transcript, "speakerId" | "cont
 
 export async function generateMeetingSummary(
   meetingTitle: string,
-  transcripts: Array<Pick<Transcript, "speakerId" | "content" | "timestamp">>,
+  transcripts: Array<Pick<Transcript, "speakerId" | "content" | "timestamp">>
 ): Promise<string> {
   const dbSettings = await getLlmSettings();
   const overrides: LlmOverrides = {
@@ -51,11 +53,11 @@ export async function generateMeetingSummary(
         const at = t.timestamp instanceof Date ? t.timestamp.toISOString() : String(t.timestamp);
         return `[${at}] ${t.speakerId ?? "speaker"}: ${t.content}`;
       })
-      .join("\n"),
+      .join("\n")
   );
 
   const prompt = [
-    `You are an assistant creating concise internal meeting minutes.`,
+    "You are an assistant creating concise internal meeting minutes.",
     `Meeting title: ${meetingTitle}`,
     "",
     "Please output markdown with these sections:",
@@ -71,9 +73,10 @@ export async function generateMeetingSummary(
   try {
     const model = createChatModel({ provider, temperature: 0.2, overrides });
     const response = await model.invoke([new HumanMessage(prompt)]);
-    const text = typeof response.content === "string"
-      ? response.content.trim()
-      : String(response.content).trim();
+    const text =
+      typeof response.content === "string"
+        ? response.content.trim()
+        : String(response.content).trim();
     if (!text) return fallbackSummary(transcripts);
     return text;
   } catch {

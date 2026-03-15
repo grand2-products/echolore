@@ -1,21 +1,21 @@
 import { Hono } from "hono";
 import { jsonError } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
-import { getPageById } from "../../repositories/wiki/wiki-repository.js";
 import { getSpaceById } from "../../repositories/wiki/space-repository.js";
+import { getPageById } from "../../repositories/wiki/wiki-repository.js";
 import { indexPage } from "../../services/wiki/embedding-service.js";
-import { canAccessSpace } from "../../services/wiki/space-service.js";
 import {
-  importFile,
-  ImportValidationError,
-  IMPORT_MAX_FILE_SIZE,
   IMPORT_ALLOWED_EXTENSIONS,
+  IMPORT_MAX_FILE_SIZE,
+  ImportValidationError,
+  importFile,
 } from "../../services/wiki/import-service.js";
+import { canAccessSpace } from "../../services/wiki/space-service.js";
 
 export const wikiImportRoutes = new Hono<AppEnv>();
 
 function getFileExtension(filename: string): string {
-  return "." + filename.toLowerCase().split(".").pop();
+  return `.${filename.toLowerCase().split(".").pop()}`;
 }
 
 wikiImportRoutes.post("/import", async (c) => {
@@ -39,7 +39,12 @@ wikiImportRoutes.post("/import", async (c) => {
 
     // Early-reject before reading the full body into memory
     if (!IMPORT_ALLOWED_EXTENSIONS.has(getFileExtension(file.name))) {
-      return jsonError(c, 400, "WIKI_IMPORT_UNSUPPORTED", "Unsupported file type. Use .md, .typ, or .typst");
+      return jsonError(
+        c,
+        400,
+        "WIKI_IMPORT_UNSUPPORTED",
+        "Unsupported file type. Use .md, .typ, or .typst"
+      );
     }
     if (file.size > IMPORT_MAX_FILE_SIZE) {
       return jsonError(c, 400, "WIKI_IMPORT_TOO_LARGE", "File too large (max 5MB)");
@@ -62,7 +67,12 @@ wikiImportRoutes.post("/import", async (c) => {
         return jsonError(c, 404, "WIKI_PARENT_NOT_FOUND", "Parent page not found");
       }
       if (parentPage.spaceId !== spaceId) {
-        return jsonError(c, 400, "WIKI_PARENT_SPACE_MISMATCH", "Parent page must belong to the same space");
+        return jsonError(
+          c,
+          400,
+          "WIKI_PARENT_SPACE_MISMATCH",
+          "Parent page must belong to the same space"
+        );
       }
     }
 

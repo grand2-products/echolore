@@ -1,13 +1,14 @@
 const MASK = "••••••••";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: settings objects have dynamic shapes
 type AnyObject = Record<string, any>;
 
-export function maskSecrets<T extends AnyObject>(
-  data: T,
-  secretFields: (keyof T)[],
-): T {
-  const result = { ...data };
+function deepClone<T extends AnyObject>(data: T): T {
+  return structuredClone(data);
+}
+
+export function maskSecrets<T extends AnyObject>(data: T, secretFields: (keyof T)[]): T {
+  const result = deepClone(data);
   for (const field of secretFields) {
     if (result[field]) {
       result[field] = MASK as T[keyof T];
@@ -16,11 +17,8 @@ export function maskSecrets<T extends AnyObject>(
   return result;
 }
 
-export function stripMaskedValues<T extends AnyObject>(
-  data: T,
-  secretFields: (keyof T)[],
-): T {
-  const result = { ...data };
+export function stripMaskedValues<T extends AnyObject>(data: T, secretFields: (keyof T)[]): T {
+  const result = deepClone(data);
   for (const field of secretFields) {
     if (result[field] === MASK) {
       delete result[field];

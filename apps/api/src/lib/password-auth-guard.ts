@@ -25,9 +25,7 @@ export async function isRateLimited(input: RateLimitInput) {
 
   // Global per-IP check: block if this IP has too many attempts across ALL emails
   if (ipAddress) {
-    const globalSince = new Date(
-      Date.now() - GLOBAL_IP_RATE_LIMIT.windowMinutes * 60_000,
-    );
+    const globalSince = new Date(Date.now() - GLOBAL_IP_RATE_LIMIT.windowMinutes * 60_000);
     const [globalResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(auditLogs)
@@ -35,8 +33,8 @@ export async function isRateLimited(input: RateLimitInput) {
         and(
           eq(auditLogs.action, input.action),
           gt(auditLogs.createdAt, globalSince),
-          eq(auditLogs.ipAddress, ipAddress),
-        ),
+          eq(auditLogs.ipAddress, ipAddress)
+        )
       );
     if (Number(globalResult?.count ?? 0) >= GLOBAL_IP_RATE_LIMIT.maxAttempts) {
       return true;
@@ -45,10 +43,7 @@ export async function isRateLimited(input: RateLimitInput) {
 
   // Per-email+IP check (existing logic)
   const since = new Date(Date.now() - input.windowMs);
-  const conditions = [
-    eq(auditLogs.action, input.action),
-    gt(auditLogs.createdAt, since),
-  ];
+  const conditions = [eq(auditLogs.action, input.action), gt(auditLogs.createdAt, since)];
 
   const email = normalizeEmail(input.email);
 
@@ -84,4 +79,3 @@ export function getRequestIp(headers: { get(name: string): string | null | undef
   }
   return headers.get("x-real-ip") ?? null;
 }
-

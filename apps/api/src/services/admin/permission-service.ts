@@ -122,9 +122,7 @@ export async function replaceSpacePermissions(
 export async function deleteSpacePermissionForGroup(spaceId: string, groupId: string) {
   const result = await db
     .delete(spacePermissions)
-    .where(
-      and(eq(spacePermissions.spaceId, spaceId), eq(spacePermissions.groupId, groupId))
-    )
+    .where(and(eq(spacePermissions.spaceId, spaceId), eq(spacePermissions.groupId, groupId)))
     .returning();
   return result.length > 0;
 }

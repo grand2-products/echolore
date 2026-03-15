@@ -1,5 +1,6 @@
 "use client";
 
+import { ErrorBanner, LoadingState } from "@/components/ui";
 import { type Page, wikiApi } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
 import Link from "next/link";
@@ -69,14 +70,10 @@ export default function WikiTrashPage() {
         </Link>
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner message={error} className="mb-4" />}
 
       {isLoading ? (
-        <p className="text-sm text-gray-500">{t("common.status.loading")}</p>
+        <LoadingState />
       ) : pages.length === 0 ? (
         <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
           <p className="text-gray-500">{t("wiki.trash.empty")}</p>

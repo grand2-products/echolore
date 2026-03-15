@@ -3,6 +3,8 @@
  */
 
 import type {
+  AiChatConversationDto,
+  AiChatMessageDto,
   AuthMeResponseDto,
   AuthSessionDto,
   BlockDto,
@@ -15,9 +17,7 @@ import type {
   SummaryDto,
   TranscriptDto,
   UserDto,
-  WikiChatConversationDto,
-  WikiChatMessageDto,
-} from "@contracts/index";
+} from "@corp-internal/shared/contracts";
 
 // Re-exported DTO aliases
 export type User = UserDto;
@@ -32,8 +32,8 @@ export type FileMetadata = FileMetadataDto;
 export type SessionUser = SessionUserDto;
 export type AuthMeResponse = AuthMeResponseDto;
 export type AuthSession = AuthSessionDto;
-export type WikiChatConversation = WikiChatConversationDto;
-export type WikiChatMessage = WikiChatMessageDto;
+export type AiChatConversation = AiChatConversationDto;
+export type AiChatMessage = AiChatMessageDto;
 
 // Custom interfaces
 

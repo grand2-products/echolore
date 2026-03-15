@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UserRole } from "@corp-internal/shared/contracts";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { authIdentities, users } from "../db/schema.js";
 
 const { dbMock } = vi.hoisted(() => ({
@@ -80,7 +80,9 @@ describe("local-auth identity linking", () => {
       updateQueue: [[existingUser]],
     });
 
-    dbMock.transaction.mockImplementation(async (callback: (client: typeof tx) => unknown) => callback(tx));
+    dbMock.transaction.mockImplementation(async (callback: (client: typeof tx) => unknown) =>
+      callback(tx)
+    );
 
     const user = await reconcileGoogleIdentity({
       email: "member@example.com",
@@ -127,7 +129,9 @@ describe("local-auth identity linking", () => {
     });
 
     dbMock.select.mockImplementation(createSelectQueue([[verification]]));
-    dbMock.transaction.mockImplementation(async (callback: (client: typeof tx) => unknown) => callback(tx));
+    dbMock.transaction.mockImplementation(async (callback: (client: typeof tx) => unknown) =>
+      callback(tx)
+    );
 
     const user = await verifyEmailRegistrationToken("raw-token");
 

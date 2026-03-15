@@ -1,16 +1,11 @@
+import { UserRole } from "@corp-internal/shared/contracts";
 import { and, count, eq } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
-import { UserRole } from "@corp-internal/shared/contracts";
 import { db } from "../../db/index.js";
 import { authIdentities, users } from "../../db/schema.js";
-import {
-  GOOGLE_PROVIDER,
-  normalizeEmail,
-  toSessionUser,
-  findUserById,
-} from "./auth-utils.js";
-import { buildAccessToken, issueRefreshToken } from "./token-service.js";
 import { getAuthSettings, resolveAllowedDomain } from "../admin/auth-settings-service.js";
+import { GOOGLE_PROVIDER, findUserById, normalizeEmail, toSessionUser } from "./auth-utils.js";
+import { buildAccessToken, issueRefreshToken } from "./token-service.js";
 
 const googleClient = new OAuth2Client();
 
@@ -80,7 +75,9 @@ export async function reconcileGoogleIdentity(input: { email: string; name: stri
     const [existingIdentity] = await tx
       .select()
       .from(authIdentities)
-      .where(and(eq(authIdentities.provider, GOOGLE_PROVIDER), eq(authIdentities.providerUserId, email)));
+      .where(
+        and(eq(authIdentities.provider, GOOGLE_PROVIDER), eq(authIdentities.providerUserId, email))
+      );
 
     if (!existingIdentity) {
       await tx.insert(authIdentities).values({
@@ -152,7 +149,10 @@ export async function issueMobileTokenPair(input: {
   };
 }
 
-export async function exchangeGoogleIdToken(input: { idToken: string; deviceName?: string | null }) {
+export async function exchangeGoogleIdToken(input: {
+  idToken: string;
+  deviceName?: string | null;
+}) {
   const user = await resolveGoogleUserFromIdToken(input.idToken);
   const persistedUser = await findUserById(user.id);
   if (!persistedUser) {

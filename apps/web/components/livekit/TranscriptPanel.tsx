@@ -1,6 +1,7 @@
 "use client";
 
 import type { RealtimeTranscriptSegment } from "@/lib/api";
+import { useAutoScrollNearBottom } from "@/lib/hooks/use-auto-scroll";
 import { useFormatters, useT } from "@/lib/i18n";
 import { useEffect, useRef } from "react";
 
@@ -15,15 +16,7 @@ export default function TranscriptPanel({ segments, open, onClose }: TranscriptP
   const { number } = useFormatters();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on new segments only
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    if (isNearBottom) {
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [segments]);
+  useAutoScrollNearBottom(scrollRef, segments);
 
   useEffect(() => {
     if (!open) return;

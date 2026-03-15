@@ -1,16 +1,29 @@
+import { UserRole } from "@corp-internal/shared/contracts";
+import { eq } from "drizzle-orm";
+import { nanoid } from "nanoid";
 import {
   cosineSimilarity,
   embedText,
   getEmbeddingModel,
   isEmbeddingEnabled,
 } from "../../ai/embeddings.js";
-import { eq } from "drizzle-orm";
-import { nanoid } from "nanoid";
 import { db } from "../../db/index.js";
-import { UserRole } from "@corp-internal/shared/contracts";
-import { blocks, pageInheritance, pagePermissions, pageRevisions, pages, userGroupMemberships, type Page } from "../../db/schema.js";
+import {
+  type Page,
+  blocks,
+  pageInheritance,
+  pagePermissions,
+  pageRevisions,
+  pages,
+  userGroupMemberships,
+} from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { canReadPage } from "../../policies/authorization-policy.js";
+import {
+  createRevision,
+  getNextRevisionNumber,
+  getRevisionById,
+} from "../../repositories/wiki/revision-repository.js";
 import {
   getPageBlocks,
   getPageById,
@@ -19,11 +32,6 @@ import {
   listPagesOrderedByUpdatedAt,
   searchPagesLexically,
 } from "../../repositories/wiki/wiki-repository.js";
-import {
-  createRevision,
-  getNextRevisionNumber,
-  getRevisionById,
-} from "../../repositories/wiki/revision-repository.js";
 
 const SEMANTIC_RERANK_LIMIT = 20;
 
@@ -230,11 +238,7 @@ export async function createPageRevision(pageId: string, authorId: string) {
   });
 }
 
-export async function restoreRevision(
-  pageId: string,
-  revisionId: string,
-  actorUserId: string
-) {
+export async function restoreRevision(pageId: string, revisionId: string, actorUserId: string) {
   const page = await getPageById(pageId);
   if (!page) {
     throw new Error(`Page not found: ${pageId}`);

@@ -5,9 +5,9 @@ import type { AppEnv } from "../../lib/auth.js";
 import { createStorageProvider, setStorageProvider } from "../../lib/file-storage.js";
 import { maskSecrets, stripMaskedValues } from "../../lib/secret-mask.js";
 import {
+  buildStorageConfig,
   getStorageSettings,
   updateStorageSettings,
-  buildStorageConfig,
 } from "../../services/admin/admin-service.js";
 import { updateStorageSettingsSchema } from "./schemas.js";
 
@@ -15,21 +15,36 @@ const SECRET_FIELDS = ["s3SecretKey", "gcsKeyJson"] as const;
 
 export const adminStorageSettingsRoutes = new Hono<AppEnv>();
 
-adminStorageSettingsRoutes.get("/storage-settings", withErrorHandler(async (c) => {
-  const settings = await getStorageSettings();
-  return c.json(maskSecrets(settings, [...SECRET_FIELDS]));
-}, "ADMIN_STORAGE_SETTINGS_FETCH_FAILED", "Failed to fetch storage settings"));
+adminStorageSettingsRoutes.get(
+  "/storage-settings",
+  withErrorHandler(
+    async (c) => {
+      const settings = await getStorageSettings();
+      return c.json(maskSecrets(settings, [...SECRET_FIELDS]));
+    },
+    "ADMIN_STORAGE_SETTINGS_FETCH_FAILED",
+    "Failed to fetch storage settings"
+  )
+);
 
-adminStorageSettingsRoutes.put("/storage-settings", zValidator("json", updateStorageSettingsSchema), withErrorHandler(async (c) => {
-  const data = stripMaskedValues(c.req.valid("json"), [...SECRET_FIELDS]);
-  const updated = await updateStorageSettings(data);
+adminStorageSettingsRoutes.put(
+  "/storage-settings",
+  zValidator("json", updateStorageSettingsSchema),
+  withErrorHandler(
+    async (c) => {
+      const data = stripMaskedValues(c.req.valid("json"), [...SECRET_FIELDS]);
+      const updated = await updateStorageSettings(data);
 
-  // Apply the new provider immediately
-  const config = await buildStorageConfig(updated);
-  setStorageProvider(createStorageProvider(config));
+      // Apply the new provider immediately
+      const config = await buildStorageConfig(updated);
+      setStorageProvider(createStorageProvider(config));
 
-  return c.json(maskSecrets(updated, [...SECRET_FIELDS]));
-}, "ADMIN_STORAGE_SETTINGS_UPDATE_FAILED", "Failed to update storage settings"));
+      return c.json(maskSecrets(updated, [...SECRET_FIELDS]));
+    },
+    "ADMIN_STORAGE_SETTINGS_UPDATE_FAILED",
+    "Failed to update storage settings"
+  )
+);
 
 adminStorageSettingsRoutes.post("/storage-settings/test", async (c) => {
   try {

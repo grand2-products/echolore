@@ -1,6 +1,6 @@
+import { UserRole } from "@corp-internal/shared/contracts";
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { UserRole } from "@corp-internal/shared/contracts";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
 import { meetingsRoutes } from "./meetings/index.js";
 
@@ -81,6 +81,8 @@ vi.mock("../ai/meeting-summary.js", () => ({
 
 vi.mock("../lib/audit.js", () => ({
   writeAuditLog: writeAuditLogMock,
+  auditAction: vi.fn(),
+  extractRequestMeta: vi.fn(() => ({ ipAddress: null, userAgent: null })),
 }));
 
 vi.mock("../services/calendar/google-calendar-sync-service.js", () => ({
@@ -235,7 +237,10 @@ describe("meetingsRoutes", () => {
     const response = await app.request("http://localhost/api/meetings/meeting_1");
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ code: "MEETING_FORBIDDEN", error: "Forbidden" });
+    await expect(response.json()).resolves.toEqual({
+      code: "MEETING_FORBIDDEN",
+      error: "Forbidden",
+    });
     expect(getMeetingTranscriptsMock).not.toHaveBeenCalled();
     expect(getMeetingSummariesMock).not.toHaveBeenCalled();
   });
@@ -349,7 +354,10 @@ describe("meetingsRoutes", () => {
     const response = await app.request("http://localhost/api/meetings/meeting_1/agents/active");
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ code: "MEETING_FORBIDDEN", error: "Forbidden" });
+    await expect(response.json()).resolves.toEqual({
+      code: "MEETING_FORBIDDEN",
+      error: "Forbidden",
+    });
     expect(listActiveAgentSessionsMock).not.toHaveBeenCalled();
   });
 
@@ -372,14 +380,20 @@ describe("meetingsRoutes", () => {
       createdAt: new Date("2026-03-12T08:50:00.000Z"),
     });
 
-    const response = await app.request("http://localhost/api/meetings/meeting_1/agents/agent_1/invoke", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({}),
-    });
+    const response = await app.request(
+      "http://localhost/api/meetings/meeting_1/agents/agent_1/invoke",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }
+    );
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ code: "MEETING_FORBIDDEN", error: "Forbidden" });
+    await expect(response.json()).resolves.toEqual({
+      code: "MEETING_FORBIDDEN",
+      error: "Forbidden",
+    });
     expect(invokeMeetingAgentMock).not.toHaveBeenCalled();
   });
 
@@ -412,11 +426,14 @@ describe("meetingsRoutes", () => {
       createdAt: new Date("2026-03-12T09:05:00.000Z"),
     });
 
-    const response = await app.request("http://localhost/api/meetings/meeting_1/agents/agent_1/leave", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({}),
-    });
+    const response = await app.request(
+      "http://localhost/api/meetings/meeting_1/agents/agent_1/leave",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({

@@ -1,10 +1,12 @@
 "use client";
 
+import { ErrorBanner } from "@/components/ui";
 import { calendarApi, useCalendarStatusQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAuthContext } from "@/lib/auth-context";
 import { useAuthActions } from "@/lib/hooks/use-auth-actions";
 import { useCurrentAuthSessions, useRevokeCurrentAuthSession } from "@/lib/hooks/use-auth-session";
+import { useMountEffect } from "@/lib/hooks/use-mount-effect";
 import {
   type SupportedLocale,
   supportedLocales,
@@ -44,8 +46,7 @@ export default function SettingsPage() {
     }
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: run once on mount to handle calendar redirect
-  useEffect(() => {
+  useMountEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const calendarParam = params.get("calendar");
@@ -58,7 +59,7 @@ export default function SettingsPage() {
       setCalendarMessage(t("settings.calendar.connectError"));
       window.history.replaceState({}, "", window.location.pathname);
     }
-  }, []);
+  });
 
   const handleCalendarDisconnect = async () => {
     setCalendarDisconnecting(true);
@@ -163,11 +164,7 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">{t("settings.session")}</h2>
                 <p className="mt-2 text-sm text-gray-600">{t(sessionDescriptionKey)}</p>
-                {revokeError ? (
-                  <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                    {revokeError}
-                  </p>
-                ) : null}
+                {revokeError ? <ErrorBanner message={revokeError} className="mt-3" /> : null}
                 <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50">
                   {sessionsQuery.isLoading ? (
                     <p className="px-4 py-4 text-sm text-gray-500">

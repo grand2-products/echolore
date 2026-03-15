@@ -1,22 +1,22 @@
-import { randomBytes, createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { authRefreshTokens, users } from "../../db/schema.js";
+import { authRefreshTokens, type users } from "../../db/schema.js";
 import {
   ACCESS_TOKEN_TTL_SECONDS,
-  REFRESH_TOKEN_TTL_SECONDS,
   REFRESH_TOKEN_GRACE_SECONDS,
+  REFRESH_TOKEN_TTL_SECONDS,
   SUPPORTED_AUTH_MODES,
+  findUserById,
   getSessionSecret,
   hashValue,
   toSessionUser,
-  findUserById,
 } from "./auth-utils.js";
 import type {
   AccessTokenPayload,
-  SupportedAuthMode,
   RefreshClientType,
   RefreshResult,
+  SupportedAuthMode,
 } from "./auth-utils.js";
 
 export function createSignedAccessToken(payload: AccessTokenPayload) {
@@ -29,14 +29,18 @@ export function parseSignedAccessToken(token: string): AccessTokenPayload | null
   const [body, signature] = token.split(".");
   if (!body || !signature) return null;
 
-  const expectedSignature = createHmac("sha256", getSessionSecret()).update(body).digest("base64url");
+  const expectedSignature = createHmac("sha256", getSessionSecret())
+    .update(body)
+    .digest("base64url");
   const signatureBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expectedSignature);
   if (signatureBuffer.length !== expectedBuffer.length) return null;
   if (!timingSafeEqual(signatureBuffer, expectedBuffer)) return null;
 
   try {
-    const parsed = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as AccessTokenPayload;
+    const parsed = JSON.parse(
+      Buffer.from(body, "base64url").toString("utf8")
+    ) as AccessTokenPayload;
     if (
       !parsed.sub ||
       typeof parsed.ver !== "number" ||

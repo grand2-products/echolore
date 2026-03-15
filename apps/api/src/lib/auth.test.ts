@@ -1,12 +1,9 @@
+import { UserRole } from "@corp-internal/shared/contracts";
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { UserRole } from "@corp-internal/shared/contracts";
-import { authGuard, type AppEnv } from "./auth.js";
+import { type AppEnv, authGuard } from "./auth.js";
 
-const {
-  resolveAccessTokenSessionMock,
-  writeAuditLogMock,
-} = vi.hoisted(() => ({
+const { resolveAccessTokenSessionMock, writeAuditLogMock } = vi.hoisted(() => ({
   resolveAccessTokenSessionMock: vi.fn(),
   writeAuditLogMock: vi.fn(),
 }));

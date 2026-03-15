@@ -127,9 +127,6 @@ export async function upsertSiteSetting(key: string, value: string) {
 }
 
 export async function deleteSiteSetting(key: string) {
-  const [row] = await db
-    .delete(siteSettings)
-    .where(eq(siteSettings.key, key))
-    .returning();
+  const [row] = await db.delete(siteSettings).where(eq(siteSettings.key, key)).returning();
   return row ?? null;
 }

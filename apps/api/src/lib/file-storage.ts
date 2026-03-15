@@ -42,7 +42,7 @@ class LocalStorageProvider implements StorageProvider {
     const resolved = resolve(this.root, relativePath);
     const rootResolved = resolve(this.root);
     const rel = relative(rootResolved, resolved);
-    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    if (rel.startsWith("..") || path.isAbsolute(rel)) {
       throw new Error("Path traversal is not allowed");
     }
     // Follow symlinks to verify the real path is still under root
@@ -50,7 +50,7 @@ class LocalStorageProvider implements StorageProvider {
       const realResolved = realpathSync(resolved);
       const realRoot = realpathSync(rootResolved);
       const realRel = relative(realRoot, realResolved);
-      if (realRel.startsWith('..') || path.isAbsolute(realRel)) {
+      if (realRel.startsWith("..") || path.isAbsolute(realRel)) {
         throw new Error("Path traversal is not allowed");
       }
     } catch {
@@ -115,16 +115,14 @@ class S3StorageProvider implements StorageProvider {
         Key: relativePath,
         Body: data,
         ContentType: contentType,
-      }),
+      })
     );
   }
 
   async load(relativePath: string): Promise<Buffer> {
     const { GetObjectCommand } = await import("@aws-sdk/client-s3");
     const { client, bucket } = await this.clientPromise;
-    const res = await client.send(
-      new GetObjectCommand({ Bucket: bucket, Key: relativePath }),
-    );
+    const res = await client.send(new GetObjectCommand({ Bucket: bucket, Key: relativePath }));
     const stream = res.Body;
     if (!stream) throw new Error("Empty response body from S3");
     return Buffer.from(await stream.transformToByteArray());
@@ -134,9 +132,7 @@ class S3StorageProvider implements StorageProvider {
     const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
     const { client, bucket } = await this.clientPromise;
     try {
-      await client.send(
-        new DeleteObjectCommand({ Bucket: bucket, Key: relativePath }),
-      );
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: relativePath }));
     } catch {
       // ignore if object does not exist
     }
@@ -201,14 +197,15 @@ export function createStorageProvider(config: StorageProviderConfig): StoragePro
       return new S3StorageProvider(config);
     case "gcs":
       return new GcsStorageProvider(config);
-    case "local":
     default:
-      return new LocalStorageProvider(config.localPath || process.env.FILE_STORAGE_PATH || "/data/files");
+      return new LocalStorageProvider(
+        config.localPath || process.env.FILE_STORAGE_PATH || "/data/files"
+      );
   }
 }
 
 let currentProvider: StorageProvider = new LocalStorageProvider(
-  process.env.FILE_STORAGE_PATH || "/data/files",
+  process.env.FILE_STORAGE_PATH || "/data/files"
 );
 
 export function setStorageProvider(provider: StorageProvider): void {
@@ -219,7 +216,11 @@ export function setStorageProvider(provider: StorageProvider): void {
 // Convenience functions (used by existing route code)
 // ---------------------------------------------------------------------------
 
-export async function saveFile(relativePath: string, data: Buffer, contentType?: string): Promise<void> {
+export async function saveFile(
+  relativePath: string,
+  data: Buffer,
+  contentType?: string
+): Promise<void> {
   return currentProvider.save(relativePath, data, contentType);
 }
 

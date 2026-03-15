@@ -3,7 +3,7 @@
  * All API modules import fetchApi / executeApiRequest / buildApiUrl from here.
  */
 
-import type { ErrorResponse } from "@contracts/index";
+import type { ErrorResponse } from "@corp-internal/shared/contracts";
 
 // ---------------------------------------------------------------------------
 // URL helpers

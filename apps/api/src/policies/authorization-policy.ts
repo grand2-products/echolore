@@ -1,8 +1,14 @@
+import { UserRole } from "@corp-internal/shared/contracts";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Context } from "hono";
-import { UserRole } from "@corp-internal/shared/contracts";
 import { db } from "../db/index.js";
-import { pageInheritance, pagePermissions, pages, spacePermissions, userGroupMemberships } from "../db/schema.js";
+import {
+  pageInheritance,
+  pagePermissions,
+  pages,
+  spacePermissions,
+  userGroupMemberships,
+} from "../db/schema.js";
 import { extractRequestMeta, writeAuditLog } from "../lib/audit.js";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
 
@@ -61,7 +67,9 @@ async function getEffectivePagePermissions(pageId: string, visited = new Set<str
     return [];
   }
   if (visited.size >= MAX_INHERITANCE_DEPTH) {
-    console.warn(`[authz] Max inheritance depth (${MAX_INHERITANCE_DEPTH}) reached at pageId=${pageId}`);
+    console.warn(
+      `[authz] Max inheritance depth (${MAX_INHERITANCE_DEPTH}) reached at pageId=${pageId}`
+    );
     return [];
   }
   visited.add(pageId);
@@ -84,12 +92,7 @@ async function getSpacePermissionsForGroups(spaceId: string, groupIds: string[])
   return db
     .select()
     .from(spacePermissions)
-    .where(
-      and(
-        eq(spacePermissions.spaceId, spaceId),
-        inArray(spacePermissions.groupId, groupIds),
-      )
-    );
+    .where(and(eq(spacePermissions.spaceId, spaceId), inArray(spacePermissions.groupId, groupIds)));
 }
 
 async function evaluatePageAccess(
@@ -191,7 +194,7 @@ export async function canReadPage(
 export async function evaluatePageWriteAccess(
   user: SessionUser,
   pageId: string,
-  ownerUserId: string,
+  ownerUserId: string
 ): Promise<AuthorizationResult> {
   return evaluatePageAccess(user, pageId, ownerUserId, "write");
 }

@@ -52,8 +52,10 @@ const cache = createSettingsCache<LlmSettings>({
     llmVertexModel: input.vertexModel ?? undefined,
     llmZhipuApiKey: input.zhipuApiKey ?? undefined,
     llmZhipuTextModel: input.zhipuTextModel ?? undefined,
-    llmZhipuUseCodingPlan: input.zhipuUseCodingPlan !== undefined ? String(input.zhipuUseCodingPlan) : undefined,
-    llmEmbeddingEnabled: input.embeddingEnabled !== undefined ? String(input.embeddingEnabled) : undefined,
+    llmZhipuUseCodingPlan:
+      input.zhipuUseCodingPlan !== undefined ? String(input.zhipuUseCodingPlan) : undefined,
+    llmEmbeddingEnabled:
+      input.embeddingEnabled !== undefined ? String(input.embeddingEnabled) : undefined,
     llmEmbeddingModel: input.embeddingModel ?? undefined,
   }),
 });

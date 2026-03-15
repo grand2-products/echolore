@@ -1,4 +1,5 @@
 import { getWorkerConfig } from "./config.js";
+import { setHealthy, startHealthServer } from "./health.js";
 import {
   listMeetingsByStatus,
   submitAudioFileForTranscription,
@@ -6,7 +7,6 @@ import {
 } from "./internal-api-client.js";
 import { inspectRooms } from "./livekit-monitor.js";
 import { startLiveKitWebhookServer } from "./livekit-webhook-server.js";
-import { startHealthServer, setHealthy } from "./health.js";
 
 function getArgValue(flag: string) {
   const index = process.argv.indexOf(flag);

@@ -1,5 +1,6 @@
 "use client";
 
+import { ErrorBanner, LoadingState } from "@/components/ui";
 import { ImportFileModal, SpacePickerModal } from "@/components/wiki";
 import { useWikiPagesQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
@@ -81,20 +82,12 @@ export default function WikiListPage() {
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">{t("wiki.list.recentTitle")}</h2>
           {isLoading ? (
-            <p className="text-sm text-gray-500">{t("common.status.loading")}</p>
+            <LoadingState />
           ) : error ? (
-            <div className="space-y-3">
-              <p className="text-sm text-red-600">
-                {getApiErrorMessage(error, t("wiki.list.loadError"))}
-              </p>
-              <button
-                type="button"
-                onClick={() => void refetch()}
-                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50"
-              >
-                {t("common.actions.retry")}
-              </button>
-            </div>
+            <ErrorBanner
+              message={getApiErrorMessage(error, t("wiki.list.loadError"))}
+              onRetry={() => void refetch()}
+            />
           ) : (
             <div className="space-y-1">
               {pages.slice(0, 10).map((page) => (

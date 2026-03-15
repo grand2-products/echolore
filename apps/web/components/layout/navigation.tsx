@@ -4,7 +4,7 @@ import type { SessionUser } from "@/lib/api";
 import type { ReactNode } from "react";
 
 export interface NavigationItem {
-  /** i18n key under common.nav (e.g. "wikiChat" → t("common.nav.wikiChat")) */
+  /** i18n key under common.nav (e.g. "aiChat" → t("common.nav.aiChat")) */
   label: string;
   href: string;
   icon: ReactNode;
@@ -53,7 +53,7 @@ export const navigationItems: NavigationItem[] = [
     ),
   },
   {
-    label: "wikiChat",
+    label: "aiChat",
     href: "/ai-chat",
     icon: (
       <svg

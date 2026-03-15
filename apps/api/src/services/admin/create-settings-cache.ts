@@ -1,7 +1,4 @@
-import {
-  getSiteSetting,
-  upsertSiteSetting,
-} from "../../repositories/admin/admin-repository.js";
+import { getSiteSetting, upsertSiteSetting } from "../../repositories/admin/admin-repository.js";
 
 const DEFAULT_CACHE_TTL_MS = 60_000;
 
@@ -18,9 +15,7 @@ interface SettingsCache<T> {
   invalidate: () => void;
 }
 
-export function createSettingsCache<T>(
-  options: SettingsCacheOptions<T>,
-): SettingsCache<T> {
+export function createSettingsCache<T>(options: SettingsCacheOptions<T>): SettingsCache<T> {
   const { keys, mapToSettings, mapToKeyValues, cacheTtlMs } = options;
   const ttl = cacheTtlMs === false ? 0 : (cacheTtlMs ?? DEFAULT_CACHE_TTL_MS);
 
@@ -32,7 +27,7 @@ export function createSettingsCache<T>(
       keys.map(async (key) => {
         const row = await getSiteSetting(key);
         return [key, row?.value ?? null] as const;
-      }),
+      })
     );
     const map = Object.fromEntries(entries) as Record<string, string | null>;
     return mapToSettings(map);

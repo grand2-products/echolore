@@ -1,16 +1,18 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { auditAction, extractRequestMeta, writeAuditLog } from "../../lib/audit.js";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
+import { auditAction, extractRequestMeta, writeAuditLog } from "../../lib/audit.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { authorizePageResource } from "../../policies/authorization-policy.js";
+import { getSpaceById } from "../../repositories/wiki/space-repository.js";
 import {
   getPageById,
   softDeletePage,
   updatePage,
 } from "../../repositories/wiki/wiki-repository.js";
-import { getSpaceById } from "../../repositories/wiki/space-repository.js";
-import { indexPage, deletePageEmbeddings } from "../../services/wiki/embedding-service.js";
+import { getPageBlocks } from "../../repositories/wiki/wiki-repository.js";
+import { deletePageEmbeddings, indexPage } from "../../services/wiki/embedding-service.js";
+import { GENERAL_SPACE_ID, canAccessSpace } from "../../services/wiki/space-service.js";
 import {
   createPageRevision,
   createPageWithAccessDefaults,
@@ -18,74 +20,92 @@ import {
   listVisiblePages,
   searchVisiblePages,
 } from "../../services/wiki/wiki-service.js";
-import {
-  GENERAL_SPACE_ID,
-  canAccessSpace,
-} from "../../services/wiki/space-service.js";
 import { createPageSchema, updatePageSchema } from "./schemas.js";
-import { getPageBlocks } from "../../repositories/wiki/wiki-repository.js";
 
 export const wikiPageRoutes = new Hono<AppEnv>();
 
-wikiPageRoutes.get("/", withErrorHandler(async (c) => {
-  const user = c.get("user");
-  const spaceId = c.req.query("spaceId");
+wikiPageRoutes.get(
+  "/",
+  withErrorHandler(
+    async (c) => {
+      const user = c.get("user");
+      const spaceId = c.req.query("spaceId");
 
-  const visiblePages = await listVisiblePages(user);
-  const filtered = spaceId
-    ? visiblePages.filter((p) => p.spaceId === spaceId)
-    : visiblePages;
-  return c.json({ pages: filtered });
-}, "WIKI_PAGES_LIST_FAILED", "Failed to fetch pages"));
+      const visiblePages = await listVisiblePages(user);
+      const filtered = spaceId ? visiblePages.filter((p) => p.spaceId === spaceId) : visiblePages;
+      return c.json({ pages: filtered });
+    },
+    "WIKI_PAGES_LIST_FAILED",
+    "Failed to fetch pages"
+  )
+);
 
-wikiPageRoutes.get("/search", withErrorHandler(async (c) => {
-  const query = c.req.query("q")?.trim();
-  const semantic = c.req.query("semantic") !== "0";
-  const user = c.get("user");
+wikiPageRoutes.get(
+  "/search",
+  withErrorHandler(
+    async (c) => {
+      const query = c.req.query("q")?.trim();
+      const semantic = c.req.query("semantic") !== "0";
+      const user = c.get("user");
 
-  const logSearch = async (
-    resultCount: number,
-    mode: "lexical" | "hybrid",
-    semanticApplied: boolean
-  ) => {
-    await writeAuditLog({
-      actorUserId: user?.id ?? null,
-      actorEmail: user?.email ?? null,
-      action: "search.query",
-      resourceType: "wiki-search",
-      metadata: { queryLength: query?.length ?? 0, resultCount, mode, semanticApplied },
-      ...extractRequestMeta(c),
-    });
-  };
+      const logSearch = async (
+        resultCount: number,
+        mode: "lexical" | "hybrid",
+        semanticApplied: boolean
+      ) => {
+        await writeAuditLog({
+          actorUserId: user?.id ?? null,
+          actorEmail: user?.email ?? null,
+          action: "search.query",
+          resourceType: "wiki-search",
+          metadata: { queryLength: query?.length ?? 0, resultCount, mode, semanticApplied },
+          ...extractRequestMeta(c),
+        });
+      };
 
-  if (!query) {
-    return c.json({ pages: [] });
-  }
+      if (!query) {
+        return c.json({ pages: [] });
+      }
 
-  const result = await searchVisiblePages(user, query, semantic);
-  await logSearch(result.pages.length, result.searchMeta.mode, result.searchMeta.semanticApplied);
-  return c.json(result);
-}, "WIKI_SEARCH_FAILED", "Failed to search pages"));
+      const result = await searchVisiblePages(user, query, semantic);
+      await logSearch(
+        result.pages.length,
+        result.searchMeta.mode,
+        result.searchMeta.semanticApplied
+      );
+      return c.json(result);
+    },
+    "WIKI_SEARCH_FAILED",
+    "Failed to search pages"
+  )
+);
 
-wikiPageRoutes.get("/:id", withErrorHandler(async (c) => {
-  const { id } = c.req.param();
+wikiPageRoutes.get(
+  "/:id",
+  withErrorHandler(
+    async (c) => {
+      const { id } = c.req.param();
 
-  const page = await getPageById(id);
-  if (!page) {
-    return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
-  }
+      const page = await getPageById(id);
+      if (!page) {
+        return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
+      }
 
-  const authz = await authorizePageResource(c, id, page.authorId, "read");
-  if (!authz.allowed) {
-    return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
-  }
+      const authz = await authorizePageResource(c, id, page.authorId, "read");
+      if (!authz.allowed) {
+        return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
+      }
 
-  const pageBlocks = await getPageBlocks(id);
+      const pageBlocks = await getPageBlocks(id);
 
-  await auditAction(c, "wiki.page.view", "wiki-page", id, { blockCount: pageBlocks.length });
+      await auditAction(c, "wiki.page.view", "wiki-page", id, { blockCount: pageBlocks.length });
 
-  return c.json({ page, blocks: pageBlocks });
-}, "WIKI_PAGE_FETCH_FAILED", "Failed to fetch page"));
+      return c.json({ page, blocks: pageBlocks });
+    },
+    "WIKI_PAGE_FETCH_FAILED",
+    "Failed to fetch page"
+  )
+);
 
 wikiPageRoutes.post("/", zValidator("json", createPageSchema), async (c) => {
   const user = c.get("user");
@@ -94,116 +114,148 @@ wikiPageRoutes.post("/", zValidator("json", createPageSchema), async (c) => {
     return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
   }
 
-  return withErrorHandler(async (c) => {
-    const data = c.req.valid("json");
-    const user = c.get("user");
-    const targetSpaceId = data.spaceId || GENERAL_SPACE_ID;
+  return withErrorHandler(
+    async (c) => {
+      const data = c.req.valid("json");
+      const user = c.get("user");
+      const targetSpaceId = data.spaceId || GENERAL_SPACE_ID;
 
-    // Verify user can access the target space
-    const space = await getSpaceById(targetSpaceId);
-    if (!space) {
-      return jsonError(c, 404, "WIKI_SPACE_NOT_FOUND", "Space not found");
-    }
-    if (!(await canAccessSpace(user, space, "write"))) {
-      return jsonError(c, 403, "WIKI_SPACE_FORBIDDEN", "Cannot create pages in this space");
-    }
-
-    // Verify parent page exists and belongs to the same space
-    if (data.parentId) {
-      const parentPage = await getPageById(data.parentId);
-      if (!parentPage) {
-        return jsonError(c, 404, "WIKI_PARENT_NOT_FOUND", "Parent page not found");
+      // Verify user can access the target space
+      const space = await getSpaceById(targetSpaceId);
+      if (!space) {
+        return jsonError(c, 404, "WIKI_SPACE_NOT_FOUND", "Space not found");
       }
-      if (parentPage.spaceId !== targetSpaceId) {
-        return jsonError(c, 400, "WIKI_PARENT_SPACE_MISMATCH", "Parent page must belong to the same space");
+      if (!(await canAccessSpace(user, space, "write"))) {
+        return jsonError(c, 403, "WIKI_SPACE_FORBIDDEN", "Cannot create pages in this space");
       }
-    }
 
-    const now = new Date();
-    const newPage: Parameters<typeof createPageWithAccessDefaults>[0] = {
-      id: crypto.randomUUID(),
-      title: data.title,
-      spaceId: targetSpaceId,
-      parentId: data.parentId || null,
-      authorId: user.id,
-      createdAt: now,
-      updatedAt: now,
-    };
+      // Verify parent page exists and belongs to the same space
+      if (data.parentId) {
+        const parentPage = await getPageById(data.parentId);
+        if (!parentPage) {
+          return jsonError(c, 404, "WIKI_PARENT_NOT_FOUND", "Parent page not found");
+        }
+        if (parentPage.spaceId !== targetSpaceId) {
+          return jsonError(
+            c,
+            400,
+            "WIKI_PARENT_SPACE_MISMATCH",
+            "Parent page must belong to the same space"
+          );
+        }
+      }
 
-    const createdPage = await createPageWithAccessDefaults(newPage);
-    if (!createdPage) {
-      return jsonError(c, 500, "WIKI_PAGE_CREATE_FAILED", "Failed to create page");
-    }
-    return c.json({ page: createdPage }, 201);
-  }, "WIKI_PAGE_CREATE_FAILED", "Failed to create page")(c);
+      const now = new Date();
+      const newPage: Parameters<typeof createPageWithAccessDefaults>[0] = {
+        id: crypto.randomUUID(),
+        title: data.title,
+        spaceId: targetSpaceId,
+        parentId: data.parentId || null,
+        authorId: user.id,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const createdPage = await createPageWithAccessDefaults(newPage);
+      if (!createdPage) {
+        return jsonError(c, 500, "WIKI_PAGE_CREATE_FAILED", "Failed to create page");
+      }
+      return c.json({ page: createdPage }, 201);
+    },
+    "WIKI_PAGE_CREATE_FAILED",
+    "Failed to create page"
+  )(c);
 });
 
-wikiPageRoutes.put("/:id", zValidator("json", updatePageSchema), withErrorHandler(async (c) => {
-  const { id } = c.req.param();
-  const data = c.req.valid("json");
+wikiPageRoutes.put(
+  "/:id",
+  zValidator("json", updatePageSchema),
+  withErrorHandler(
+    async (c) => {
+      const { id } = c.req.param();
+      const data = c.req.valid("json");
 
-  const page = await getPageById(id);
-  if (!page) {
-    return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
-  }
+      const page = await getPageById(id);
+      if (!page) {
+        return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
+      }
 
-  const authz = await authorizePageResource(c, id, page.authorId, "write");
-  if (!authz.allowed) {
-    return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
-  }
+      const authz = await authorizePageResource(c, id, page.authorId, "write");
+      if (!authz.allowed) {
+        return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
+      }
 
-  if (data.parentId !== undefined && data.parentId !== null) {
-    const parentPage = await getPageById(data.parentId);
-    if (!parentPage) {
-      return jsonError(c, 404, "WIKI_PARENT_NOT_FOUND", "Parent page not found");
-    }
-    if (parentPage.spaceId !== page.spaceId) {
-      return jsonError(c, 400, "WIKI_PARENT_SPACE_MISMATCH", "Parent page must belong to the same space");
-    }
-    const hasCycle = await detectPageCycle(id, data.parentId);
-    if (hasCycle) {
-      return jsonError(c, 409, "WIKI_PAGE_PARENT_CYCLE", "Circular parent reference detected");
-    }
-  }
+      if (data.parentId !== undefined && data.parentId !== null) {
+        const parentPage = await getPageById(data.parentId);
+        if (!parentPage) {
+          return jsonError(c, 404, "WIKI_PARENT_NOT_FOUND", "Parent page not found");
+        }
+        if (parentPage.spaceId !== page.spaceId) {
+          return jsonError(
+            c,
+            400,
+            "WIKI_PARENT_SPACE_MISMATCH",
+            "Parent page must belong to the same space"
+          );
+        }
+        const hasCycle = await detectPageCycle(id, data.parentId);
+        if (hasCycle) {
+          return jsonError(c, 409, "WIKI_PAGE_PARENT_CYCLE", "Circular parent reference detected");
+        }
+      }
 
-  const updatePayload: { title?: string; parentId?: string | null; updatedAt: Date } = {
-    updatedAt: new Date(),
-  };
+      const updatePayload: { title?: string; parentId?: string | null; updatedAt: Date } = {
+        updatedAt: new Date(),
+      };
 
-  if (data.title !== undefined) updatePayload.title = data.title;
-  if (data.parentId !== undefined) updatePayload.parentId = data.parentId;
+      if (data.title !== undefined) updatePayload.title = data.title;
+      if (data.parentId !== undefined) updatePayload.parentId = data.parentId;
 
-  const updatedPage = await updatePage(id, updatePayload);
+      const updatedPage = await updatePage(id, updatePayload);
 
-  if (!updatedPage) {
-    return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
-  }
+      if (!updatedPage) {
+        return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
+      }
 
-  void indexPage(id).catch((e) => console.error("indexPage error:", e));
-  return c.json({ page: updatedPage });
-}, "WIKI_PAGE_UPDATE_FAILED", "Failed to update page"));
+      void indexPage(id).catch((e) => console.error("indexPage error:", e));
+      return c.json({ page: updatedPage });
+    },
+    "WIKI_PAGE_UPDATE_FAILED",
+    "Failed to update page"
+  )
+);
 
-wikiPageRoutes.delete("/:id", withErrorHandler(async (c) => {
-  const { id } = c.req.param();
-  const user = c.get("user");
+wikiPageRoutes.delete(
+  "/:id",
+  withErrorHandler(
+    async (c) => {
+      const { id } = c.req.param();
+      const user = c.get("user");
 
-  const page = await getPageById(id);
-  if (!page) {
-    return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
-  }
+      const page = await getPageById(id);
+      if (!page) {
+        return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
+      }
 
-  const authz = await authorizePageResource(c, id, page.authorId, "delete");
-  if (!authz.allowed) {
-    return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
-  }
+      const authz = await authorizePageResource(c, id, page.authorId, "delete");
+      if (!authz.allowed) {
+        return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
+      }
 
-  // Snapshot before soft-deleting (best-effort — don't block delete on snapshot failure)
-  try {
-    await createPageRevision(id, user.id);
-  } catch (snapshotError) {
-    console.warn("[wiki] Snapshot before delete failed, proceeding with soft-delete:", snapshotError);
-  }
-  await softDeletePage(id);
-  void deletePageEmbeddings(id).catch((e) => console.error("deletePageEmbeddings error:", e));
-  return c.json({ success: true });
-}, "WIKI_PAGE_DELETE_FAILED", "Failed to delete page"));
+      // Snapshot before soft-deleting (best-effort — don't block delete on snapshot failure)
+      try {
+        await createPageRevision(id, user.id);
+      } catch (snapshotError) {
+        console.warn(
+          "[wiki] Snapshot before delete failed, proceeding with soft-delete:",
+          snapshotError
+        );
+      }
+      await softDeletePage(id);
+      void deletePageEmbeddings(id).catch((e) => console.error("deletePageEmbeddings error:", e));
+      return c.json({ success: true });
+    },
+    "WIKI_PAGE_DELETE_FAILED",
+    "Failed to delete page"
+  )
+);

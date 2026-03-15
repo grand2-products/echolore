@@ -1,18 +1,18 @@
-import { randomBytes, timingSafeEqual, scrypt as scryptCallback } from "node:crypto";
+import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { and, count, eq, gt, isNull } from "drizzle-orm";
 import { UserRole } from "@corp-internal/shared/contracts";
+import { and, count, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { authIdentities, emailVerificationTokens, users } from "../../db/schema.js";
+import { resolveAllowedDomain } from "../admin/auth-settings-service.js";
 import {
   PASSWORD_PROVIDER,
-  normalizeEmail,
-  hashValue,
-  toSessionUser,
   findUserByEmail,
+  hashValue,
   isRegistrationOpen,
+  normalizeEmail,
+  toSessionUser,
 } from "./auth-utils.js";
-import { resolveAllowedDomain } from "../admin/auth-settings-service.js";
 
 const scrypt = promisify(scryptCallback);
 
@@ -31,7 +31,11 @@ async function verifyPassword(password: string, passwordHash: string) {
   return timingSafeEqual(derivedKey, storedBuffer);
 }
 
-export async function registerPasswordUser(input: { email: string; name: string; password: string }) {
+export async function registerPasswordUser(input: {
+  email: string;
+  name: string;
+  password: string;
+}) {
   const isFirstUser = await isRegistrationOpen();
   if (!isFirstUser) {
     throw new Error("Registration is closed");
@@ -59,7 +63,12 @@ export async function registerPasswordUser(input: { email: string; name: string;
     ? await db
         .select()
         .from(authIdentities)
-        .where(and(eq(authIdentities.userId, existingUser.id), eq(authIdentities.provider, PASSWORD_PROVIDER)))
+        .where(
+          and(
+            eq(authIdentities.userId, existingUser.id),
+            eq(authIdentities.provider, PASSWORD_PROVIDER)
+          )
+        )
     : [];
 
   if (existingUser?.emailVerifiedAt && existingPasswordIdentity) {
@@ -122,7 +131,7 @@ export async function verifyEmailRegistrationToken(token: string) {
 
   return db.transaction(async (tx) => {
     let user = verification.userId
-      ? (await tx.select().from(users).where(eq(users.id, verification.userId)))[0] ?? null
+      ? ((await tx.select().from(users).where(eq(users.id, verification.userId)))[0] ?? null)
       : null;
 
     if (!user) {
@@ -169,7 +178,9 @@ export async function verifyEmailRegistrationToken(token: string) {
     const [passwordIdentity] = await tx
       .select()
       .from(authIdentities)
-      .where(and(eq(authIdentities.userId, user.id), eq(authIdentities.provider, PASSWORD_PROVIDER)));
+      .where(
+        and(eq(authIdentities.userId, user.id), eq(authIdentities.provider, PASSWORD_PROVIDER))
+      );
 
     if (passwordIdentity) {
       await tx

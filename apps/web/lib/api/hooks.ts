@@ -3,8 +3,8 @@ import { authApi } from "./auth";
 import { calendarApi } from "./calendar";
 import { meetingsApi } from "./meetings";
 import { queryKeys } from "./query-keys";
-import type { WikiChatConversation, WikiChatMessage } from "./types";
-import { wikiApi, wikiChatApi } from "./wiki";
+import type { AiChatConversation, AiChatMessage } from "./types";
+import { aiChatApi, wikiApi } from "./wiki";
 
 export function useAuthMeQuery() {
   return useQuery({
@@ -54,27 +54,27 @@ export function useWikiPageQuery(id: string) {
   });
 }
 
-export function useWikiChatConversationsQuery(opts?: { mine?: boolean; query?: string }) {
+export function useAiChatConversationsQuery(opts?: { mine?: boolean; query?: string }) {
   return useQuery({
-    queryKey: [...queryKeys.wikiChatConversations, opts],
-    queryFn: () => wikiChatApi.listConversations(opts),
+    queryKey: [...queryKeys.aiChatConversations, opts],
+    queryFn: () => aiChatApi.listConversations(opts),
   });
 }
 
-export function useWikiChatConversationQuery(id: string) {
+export function useAiChatConversationQuery(id: string) {
   return useQuery({
-    queryKey: queryKeys.wikiChatConversation(id),
-    queryFn: () => wikiChatApi.getConversation(id),
+    queryKey: queryKeys.aiChatConversation(id),
+    queryFn: () => aiChatApi.getConversation(id),
     enabled: Boolean(id),
   });
 }
 
-export function useCreateWikiChatConversationMutation() {
+export function useCreateAiChatConversationMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: wikiChatApi.createConversation,
+    mutationFn: aiChatApi.createConversation,
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.wikiChatConversations });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.aiChatConversations });
     },
   });
 }
@@ -95,20 +95,20 @@ export function useCalendarEventsQuery(days?: number, enabled = true) {
   });
 }
 
-export function useSendWikiChatMessageMutation(conversationId: string) {
+export function useSendAiChatMessageMutation(conversationId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (content: string) => wikiChatApi.sendMessage(conversationId, content),
+    mutationFn: (content: string) => aiChatApi.sendMessage(conversationId, content),
     onMutate: async (content: string) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.wikiChatConversation(conversationId),
+        queryKey: queryKeys.aiChatConversation(conversationId),
       });
       const previous = queryClient.getQueryData<{
-        conversation: WikiChatConversation;
-        messages: WikiChatMessage[];
-      }>(queryKeys.wikiChatConversation(conversationId));
+        conversation: AiChatConversation;
+        messages: AiChatMessage[];
+      }>(queryKeys.aiChatConversation(conversationId));
       if (previous) {
-        const optimisticMessage: WikiChatMessage = {
+        const optimisticMessage: AiChatMessage = {
           id: `optimistic-${crypto.randomUUID()}`,
           conversationId,
           role: "user",
@@ -116,7 +116,7 @@ export function useSendWikiChatMessageMutation(conversationId: string) {
           citations: null,
           createdAt: new Date().toISOString(),
         };
-        queryClient.setQueryData(queryKeys.wikiChatConversation(conversationId), {
+        queryClient.setQueryData(queryKeys.aiChatConversation(conversationId), {
           ...previous,
           messages: [...previous.messages, optimisticMessage],
         });
@@ -125,14 +125,14 @@ export function useSendWikiChatMessageMutation(conversationId: string) {
     },
     onError: (_err, _content, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(queryKeys.wikiChatConversation(conversationId), context.previous);
+        queryClient.setQueryData(queryKeys.aiChatConversation(conversationId), context.previous);
       }
     },
     onSettled: () => {
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.wikiChatConversation(conversationId),
+        queryKey: queryKeys.aiChatConversation(conversationId),
       });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.wikiChatConversations });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.aiChatConversations });
     },
   });
 }

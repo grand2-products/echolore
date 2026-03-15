@@ -12,7 +12,7 @@ import type {
   LivekitTokenResponse,
   SuccessResponse,
   UpdateMeetingRequest,
-} from "@contracts/index";
+} from "@corp-internal/shared/contracts";
 import { buildApiUrl, fetchApi } from "./fetch";
 import type {
   AgentDefinition,

@@ -8,8 +8,7 @@
       "@/lib/*": ["lib/*"],
       "@/hooks/*": ["hooks/*"],
       "@/stores/*": ["stores/*"],
-      "@/types/*": ["types/*"],
-      "@contracts/*": ["../../packages/shared/src/contracts/*"]
+      "@/types/*": ["types/*"]
     },
     "allowJs": true,
     "incremental": true,

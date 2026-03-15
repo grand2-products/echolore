@@ -1,18 +1,13 @@
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { authRefreshTokens } from "../../db/schema.js";
-import {
-  hashValue,
-  toSessionUser,
-  findUserById,
-} from "./auth-utils.js";
-import type {
-  ResolvedAccessTokenSession,
-  AuthSessionRecord,
-} from "./auth-utils.js";
+import { findUserById, hashValue, toSessionUser } from "./auth-utils.js";
+import type { AuthSessionRecord, ResolvedAccessTokenSession } from "./auth-utils.js";
 import { parseSignedAccessToken } from "./token-service.js";
 
-export async function resolveAccessTokenSession(input: { accessToken?: string | null }): Promise<ResolvedAccessTokenSession | null> {
+export async function resolveAccessTokenSession(input: {
+  accessToken?: string | null;
+}): Promise<ResolvedAccessTokenSession | null> {
   if (!input.accessToken) return null;
 
   const payload = parseSignedAccessToken(input.accessToken);
@@ -24,7 +19,10 @@ export async function resolveAccessTokenSession(input: { accessToken?: string | 
   return { user: toSessionUser(user), authMode: payload.am };
 }
 
-export async function listAuthSessionsForUser(input: { userId: string; currentRefreshToken?: string | null }) {
+export async function listAuthSessionsForUser(input: {
+  userId: string;
+  currentRefreshToken?: string | null;
+}) {
   const now = new Date();
   const currentHash = input.currentRefreshToken ? hashValue(input.currentRefreshToken) : null;
   const sessions = await db

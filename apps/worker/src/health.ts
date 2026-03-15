@@ -1,4 +1,4 @@
-import { createServer, type Server } from "node:http";
+import { type Server, createServer } from "node:http";
 
 let healthy = true;
 

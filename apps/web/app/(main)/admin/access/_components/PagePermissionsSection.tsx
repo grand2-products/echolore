@@ -1,10 +1,11 @@
 "use client";
 
-import { type AdminGroup, type Page, wikiApi } from "@/lib/api";
+import { type AdminGroup, wikiApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useT } from "@/lib/i18n";
 import { useEffect, useState } from "react";
+import { useAdminAccess } from "./AdminAccessContext";
 
 type PermissionDraftRow = {
   groupId: string;
@@ -14,14 +15,8 @@ type PermissionDraftRow = {
   canDelete: boolean;
 };
 
-type Props = {
-  groups: AdminGroup[];
-  pages: Page[];
-  setError: (error: string | null) => void;
-  setNotice: (notice: string | null) => void;
-};
-
-export function PagePermissionsSection({ groups, pages, setError, setNotice }: Props) {
+export function PagePermissionsSection() {
+  const { groups, pages, setError, setNotice } = useAdminAccess();
   const t = useT();
   const getApiErrorMessage = useApiErrorMessage();
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);

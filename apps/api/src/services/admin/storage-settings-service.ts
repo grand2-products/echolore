@@ -1,4 +1,4 @@
-import type { StorageProviderType, StorageProviderConfig } from "../../lib/file-storage.js";
+import type { StorageProviderConfig, StorageProviderType } from "../../lib/file-storage.js";
 import { createSettingsCache } from "./create-settings-cache.js";
 import { getGcpCredentials } from "./gcp-credentials-service.js";
 
@@ -41,7 +41,7 @@ const cache = createSettingsCache<StorageSettings>({
     s3Bucket: map.storageS3Bucket || null,
     s3AccessKey: map.storageS3AccessKey || null,
     s3SecretKey: map.storageS3SecretKey || null,
-    s3ForcePathStyle: map.storageS3ForcePathStyle === "false" ? false : true,
+    s3ForcePathStyle: map.storageS3ForcePathStyle !== "false",
     gcsBucket: map.storageGcsBucket || null,
     gcsUseGcpDefaults: map.storageGcsUseGcpDefaults !== "false",
     gcsProjectId: map.storageGcsProjectId || null,
@@ -55,9 +55,11 @@ const cache = createSettingsCache<StorageSettings>({
     storageS3Bucket: input.s3Bucket ?? undefined,
     storageS3AccessKey: input.s3AccessKey ?? undefined,
     storageS3SecretKey: input.s3SecretKey ?? undefined,
-    storageS3ForcePathStyle: input.s3ForcePathStyle !== undefined ? String(input.s3ForcePathStyle) : undefined,
+    storageS3ForcePathStyle:
+      input.s3ForcePathStyle !== undefined ? String(input.s3ForcePathStyle) : undefined,
     storageGcsBucket: input.gcsBucket ?? undefined,
-    storageGcsUseGcpDefaults: input.gcsUseGcpDefaults !== undefined ? String(input.gcsUseGcpDefaults) : undefined,
+    storageGcsUseGcpDefaults:
+      input.gcsUseGcpDefaults !== undefined ? String(input.gcsUseGcpDefaults) : undefined,
     storageGcsProjectId: input.gcsProjectId ?? undefined,
     storageGcsKeyJson: input.gcsKeyJson ?? undefined,
   }),
@@ -66,7 +68,9 @@ const cache = createSettingsCache<StorageSettings>({
 export const getStorageSettings = cache.get;
 export const updateStorageSettings = cache.update;
 
-export async function buildStorageConfig(settings: StorageSettings): Promise<StorageProviderConfig> {
+export async function buildStorageConfig(
+  settings: StorageSettings
+): Promise<StorageProviderConfig> {
   let gcsProjectId = settings.gcsProjectId ?? undefined;
   let gcsKeyJson = settings.gcsKeyJson ?? undefined;
 
@@ -75,7 +79,9 @@ export async function buildStorageConfig(settings: StorageSettings): Promise<Sto
       const gcpCreds = await getGcpCredentials();
       gcsProjectId = gcpCreds.gcpProjectId ?? undefined;
       gcsKeyJson = gcpCreds.gcpServiceAccountKeyJson ?? undefined;
-    } catch { /* fall through to ADC */ }
+    } catch {
+      /* fall through to ADC */
+    }
   }
 
   return {

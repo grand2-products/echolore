@@ -5,7 +5,7 @@ import type {
   ListUsersResponse,
   SuccessResponse,
   UpdateUserRequest,
-} from "@contracts/index";
+} from "@corp-internal/shared/contracts";
 import { fetchApi } from "./fetch";
 
 export const usersApi = {

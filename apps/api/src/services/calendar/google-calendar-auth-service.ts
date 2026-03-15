@@ -1,8 +1,8 @@
-import { google } from "googleapis";
 import { eq } from "drizzle-orm";
+import { google } from "googleapis";
 import { db } from "../../db/index.js";
 import { googleCalendarTokens } from "../../db/schema.js";
-import { encrypt, decrypt } from "../../lib/crypto.js";
+import { decrypt, encrypt } from "../../lib/crypto.js";
 import { getAuthSettings } from "../admin/auth-settings-service.js";
 
 const SCOPES = ["https://www.googleapis.com/auth/calendar.events"];
@@ -36,7 +36,9 @@ export async function handleCallback(code: string, userId: string): Promise<void
   }
 
   const now = new Date();
-  const expiresAt = tokens.expiry_date ? new Date(tokens.expiry_date) : new Date(now.getTime() + 3600 * 1000);
+  const expiresAt = tokens.expiry_date
+    ? new Date(tokens.expiry_date)
+    : new Date(now.getTime() + 3600 * 1000);
 
   const existing = await db
     .select()

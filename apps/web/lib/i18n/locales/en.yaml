@@ -2,7 +2,7 @@ common:
   nav:
     home: "Home"
     wiki: "Wiki"
-    wikiChat: "AI Chat"
+    aiChat: "AI Chat"
     meetings: "Meetings"
     coworking: "Coworking"
     search: "Search"
@@ -698,7 +698,7 @@ admin:
     critical: "Critical"
     warning: "Warning"
     normal: "Normal"
-wikiChat:
+aiChat:
   title: "AI Chat"
   description: "Ask questions and get answers from the wiki knowledge base."
   newChat: "+ New Chat"

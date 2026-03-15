@@ -19,9 +19,7 @@ export function createMeetingTranscriptTool(contextMeetingId: string) {
       if (segments.length === 0) {
         return "No transcript segments found for this meeting.";
       }
-      return segments
-        .map((s) => `[${s.speakerLabel}]: ${s.content}`)
-        .join("\n");
+      return segments.map((s) => `[${s.speakerLabel}]: ${s.content}`).join("\n");
     },
   });
 }

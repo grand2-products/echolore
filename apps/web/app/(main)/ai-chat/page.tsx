@@ -1,9 +1,10 @@
 "use client";
 
+import { ErrorBanner, LoadingState } from "@/components/ui";
 import {
-  type WikiChatConversation,
-  useCreateWikiChatConversationMutation,
-  useWikiChatConversationsQuery,
+  type AiChatConversation,
+  useAiChatConversationsQuery,
+  useCreateAiChatConversationMutation,
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useT } from "@/lib/i18n";
@@ -12,7 +13,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function WikiChatListPage() {
+export default function AiChatListPage() {
   const t = useT();
   const getApiErrorMessage = useApiErrorMessage();
   const { dateTime } = useFormatters();
@@ -21,14 +22,14 @@ export default function WikiChatListPage() {
   const [tab, setTab] = useState<"all" | "my">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data, isLoading, error } = useWikiChatConversationsQuery({
+  const { data, isLoading, error } = useAiChatConversationsQuery({
     mine: tab === "my",
     query: searchQuery || undefined,
   });
 
-  const createMutation = useCreateWikiChatConversationMutation();
+  const createMutation = useCreateAiChatConversationMutation();
 
-  const conversations: WikiChatConversation[] = data?.conversations ?? [];
+  const conversations: AiChatConversation[] = data?.conversations ?? [];
 
   const handleNewChat = async () => {
     try {
@@ -46,8 +47,8 @@ export default function WikiChatListPage() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{t("wikiChat.title")}</h1>
-            <p className="mt-1 text-gray-600">{t("wikiChat.description")}</p>
+            <h1 className="text-3xl font-bold text-gray-900">{t("aiChat.title")}</h1>
+            <p className="mt-1 text-gray-600">{t("aiChat.description")}</p>
           </div>
           <button
             type="button"
@@ -55,7 +56,7 @@ export default function WikiChatListPage() {
             disabled={createMutation.isPending}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {t("wikiChat.newChat")}
+            {t("aiChat.newChat")}
           </button>
         </div>
 
@@ -65,7 +66,7 @@ export default function WikiChatListPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t("wikiChat.searchPlaceholder")}
+            placeholder={t("aiChat.searchPlaceholder")}
             className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           <div className="flex gap-2">
@@ -76,7 +77,7 @@ export default function WikiChatListPage() {
                 tab === "all" ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"
               }`}
             >
-              {t("wikiChat.allTab")}
+              {t("aiChat.allTab")}
             </button>
             <button
               type="button"
@@ -85,32 +86,24 @@ export default function WikiChatListPage() {
                 tab === "my" ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:bg-gray-100"
               }`}
             >
-              {t("wikiChat.myTab")}
+              {t("aiChat.myTab")}
             </button>
           </div>
         </div>
 
         {/* Conversation list */}
         {isLoading ? (
-          <p className="text-sm text-gray-500">{t("common.status.loading")}</p>
+          <LoadingState />
         ) : error ? (
-          <div className="space-y-3">
-            <p className="text-sm text-red-600">
-              {getApiErrorMessage(error, t("wikiChat.loadError"))}
-            </p>
-            <button
-              type="button"
-              onClick={() =>
-                void queryClient.invalidateQueries({ queryKey: ["wiki-chat", "conversations"] })
-              }
-              className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50"
-            >
-              {t("common.actions.retry")}
-            </button>
-          </div>
+          <ErrorBanner
+            message={getApiErrorMessage(error, t("aiChat.loadError"))}
+            onRetry={() =>
+              void queryClient.invalidateQueries({ queryKey: ["ai-chat", "conversations"] })
+            }
+          />
         ) : conversations.length === 0 ? (
           <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-            <p className="text-gray-500">{t("wikiChat.noConversations")}</p>
+            <p className="text-gray-500">{t("aiChat.noConversations")}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -130,7 +123,7 @@ export default function WikiChatListPage() {
                     ) : null}
                     <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
                       {conv.creatorName ? (
-                        <span>{t("wikiChat.createdBy", { name: conv.creatorName })}</span>
+                        <span>{t("aiChat.createdBy", { name: conv.creatorName })}</span>
                       ) : null}
                       <span>{dateTime(new Date(conv.updatedAt))}</span>
                       {conv.messageCount != null ? <span>{conv.messageCount} messages</span> : null}
@@ -143,7 +136,7 @@ export default function WikiChatListPage() {
                         : "bg-blue-50 text-blue-600"
                     }`}
                   >
-                    {t(`wikiChat.${conv.visibility}`)}
+                    {t(`aiChat.${conv.visibility}`)}
                   </span>
                 </div>
               </Link>

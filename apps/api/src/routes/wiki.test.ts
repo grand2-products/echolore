@@ -1,6 +1,6 @@
+import { UserRole } from "@corp-internal/shared/contracts";
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { UserRole } from "@corp-internal/shared/contracts";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
 import { wikiRoutes } from "./wiki/index.js";
 
@@ -95,6 +95,8 @@ vi.mock("../services/wiki/wiki-service.js", () => ({
 
 vi.mock("../lib/audit.js", () => ({
   writeAuditLog: writeAuditLogMock,
+  auditAction: vi.fn(),
+  extractRequestMeta: vi.fn(() => ({ ipAddress: null, userAgent: null })),
 }));
 
 vi.mock("../services/wiki/space-service.js", () => ({
@@ -217,12 +219,18 @@ describe("wikiRoutes", () => {
       createdAt: new Date("2026-03-11T09:00:00.000Z"),
       updatedAt: new Date("2026-03-11T09:05:00.000Z"),
     });
-    authorizePageResourceMock.mockResolvedValue({ allowed: false, reason: "missing-page-permission" });
+    authorizePageResourceMock.mockResolvedValue({
+      allowed: false,
+      reason: "missing-page-permission",
+    });
 
     const response = await app.request("http://localhost/api/wiki/page_1");
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ code: "WIKI_PAGE_FORBIDDEN", error: "Forbidden" });
+    await expect(response.json()).resolves.toEqual({
+      code: "WIKI_PAGE_FORBIDDEN",
+      error: "Forbidden",
+    });
     expect(getPageBlocksMock).not.toHaveBeenCalled();
   });
 
@@ -363,6 +371,9 @@ describe("wikiRoutes", () => {
     const response = await app.request("http://localhost/api/wiki/page_1/files/file_1/download");
 
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toEqual({ code: "WIKI_FILE_NOT_ATTACHED", error: "File not attached to page" });
+    await expect(response.json()).resolves.toEqual({
+      code: "WIKI_FILE_NOT_ATTACHED",
+      error: "File not attached to page",
+    });
   });
 });

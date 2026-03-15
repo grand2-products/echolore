@@ -1,7 +1,7 @@
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatVertexAI } from "@langchain/google-vertexai";
 import { ChatOpenAI } from "@langchain/openai";
-import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 
 export type TextProvider = "google" | "vertex" | "zhipu";
 
@@ -19,28 +19,21 @@ export interface LlmOverrides {
 export function resolveTextProvider(provider?: string): TextProvider {
   if (provider === "zhipu") return "zhipu";
   if (provider === "vertex") return "vertex";
-  if (provider === "google") return "google";
-  const envProvider = process.env.TEXT_GENERATION_PROVIDER;
-  if (envProvider === "zhipu") return "zhipu";
-  if (envProvider === "vertex") return "vertex";
   return "google";
 }
 
 export function isTextGenerationEnabled(
   provider?: TextProvider,
-  overrides?: LlmOverrides,
+  overrides?: LlmOverrides
 ): boolean {
   const resolved = provider ?? resolveTextProvider();
   switch (resolved) {
     case "google":
-      return Boolean(overrides?.geminiApiKey || process.env.GEMINI_API_KEY);
+      return Boolean(overrides?.geminiApiKey);
     case "vertex":
-      return Boolean(
-        (overrides?.vertexProject || process.env.VERTEX_PROJECT) &&
-        process.env.GOOGLE_APPLICATION_CREDENTIALS,
-      );
+      return Boolean(overrides?.vertexProject);
     case "zhipu":
-      return Boolean(overrides?.zhipuApiKey || process.env.ZHIPU_API_KEY);
+      return Boolean(overrides?.zhipuApiKey);
     default:
       return false;
   }
@@ -60,29 +53,29 @@ export function createChatModel(opts?: {
   switch (provider) {
     case "google":
       return new ChatGoogleGenerativeAI({
-        apiKey: overrides?.geminiApiKey || process.env.GEMINI_API_KEY,
-        model: overrides?.geminiTextModel || process.env.GEMINI_TEXT_MODEL || "gemini-1.5-flash",
+        apiKey: overrides?.geminiApiKey || undefined,
+        model: overrides?.geminiTextModel || "gemini-1.5-flash",
         temperature,
         ...(maxTokens != null ? { maxOutputTokens: maxTokens } : {}),
       });
     case "vertex":
       return new ChatVertexAI({
-        model: overrides?.vertexModel || process.env.VERTEX_MODEL || "gemini-1.5-flash",
+        model: overrides?.vertexModel || "gemini-1.5-flash",
         temperature,
         ...(maxTokens != null ? { maxOutputTokens: maxTokens } : {}),
-        location: overrides?.vertexLocation || process.env.VERTEX_LOCATION || "asia-northeast1",
+        location: overrides?.vertexLocation || "asia-northeast1",
         authOptions: {
-          projectId: overrides?.vertexProject || process.env.VERTEX_PROJECT || undefined,
+          projectId: overrides?.vertexProject || undefined,
         },
       });
     case "zhipu": {
-      const useCodingPlan = overrides?.zhipuUseCodingPlan ?? process.env.ZHIPU_USE_CODING_PLAN === "true";
+      const useCodingPlan = overrides?.zhipuUseCodingPlan ?? false;
       const zhipuBaseURL = useCodingPlan
         ? "https://api.z.ai/api/coding/paas/v4/"
         : "https://api.z.ai/api/paas/v4/";
       return new ChatOpenAI({
-        apiKey: overrides?.zhipuApiKey || process.env.ZHIPU_API_KEY,
-        model: overrides?.zhipuTextModel || process.env.ZHIPU_TEXT_MODEL || "glm-5",
+        apiKey: overrides?.zhipuApiKey || undefined,
+        model: overrides?.zhipuTextModel || "glm-5",
         temperature,
         ...(maxTokens != null ? { maxTokens } : {}),
         configuration: {

@@ -91,35 +91,38 @@ describe("recording-transcription-service", () => {
       expect(invokeMock).toHaveBeenCalledTimes(1);
 
       // Verify the HumanMessage content includes base64 audio
-      const messageArg = invokeMock.mock.calls[0]![0][0];
+      const messageArg = invokeMock.mock.calls[0]?.[0][0];
       const mediaBlock = messageArg.content.find(
-        (block: { type: string }) => block.type === "media",
+        (block: { type: string }) => block.type === "media"
       );
       expect(mediaBlock).toBeDefined();
       expect(mediaBlock.mimeType).toBe("video/mp4");
       expect(mediaBlock.data).toBe(Buffer.from("fake-audio-data").toString("base64"));
 
       expect(createTranscriptMock).toHaveBeenCalledTimes(3);
-      expect(createTranscriptMock).toHaveBeenNthCalledWith(1,
+      expect(createTranscriptMock).toHaveBeenNthCalledWith(
+        1,
         expect.objectContaining({
           meetingId: "meeting_1",
           speakerId: null,
           content: "[Speaker 1] Hello everyone",
-        }),
+        })
       );
-      expect(createTranscriptMock).toHaveBeenNthCalledWith(2,
+      expect(createTranscriptMock).toHaveBeenNthCalledWith(
+        2,
         expect.objectContaining({
           meetingId: "meeting_1",
           speakerId: null,
           content: "[Speaker 2] Good morning",
-        }),
+        })
       );
-      expect(createTranscriptMock).toHaveBeenNthCalledWith(3,
+      expect(createTranscriptMock).toHaveBeenNthCalledWith(
+        3,
         expect.objectContaining({
           meetingId: "meeting_1",
           speakerId: null,
           content: "[Speaker 1] Let us begin",
-        }),
+        })
       );
       expect(result).toEqual({ segmentCount: 3 });
     });
@@ -135,7 +138,7 @@ describe("recording-transcription-service", () => {
       createTranscriptMock.mockResolvedValue(undefined);
 
       vi.spyOn(crypto, "randomUUID").mockReturnValue(
-        "uuid-fallback" as `${string}-${string}-${string}-${string}-${string}`,
+        "uuid-fallback" as `${string}-${string}-${string}-${string}-${string}`
       );
 
       const { transcribeRecording } = await import("./recording-transcription-service.js");
@@ -145,7 +148,7 @@ describe("recording-transcription-service", () => {
       expect(createTranscriptMock).toHaveBeenCalledWith(
         expect.objectContaining({
           content: "[Speaker 1] Just some plain text without timestamps",
-        }),
+        })
       );
       expect(result).toEqual({ segmentCount: 1 });
     });

@@ -8,8 +8,7 @@
     "outDir": "./dist",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@contracts/*": ["../../packages/shared/src/contracts/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src/**/*"],

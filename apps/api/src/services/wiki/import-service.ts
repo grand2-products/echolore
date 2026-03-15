@@ -3,10 +3,10 @@
  * in a single DB transaction.
  */
 import { db } from "../../db/index.js";
-import { blocks, type Block, type Page } from "../../db/schema.js";
+import { type Block, type Page, blocks } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
-import { createPageWithAccessDefaultsTx } from "./wiki-service.js";
 import { parseMarkdown, parseTypst } from "./import-parser.js";
+import { createPageWithAccessDefaultsTx } from "./wiki-service.js";
 
 export const IMPORT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
@@ -45,7 +45,10 @@ function detectFormat(filename: string): ImportFormat {
   return format;
 }
 
-function extractTitle(blockDrafts: { type: string; content: string | null }[], filename: string): string {
+function extractTitle(
+  blockDrafts: { type: string; content: string | null }[],
+  filename: string
+): string {
   const heading = blockDrafts.find((b) => b.type.startsWith("heading"));
   if (heading?.content) {
     const plain = heading.content.replace(/<[^>]*>/g, "").trim();
@@ -68,7 +71,7 @@ export async function importFile(
   filename: string,
   spaceId: string,
   parentId: string | null,
-  user: SessionUser,
+  user: SessionUser
 ): Promise<ImportResult> {
   if (fileBuffer.byteLength > IMPORT_MAX_FILE_SIZE) {
     throw new ImportValidationError("File too large (max 5MB)");
@@ -111,7 +114,12 @@ export async function importFile(
     return {
       page,
       blocks: blockValues.map(({ id, pageId, type, content, properties, sortOrder }) => ({
-        id, pageId, type, content, properties, sortOrder,
+        id,
+        pageId,
+        type,
+        content,
+        properties,
+        sortOrder,
       })),
     };
   });

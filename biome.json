@@ -48,10 +48,14 @@
       "node_modules",
       "dist",
       ".next",
+      ".turbo",
       "coverage",
       "plan",
       "*.md",
-      "terraform"
+      "terraform",
+      "drizzle",
+      "data",
+      "**/*.js"
     ]
   }
 }

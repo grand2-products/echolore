@@ -61,7 +61,12 @@ describe("token-service", () => {
 
     it("returns null for invalid auth mode", () => {
       const body = Buffer.from(
-        JSON.stringify({ sub: "u", ver: 1, am: "invalid", exp: Math.floor(Date.now() / 1000) + 3600 })
+        JSON.stringify({
+          sub: "u",
+          ver: 1,
+          am: "invalid",
+          exp: Math.floor(Date.now() / 1000) + 3600,
+        })
       ).toString("base64url");
 
       const signature = signBody(body);

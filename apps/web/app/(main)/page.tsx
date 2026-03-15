@@ -1,5 +1,6 @@
 "use client";
 
+import { ErrorBanner } from "@/components/ui";
 import { useMeetingsQuery, useWikiPagesQuery } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
 import { useSiteTagline, useSiteTitle } from "@/lib/site-settings-context";
@@ -75,19 +76,14 @@ export default function HomePage() {
             <div className="text-sm text-gray-600">{t("common.status.loading")}</div>
           )}
           {(pagesError || meetingsError) && (
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              <span>{t("home.loadError")}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  void refetchPages();
-                  void refetchMeetings();
-                }}
-                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
-              >
-                {t("common.actions.retry")}
-              </button>
-            </div>
+            <ErrorBanner
+              message={t("home.loadError")}
+              onRetry={() => {
+                void refetchPages();
+                void refetchMeetings();
+              }}
+              className="mb-3"
+            />
           )}
           {!isPagesLoading && !isMeetingsLoading && !pagesError && !meetingsError && (
             <div className="space-y-3">

@@ -1,11 +1,11 @@
-import type { Context, MiddlewareHandler } from "hono";
 import { getToken } from "@auth/core/jwt";
 import { UserRole } from "@corp-internal/shared/contracts";
+import type { Context, MiddlewareHandler } from "hono";
+import { getUserById } from "../repositories/user/user-repository.js";
+import { resolveAllowedDomain } from "../services/admin/auth-settings-service.js";
 import { jsonError } from "./api-error.js";
 import { writeAuditLog } from "./audit.js";
 import { resolveAccessTokenSession } from "./local-auth.js";
-import { resolveAllowedDomain } from "../services/admin/auth-settings-service.js";
-import { getUserById } from "../repositories/user/user-repository.js";
 
 // Cache of user IDs confirmed to exist in DB. Avoids a DB query on every request.
 const verifiedUserIds = new Set<string>();
@@ -36,7 +36,7 @@ export type AppEnv = {
 const getHeader = (c: Context, keys: string[]): string | null => {
   for (const key of keys) {
     const value = c.req.header(key);
-    if (value && value.trim()) return value.trim();
+    if (value?.trim()) return value.trim();
   }
   return null;
 };
@@ -50,7 +50,9 @@ const getBearerToken = (c: Context): string | null => {
   return token.trim();
 };
 
-export async function resolveAuthjsSession(c: Context): Promise<{ user: SessionUser; authMode: SessionAuthMode } | null> {
+export async function resolveAuthjsSession(
+  c: Context
+): Promise<{ user: SessionUser; authMode: SessionAuthMode } | null> {
   try {
     const token = await getToken({
       req: new Request(c.req.url, { headers: c.req.raw.headers }),
@@ -149,22 +151,32 @@ export const authGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
   return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
 };
 
-export const requireRole = (role: UserRole): MiddlewareHandler<AppEnv> => async (c, next) => {
-  const sessionUser = c.get("user");
-  if (!sessionUser) return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
-
-  if (role === UserRole.Admin && sessionUser.role !== UserRole.Admin) {
-    await writeAuditLog({
-      actorUserId: sessionUser.id,
-      actorEmail: sessionUser.email,
-      action: "authz.denied",
-      resourceType: "role",
-      metadata: { requiredRole: role, actualRole: sessionUser.role, path: c.req.path },
-      ipAddress: getClientIp(c),
-      userAgent: c.req.header("user-agent") ?? null,
-    });
-    return jsonError(c, 403, "FORBIDDEN", "Forbidden");
-  }
-
-  await next();
+const ROLE_HIERARCHY: Record<UserRole, number> = {
+  [UserRole.Member]: 0,
+  [UserRole.Admin]: 1,
 };
+
+export const requireRole =
+  (role: UserRole): MiddlewareHandler<AppEnv> =>
+  async (c, next) => {
+    const sessionUser = c.get("user");
+    if (!sessionUser) return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
+
+    const requiredLevel = ROLE_HIERARCHY[role] ?? 0;
+    const actualLevel = ROLE_HIERARCHY[sessionUser.role] ?? 0;
+
+    if (actualLevel < requiredLevel) {
+      await writeAuditLog({
+        actorUserId: sessionUser.id,
+        actorEmail: sessionUser.email,
+        action: "authz.denied",
+        resourceType: "role",
+        metadata: { requiredRole: role, actualRole: sessionUser.role, path: c.req.path },
+        ipAddress: getClientIp(c),
+        userAgent: c.req.header("user-agent") ?? null,
+      });
+      return jsonError(c, 403, "FORBIDDEN", "Forbidden");
+    }
+
+    await next();
+  };

@@ -1,8 +1,8 @@
-import { nanoid } from "nanoid";
 import { eq, sql } from "drizzle-orm";
+import { nanoid } from "nanoid";
+import { embedText, getEmbeddingModel, isEmbeddingEnabled } from "../../ai/embeddings.js";
 import { db } from "../../db/index.js";
 import { pageEmbeddings, pages } from "../../db/schema.js";
-import { embedText, getEmbeddingModel, isEmbeddingEnabled } from "../../ai/embeddings.js";
 import { stripHtml } from "../../lib/html-utils.js";
 import { getPageBlocks, getPageById } from "../../repositories/wiki/wiki-repository.js";
 
@@ -19,9 +19,7 @@ export async function extractPagePlainText(pageId: string): Promise<string | nul
 
   const pageBlocks = await getPageBlocks(pageId);
 
-  const blockTexts = pageBlocks
-    .map((b) => (b.content ? stripHtml(b.content) : ""))
-    .filter(Boolean);
+  const blockTexts = pageBlocks.map((b) => (b.content ? stripHtml(b.content) : "")).filter(Boolean);
 
   const fullText = [page.title, ...blockTexts].join("\n\n");
   return fullText.trim() || null;

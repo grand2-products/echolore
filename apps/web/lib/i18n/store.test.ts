@@ -1,4 +1,18 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { readYaml } = vi.hoisted(() => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const dir = path.resolve(__dirname, "locales");
+  return {
+    readYaml: (name: string) => fs.readFileSync(path.join(dir, name), "utf-8"),
+  };
+});
+vi.mock("./locales/en.yaml", () => ({ default: readYaml("en.yaml") }));
+vi.mock("./locales/ja.yaml", () => ({ default: readYaml("ja.yaml") }));
+vi.mock("./locales/ko.yaml", () => ({ default: readYaml("ko.yaml") }));
+vi.mock("./locales/zh-CN.yaml", () => ({ default: readYaml("zh-CN.yaml") }));
 
 import { defaultLocale } from "./messages";
 import { normalizeLocale, useI18nStore } from "./store";

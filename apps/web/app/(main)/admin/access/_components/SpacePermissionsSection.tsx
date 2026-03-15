@@ -1,10 +1,11 @@
 "use client";
 
-import { type AdminGroup, type Space, adminApi } from "@/lib/api";
+import { type AdminGroup, adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useT } from "@/lib/i18n";
 import { useEffect, useState } from "react";
+import { useAdminAccess } from "./AdminAccessContext";
 
 type SpacePermissionDraftRow = {
   groupId: string;
@@ -14,14 +15,8 @@ type SpacePermissionDraftRow = {
   canDelete: boolean;
 };
 
-type Props = {
-  groups: AdminGroup[];
-  spaces: Space[];
-  setError: (error: string | null) => void;
-  setNotice: (notice: string | null) => void;
-};
-
-export function SpacePermissionsSection({ groups, spaces, setError, setNotice }: Props) {
+export function SpacePermissionsSection() {
+  const { groups, spaces, setError, setNotice } = useAdminAccess();
   const t = useT();
   const getApiErrorMessage = useApiErrorMessage();
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);

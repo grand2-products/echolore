@@ -1,7 +1,7 @@
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import type { DynamicStructuredTool } from "@langchain/core/tools";
 import type { Runnable } from "@langchain/core/runnables";
+import type { DynamicStructuredTool } from "@langchain/core/tools";
+import { createReactAgent } from "@langchain/langgraph/prebuilt";
 
 export interface CreateMeetingAgentInput {
   agentName: string;

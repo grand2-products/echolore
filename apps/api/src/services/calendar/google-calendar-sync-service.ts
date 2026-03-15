@@ -1,8 +1,8 @@
-import { google, type calendar_v3 } from "googleapis";
-import { ONE_HOUR_MS, ONE_DAY_MS } from "../../lib/time.js";
 import { eq } from "drizzle-orm";
+import { type calendar_v3, google } from "googleapis";
 import { db } from "../../db/index.js";
 import { meetings } from "../../db/schema.js";
+import { ONE_DAY_MS, ONE_HOUR_MS } from "../../lib/time.js";
 import { getAuthedClient, isConnected } from "./google-calendar-auth-service.js";
 
 export async function syncMeetingToCalendar(
@@ -12,11 +12,7 @@ export async function syncMeetingToCalendar(
 ): Promise<string | null> {
   if (!(await isConnected(userId))) return null;
 
-  const [meeting] = await db
-    .select()
-    .from(meetings)
-    .where(eq(meetings.id, meetingId))
-    .limit(1);
+  const [meeting] = await db.select().from(meetings).where(eq(meetings.id, meetingId)).limit(1);
   if (!meeting) return null;
 
   const { client, calendarId } = await getAuthedClient(userId);
@@ -54,17 +50,10 @@ export async function syncMeetingToCalendar(
   return eventId || null;
 }
 
-export async function updateCalendarEvent(
-  meetingId: string,
-  userId: string
-): Promise<void> {
+export async function updateCalendarEvent(meetingId: string, userId: string): Promise<void> {
   if (!(await isConnected(userId))) return;
 
-  const [meeting] = await db
-    .select()
-    .from(meetings)
-    .where(eq(meetings.id, meetingId))
-    .limit(1);
+  const [meeting] = await db.select().from(meetings).where(eq(meetings.id, meetingId)).limit(1);
   if (!meeting?.googleCalendarEventId) return;
 
   const { client, calendarId } = await getAuthedClient(userId);
@@ -84,17 +73,10 @@ export async function updateCalendarEvent(
   });
 }
 
-export async function deleteCalendarEvent(
-  meetingId: string,
-  userId: string
-): Promise<void> {
+export async function deleteCalendarEvent(meetingId: string, userId: string): Promise<void> {
   if (!(await isConnected(userId))) return;
 
-  const [meeting] = await db
-    .select()
-    .from(meetings)
-    .where(eq(meetings.id, meetingId))
-    .limit(1);
+  const [meeting] = await db.select().from(meetings).where(eq(meetings.id, meetingId)).limit(1);
   if (!meeting?.googleCalendarEventId) return;
 
   const { client, calendarId } = await getAuthedClient(userId);
@@ -119,10 +101,7 @@ export interface CalendarEventDto {
   htmlLink: string | null;
 }
 
-export async function listUpcomingEvents(
-  userId: string,
-  days = 7
-): Promise<CalendarEventDto[]> {
+export async function listUpcomingEvents(userId: string, days = 7): Promise<CalendarEventDto[]> {
   const { client, calendarId } = await getAuthedClient(userId);
   const calendar = google.calendar({ version: "v3", auth: client });
 
@@ -148,10 +127,7 @@ export async function listUpcomingEvents(
   }));
 }
 
-export async function importEventAsMeeting(
-  userId: string,
-  eventId: string
-) {
+export async function importEventAsMeeting(userId: string, eventId: string) {
   const { client, calendarId } = await getAuthedClient(userId);
   const calendar = google.calendar({ version: "v3", auth: client });
 

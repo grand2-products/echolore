@@ -1,4 +1,8 @@
-import { ALL_GROUP_PERMISSIONS, type GroupPermission, UserRole } from "@corp-internal/shared/contracts";
+import {
+  ALL_GROUP_PERMISSIONS,
+  type GroupPermission,
+  UserRole,
+} from "@corp-internal/shared/contracts";
 import { z } from "zod";
 
 export const groupPermissionSchema = z.enum(
@@ -54,17 +58,18 @@ export const updateSiteSettingsSchema = z.object({
 });
 
 export const replaceSpacePermissionsSchema = z.object({
-  permissions: z.array(
-    z.object({
-      groupId: z.string(),
-      canRead: z.boolean(),
-      canWrite: z.boolean(),
-      canDelete: z.boolean(),
-    })
-  ).refine(
-    (perms) => new Set(perms.map((p) => p.groupId)).size === perms.length,
-    { message: "Duplicate groupId in permissions" }
-  ),
+  permissions: z
+    .array(
+      z.object({
+        groupId: z.string(),
+        canRead: z.boolean(),
+        canWrite: z.boolean(),
+        canDelete: z.boolean(),
+      })
+    )
+    .refine((perms) => new Set(perms.map((p) => p.groupId)).size === perms.length, {
+      message: "Duplicate groupId in permissions",
+    }),
 });
 
 export const updateEmailSettingsSchema = z.object({

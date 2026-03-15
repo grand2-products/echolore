@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UserRole } from "@corp-internal/shared/contracts";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
 import {
   authorizeAdminResource,
@@ -13,6 +13,8 @@ const { writeAuditLogMock } = vi.hoisted(() => ({
 
 vi.mock("../lib/audit.js", () => ({
   writeAuditLog: writeAuditLogMock,
+  auditAction: vi.fn(),
+  extractRequestMeta: vi.fn(() => ({ ipAddress: null, userAgent: null })),
 }));
 
 function createContext(user: SessionUser) {

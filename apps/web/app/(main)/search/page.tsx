@@ -1,7 +1,9 @@
 "use client";
 
+import { ErrorBanner } from "@/components/ui";
 import { type Page, type WikiSearchMeta, wikiApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -32,7 +34,7 @@ export default function SearchPage() {
     return queryString ? `/search?${queryString}` : "/search";
   };
 
-  const runSearch = async (rawQuery: string, semantic: boolean) => {
+  const runSearch = useStableEvent(async (rawQuery: string, semantic: boolean) => {
     const normalizedQuery = rawQuery.trim();
     if (!normalizedQuery) {
       setResults([]);
@@ -54,9 +56,8 @@ export default function SearchPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: runSearch uses component state; re-run on searchParams change only
   useEffect(() => {
     const initialQuery = searchParams.get("q") ?? "";
     const semantic = searchParams.get("semantic") !== "0";
@@ -71,7 +72,7 @@ export default function SearchPage() {
     setResults([]);
     setSearchMeta(null);
     setError(null);
-  }, [searchParams]);
+  }, [searchParams, runSearch]);
 
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
@@ -133,20 +134,11 @@ export default function SearchPage() {
         </form>
 
         {error ? (
-          <div className="mb-6 space-y-3">
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              {error}
-            </div>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => void runSearch(query, semanticSearch)}
-                className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50"
-              >
-                {t("common.actions.retry")}
-              </button>
-            </div>
-          </div>
+          <ErrorBanner
+            message={error}
+            onRetry={() => void runSearch(query, semanticSearch)}
+            className="mb-6"
+          />
         ) : null}
 
         {isLoading ? (

@@ -66,8 +66,8 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
     setFetchNonce((n) => n + 1);
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchNonce is an intentional re-trigger
   useEffect(() => {
+    void fetchNonce; // re-trigger dependency
     void siteSettingsApi
       .get()
       .then((data) => setSettings(applyDefaults(data)))
