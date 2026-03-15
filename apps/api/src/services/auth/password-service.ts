@@ -12,6 +12,7 @@ import {
   findUserByEmail,
   isRegistrationOpen,
 } from "./auth-utils.js";
+import { resolveAllowedDomain } from "../admin/auth-settings-service.js";
 
 const scrypt = promisify(scryptCallback);
 
@@ -37,9 +38,12 @@ export async function registerPasswordUser(input: { email: string; name: string;
   }
 
   const email = normalizeEmail(input.email);
-  const allowedDomain = (process.env.AUTH_ALLOWED_DOMAIN || "").toLowerCase();
-  if (allowedDomain && !email.endsWith(`@${allowedDomain}`)) {
-    throw new Error("Email domain is not allowed");
+  const allowedDomain = await resolveAllowedDomain();
+  if (allowedDomain) {
+    const [, emailDomain = ""] = email.split("@");
+    if (emailDomain !== allowedDomain) {
+      throw new Error("Email domain is not allowed");
+    }
   }
   const name = input.name.trim();
   const now = new Date();

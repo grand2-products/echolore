@@ -10,15 +10,18 @@ import {
   findUserById,
 } from "./auth-utils.js";
 import { buildAccessToken, issueRefreshToken } from "./token-service.js";
+import { getAuthSettings, resolveAllowedDomain } from "../admin/auth-settings-service.js";
 
 const googleClient = new OAuth2Client();
 
-function getGoogleAudiences() {
+async function getGoogleAudiences() {
+  const settings = await getAuthSettings();
+
   const audiences = [
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_IOS_CLIENT_ID,
-    process.env.GOOGLE_ANDROID_CLIENT_ID,
-    ...(process.env.GOOGLE_OAUTH_AUDIENCES?.split(",") ?? []),
+    settings.googleClientId,
+    settings.googleIosClientId,
+    settings.googleAndroidClientId,
+    ...(settings.googleOauthAudiences?.split(",") ?? []),
   ]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value));
@@ -98,7 +101,7 @@ export async function reconcileGoogleIdentity(input: { email: string; name: stri
 async function resolveGoogleUserFromIdToken(idToken: string) {
   const ticket = await googleClient.verifyIdToken({
     idToken,
-    audience: getGoogleAudiences(),
+    audience: await getGoogleAudiences(),
   });
   const payload = ticket.getPayload();
   if (!payload) {
@@ -110,6 +113,14 @@ async function resolveGoogleUserFromIdToken(idToken: string) {
 
   if (!email || payload.email_verified !== true) {
     throw new Error("Verified Google email is required");
+  }
+
+  const allowedDomain = await resolveAllowedDomain();
+  if (allowedDomain) {
+    const [, domain = ""] = email.split("@");
+    if (domain !== allowedDomain) {
+      throw new Error("Email domain is not allowed");
+    }
   }
 
   return reconcileGoogleIdentity({ email, name });

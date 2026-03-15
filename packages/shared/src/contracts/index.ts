@@ -334,6 +334,7 @@ export class GetMeetingResponse {
 export interface CreateMeetingRequest {
   title: string;
   scheduledAt?: string;
+  attendeeEmails?: string[];
 }
 
 export interface UpdateMeetingRequest {

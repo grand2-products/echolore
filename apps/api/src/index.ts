@@ -12,7 +12,7 @@ import { type AppEnv, authGuard, requireRole } from "./lib/auth.js";
 import { securityHeaders, csrfProtection } from "./lib/security-middleware.js";
 import { getAuthConfig } from "./lib/authjs-config.js";
 import { adminRoutes } from "./routes/admin/index.js";
-import { getStorageSettings } from "./services/admin/admin-service.js";
+import { getStorageSettings, buildStorageConfig } from "./services/admin/admin-service.js";
 import { siteRoutes } from "./routes/site.js";
 import { authRoutes } from "./routes/auth.js";
 import { filesRoutes } from "./routes/files.js";
@@ -139,21 +139,8 @@ app.onError((err, c) =>
   try {
     const storageSettings = await getStorageSettings();
     if (storageSettings.provider !== "local" || storageSettings.localPath) {
-      setStorageProvider(
-        createStorageProvider({
-          provider: storageSettings.provider,
-          localPath: storageSettings.localPath ?? undefined,
-          s3Endpoint: storageSettings.s3Endpoint ?? undefined,
-          s3Region: storageSettings.s3Region ?? undefined,
-          s3Bucket: storageSettings.s3Bucket ?? undefined,
-          s3AccessKey: storageSettings.s3AccessKey ?? undefined,
-          s3SecretKey: storageSettings.s3SecretKey ?? undefined,
-          s3ForcePathStyle: storageSettings.s3ForcePathStyle,
-          gcsBucket: storageSettings.gcsBucket ?? undefined,
-          gcsProjectId: storageSettings.gcsProjectId ?? undefined,
-          gcsKeyJson: storageSettings.gcsKeyJson ?? undefined,
-        }),
-      );
+      const config = await buildStorageConfig(storageSettings);
+      setStorageProvider(createStorageProvider(config));
       console.log(`Storage provider initialized: ${storageSettings.provider}`);
     }
   } catch {

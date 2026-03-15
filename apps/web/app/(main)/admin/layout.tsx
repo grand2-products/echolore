@@ -11,6 +11,7 @@ const adminTabs = [
   { key: "access", href: "/admin/access" },
   { key: "agents", href: "/admin/agents" },
   { key: "kpi", href: "/admin/kpi" },
+  { key: "google", href: "/admin/google" },
   { key: "settings", href: "/admin/settings" },
 ] as const;
 

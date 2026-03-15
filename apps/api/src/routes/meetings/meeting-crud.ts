@@ -99,7 +99,9 @@ meetingCrudRoutes.post("/", zValidator("json", createMeetingSchema), async (c) =
 
     // Best-effort calendar sync
     try {
-      await syncMeetingToCalendar(id, user.id);
+      await syncMeetingToCalendar(id, user.id, {
+        attendeeEmails: data.attendeeEmails,
+      });
     } catch {
       // Calendar sync is optional
     }

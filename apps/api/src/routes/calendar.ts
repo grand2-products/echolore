@@ -25,7 +25,7 @@ calendarRoutes.get("/status", withErrorHandler(async (c) => {
 // GET /api/calendar/connect
 calendarRoutes.get("/connect", withErrorHandler(async (c) => {
   const user = c.get("user");
-  const url = getAuthUrl(user.id);
+  const url = await getAuthUrl(user.id);
   return c.redirect(url);
 }, "CALENDAR_CONNECT_FAILED", "Failed to start calendar connection"));
 

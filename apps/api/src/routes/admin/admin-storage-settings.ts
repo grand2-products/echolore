@@ -6,6 +6,7 @@ import { createStorageProvider, setStorageProvider } from "../../lib/file-storag
 import {
   getStorageSettings,
   updateStorageSettings,
+  buildStorageConfig,
 } from "../../services/admin/admin-service.js";
 import { updateStorageSettingsSchema } from "./schemas.js";
 
@@ -28,21 +29,8 @@ adminStorageSettingsRoutes.put("/storage-settings", zValidator("json", updateSto
   const updated = await updateStorageSettings(data);
 
   // Apply the new provider immediately
-  setStorageProvider(
-    createStorageProvider({
-      provider: updated.provider,
-      localPath: updated.localPath ?? undefined,
-      s3Endpoint: updated.s3Endpoint ?? undefined,
-      s3Region: updated.s3Region ?? undefined,
-      s3Bucket: updated.s3Bucket ?? undefined,
-      s3AccessKey: updated.s3AccessKey ?? undefined,
-      s3SecretKey: updated.s3SecretKey ?? undefined,
-      s3ForcePathStyle: updated.s3ForcePathStyle,
-      gcsBucket: updated.gcsBucket ?? undefined,
-      gcsProjectId: updated.gcsProjectId ?? undefined,
-      gcsKeyJson: updated.gcsKeyJson ?? undefined,
-    }),
-  );
+  const config = await buildStorageConfig(updated);
+  setStorageProvider(createStorageProvider(config));
 
   return c.json({
     ...updated,
@@ -54,19 +42,8 @@ adminStorageSettingsRoutes.put("/storage-settings", zValidator("json", updateSto
 adminStorageSettingsRoutes.post("/storage-settings/test", async (c) => {
   try {
     const settings = await getStorageSettings();
-    const testProvider = createStorageProvider({
-      provider: settings.provider,
-      localPath: settings.localPath ?? undefined,
-      s3Endpoint: settings.s3Endpoint ?? undefined,
-      s3Region: settings.s3Region ?? undefined,
-      s3Bucket: settings.s3Bucket ?? undefined,
-      s3AccessKey: settings.s3AccessKey ?? undefined,
-      s3SecretKey: settings.s3SecretKey ?? undefined,
-      s3ForcePathStyle: settings.s3ForcePathStyle,
-      gcsBucket: settings.gcsBucket ?? undefined,
-      gcsProjectId: settings.gcsProjectId ?? undefined,
-      gcsKeyJson: settings.gcsKeyJson ?? undefined,
-    });
+    const config = await buildStorageConfig(settings);
+    const testProvider = createStorageProvider(config);
 
     const testPath = `_test/${crypto.randomUUID()}`;
     const testData = Buffer.from("storage-provider-test");

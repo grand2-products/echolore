@@ -7,17 +7,27 @@ import {
   isRegistrationOpen,
   reconcileGoogleIdentity,
 } from "../services/auth/password-auth-service.js";
+import { getAuthSettings, resolveAllowedDomain } from "../services/admin/auth-settings-service.js";
 import { db } from "../db/index.js";
 import { users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
 
-const ALLOWED_DOMAIN = (
-  process.env.AUTH_ALLOWED_DOMAIN || "grand2-products.com"
-).toLowerCase();
-
 const AUTH_SECRET = process.env.AUTH_SECRET || process.env.AUTH_SESSION_SECRET;
 
-export function getAuthConfig(): AuthConfig {
+async function resolveGoogleCredentials(): Promise<{ clientId: string | undefined; clientSecret: string | undefined }> {
+  try {
+    const settings = await getAuthSettings();
+    return {
+      clientId: settings.googleClientId || undefined,
+      clientSecret: settings.googleClientSecret || undefined,
+    };
+  } catch {
+    return { clientId: undefined, clientSecret: undefined };
+  }
+}
+
+export async function getAuthConfig(): Promise<AuthConfig> {
+  const googleCreds = await resolveGoogleCredentials();
   return {
     secret: AUTH_SECRET,
     basePath: "/api/auth",
@@ -30,8 +40,8 @@ export function getAuthConfig(): AuthConfig {
     },
     providers: [
       Google({
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        clientId: googleCreds.clientId,
+        clientSecret: googleCreds.clientSecret,
       }),
       Credentials({
         name: "password",
@@ -63,7 +73,8 @@ export function getAuthConfig(): AuthConfig {
           const email = user.email;
           if (!email) return false;
           const [, domain = ""] = email.toLowerCase().split("@");
-          if (domain !== ALLOWED_DOMAIN) return false;
+          const allowedDomain = await resolveAllowedDomain();
+          if (allowedDomain && domain !== allowedDomain) return false;
           // Block new Google users when registration is closed
           const [existing] = await db
             .select({ id: users.id })

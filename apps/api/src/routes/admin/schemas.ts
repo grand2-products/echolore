@@ -49,7 +49,7 @@ export const updateSiteSettingsSchema = z.object({
   livekitCoworkingMode: z.enum(["sfu", "mcu"]).optional(),
   livekitCoworkingMcuWidth: z.number().int().min(320).max(1920).optional(),
   livekitCoworkingMcuHeight: z.number().int().min(240).max(1080).optional(),
-  livekitCoworkingMcuFps: z.number().int().min(5).max(30).optional(),
+  livekitCoworkingMcuFps: z.number().int().min(1).max(30).optional(),
   livekitCoworkingFocusIdentity: z.string().max(200).nullable().optional(),
 });
 
@@ -89,6 +89,8 @@ export const updateLlmSettingsSchema = z.object({
   zhipuApiKey: z.string().max(500).nullable().optional(),
   zhipuTextModel: z.string().max(100).nullable().optional(),
   zhipuUseCodingPlan: z.boolean().optional(),
+  embeddingEnabled: z.boolean().optional(),
+  embeddingModel: z.string().max(100).nullable().optional(),
 });
 
 export const updateStorageSettingsSchema = z.object({
@@ -101,6 +103,21 @@ export const updateStorageSettingsSchema = z.object({
   s3SecretKey: z.string().max(500).nullable().optional(),
   s3ForcePathStyle: z.boolean().optional(),
   gcsBucket: z.string().max(200).nullable().optional(),
+  gcsUseGcpDefaults: z.boolean().optional(),
   gcsProjectId: z.string().max(200).nullable().optional(),
   gcsKeyJson: z.string().max(10000).nullable().optional(),
+});
+
+export const updateGcpCredentialsSchema = z.object({
+  gcpProjectId: z.string().max(200).nullable().optional(),
+  gcpServiceAccountKeyJson: z.string().max(10000).nullable().optional(),
+});
+
+export const updateAuthSettingsSchema = z.object({
+  googleClientId: z.string().max(500).nullable().optional(),
+  googleClientSecret: z.string().max(500).nullable().optional(),
+  allowedDomain: z.string().max(200).nullable().optional(),
+  googleIosClientId: z.string().max(500).nullable().optional(),
+  googleAndroidClientId: z.string().max(500).nullable().optional(),
+  googleOauthAudiences: z.string().max(1000).nullable().optional(),
 });

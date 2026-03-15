@@ -15,7 +15,13 @@ export interface LlmSettings {
   zhipuApiKey: string | null;
   zhipuTextModel: string | null;
   zhipuUseCodingPlan: boolean;
+  embeddingEnabled: boolean;
+  embeddingModel: string | null;
 }
+
+const CACHE_TTL_MS = 60_000;
+let cachedLlmSettings: LlmSettings | null = null;
+let cacheExpiresAt = 0;
 
 const LLM_SETTING_KEYS = [
   "llmProvider",
@@ -27,9 +33,16 @@ const LLM_SETTING_KEYS = [
   "llmZhipuApiKey",
   "llmZhipuTextModel",
   "llmZhipuUseCodingPlan",
+  "llmEmbeddingEnabled",
+  "llmEmbeddingModel",
 ] as const;
 
 export async function getLlmSettings(): Promise<LlmSettings> {
+  const now = Date.now();
+  if (cachedLlmSettings && now < cacheExpiresAt) {
+    return cachedLlmSettings;
+  }
+
   const entries = await Promise.all(
     LLM_SETTING_KEYS.map(async (key) => {
       const row = await getSiteSetting(key);
@@ -38,7 +51,7 @@ export async function getLlmSettings(): Promise<LlmSettings> {
   );
   const map = Object.fromEntries(entries) as Record<string, string | null>;
 
-  return {
+  const settings: LlmSettings = {
     provider: (map.llmProvider as LlmProvider) || "google",
     geminiApiKey: map.llmGeminiApiKey || null,
     geminiTextModel: map.llmGeminiTextModel || null,
@@ -48,7 +61,18 @@ export async function getLlmSettings(): Promise<LlmSettings> {
     zhipuApiKey: map.llmZhipuApiKey || null,
     zhipuTextModel: map.llmZhipuTextModel || null,
     zhipuUseCodingPlan: map.llmZhipuUseCodingPlan === "true",
+    embeddingEnabled: map.llmEmbeddingEnabled !== "false",
+    embeddingModel: map.llmEmbeddingModel || null,
   };
+
+  cachedLlmSettings = settings;
+  cacheExpiresAt = now + CACHE_TTL_MS;
+  return settings;
+}
+
+function invalidateLlmSettingsCache() {
+  cachedLlmSettings = null;
+  cacheExpiresAt = 0;
 }
 
 export async function updateLlmSettings(input: Partial<LlmSettings>) {
@@ -62,6 +86,8 @@ export async function updateLlmSettings(input: Partial<LlmSettings>) {
     llmZhipuApiKey: input.zhipuApiKey ?? undefined,
     llmZhipuTextModel: input.zhipuTextModel ?? undefined,
     llmZhipuUseCodingPlan: input.zhipuUseCodingPlan !== undefined ? String(input.zhipuUseCodingPlan) : undefined,
+    llmEmbeddingEnabled: input.embeddingEnabled !== undefined ? String(input.embeddingEnabled) : undefined,
+    llmEmbeddingModel: input.embeddingModel ?? undefined,
   };
 
   for (const [key, value] of Object.entries(keyMap)) {
@@ -70,5 +96,6 @@ export async function updateLlmSettings(input: Partial<LlmSettings>) {
     }
   }
 
+  invalidateLlmSettingsCache();
   return getLlmSettings();
 }

@@ -32,6 +32,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     ports:
       - "${DB_PORT:-5432}:5432"
     networks:
@@ -134,10 +135,7 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?LIVEKIT_API_KEY must be set}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?LIVEKIT_API_SECRET must be set}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
-      AUTH_ALLOWED_DOMAIN: ${AUTH_ALLOWED_DOMAIN:-grand2-products.com}
       AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET must be set}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}

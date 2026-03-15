@@ -321,6 +321,8 @@ export interface LlmSettings {
   zhipuApiKey: string | null;
   zhipuTextModel: string | null;
   zhipuUseCodingPlan: boolean;
+  embeddingEnabled: boolean;
+  embeddingModel: string | null;
 }
 
 export interface UpdateLlmSettingsRequest {
@@ -333,6 +335,36 @@ export interface UpdateLlmSettingsRequest {
   zhipuApiKey?: string | null;
   zhipuTextModel?: string | null;
   zhipuUseCodingPlan?: boolean;
+  embeddingEnabled?: boolean;
+  embeddingModel?: string | null;
+}
+
+export interface GcpCredentials {
+  gcpProjectId: string | null;
+  gcpServiceAccountKeyJson: string | null;
+}
+
+export interface UpdateGcpCredentialsRequest {
+  gcpProjectId?: string | null;
+  gcpServiceAccountKeyJson?: string | null;
+}
+
+export interface AuthSettings {
+  googleClientId: string | null;
+  googleClientSecret: string | null;
+  allowedDomain: string | null;
+  googleIosClientId: string | null;
+  googleAndroidClientId: string | null;
+  googleOauthAudiences: string | null;
+}
+
+export interface UpdateAuthSettingsRequest {
+  googleClientId?: string | null;
+  googleClientSecret?: string | null;
+  allowedDomain?: string | null;
+  googleIosClientId?: string | null;
+  googleAndroidClientId?: string | null;
+  googleOauthAudiences?: string | null;
 }
 
 export type StorageProviderType = "local" | "s3" | "gcs";
@@ -347,6 +379,7 @@ export interface StorageSettings {
   s3SecretKey: string | null;
   s3ForcePathStyle: boolean;
   gcsBucket: string | null;
+  gcsUseGcpDefaults: boolean;
   gcsProjectId: string | null;
   gcsKeyJson: string | null;
 }
@@ -361,6 +394,7 @@ export interface UpdateStorageSettingsRequest {
   s3SecretKey?: string | null;
   s3ForcePathStyle?: boolean;
   gcsBucket?: string | null;
+  gcsUseGcpDefaults?: boolean;
   gcsProjectId?: string | null;
   gcsKeyJson?: string | null;
 }

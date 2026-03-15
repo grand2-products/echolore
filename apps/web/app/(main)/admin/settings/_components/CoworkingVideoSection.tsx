@@ -138,7 +138,7 @@ export function CoworkingVideoSection({
             </div>
             <label className="block text-sm text-gray-700">
               {t("admin.settings.cwMcuFps")}
-              <input type="number" value={cwMcuFps} onChange={(e) => setCwMcuFps(Number(e.target.value))} min={5} max={30} className={INPUT_CLASS} />
+              <input type="number" value={cwMcuFps} onChange={(e) => setCwMcuFps(Number(e.target.value))} min={1} max={30} className={INPUT_CLASS} />
             </label>
             <div className="space-y-1.5">
               <span className="block text-sm font-medium text-gray-700">{t("admin.settings.cwFocusIdentity")}</span>

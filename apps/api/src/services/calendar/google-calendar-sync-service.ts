@@ -6,7 +6,8 @@ import { getAuthedClient, isConnected } from "./google-calendar-auth-service.js"
 
 export async function syncMeetingToCalendar(
   meetingId: string,
-  userId: string
+  userId: string,
+  options?: { attendeeEmails?: string[] }
 ): Promise<string | null> {
   if (!(await isConnected(userId))) return null;
 
@@ -23,16 +24,22 @@ export async function syncMeetingToCalendar(
   const startTime = meeting.scheduledAt || meeting.createdAt;
   const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hour default
 
+  const attendees = options?.attendeeEmails?.length
+    ? options.attendeeEmails.map((email) => ({ email }))
+    : undefined;
+
   const event: calendar_v3.Schema$Event = {
     summary: meeting.title,
     start: { dateTime: startTime.toISOString() },
     end: { dateTime: endTime.toISOString() },
     description: `Meeting room: ${meeting.roomName}`,
+    attendees,
   };
 
   const res = await calendar.events.insert({
     calendarId,
     requestBody: event,
+    sendUpdates: attendees ? "all" : "none",
   });
 
   const eventId = res.data.id;

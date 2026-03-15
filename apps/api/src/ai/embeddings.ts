@@ -1,3 +1,5 @@
+import { getLlmSettings } from "../services/admin/llm-settings-service.js";
+
 export type EmbeddingTaskType =
   | "RETRIEVAL_QUERY"
   | "RETRIEVAL_DOCUMENT"
@@ -11,11 +13,21 @@ interface EmbedTextOptions {
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta";
 
-export function isEmbeddingEnabled() {
-  return Boolean(process.env.GEMINI_API_KEY);
+export async function isEmbeddingEnabled() {
+  try {
+    const settings = await getLlmSettings();
+    if (settings.embeddingEnabled === false) return false;
+    return Boolean(settings.geminiApiKey || process.env.GEMINI_API_KEY);
+  } catch {
+    return Boolean(process.env.GEMINI_API_KEY);
+  }
 }
 
-export function getEmbeddingModel() {
+export async function getEmbeddingModel() {
+  try {
+    const settings = await getLlmSettings();
+    if (settings.embeddingModel) return settings.embeddingModel;
+  } catch { /* fall through */ }
   return process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-002";
 }
 
@@ -46,10 +58,18 @@ export async function embedText(
   text: string,
   options: EmbedTextOptions = {}
 ): Promise<number[] | null> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  let apiKey: string | null = null;
+  let model: string;
+  try {
+    const settings = await getLlmSettings();
+    if (settings.embeddingEnabled === false) return null;
+    apiKey = settings.geminiApiKey || process.env.GEMINI_API_KEY || null;
+    model = settings.embeddingModel || process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-002";
+  } catch {
+    apiKey = process.env.GEMINI_API_KEY || null;
+    model = process.env.GEMINI_EMBEDDING_MODEL || "gemini-embedding-002";
+  }
   if (!apiKey) return null;
-
-  const model = getEmbeddingModel();
   const body = {
     model,
     content: {

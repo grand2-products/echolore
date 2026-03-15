@@ -26,6 +26,7 @@ export function StorageSettingsSection({ onTestModal }: StorageSettingsSectionPr
   const [storageS3SecretKey, setStorageS3SecretKey] = useState("");
   const [storageS3ForcePathStyle, setStorageS3ForcePathStyle] = useState(true);
   const [storageGcsBucket, setStorageGcsBucket] = useState("");
+  const [storageGcsUseGcpDefaults, setStorageGcsUseGcpDefaults] = useState(true);
   const [storageGcsProjectId, setStorageGcsProjectId] = useState("");
   const [storageGcsKeyJson, setStorageGcsKeyJson] = useState("");
   const [storageLoading, setStorageLoading] = useState(true);
@@ -48,6 +49,7 @@ export function StorageSettingsSection({ onTestModal }: StorageSettingsSectionPr
       setStorageS3SecretKey(data.s3SecretKey ?? "");
       setStorageS3ForcePathStyle(data.s3ForcePathStyle);
       setStorageGcsBucket(data.gcsBucket ?? "");
+      setStorageGcsUseGcpDefaults(data.gcsUseGcpDefaults ?? true);
       setStorageGcsProjectId(data.gcsProjectId ?? "");
       setStorageGcsKeyJson(data.gcsKeyJson ?? "");
     } catch (loadError) {
@@ -78,8 +80,11 @@ export function StorageSettingsSection({ onTestModal }: StorageSettingsSectionPr
         payload.s3ForcePathStyle = storageS3ForcePathStyle;
       } else if (storageProvider === "gcs") {
         payload.gcsBucket = storageGcsBucket || null;
-        payload.gcsProjectId = storageGcsProjectId || null;
-        if (storageGcsKeyJson && storageGcsKeyJson !== "••••••••") payload.gcsKeyJson = storageGcsKeyJson;
+        payload.gcsUseGcpDefaults = storageGcsUseGcpDefaults;
+        if (!storageGcsUseGcpDefaults) {
+          payload.gcsProjectId = storageGcsProjectId || null;
+          if (storageGcsKeyJson && storageGcsKeyJson !== "••••••••") payload.gcsKeyJson = storageGcsKeyJson;
+        }
       }
       await adminApi.updateStorageSettings(payload);
       setStorageNotice(t("admin.settings.updated"));
@@ -198,14 +203,25 @@ export function StorageSettingsSection({ onTestModal }: StorageSettingsSectionPr
                 {t("admin.settings.storageGcsBucket")}
                 <input value={storageGcsBucket} onChange={(e) => setStorageGcsBucket(e.target.value)} placeholder="my-bucket" className={INPUT_CLASS} />
               </label>
-              <label className="block text-sm text-gray-700">
-                {t("admin.settings.storageGcsProjectId")}
-                <input value={storageGcsProjectId} onChange={(e) => setStorageGcsProjectId(e.target.value)} placeholder="my-gcp-project" className={INPUT_CLASS} />
+              <label className="flex items-start gap-3 rounded-lg border border-gray-200 p-3 text-sm text-gray-700">
+                <input type="checkbox" checked={storageGcsUseGcpDefaults} onChange={(e) => setStorageGcsUseGcpDefaults(e.target.checked)} className="mt-0.5 rounded border-gray-300" />
+                <div>
+                  <div className="font-medium">{t("admin.settings.storageGcsUseDefaults")}</div>
+                  <div className="mt-0.5 text-xs text-gray-500">{t("admin.settings.storageGcsUseDefaultsHint")}</div>
+                </div>
               </label>
-              <label className="block text-sm text-gray-700">
-                {t("admin.settings.storageGcsKeyJson")}
-                <textarea value={storageGcsKeyJson} onChange={(e) => setStorageGcsKeyJson(e.target.value)} rows={4} placeholder='{"type":"service_account",...}' className={INPUT_CLASS} />
-              </label>
+              {!storageGcsUseGcpDefaults && (
+                <>
+                  <label className="block text-sm text-gray-700">
+                    {t("admin.settings.storageGcsProjectId")}
+                    <input value={storageGcsProjectId} onChange={(e) => setStorageGcsProjectId(e.target.value)} placeholder="my-gcp-project" className={INPUT_CLASS} />
+                  </label>
+                  <label className="block text-sm text-gray-700">
+                    {t("admin.settings.storageGcsKeyJson")}
+                    <textarea value={storageGcsKeyJson} onChange={(e) => setStorageGcsKeyJson(e.target.value)} rows={4} placeholder='{"type":"service_account",...}' className={INPUT_CLASS} />
+                  </label>
+                </>
+              )}
             </>
           )}
 

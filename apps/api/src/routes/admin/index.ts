@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../../lib/auth.js";
 import { adminAgentRoutes } from "./admin-agents.js";
+import { adminAuthSettingsRoutes } from "./admin-auth-settings.js";
+import { adminGcpCredentialsRoutes } from "./admin-gcp-credentials.js";
 import { adminEmailSettingsRoutes } from "./admin-email-settings.js";
 import { adminGroupRoutes } from "./admin-groups.js";
 import { adminLlmSettingsRoutes } from "./admin-llm-settings.js";
@@ -17,6 +19,8 @@ adminRoutes.route("/", adminUserRoutes);
 adminRoutes.route("/", adminAgentRoutes);
 adminRoutes.route("/", adminSpacePermissionRoutes);
 adminRoutes.route("/", adminSiteSettingsRoutes);
+adminRoutes.route("/", adminAuthSettingsRoutes);
+adminRoutes.route("/", adminGcpCredentialsRoutes);
 adminRoutes.route("/", adminEmailSettingsRoutes);
 adminRoutes.route("/", adminLlmSettingsRoutes);
 adminRoutes.route("/", adminStorageSettingsRoutes);

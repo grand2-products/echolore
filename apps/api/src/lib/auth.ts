@@ -4,8 +4,8 @@ import { UserRole } from "@corp-internal/shared/contracts";
 import { jsonError } from "./api-error.js";
 import { writeAuditLog } from "./audit.js";
 import { resolveAccessTokenSession } from "./local-auth.js";
+import { resolveAllowedDomain } from "../services/admin/auth-settings-service.js";
 
-const ALLOWED_DOMAIN = (process.env.AUTH_ALLOWED_DOMAIN || "grand2-products.com").toLowerCase();
 const AUTH_SECRET = process.env.AUTH_SECRET || process.env.AUTH_SESSION_SECRET;
 if (!AUTH_SECRET) {
   throw new Error("AUTH_SECRET (or AUTH_SESSION_SECRET) must be set");
@@ -130,7 +130,7 @@ export const authGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
     actorEmail: null,
     action: "auth.rejected",
     resourceType: "auth",
-    metadata: { reason: "no-valid-session", allowedDomain: ALLOWED_DOMAIN },
+    metadata: { reason: "no-valid-session", allowedDomain: await resolveAllowedDomain() },
     ipAddress: getClientIp(c),
     userAgent: c.req.header("user-agent") ?? null,
   });

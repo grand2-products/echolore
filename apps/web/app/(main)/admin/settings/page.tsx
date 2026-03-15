@@ -8,7 +8,6 @@ import { SiteIconSection } from "./_components/SiteIconSection";
 import { MeetingVideoSection } from "./_components/MeetingVideoSection";
 import { CoworkingVideoSection } from "./_components/CoworkingVideoSection";
 import { EmailSettingsSection } from "./_components/EmailSettingsSection";
-import { LlmSettingsSection } from "./_components/LlmSettingsSection";
 import { StorageSettingsSection } from "./_components/StorageSettingsSection";
 import { TestConnectionModal, type TestModalState } from "./_components/TestConnectionModal";
 
@@ -49,7 +48,6 @@ export default function AdminSettingsPage() {
         <>
           <SiteIconSection initialHasSiteIcon={siteData.hasSiteIcon} />
           <EmailSettingsSection />
-          <LlmSettingsSection onTestModal={setTestModal} />
           <MeetingVideoSection
             refetchSiteSettings={refetchSiteSettings}
             initialSimulcast={siteData.mtgSimulcast}
@@ -71,7 +69,7 @@ export default function AdminSettingsPage() {
         </>
       ) : (
         <div className="space-y-6">
-          {[...Array(6)].map((_, i) => (
+          {[...Array(5)].map((_, i) => (
             <div key={i} className="rounded-xl border border-gray-200 bg-white p-6">
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center text-gray-500">
                 {t("admin.settings.loading")}

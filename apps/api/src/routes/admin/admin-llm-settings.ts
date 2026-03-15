@@ -18,6 +18,8 @@ adminLlmSettingsRoutes.get("/llm-settings", withErrorHandler(async (c) => {
     ...settings,
     geminiApiKey: settings.geminiApiKey ? "••••••••" : null,
     zhipuApiKey: settings.zhipuApiKey ? "••••••••" : null,
+    embeddingEnabled: settings.embeddingEnabled,
+    embeddingModel: settings.embeddingModel,
   });
 }, "ADMIN_LLM_SETTINGS_FETCH_FAILED", "Failed to fetch LLM settings"));
 

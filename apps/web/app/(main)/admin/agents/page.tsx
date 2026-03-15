@@ -5,6 +5,8 @@ import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useT } from "@/lib/i18n";
 import { useStableEvent } from "@/lib/use-stable-event";
 import { useEffect, useState } from "react";
+import { LlmSettingsSection } from "../settings/_components/LlmSettingsSection";
+import { TestConnectionModal, type TestModalState } from "../settings/_components/TestConnectionModal";
 
 const emptyForm: CreateAgentRequest = {
   name: "",
@@ -29,6 +31,7 @@ export default function AdminAgentsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [testModal, setTestModal] = useState<TestModalState | null>(null);
 
   const loadAgents = useStableEvent(async () => {
     setIsLoading(true);
@@ -69,6 +72,9 @@ export default function AdminAgentsPage() {
   };
 
   return (
+    <div className="space-y-6">
+      <LlmSettingsSection onTestModal={setTestModal} />
+
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <section className="rounded-xl border border-gray-200 bg-white p-6">
 
@@ -304,5 +310,10 @@ export default function AdminAgentsPage() {
           </div>
         </section>
       </div>
+
+      {testModal && (
+        <TestConnectionModal modal={testModal} onClose={() => setTestModal(null)} />
+      )}
+    </div>
   );
 }

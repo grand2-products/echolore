@@ -6,6 +6,8 @@ import type {
   AdminSpacePermissionsResponse,
   AdminUserRecord,
   AgentDefinition,
+  AuthSettings,
+  GcpCredentials,
   CreateAdminGroupRequest,
   CreateAgentRequest,
   EmailSettings,
@@ -15,6 +17,8 @@ import type {
   StorageSettings,
   UpdateAdminGroupRequest,
   UpdateAgentRequest,
+  UpdateAuthSettingsRequest,
+  UpdateGcpCredentialsRequest,
   UpdateEmailSettingsRequest,
   UpdateLlmSettingsRequest,
   UpdateSiteSettingsRequest,
@@ -104,6 +108,22 @@ export const adminApi = {
 
   updateSiteSettings: (data: UpdateSiteSettingsRequest) =>
     fetchApi<Partial<SiteSettings>>("/admin/settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  getGcpCredentials: () => fetchApi<GcpCredentials>("/admin/gcp-credentials"),
+
+  updateGcpCredentials: (data: UpdateGcpCredentialsRequest) =>
+    fetchApi<GcpCredentials>("/admin/gcp-credentials", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  getAuthSettings: () => fetchApi<AuthSettings>("/admin/auth-settings"),
+
+  updateAuthSettings: (data: UpdateAuthSettingsRequest) =>
+    fetchApi<AuthSettings>("/admin/auth-settings", {
       method: "PUT",
       body: JSON.stringify(data),
     }),

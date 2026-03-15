@@ -74,7 +74,7 @@ export function chunkText(
  * Index a page: extract text, chunk, embed, and upsert into page_embeddings.
  */
 export async function indexPage(pageId: string): Promise<void> {
-  if (!isEmbeddingEnabled()) return;
+  if (!(await isEmbeddingEnabled())) return;
 
   const plainText = await extractPagePlainText(pageId);
   if (!plainText) {
@@ -83,7 +83,7 @@ export async function indexPage(pageId: string): Promise<void> {
   }
 
   const chunks = chunkText(plainText);
-  const modelId = getEmbeddingModel();
+  const modelId = await getEmbeddingModel();
   const now = new Date();
 
   // Embed all chunks

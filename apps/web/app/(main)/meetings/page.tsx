@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useCreateMeetingMutation,
   useMeetingsQuery,
@@ -30,6 +30,10 @@ export default function MeetingsPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importingEventId, setImportingEventId] = useState<string | null>(null);
   const [newScheduledAt, setNewScheduledAt] = useState("");
+  const [useSchedule, setUseSchedule] = useState(false);
+  const [attendeeInput, setAttendeeInput] = useState("");
+  const [attendeeEmails, setAttendeeEmails] = useState<string[]>([]);
+  const [filterCreatorId, setFilterCreatorId] = useState<string>("");
 
   const { data, isLoading: loading, error, refetch } = useMeetingsQuery();
   const createMeetingMutation = useCreateMeetingMutation();
@@ -51,7 +55,7 @@ export default function MeetingsPage() {
     void loadUsers();
   }, []);
 
-  const meetings = useMemo(
+  const allMeetings = useMemo(
     () =>
       (data?.meetings ?? []).map((m) => ({
         ...m,
@@ -60,6 +64,33 @@ export default function MeetingsPage() {
     [data?.meetings, dateTime],
   );
 
+  const creatorOptions = useMemo(() => {
+    const ids = [...new Set(allMeetings.map((m) => m.creatorId))];
+    return ids.map((id) => ({ id, label: creatorLabels[id] ?? id }));
+  }, [allMeetings, creatorLabels]);
+
+  const meetings = useMemo(
+    () => filterCreatorId ? allMeetings.filter((m) => m.creatorId === filterCreatorId) : allMeetings,
+    [allMeetings, filterCreatorId],
+  );
+
+  const resetCreateForm = () => {
+    setNewMeetingTitle("");
+    setNewScheduledAt("");
+    setUseSchedule(false);
+    setAttendeeInput("");
+    setAttendeeEmails([]);
+    setCreateError(null);
+  };
+
+  const addAttendeeEmail = () => {
+    const email = attendeeInput.trim();
+    if (email && email.includes("@") && !attendeeEmails.includes(email)) {
+      setAttendeeEmails((prev) => [...prev, email]);
+      setAttendeeInput("");
+    }
+  };
+
   const handleCreateMeeting = async () => {
     if (!newMeetingTitle.trim()) return;
 
@@ -67,11 +98,11 @@ export default function MeetingsPage() {
       setCreateError(null);
       await createMeetingMutation.mutateAsync({
         title: newMeetingTitle,
-        scheduledAt: newScheduledAt || undefined,
+        scheduledAt: useSchedule && newScheduledAt ? newScheduledAt : undefined,
+        attendeeEmails: attendeeEmails.length > 0 ? attendeeEmails : undefined,
       });
       setShowCreateModal(false);
-      setNewMeetingTitle("");
-      setNewScheduledAt("");
+      resetCreateForm();
       setMessage(t("meetings.list.createSuccess"));
       await refetch();
     } catch (createErrorValue) {
@@ -185,8 +216,17 @@ export default function MeetingsPage() {
         )}
 
         <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
             <h2 className="font-semibold text-gray-900">{t("meetings.list.sectionTitle")}</h2>
+            {creatorOptions.length > 1 && (
+              <CreatorFilter
+                options={creatorOptions}
+                value={filterCreatorId}
+                onChange={setFilterCreatorId}
+                allLabel={t("meetings.list.filterAll")}
+                placeholder={t("meetings.list.filterSearch")}
+              />
+            )}
           </div>
           <div className="divide-y divide-gray-100">
             {meetings.map((meeting) => (
@@ -260,23 +300,96 @@ export default function MeetingsPage() {
                 />
               </div>
               <div className="mb-4">
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t("meetings.create.scheduledAt")}
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={useSchedule}
+                    onChange={(e) => {
+                      setUseSchedule(e.target.checked);
+                      if (e.target.checked) {
+                        const now = new Date();
+                        const ms = 15 * 60 * 1000;
+                        const rounded = new Date(Math.ceil(now.getTime() / ms) * ms);
+                        const local = new Date(rounded.getTime() - rounded.getTimezoneOffset() * 60000);
+                        setNewScheduledAt(local.toISOString().slice(0, 16));
+                      } else {
+                        setNewScheduledAt("");
+                      }
+                    }}
+                    disabled={createMeetingMutation.isPending}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  {t("meetings.create.useSchedule")}
                 </label>
-                <input
-                  type="datetime-local"
-                  value={newScheduledAt}
-                  onChange={(e) => setNewScheduledAt(e.target.value)}
-                  disabled={createMeetingMutation.isPending}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
+                {useSchedule && (
+                  <input
+                    type="datetime-local"
+                    value={newScheduledAt}
+                    onChange={(e) => setNewScheduledAt(e.target.value)}
+                    disabled={createMeetingMutation.isPending}
+                    className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                )}
               </div>
+              {isCalendarConnected && (
+                <div className="mb-4">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    {t("meetings.create.attendees")}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={attendeeInput}
+                      onChange={(e) => setAttendeeInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addAttendeeEmail();
+                        }
+                      }}
+                      placeholder={t("meetings.create.attendeePlaceholder")}
+                      disabled={createMeetingMutation.isPending}
+                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={addAttendeeEmail}
+                      disabled={createMeetingMutation.isPending || !attendeeInput.trim()}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      {t("meetings.create.addAttendee")}
+                    </button>
+                  </div>
+                  {attendeeEmails.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {attendeeEmails.map((email) => (
+                        <span
+                          key={email}
+                          className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
+                        >
+                          {email}
+                          <button
+                            type="button"
+                            onClick={() => setAttendeeEmails((prev) => prev.filter((e) => e !== email))}
+                            className="ml-0.5 text-blue-600 hover:text-blue-900"
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500">
+                    {t("meetings.create.attendeeHint")}
+                  </p>
+                </div>
+              )}
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     setShowCreateModal(false);
-                    setCreateError(null);
+                    resetCreateForm();
                   }}
                   disabled={createMeetingMutation.isPending}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50"
@@ -305,6 +418,100 @@ export default function MeetingsPage() {
           onImport={handleImportEvent}
           importingEventId={importingEventId}
         />
+      )}
+    </div>
+  );
+}
+
+function CreatorFilter({
+  options,
+  value,
+  onChange,
+  allLabel,
+  placeholder,
+}: {
+  options: { id: string; label: string }[];
+  value: string;
+  onChange: (id: string) => void;
+  allLabel: string;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("keydown", keyHandler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", keyHandler);
+    };
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!query) return options;
+    const q = query.toLowerCase();
+    return options.filter((o) => o.label.toLowerCase().includes(q));
+  }, [options, query]);
+
+  const selectedLabel = value ? (options.find((o) => o.id === value)?.label ?? value) : allLabel;
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => { setOpen(!open); setQuery(""); }}
+        className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      >
+        <span className="max-w-[150px] truncate">{selectedLabel}</span>
+        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 z-10 mt-1 w-56 rounded-lg border border-gray-200 bg-white shadow-lg">
+          <div className="border-b border-gray-100 p-2">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={placeholder}
+              autoFocus
+              className="w-full rounded border border-gray-200 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto py-1">
+            <button
+              type="button"
+              onClick={() => { onChange(""); setOpen(false); }}
+              className={`w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 ${!value ? "font-medium text-blue-600" : "text-gray-700"}`}
+            >
+              {allLabel}
+            </button>
+            {filtered.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => { onChange(opt.id); setOpen(false); }}
+                className={`w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100 ${value === opt.id ? "font-medium text-blue-600" : "text-gray-700"}`}
+              >
+                {opt.label}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <p className="px-3 py-2 text-sm text-gray-400">{placeholder}</p>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -44,18 +44,14 @@ async function runMonitorMode() {
         apiKey: config.livekitApiKey,
         apiSecret: config.livekitApiSecret,
       });
-      const activeMeetings = await listMeetingsByStatus({
-        apiBaseUrl: config.apiBaseUrl,
-        workerSecret: config.roomAiWorkerSecret,
-        status: "active",
-      });
-      const scheduledMeetings = await listMeetingsByStatus({
+      // Monitor only needs scheduled meetings — activation of already-active
+      // meetings is idempotent but wastes an API call. Ending is handled by
+      // the room_finished webhook after LiveKit's emptyTimeout (300s).
+      const openMeetings = await listMeetingsByStatus({
         apiBaseUrl: config.apiBaseUrl,
         workerSecret: config.roomAiWorkerSecret,
         status: "scheduled",
       });
-      const openMeetings = [...activeMeetings, ...scheduledMeetings];
-      const roomMap = new Map(rooms.map((room) => [room.roomName, room]));
 
       for (const room of rooms) {
         if (room.participantCount === 0) {
@@ -72,19 +68,6 @@ async function runMonitorMode() {
           workerSecret: config.roomAiWorkerSecret,
           meetingId: openMeeting.id,
           status: "active",
-        });
-      }
-
-      for (const meeting of activeMeetings) {
-        if (roomMap.has(meeting.roomName)) {
-          continue;
-        }
-
-        await syncMeetingStatus({
-          apiBaseUrl: config.apiBaseUrl,
-          workerSecret: config.roomAiWorkerSecret,
-          meetingId: meeting.id,
-          status: "ended",
         });
       }
 

@@ -6,3 +6,5 @@ export * from "./email-settings-service.js";
 export * from "./llm-settings-service.js";
 export * from "./storage-settings-service.js";
 export * from "./user-service.js";
+export * from "./auth-settings-service.js";
+export * from "./gcp-credentials-service.js";

@@ -1,11 +1,12 @@
 "use client";
 
-import { useAuthContext } from "@/lib/auth-context";
 import { useCoworkingLivekitSettings } from "@/lib/site-settings-context";
+import { useCoworkingRoom } from "@/lib/coworking-room-context";
+import { useAuthContext } from "@/lib/auth-context";
 import {
   ConnectionState,
-  LiveKitRoom,
   RoomAudioRenderer,
+  RoomContext,
   VideoTrack,
   useTracks,
   useParticipants,
@@ -13,11 +14,22 @@ import {
 import { Track, type TrackPublication } from "livekit-client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useT } from "@/lib/i18n";
-import { COWORKING_ROOM_NAME, fetchLiveKitToken, getLiveKitUrl } from "@/lib/livekit";
 import { apiFetch } from "@/lib/api";
 import type { TrackReferenceOrPlaceholder } from "@livekit/components-core";
+import {
+  type BackgroundEffect,
+  PRESET_BACKGROUNDS,
+  addCustomBackground,
+  effectEquals,
+  getCustomBackgrounds,
+  getStoredBackgroundEffect,
+  removeCustomBackground,
+  storeBackgroundEffect,
+} from "@/lib/background-processor";
 import BackgroundEffectButton from "@/components/livekit/BackgroundEffectButton";
 import MediaToggle from "@/components/livekit/MediaToggle";
+
+const CATEGORIES = ["office", "interior", "nature", "creative", "tech", "seasonal"] as const;
 
 function ParticipantCard({ trackRef }: { trackRef: TrackReferenceOrPlaceholder }) {
   const t = useT();
@@ -383,36 +395,426 @@ function CoworkingMcuBody() {
   );
 }
 
-export default function CoworkingPage() {
+// Stores background effect selection to localStorage for use after joining.
+// The effect is not applied to the preview stream — BackgroundEffectButton in the
+// room view auto-applies the stored effect when a video track becomes available.
+function PreviewBackgroundPicker() {
+  const t = useT();
+  const [effect, setEffect] = useState<BackgroundEffect>(getStoredBackgroundEffect());
+  const [open, setOpen] = useState(false);
+  const [customBgs, setCustomBgs] = useState<string[]>([]);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setCustomBgs(getCustomBackgrounds());
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const handleSelect = (next: BackgroundEffect) => {
+    setEffect(next);
+    storeBackgroundEffect(next);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      addCustomBackground(dataUrl);
+      setCustomBgs(getCustomBackgrounds());
+      handleSelect({ type: "image", url: dataUrl });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleRemoveCustom = (url: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    removeCustomBackground(url);
+    setCustomBgs(getCustomBackgrounds());
+    if (typeof effect === "object" && effect.url === url) {
+      handleSelect("none");
+    }
+  };
+
+  const isActive = effect !== "none";
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`flex h-12 w-12 items-center justify-center rounded-full transition ${
+          isActive
+            ? "bg-blue-600 text-white hover:bg-blue-500"
+            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+        }`}
+        title={t("background.label")}
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-xl"
+          style={{ width: "min(420px, 90vw)" }}
+        >
+          {/* Blur options */}
+          <div className="mb-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              {t("background.blurSection")}
+            </p>
+            <div className="flex gap-2">
+              {(["none", "blur-light", "blur"] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => handleSelect(opt)}
+                  className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg border-2 text-xs font-medium transition ${
+                    effectEquals(effect, opt)
+                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      : "border-gray-200 text-gray-500 hover:border-gray-300"
+                  }`}
+                >
+                  {opt === "none" ? t("background.none") : (
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      {opt === "blur-light" ? (
+                        <circle cx="12" cy="12" r="6" strokeDasharray="3 2" />
+                      ) : (
+                        <><circle cx="12" cy="12" r="8" strokeDasharray="2 2" /><circle cx="12" cy="12" r="4" strokeDasharray="2 2" /></>
+                      )}
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom backgrounds */}
+          {customBgs.length > 0 && (
+            <div className="mb-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                {t("background.custom")}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {customBgs.map((url) => (
+                  <div key={url} className="group/custom relative">
+                    <button
+                      type="button"
+                      onClick={() => handleSelect({ type: "image", url })}
+                      className={`h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border-2 transition ${
+                        effectEquals(effect, { type: "image", url })
+                          ? "border-blue-500"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <img src={url} alt="" className="h-full w-full object-cover" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleRemoveCustom(url, e)}
+                      className="absolute -right-1 -top-1 hidden h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] text-white shadow group-hover/custom:flex"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Preset backgrounds */}
+          <div className="mb-3 max-h-52 overflow-y-auto">
+            {CATEGORIES.map((cat) => {
+              const presets = PRESET_BACKGROUNDS.filter((p) => p.category === cat);
+              if (presets.length === 0) return null;
+              return (
+                <div key={cat} className="mb-2">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    {t(`background.cat.${cat}`)}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {presets.map((preset) => {
+                      const eff: BackgroundEffect = { type: "image", url: preset.url };
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => handleSelect(eff)}
+                          title={t(`background.preset.${preset.id}`)}
+                          className={`h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border-2 transition ${
+                            effectEquals(effect, eff)
+                              ? "border-blue-500"
+                              : "border-gray-200 hover:border-gray-300"
+                          }`}
+                        >
+                          <img src={preset.url} alt={t(`background.preset.${preset.id}`)} className="h-full w-full object-cover" loading="lazy" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Upload button */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600 transition hover:border-gray-400 hover:bg-gray-50"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            {t("background.upload")}
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CoworkingPreview({ onJoin }: { onJoin: (opts: { camera: boolean; mic: boolean; deviceId?: string }) => void }) {
+  const t = useT();
   const { user } = useAuthContext();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [cameraOn, setCameraOn] = useState(true);
+  const [micOn, setMicOn] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
+
+  // Enumerate video devices (once on mount)
+  useEffect(() => {
+    navigator.mediaDevices.enumerateDevices().then((devices) => {
+      const cameras = devices.filter((d) => d.kind === "videoinput");
+      setVideoDevices(cameras);
+      const first = cameras[0];
+      if (first) {
+        setSelectedDeviceId((prev) => prev || first.deviceId);
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Start local camera preview
+  useEffect(() => {
+    if (!cameraOn) {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((tr) => tr.stop());
+        streamRef.current = null;
+      }
+      if (videoRef.current) videoRef.current.srcObject = null;
+      return;
+    }
+
+    let cancelled = false;
+    const constraints: MediaStreamConstraints = {
+      video: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true,
+      audio: false,
+    };
+
+    navigator.mediaDevices
+      .getUserMedia(constraints)
+      .then((stream) => {
+        if (cancelled) {
+          stream.getTracks().forEach((tr) => tr.stop());
+          return;
+        }
+        // Stop previous stream
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((tr) => tr.stop());
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        // Re-enumerate to get labels (requires active stream)
+        navigator.mediaDevices.enumerateDevices().then((devices) => {
+          const cameras = devices.filter((d) => d.kind === "videoinput");
+          setVideoDevices(cameras);
+        }).catch(() => {});
+      })
+      .catch(() => {
+        setCameraOn(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((tr) => tr.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [cameraOn, selectedDeviceId]);
+
+  // Clean up stream on unmount
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((tr) => tr.stop());
+    };
+  }, []);
+
+  const name = user?.name ?? t("coworking.guest");
+  const initial = name.charAt(0).toUpperCase();
+
+  const handleJoin = async () => {
+    setJoining(true);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((tr) => tr.stop());
+      streamRef.current = null;
+    }
+    try {
+      await onJoin({ camera: cameraOn, mic: micOn, deviceId: selectedDeviceId || undefined });
+    } catch {
+      setJoining(false);
+    }
+  };
+
+  return (
+    <div className="flex h-full items-center justify-center p-6">
+      <div className="w-full max-w-lg space-y-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900">{t("coworking.title")}</h1>
+          <p className="mt-1 text-sm text-gray-600">{t("coworking.description")}</p>
+        </div>
+
+        {/* Camera preview */}
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-900 shadow-sm">
+          <div className="relative aspect-video">
+            {cameraOn ? (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="h-full w-full object-cover"
+                style={{ transform: "scaleX(-1)" }}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gray-800">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-600 text-3xl font-bold text-white">
+                  {initial}
+                </div>
+              </div>
+            )}
+            <div className="absolute bottom-3 left-3 rounded-md bg-black/50 px-2 py-1 text-xs text-white">
+              {name}
+            </div>
+          </div>
+        </div>
+
+        {/* Device selector */}
+        {videoDevices.length > 1 && (
+          <div>
+            <select
+              value={selectedDeviceId}
+              onChange={(e) => setSelectedDeviceId(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {videoDevices.map((device, idx) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || t("coworking.preview.camera", { index: idx + 1 })}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Controls */}
+        <div className="flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => setMicOn((v) => !v)}
+            className={`flex h-12 w-12 items-center justify-center rounded-full transition ${
+              micOn
+                ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                : "bg-red-100 text-red-600 hover:bg-red-200"
+            }`}
+            title={t("meetings.room.mic")}
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {micOn ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4M12 15a3 3 0 003-3V5a3 3 0 00-6 0v7a3 3 0 003 3z" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+              )}
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCameraOn((v) => !v)}
+            className={`flex h-12 w-12 items-center justify-center rounded-full transition ${
+              cameraOn
+                ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                : "bg-red-100 text-red-600 hover:bg-red-200"
+            }`}
+            title={t("meetings.room.camera")}
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {cameraOn ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
+              )}
+            </svg>
+          </button>
+
+          <PreviewBackgroundPicker />
+        </div>
+
+        {/* Join button */}
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={handleJoin}
+            disabled={joining}
+            className="rounded-xl bg-blue-600 px-8 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
+          >
+            {joining ? t("coworking.joining") : t("coworking.preview.join")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function CoworkingPage() {
   const t = useT();
   const lkSettings = useCoworkingLivekitSettings();
-  const [token, setToken] = useState<string | null>(null);
+  const { room, isConnected, join } = useCoworkingRoom();
   const [error, setError] = useState<string | null>(null);
-  const [retryNonce, setRetryNonce] = useState(0);
 
   const isMcu = lkSettings.mode === "mcu";
 
-  useEffect(() => {
-    const run = async () => {
+  const handleJoin = useCallback(
+    async (opts: { camera: boolean; mic: boolean; deviceId?: string }) => {
       try {
         setError(null);
-        const participantIdentity =
-          user?.id ?? `user-${Math.random().toString(36).slice(2, 10)}`;
-        const fetched = await fetchLiveKitToken({
-          roomName: COWORKING_ROOM_NAME,
-          participantName: user?.name ?? t("coworking.guest"),
-          participantIdentity,
-        });
-        setToken(fetched);
+        await join({ enableCamera: opts.camera, enableMic: opts.mic, videoDeviceId: opts.deviceId });
       } catch (err) {
         setError(err instanceof Error ? err.message : t("coworking.tokenError"));
       }
-    };
-
-    void run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [retryNonce, user?.id, user?.name]);
+    },
+    [join, t],
+  );
 
   if (error) {
     return (
@@ -422,7 +824,7 @@ export default function CoworkingPage() {
         </div>
         <button
           type="button"
-          onClick={() => setRetryNonce((current) => current + 1)}
+          onClick={() => setError(null)}
           className="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
         >
           {t("common.actions.retry")}
@@ -431,37 +833,15 @@ export default function CoworkingPage() {
     );
   }
 
-  if (!token) {
-    return (
-      <div className="flex items-center justify-center p-8 text-gray-500">
-        {t("coworking.joining")}
-      </div>
-    );
+  // Show preview if not yet connected
+  if (!room || !isConnected) {
+    return <CoworkingPreview onJoin={handleJoin} />;
   }
 
+  // room is guaranteed non-null here since isConnected requires a room
   return (
-    <LiveKitRoom
-      token={token}
-      serverUrl={getLiveKitUrl()}
-      connect={true}
-      video={true}
-      audio={false}
-      options={{
-        dynacast: isMcu ? false : lkSettings.dynacast,
-        adaptiveStream: isMcu ? false : (lkSettings.adaptiveStream ? { pixelDensity: "screen" } : false),
-        publishDefaults: isMcu
-          ? {
-              simulcast: false,
-              videoEncoding: { maxBitrate: 150_000, maxFramerate: 10 },
-            }
-          : { simulcast: lkSettings.simulcast },
-        videoCaptureDefaults: isMcu
-          ? { resolution: { width: 320, height: 240, frameRate: 10 } }
-          : undefined,
-      }}
-      className="h-full"
-    >
+    <RoomContext.Provider value={room}>
       {isMcu ? <CoworkingMcuBody /> : <CoworkingBody />}
-    </LiveKitRoom>
+    </RoomContext.Provider>
   );
 }

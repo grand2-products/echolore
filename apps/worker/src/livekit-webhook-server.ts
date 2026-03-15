@@ -52,6 +52,8 @@ export async function startLiveKitWebhookServer(config: LiveKitWebhookServerConf
           });
           const now = new Date().toISOString();
 
+          // Also re-activates ended meetings when participants rejoin
+          // (e.g. after a brief network outage that caused room_finished).
           if (event.event === "room_started" || event.event === "participant_joined") {
             await syncMeetingStatus({
               apiBaseUrl: config.apiBaseUrl,

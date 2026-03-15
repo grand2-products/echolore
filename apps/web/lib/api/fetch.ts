@@ -62,7 +62,23 @@ export async function parseApiError(response: Response) {
       (): ErrorResponse => ({ error: "Unknown error", code: "UNKNOWN_ERROR" })
     );
 
-  return new ApiError(error.error || `HTTP error! status: ${response.status}`, {
+  let message: string;
+  if (typeof error.error === "string") {
+    message = error.error;
+  } else if (error.error && typeof error.error === "object") {
+    // Zod validation errors return { success: false, error: { issues: [...] } }
+    const issues = Array.isArray(error.error.issues) ? error.error.issues : [];
+    message = issues.length > 0
+      ? issues.map((i: { path?: string[]; message?: string }) => {
+          const field = i.path?.join(".") ?? "";
+          return field ? `${field}: ${i.message}` : (i.message ?? "");
+        }).join("; ")
+      : `HTTP error! status: ${response.status}`;
+  } else {
+    message = `HTTP error! status: ${response.status}`;
+  }
+
+  return new ApiError(message, {
     status: response.status,
     code: error.code,
     detail: error.message,

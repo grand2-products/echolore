@@ -1,5 +1,5 @@
 import { relations, sql } from "drizzle-orm";
-import { boolean, customType, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, customType, foreignKey, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 const vector = customType<{ data: number[]; driverData: string }>({
   dataType() {
@@ -419,14 +419,18 @@ export const wikiChatConversations = pgTable("wiki_chat_conversations", {
 // Wiki Chat messages table
 export const wikiChatMessages = pgTable("wiki_chat_messages", {
   id: text("id").primaryKey(),
-  conversationId: text("conversation_id")
-    .references(() => wikiChatConversations.id, { onDelete: "cascade" })
-    .notNull(),
+  conversationId: text("conversation_id").notNull(),
   role: text("role").notNull(), // 'user' | 'assistant'
   content: text("content").notNull(),
   citations: jsonb("citations").$type<Array<{ pageId: string; pageTitle: string; snippet?: string }>>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  foreignKey({
+    name: "wiki_chat_msgs_conversation_id_fk",
+    columns: [table.conversationId],
+    foreignColumns: [wikiChatConversations.id],
+  }).onDelete("cascade"),
+]);
 
 // Yjs document state table (CRDT persistence)
 export const yjsDocuments = pgTable("yjs_documents", {

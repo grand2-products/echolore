@@ -3,6 +3,7 @@ import { z } from "zod";
 export const createMeetingSchema = z.object({
   title: z.string().min(1),
   scheduledAt: z.string().optional(),
+  attendeeEmails: z.array(z.string().email()).max(50).optional(),
 });
 
 export const updateMeetingSchema = z.object({

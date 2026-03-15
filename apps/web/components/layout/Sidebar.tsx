@@ -3,6 +3,7 @@
 import type { SessionUser } from "@/lib/api";
 import { getVisibleNavigationItems } from "@/components/layout/navigation";
 import { useT } from "@/lib/i18n";
+import { useCoworkingRoom } from "@/lib/coworking-room-context";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -15,6 +16,7 @@ export function Sidebar({ children, user }: SidebarProps) {
   const pathname = usePathname();
   const t = useT();
   const visibleNavItems = getVisibleNavigationItems(user);
+  const { isConnected: isCoworkingConnected } = useCoworkingRoom();
 
   return (
     <aside className="relative z-30 hidden w-16 flex-col border-r border-gray-200 bg-white md:flex">
@@ -23,6 +25,7 @@ export function Sidebar({ children, user }: SidebarProps) {
           const isActive =
             pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
           const label = t(`common.nav.${item.label}`);
+          const isCoworkingStreaming = item.label === "coworking" && isCoworkingConnected;
 
           return (
             <Link
@@ -30,12 +33,20 @@ export function Sidebar({ children, user }: SidebarProps) {
               href={item.href}
               title={label}
               className={`group relative flex h-10 w-10 items-center justify-center rounded-lg transition ${
-                isActive
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                isCoworkingStreaming
+                  ? "bg-red-50 text-red-600"
+                  : isActive
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
               }`}
             >
               {item.icon}
+              {isCoworkingStreaming && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                </span>
+              )}
               {/* Tooltip */}
               <span className="pointer-events-none absolute left-full z-50 ml-2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                 {label}

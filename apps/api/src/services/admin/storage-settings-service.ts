@@ -1,8 +1,9 @@
-import type { StorageProviderType } from "../../lib/file-storage.js";
+import type { StorageProviderType, StorageProviderConfig } from "../../lib/file-storage.js";
 import {
   getSiteSetting,
   upsertSiteSetting,
 } from "../../repositories/admin/admin-repository.js";
+import { getGcpCredentials } from "./gcp-credentials-service.js";
 
 export interface StorageSettings {
   provider: StorageProviderType;
@@ -14,6 +15,7 @@ export interface StorageSettings {
   s3SecretKey: string | null;
   s3ForcePathStyle: boolean;
   gcsBucket: string | null;
+  gcsUseGcpDefaults: boolean;
   gcsProjectId: string | null;
   gcsKeyJson: string | null;
 }
@@ -28,6 +30,7 @@ const STORAGE_SETTING_KEYS = [
   "storageS3SecretKey",
   "storageS3ForcePathStyle",
   "storageGcsBucket",
+  "storageGcsUseGcpDefaults",
   "storageGcsProjectId",
   "storageGcsKeyJson",
 ] as const;
@@ -51,8 +54,36 @@ export async function getStorageSettings(): Promise<StorageSettings> {
     s3SecretKey: map.storageS3SecretKey || null,
     s3ForcePathStyle: map.storageS3ForcePathStyle === "false" ? false : true,
     gcsBucket: map.storageGcsBucket || null,
+    gcsUseGcpDefaults: map.storageGcsUseGcpDefaults !== "false",
     gcsProjectId: map.storageGcsProjectId || null,
     gcsKeyJson: map.storageGcsKeyJson || null,
+  };
+}
+
+export async function buildStorageConfig(settings: StorageSettings): Promise<StorageProviderConfig> {
+  let gcsProjectId = settings.gcsProjectId ?? undefined;
+  let gcsKeyJson = settings.gcsKeyJson ?? undefined;
+
+  if (settings.provider === "gcs" && settings.gcsUseGcpDefaults) {
+    try {
+      const gcpCreds = await getGcpCredentials();
+      gcsProjectId = gcpCreds.gcpProjectId ?? undefined;
+      gcsKeyJson = gcpCreds.gcpServiceAccountKeyJson ?? undefined;
+    } catch { /* fall through to ADC */ }
+  }
+
+  return {
+    provider: settings.provider,
+    localPath: settings.localPath ?? undefined,
+    s3Endpoint: settings.s3Endpoint ?? undefined,
+    s3Region: settings.s3Region ?? undefined,
+    s3Bucket: settings.s3Bucket ?? undefined,
+    s3AccessKey: settings.s3AccessKey ?? undefined,
+    s3SecretKey: settings.s3SecretKey ?? undefined,
+    s3ForcePathStyle: settings.s3ForcePathStyle,
+    gcsBucket: settings.gcsBucket ?? undefined,
+    gcsProjectId,
+    gcsKeyJson,
   };
 }
 
@@ -67,6 +98,7 @@ export async function updateStorageSettings(input: Partial<StorageSettings>) {
     storageS3SecretKey: input.s3SecretKey ?? undefined,
     storageS3ForcePathStyle: input.s3ForcePathStyle !== undefined ? String(input.s3ForcePathStyle) : undefined,
     storageGcsBucket: input.gcsBucket ?? undefined,
+    storageGcsUseGcpDefaults: input.gcsUseGcpDefaults !== undefined ? String(input.gcsUseGcpDefaults) : undefined,
     storageGcsProjectId: input.gcsProjectId ?? undefined,
     storageGcsKeyJson: input.gcsKeyJson ?? undefined,
   };

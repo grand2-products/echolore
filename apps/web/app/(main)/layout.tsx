@@ -2,12 +2,14 @@
 
 import { Header, Sidebar } from "@/components/layout";
 import { FloatingChat } from "@/components/wiki-chat/floating-chat";
+import { CoworkingFloatingBar } from "@/components/coworking/floating-bar";
 import { isApiErrorStatus } from "@/lib/api";
 import { useAuthContext } from "@/lib/auth-context";
 import { useAuthActions } from "@/lib/use-auth-actions";
 import { useT } from "@/lib/i18n";
 import { buildCurrentReturnTo, buildLoginUrl } from "@/lib/return-to";
 import { SiteSettingsProvider } from "@/lib/site-settings-context";
+import { CoworkingRoomProvider } from "@/lib/coworking-room-context";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
@@ -79,14 +81,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <SiteSettingsProvider>
-      <div className="flex h-screen flex-col">
-        <Header user={user} authMode={authMode} />
-        <div className="flex flex-1 overflow-hidden">
-          <Sidebar user={user} />
-          <main className="flex-1 overflow-auto bg-gray-50">{children}</main>
+      <CoworkingRoomProvider>
+        <div className="flex h-screen flex-col">
+          <Header user={user} authMode={authMode} />
+          <div className="flex flex-1 overflow-hidden">
+            <Sidebar user={user} />
+            <main className="flex-1 overflow-auto bg-gray-50">{children}</main>
+          </div>
+          <FloatingChat />
+          <CoworkingFloatingBar />
         </div>
-        <FloatingChat />
-      </div>
+      </CoworkingRoomProvider>
     </SiteSettingsProvider>
   );
 }

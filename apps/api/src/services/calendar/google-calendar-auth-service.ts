@@ -3,19 +3,21 @@ import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { googleCalendarTokens } from "../../db/schema.js";
 import { encrypt, decrypt } from "../../lib/crypto.js";
+import { getAuthSettings } from "../admin/auth-settings-service.js";
 
 const SCOPES = ["https://www.googleapis.com/auth/calendar.events"];
 
-function getOAuth2Client() {
+async function getOAuth2Client() {
+  const settings = await getAuthSettings();
   return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
+    settings.googleClientId || undefined,
+    settings.googleClientSecret || undefined,
     `${process.env.APP_BASE_URL || "http://localhost:3001"}/api/calendar/callback`
   );
 }
 
-export function getAuthUrl(userId: string): string {
-  const client = getOAuth2Client();
+export async function getAuthUrl(userId: string): Promise<string> {
+  const client = await getOAuth2Client();
   return client.generateAuthUrl({
     access_type: "offline",
     scope: SCOPES,
@@ -26,7 +28,7 @@ export function getAuthUrl(userId: string): string {
 }
 
 export async function handleCallback(code: string, userId: string): Promise<void> {
-  const client = getOAuth2Client();
+  const client = await getOAuth2Client();
   const { tokens } = await client.getToken(code);
 
   if (!tokens.access_token || !tokens.refresh_token) {
@@ -77,7 +79,7 @@ export async function getAuthedClient(userId: string) {
     throw new Error("Google Calendar not connected");
   }
 
-  const client = getOAuth2Client();
+  const client = await getOAuth2Client();
   client.setCredentials({
     access_token: decrypt(row.accessTokenEnc),
     refresh_token: decrypt(row.refreshTokenEnc),
@@ -114,7 +116,7 @@ export async function disconnect(userId: string): Promise<void> {
 
   if (row) {
     try {
-      const client = getOAuth2Client();
+      const client = await getOAuth2Client();
       await client.revokeToken(decrypt(row.accessTokenEnc));
     } catch {
       // Best-effort revoke

@@ -65,7 +65,7 @@ export async function searchVisibleChunks(
   queryText: string,
   limit: number = 5
 ): Promise<VectorSearchResult[]> {
-  if (!isEmbeddingEnabled()) {
+  if (!(await isEmbeddingEnabled())) {
     return fallbackIlikeSearch(queryText, limit);
   }
 

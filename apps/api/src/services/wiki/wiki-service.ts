@@ -77,7 +77,7 @@ export async function searchVisiblePages(
   const matchedPages = await searchPagesLexically(query);
   const visiblePages = await filterReadablePages(user, matchedPages);
 
-  if (!semantic || !isEmbeddingEnabled() || visiblePages.length === 0) {
+  if (!semantic || !(await isEmbeddingEnabled()) || visiblePages.length === 0) {
     return {
       pages: visiblePages,
       searchMeta: { mode: "lexical", semanticApplied: false },
@@ -126,7 +126,7 @@ export async function searchVisiblePages(
       searchMeta: {
         mode: "hybrid",
         semanticApplied: true,
-        model: getEmbeddingModel(),
+        model: await getEmbeddingModel(),
       },
     };
   } catch (error) {
