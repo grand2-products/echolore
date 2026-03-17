@@ -61,7 +61,8 @@ resource "google_service_account_key" "echolore" {
 locals {
   base_roles   = ["roles/storage.objectAdmin"]
   vertex_roles = var.enable_vertex_ai ? ["roles/aiplatform.user"] : []
-  all_roles    = concat(local.base_roles, local.vertex_roles)
+  speech_roles = var.enable_speech ? ["roles/speech.client"] : []
+  all_roles    = concat(local.base_roles, local.vertex_roles, local.speech_roles)
 }
 
 resource "google_project_iam_member" "echolore" {
