@@ -63,15 +63,14 @@ export class MotionClipLayer implements AnimationLayer {
   private requestCounter = 0;
 
   // References needed for on-demand VRMA loading
-  // biome-ignore lint: complex THREE types
+
   private vrm: Record<string, unknown> | null = null;
-  // biome-ignore lint: complex THREE types
+
   private loaderInstance: {
     loadAsync: (url: string) => Promise<{ userData: Record<string, unknown> }>;
   } | null = null;
   private createClipFn: VrmAnimationConverter | null = null;
 
-  // biome-ignore lint: complex THREE types
   async initialize(
     vrm: Record<string, unknown>,
     THREE: Record<string, unknown>,

@@ -23,7 +23,6 @@ export class AnimationCompositor {
   private layers: AnimationLayer[] = [];
   private currentExpressions = new Map<string, number>();
   private currentBoneRotations = new Map<string, { x: number; y: number; z: number }>();
-  // biome-ignore lint: THREE types are complex due to dynamic import
   private three: Record<string, unknown> | null = null;
 
   addLayer(layer: AnimationLayer): void {
@@ -35,7 +34,6 @@ export class AnimationCompositor {
     if (idx >= 0) this.layers.splice(idx, 1);
   }
 
-  // biome-ignore lint: THREE module type
   setThree(three: Record<string, unknown>): void {
     this.three = three;
   }

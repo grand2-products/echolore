@@ -50,8 +50,8 @@ describe("AnimationCompositor", () => {
 
     const aaCall = calls.find(([name]) => name === "aa");
     expect(aaCall).toBeDefined();
-    expect(aaCall![1]).toBeLessThanOrEqual(1);
-    expect(aaCall![1]).toBeGreaterThan(0.9);
+    expect(aaCall?.[1]).toBeLessThanOrEqual(1);
+    expect(aaCall?.[1]).toBeGreaterThan(0.9);
   });
 
   it("uses max-merge for face expressions", () => {
@@ -79,7 +79,7 @@ describe("AnimationCompositor", () => {
     const happyCall = calls.find(([name]) => name === "happy");
     expect(happyCall).toBeDefined();
     // max(0.3, 0.6) = 0.6, not 0.3+0.6=0.9
-    expect(happyCall![1]).toBeCloseTo(0.6, 1);
+    expect(happyCall?.[1]).toBeCloseTo(0.6, 1);
   });
 
   it("merges bone rotations additively", () => {
@@ -103,7 +103,7 @@ describe("AnimationCompositor", () => {
             return name;
           },
           set x(v: number) {
-            boneValues[name] = { ...boneValues[name]!, x: v };
+            boneValues[name] = { x: v, y: boneValues[name]?.y ?? 0, z: boneValues[name]?.z ?? 0 };
           },
         }),
       },

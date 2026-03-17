@@ -9,7 +9,6 @@ export class LookAtLayer implements AnimationLayer {
   private targetObject: { position: { set: (x: number, y: number, z: number) => void } } | null =
     null;
 
-  // biome-ignore lint: complex THREE types
   setup(vrm: Record<string, unknown>, THREE: Record<string, unknown>, scene: unknown): void {
     const vrmLookAt = (vrm as { lookAt?: { autoUpdate: boolean; target: unknown } }).lookAt;
     if (!vrmLookAt) return;
