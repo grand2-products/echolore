@@ -106,7 +106,7 @@ authRoutes.post("/register", zValidator("json", registerSchema), async (c) => {
       actorEmail: payload.email,
       action: "auth.password.register_rejected",
       resourceType: "auth",
-      metadata: { reason: rawMessage },
+      metadata: { reason: known ? known[1].message : "unknown-error" },
       ipAddress,
       userAgent: c.req.header("user-agent") ?? null,
     });
@@ -220,6 +220,16 @@ authRoutes.post("/token", zValidator("json", tokenAuthSchema), async (c) => {
 authRoutes.post("/token/google", zValidator("json", googleTokenAuthSchema), async (c) => {
   const { idToken, deviceName } = c.req.valid("json");
   const ipAddress = getRequestIp(c.req.raw.headers);
+  const rateLimited = await isRateLimited({
+    action: "auth.sso.google_token",
+    ipAddress,
+    windowMs: 15 * 60 * 1000,
+    maxAttempts: 10,
+  });
+
+  if (rateLimited) {
+    return jsonError(c, 429, "RATE_LIMITED", "Too many Google sign-in attempts. Try again later.");
+  }
 
   try {
     const tokenSet = await exchangeGoogleIdToken({ idToken, deviceName: deviceName ?? null });
@@ -241,12 +251,11 @@ authRoutes.post("/token/google", zValidator("json", googleTokenAuthSchema), asyn
       user: tokenSet.user,
       authMode: tokenSet.authMode,
     });
-  } catch (error) {
-    const rawMessage = error instanceof Error ? error.message : "Google sign-in failed";
+  } catch {
     await writeAuditLog({
       action: "auth.sso.mobile_token_rejected",
       resourceType: "auth",
-      metadata: { provider: "google", reason: rawMessage },
+      metadata: { provider: "google", reason: "google-id-token-invalid" },
       ipAddress,
       userAgent: c.req.header("user-agent") ?? null,
     });

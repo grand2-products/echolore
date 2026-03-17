@@ -39,7 +39,7 @@ export default function AituberSessionPage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-gray-400">{t("common.status.loading")}</p>
+        <p className="text-gray-500">{t("common.status.loading")}</p>
       </div>
     );
   }
@@ -47,8 +47,8 @@ export default function AituberSessionPage() {
   if (error || !session) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4">
-        <p className="text-red-400">{error || "Session not found"}</p>
-        <Link href="/aituber" className="text-sm text-indigo-400 hover:underline">
+        <p className="text-red-600">{error || "Session not found"}</p>
+        <Link href="/aituber" className="text-sm text-blue-600 hover:underline">
           {t("aituber.title")}
         </Link>
       </div>
@@ -60,9 +60,9 @@ export default function AituberSessionPage() {
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-700 px-4 py-2">
+      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
         <div className="flex items-center gap-3">
-          <Link href="/aituber" className="text-gray-400 hover:text-white">
+          <Link href="/aituber" className="text-gray-400 hover:text-gray-600">
             <svg
               className="h-5 w-5"
               fill="none"
@@ -79,9 +79,9 @@ export default function AituberSessionPage() {
               />
             </svg>
           </Link>
-          <h1 className="text-lg font-semibold text-white">{session.title}</h1>
+          <h1 className="text-lg font-semibold text-gray-900">{session.title}</h1>
           {session.status === "live" && (
-            <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white animate-pulse">
+            <span className="animate-pulse rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
               LIVE
             </span>
           )}
@@ -91,7 +91,7 @@ export default function AituberSessionPage() {
 
       {/* Main stage */}
       <div className="flex-1">
-        <AituberStage session={session} userName={user?.name || "Viewer"} livekitUrl={livekitUrl} />
+        <AituberStage session={session} livekitUrl={livekitUrl} />
       </div>
     </div>
   );

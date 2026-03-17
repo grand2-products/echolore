@@ -1,0 +1,12 @@
+# === 必須 ===
+project_id      = "my-echolore-project"
+echolore_domain = "echolore.example.com"
+
+# === オプション（デフォルト値あり） ===
+# region          = "asia-northeast1"
+# gcs_bucket_name = "my-echolore-files"    # 省略時: {project_id}-echolore-files
+
+# === 機能の有効/無効 ===
+# enable_gcs       = true
+# enable_vertex_ai = true
+# enable_speech    = true

@@ -11,13 +11,12 @@ import { useAituberStore } from "./use-aituber-store";
 
 interface AituberStageProps {
   session: AituberSessionDto;
-  userName: string;
   livekitUrl: string;
 }
 
 const decoder = new TextDecoder();
 
-export function AituberStage({ session, userName, livekitUrl }: AituberStageProps) {
+export function AituberStage({ session, livekitUrl }: AituberStageProps) {
   const t = useT();
   const roomRef = useRef<Room | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -26,8 +25,13 @@ export function AituberStage({ session, userName, livekitUrl }: AituberStageProp
 
   const connected = useAituberStore((s) => s.connected);
   const avatarState = useAituberStore((s) => s.avatarState);
+  const emotion = useAituberStore((s) => s.emotion);
+  const pendingAction = useAituberStore((s) => s.pendingAction);
+  const currentVisemes = useAituberStore((s) => s.currentVisemes);
+  const audioSampleRate = useAituberStore((s) => s.audioSampleRate);
   const viewerCount = useAituberStore((s) => s.viewerCount);
   const setConnected = useAituberStore((s) => s.setConnected);
+  const setAudioSampleRate = useAituberStore((s) => s.setAudioSampleRate);
   const handleDataEvent = useAituberStore((s) => s.handleDataEvent);
   const reset = useAituberStore((s) => s.reset);
   const ttsAudioQueue = useAituberStore((s) => s.ttsAudioQueue);
@@ -46,7 +50,8 @@ export function AituberStage({ session, userName, livekitUrl }: AituberStageProp
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext();
         analyserRef.current = audioContextRef.current.createAnalyser();
-        analyserRef.current.fftSize = 256;
+        analyserRef.current.fftSize = 512;
+        setAudioSampleRate(audioContextRef.current.sampleRate);
       }
 
       const audioData = Uint8Array.from(atob(item.audio), (c) => c.charCodeAt(0));
@@ -69,7 +74,7 @@ export function AituberStage({ session, userName, livekitUrl }: AituberStageProp
       console.error("[AituberStage] Audio playback error:", err);
       isPlayingRef.current = false;
     }
-  }, [dequeueTtsAudio]);
+  }, [dequeueTtsAudio, setAudioSampleRate]);
 
   useEffect(() => {
     if (ttsAudioQueue.length > 0 && !isPlayingRef.current) {
@@ -132,9 +137,13 @@ export function AituberStage({ session, userName, livekitUrl }: AituberStageProp
       {/* Left: Avatar */}
       <div className="relative h-[40vh] w-full lg:h-full lg:w-2/3">
         <AituberAvatar
-          avatarUrl={session.status === "live" ? null /* TODO: get from character */ : null}
+          avatarUrl={session.characterAvatarUrl ?? null}
           avatarState={avatarState}
           audioAnalyser={analyserRef.current}
+          audioSampleRate={audioSampleRate}
+          emotion={emotion}
+          visemes={currentVisemes}
+          action={pendingAction}
         />
 
         {/* Overlay info */}
@@ -176,7 +185,7 @@ export function AituberStage({ session, userName, livekitUrl }: AituberStageProp
             <p className="text-xs text-gray-400">{session.characterName}</p>
           )}
         </div>
-        <AituberChat sessionId={session.id} userName={userName} />
+        <AituberChat sessionId={session.id} />
       </div>
     </div>
   );

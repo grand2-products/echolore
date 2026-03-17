@@ -1,0 +1,634 @@
+{
+  "clips": [
+    {
+      "id": "greeting-bow-polite",
+      "file": "greeting-bow-polite.vrma",
+      "category": "greeting",
+      "description": "A person bows politely from the waist with hands together at front, gentle forward lean 30 degrees then returns to standing",
+      "tags": ["greeting", "polite", "formal", "bow"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "greeting-bow-casual",
+      "file": "greeting-bow-casual.vrma",
+      "category": "greeting",
+      "description": "A person gives a quick casual nod-bow, slight forward lean with relaxed posture",
+      "tags": ["greeting", "casual", "bow"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "greeting-bow-deep",
+      "file": "greeting-bow-deep.vrma",
+      "category": "greeting",
+      "description": "A person bows deeply from the waist at 45 degrees, very formal and respectful, slow return",
+      "tags": ["greeting", "formal", "deep", "bow"],
+      "duration": 2.5,
+      "loop": false
+    },
+    {
+      "id": "greeting-wave-big",
+      "file": "greeting-wave-big.vrma",
+      "category": "greeting",
+      "description": "A person waves right hand enthusiastically high above head, cheerful energy",
+      "tags": ["greeting", "wave", "enthusiastic"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "greeting-wave-casual",
+      "file": "greeting-wave-casual.vrma",
+      "category": "greeting",
+      "description": "A person waves right hand casually at shoulder height with a slight head tilt to the right",
+      "tags": ["greeting", "casual", "wave", "friendly"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "greeting-hand-raise",
+      "file": "greeting-hand-raise.vrma",
+      "category": "greeting",
+      "description": "A person raises right hand briefly in a casual hello gesture, relaxed",
+      "tags": ["greeting", "casual", "hand-raise"],
+      "duration": 1.2,
+      "loop": false
+    },
+    {
+      "id": "farewell-wave",
+      "file": "farewell-wave.vrma",
+      "category": "greeting",
+      "description": "A person waves goodbye with right hand at chest height, gentle smile implied, slight forward lean",
+      "tags": ["greeting", "farewell", "wave", "goodbye"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "farewell-bow",
+      "file": "farewell-bow.vrma",
+      "category": "greeting",
+      "description": "A person gives a parting bow with a brief nod, hands at sides, respectful goodbye",
+      "tags": ["greeting", "farewell", "bow", "goodbye"],
+      "duration": 1.5,
+      "loop": false
+    },
+
+    {
+      "id": "nod-gentle-1",
+      "file": "nod-gentle-1.vrma",
+      "category": "nod",
+      "description": "A person nods gently once, slight forward head movement, natural and subtle",
+      "tags": ["nod", "agree", "gentle"],
+      "duration": 0.8,
+      "loop": false
+    },
+    {
+      "id": "nod-gentle-2",
+      "file": "nod-gentle-2.vrma",
+      "category": "nod",
+      "description": "A person nods softly with a slight tilt to the right side, casual agreement",
+      "tags": ["nod", "agree", "gentle", "tilt"],
+      "duration": 0.8,
+      "loop": false
+    },
+    {
+      "id": "nod-deep",
+      "file": "nod-deep.vrma",
+      "category": "nod",
+      "description": "A person nods deeply with eyes closing briefly, whole upper body follows the movement, strong agreement",
+      "tags": ["nod", "agree", "deep", "emphatic"],
+      "duration": 1.2,
+      "loop": false
+    },
+    {
+      "id": "nod-continuous",
+      "file": "nod-continuous.vrma",
+      "category": "nod",
+      "description": "A person nods rapidly three times in enthusiastic agreement, energy in the movement",
+      "tags": ["nod", "agree", "rapid", "enthusiastic"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "nod-with-tilt",
+      "file": "nod-with-tilt.vrma",
+      "category": "nod",
+      "description": "A person nods once while tilting head to the side thoughtfully, considering",
+      "tags": ["nod", "agree", "thoughtful", "tilt"],
+      "duration": 1.0,
+      "loop": false
+    },
+    {
+      "id": "nod-slow",
+      "file": "nod-slow.vrma",
+      "category": "nod",
+      "description": "A person nods very slowly once, deliberate and serious, showing deep understanding",
+      "tags": ["nod", "agree", "slow", "deliberate"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "head-tilt-curious",
+      "file": "head-tilt-curious.vrma",
+      "category": "nod",
+      "description": "A person tilts head to the right side curiously, slight lean forward, interested",
+      "tags": ["nod", "curious", "head-tilt"],
+      "duration": 1.0,
+      "loop": false
+    },
+    {
+      "id": "head-shake-gentle",
+      "file": "head-shake-gentle.vrma",
+      "category": "nod",
+      "description": "A person shakes head gently side to side, mild disagreement or disbelief, subtle",
+      "tags": ["nod", "disagree", "head-shake", "subtle"],
+      "duration": 1.2,
+      "loop": false
+    },
+
+    {
+      "id": "laugh-low",
+      "file": "laugh-low.vrma",
+      "category": "laugh",
+      "description": "A person exhales with amusement through the nose, shoulders barely moving, contained smile",
+      "tags": ["laugh", "happy", "low", "subtle"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "laugh-low-mid",
+      "file": "laugh-low-mid.vrma",
+      "category": "laugh",
+      "description": "A person chuckles softly, slight shoulder bounce, one hand moves near mouth briefly",
+      "tags": ["laugh", "happy", "chuckle"],
+      "duration": 1.8,
+      "loop": false
+    },
+    {
+      "id": "laugh-mid",
+      "file": "laugh-mid.vrma",
+      "category": "laugh",
+      "description": "A person laughs naturally with clear shoulder movement, head tilting back slightly",
+      "tags": ["laugh", "happy", "natural"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "laugh-mid-high",
+      "file": "laugh-mid-high.vrma",
+      "category": "laugh",
+      "description": "A person laughs heartily with shoulders shaking, noticeable lean back, hand on chest",
+      "tags": ["laugh", "happy", "hearty"],
+      "duration": 2.5,
+      "loop": false
+    },
+    {
+      "id": "laugh-high",
+      "file": "laugh-high.vrma",
+      "category": "laugh",
+      "description": "A person bursts into full laughter, upper body rocking back, both shoulders shaking vigorously, one hand slapping knee",
+      "tags": ["laugh", "happy", "burst", "intense"],
+      "duration": 3.0,
+      "loop": false
+    },
+    {
+      "id": "laugh-shy",
+      "file": "laugh-shy.vrma",
+      "category": "laugh",
+      "description": "A person laughs shyly, looking down and away with hand covering mouth, embarrassed",
+      "tags": ["laugh", "happy", "shy", "embarrassed"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "laugh-wry",
+      "file": "laugh-wry.vrma",
+      "category": "laugh",
+      "description": "A person gives a wry half-laugh, one shoulder shrugs up briefly, head tilts to one side, resigned amusement",
+      "tags": ["laugh", "wry", "resigned"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "laugh-stifled",
+      "file": "laugh-stifled.vrma",
+      "category": "laugh",
+      "description": "A person tries to hold back laughter, shoulders trembling with suppressed amusement, hand pressed over mouth",
+      "tags": ["laugh", "stifled", "suppressed"],
+      "duration": 2.0,
+      "loop": false
+    },
+
+    {
+      "id": "surprise-low",
+      "file": "surprise-low.vrma",
+      "category": "surprise",
+      "description": "A person blinks and pulls chin back slightly, subtle double-take, minimal body movement",
+      "tags": ["surprise", "subtle", "low"],
+      "duration": 1.0,
+      "loop": false
+    },
+    {
+      "id": "surprise-low-mid",
+      "file": "surprise-low-mid.vrma",
+      "category": "surprise",
+      "description": "A person leans back slightly with eyebrows rising, mild surprise, hands stay at sides",
+      "tags": ["surprise", "mild", "lean-back"],
+      "duration": 1.2,
+      "loop": false
+    },
+    {
+      "id": "surprise-mid",
+      "file": "surprise-mid.vrma",
+      "category": "surprise",
+      "description": "A person leans back noticeably, one hand rises to chest level instinctively, clear surprise",
+      "tags": ["surprise", "clear", "hand-rise"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "surprise-mid-high",
+      "file": "surprise-mid-high.vrma",
+      "category": "surprise",
+      "description": "A person steps back with both hands rising to shoulder height, visible shock on body",
+      "tags": ["surprise", "shock", "hands-up"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "surprise-high",
+      "file": "surprise-high.vrma",
+      "category": "surprise",
+      "description": "A person jolts back sharply with both hands up near face, dramatic shock, full upper body recoil",
+      "tags": ["surprise", "dramatic", "shock", "intense"],
+      "duration": 1.8,
+      "loop": false
+    },
+
+    {
+      "id": "sad-low",
+      "file": "sad-low.vrma",
+      "category": "sad",
+      "description": "A person's posture sinks slightly, shoulders dropping just barely, subdued mood",
+      "tags": ["sad", "subtle", "low"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "sad-low-mid",
+      "file": "sad-low-mid.vrma",
+      "category": "sad",
+      "description": "A person looks down slightly with softened posture, quiet disappointment",
+      "tags": ["sad", "disappointment", "look-down"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "sad-mid",
+      "file": "sad-mid.vrma",
+      "category": "sad",
+      "description": "A person looks down sadly with noticeably slumped shoulders, dejected stance",
+      "tags": ["sad", "dejected", "slumped"],
+      "duration": 2.5,
+      "loop": false
+    },
+    {
+      "id": "sad-mid-high",
+      "file": "sad-mid-high.vrma",
+      "category": "sad",
+      "description": "A person droops heavily, head hanging down, arms limp at sides, deep sadness",
+      "tags": ["sad", "deep", "drooping"],
+      "duration": 2.5,
+      "loop": false
+    },
+    {
+      "id": "sad-high",
+      "file": "sad-high.vrma",
+      "category": "sad",
+      "description": "A person covers face with both hands, shoulders trembling slightly, overwhelmed with emotion",
+      "tags": ["sad", "intense", "overwhelmed", "crying"],
+      "duration": 3.0,
+      "loop": false
+    },
+    {
+      "id": "sad-sigh",
+      "file": "sad-sigh.vrma",
+      "category": "sad",
+      "description": "A person sighs deeply, shoulders dropping on exhale, resigned disappointment",
+      "tags": ["sad", "sigh", "resigned"],
+      "duration": 2.5,
+      "loop": false
+    },
+    {
+      "id": "sad-look-away",
+      "file": "sad-look-away.vrma",
+      "category": "sad",
+      "description": "A person turns face away to the side, one hand touching opposite arm, withdrawing",
+      "tags": ["sad", "look-away", "withdrawing"],
+      "duration": 2.0,
+      "loop": false
+    },
+
+    {
+      "id": "angry-low",
+      "file": "angry-low.vrma",
+      "category": "angry",
+      "description": "A person's jaw tightens subtly, posture stiffens almost imperceptibly, contained irritation",
+      "tags": ["angry", "subtle", "low", "irritation"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "angry-low-mid",
+      "file": "angry-low-mid.vrma",
+      "category": "angry",
+      "description": "A person crosses arms slowly with a slightly tense posture, mild displeasure",
+      "tags": ["angry", "mild", "arms-crossed", "displeasure"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "angry-mid",
+      "file": "angry-mid.vrma",
+      "category": "angry",
+      "description": "A person clenches fists at sides with visibly tense shoulders, clear frustration",
+      "tags": ["angry", "frustrated", "fist-clench", "tense"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "angry-mid-high",
+      "file": "angry-mid-high.vrma",
+      "category": "angry",
+      "description": "A person leans forward aggressively, fists tight, shoulders raised, strong anger",
+      "tags": ["angry", "aggressive", "intense"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "angry-high",
+      "file": "angry-high.vrma",
+      "category": "angry",
+      "description": "A person slams one fist into open palm forcefully, whole body tense, furious stance",
+      "tags": ["angry", "furious", "slam", "intense"],
+      "duration": 1.8,
+      "loop": false
+    },
+    {
+      "id": "angry-sigh",
+      "file": "angry-sigh.vrma",
+      "category": "angry",
+      "description": "A person exhales sharply through nose, head drops briefly then snaps back up, exasperated",
+      "tags": ["angry", "exasperated", "sigh"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "angry-arms-crossed",
+      "file": "angry-arms-crossed.vrma",
+      "category": "angry",
+      "description": "A person crosses arms tightly and leans back, chin slightly raised, defiant displeasure",
+      "tags": ["angry", "defiant", "arms-crossed"],
+      "duration": 2.0,
+      "loop": false
+    },
+
+    {
+      "id": "think-chin-hand",
+      "file": "think-chin-hand.vrma",
+      "category": "think",
+      "description": "A person rests chin on right hand thoughtfully, looking slightly upward, contemplative",
+      "tags": ["think", "contemplative", "chin"],
+      "duration": 3.0,
+      "loop": true
+    },
+    {
+      "id": "think-arms-crossed",
+      "file": "think-arms-crossed.vrma",
+      "category": "think",
+      "description": "A person crosses arms and tilts head slightly, deep in thought, serious expression",
+      "tags": ["think", "serious", "arms-crossed"],
+      "duration": 3.0,
+      "loop": true
+    },
+    {
+      "id": "think-head-scratch",
+      "file": "think-head-scratch.vrma",
+      "category": "think",
+      "description": "A person scratches the back of head with right hand, puzzled and uncertain",
+      "tags": ["think", "puzzled", "uncertain"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "think-look-up",
+      "file": "think-look-up.vrma",
+      "category": "think",
+      "description": "A person looks upward to the right, index finger touching temple, searching for an answer",
+      "tags": ["think", "look-up", "searching"],
+      "duration": 2.5,
+      "loop": true
+    },
+    {
+      "id": "think-fidget",
+      "file": "think-fidget.vrma",
+      "category": "think",
+      "description": "A person taps chin with index finger repeatedly, mulling something over, restless thought",
+      "tags": ["think", "fidget", "restless"],
+      "duration": 2.5,
+      "loop": true
+    },
+
+    {
+      "id": "explain-hands-forward",
+      "file": "explain-hands-forward.vrma",
+      "category": "explain",
+      "description": "A person gestures with both hands forward, palms up, explaining something patiently",
+      "tags": ["explain", "gesture", "palms-up"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "explain-point",
+      "file": "explain-point.vrma",
+      "category": "explain",
+      "description": "A person points forward with right index finger for emphasis, assertive but not aggressive",
+      "tags": ["explain", "point", "emphasis"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "explain-hands-spread",
+      "file": "explain-hands-spread.vrma",
+      "category": "explain",
+      "description": "A person spreads both hands wide apart, presenting a big idea, open welcoming gesture",
+      "tags": ["explain", "present", "wide"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "explain-count-fingers",
+      "file": "explain-count-fingers.vrma",
+      "category": "explain",
+      "description": "A person raises hand and counts by extending fingers one at a time, listing points",
+      "tags": ["explain", "count", "listing"],
+      "duration": 2.5,
+      "loop": false
+    },
+    {
+      "id": "explain-hands-together",
+      "file": "explain-hands-together.vrma",
+      "category": "explain",
+      "description": "A person brings both hands together in front of chest, fingertips touching, organizing thoughts",
+      "tags": ["explain", "hands-together", "organizing"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "explain-one-hand-wave",
+      "file": "explain-one-hand-wave.vrma",
+      "category": "explain",
+      "description": "A person gestures casually with one hand while explaining, relaxed conversational style",
+      "tags": ["explain", "casual", "conversational"],
+      "duration": 2.0,
+      "loop": false
+    },
+
+    {
+      "id": "react-impressed",
+      "file": "react-impressed.vrma",
+      "category": "reaction",
+      "description": "A person leans back slightly with a slow nod, hands at sides, genuinely impressed and admiring",
+      "tags": ["reaction", "impressed", "admiring"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "react-confused",
+      "file": "react-confused.vrma",
+      "category": "reaction",
+      "description": "A person tilts head and raises one hand palm-up in a questioning gesture, clearly puzzled",
+      "tags": ["reaction", "confused", "puzzled"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "react-embarrassed",
+      "file": "react-embarrassed.vrma",
+      "category": "reaction",
+      "description": "A person touches back of neck with one hand and looks slightly down and away, flustered",
+      "tags": ["reaction", "embarrassed", "flustered"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "react-relieved",
+      "file": "react-relieved.vrma",
+      "category": "reaction",
+      "description": "A person exhales visibly, shoulders dropping from tension, hand on chest, wave of relief",
+      "tags": ["reaction", "relieved", "exhale"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "react-excited",
+      "file": "react-excited.vrma",
+      "category": "reaction",
+      "description": "A person does a small fist pump near chest, slight bounce in posture, contained excitement",
+      "tags": ["reaction", "excited", "fist-pump"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "react-sympathetic",
+      "file": "react-sympathetic.vrma",
+      "category": "reaction",
+      "description": "A person places one hand over heart and nods slowly, showing deep empathy and concern",
+      "tags": ["reaction", "sympathetic", "empathy"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "react-grateful",
+      "file": "react-grateful.vrma",
+      "category": "reaction",
+      "description": "A person brings both hands together at chest in a brief prayer-like gesture, bowing head slightly, thankful",
+      "tags": ["reaction", "grateful", "thankful"],
+      "duration": 1.5,
+      "loop": false
+    },
+    {
+      "id": "react-determined",
+      "file": "react-determined.vrma",
+      "category": "reaction",
+      "description": "A person clenches one fist at chest height and nods firmly once, resolute expression, ready to act",
+      "tags": ["reaction", "determined", "resolute"],
+      "duration": 1.5,
+      "loop": false
+    },
+
+    {
+      "id": "idle-shift-1",
+      "file": "idle-shift-1.vrma",
+      "category": "idle",
+      "description": "A person shifts weight subtly from left to right foot in a natural standing transition",
+      "tags": ["idle", "weight-shift", "natural"],
+      "duration": 3.0,
+      "loop": false
+    },
+    {
+      "id": "idle-shift-2",
+      "file": "idle-shift-2.vrma",
+      "category": "idle",
+      "description": "A person shifts weight with slight hip sway, very relaxed standing posture",
+      "tags": ["idle", "weight-shift", "relaxed", "sway"],
+      "duration": 3.0,
+      "loop": false
+    },
+    {
+      "id": "idle-stretch",
+      "file": "idle-stretch.vrma",
+      "category": "idle",
+      "description": "A person does a light stretch raising both arms overhead briefly then relaxes back to standing",
+      "tags": ["idle", "stretch", "arms-up"],
+      "duration": 3.5,
+      "loop": false
+    },
+    {
+      "id": "idle-look-around",
+      "file": "idle-look-around.vrma",
+      "category": "idle",
+      "description": "A person looks left then right casually with slight upper body turn, curious and relaxed",
+      "tags": ["idle", "look-around", "curious"],
+      "duration": 3.0,
+      "loop": false
+    },
+    {
+      "id": "idle-hair-touch",
+      "file": "idle-hair-touch.vrma",
+      "category": "idle",
+      "description": "A person touches hair behind right ear, a natural fidgeting gesture while standing",
+      "tags": ["idle", "fidget", "hair-touch"],
+      "duration": 2.0,
+      "loop": false
+    },
+    {
+      "id": "idle-arms-adjust",
+      "file": "idle-arms-adjust.vrma",
+      "category": "idle",
+      "description": "A person adjusts arm position, switching from arms at sides to one hand holding the other wrist in front",
+      "tags": ["idle", "fidget", "arms-adjust"],
+      "duration": 2.5,
+      "loop": false
+    },
+    {
+      "id": "idle-shoulder-roll",
+      "file": "idle-shoulder-roll.vrma",
+      "category": "idle",
+      "description": "A person rolls both shoulders back once slowly, relieving tension, then settles into relaxed stance",
+      "tags": ["idle", "shoulder-roll", "tension-relief"],
+      "duration": 2.5,
+      "loop": false
+    }
+  ]
+}

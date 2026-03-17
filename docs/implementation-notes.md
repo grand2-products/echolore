@@ -1,6 +1,6 @@
 # Implementation Notes
 
-Last updated: 2026-03-13
+Last updated: 2026-03-16
 
 This document captures durable implementation notes that do not belong in short-term planning files.
 
@@ -36,6 +36,7 @@ This document captures durable implementation notes that do not belong in short-
 - shared contracts in `packages/shared/src/contracts/index.ts` include admin DTOs and realtime transcript DTOs used by both `apps/api` and `apps/web`
 - admin route responses are mapped to shared DTOs in `apps/api/src/routes/admin/dto.ts`
 - user creation no longer accepts client-provided `id`; server assigns `user_${crypto.randomUUID()}` in `apps/api/src/routes/users.ts`
+- AITuber character avatars now support VRM upload flow: backend stores uploaded VRM via StorageProvider and links it by file ID (`avatarFileId`) while preserving `avatarUrl` compatibility, with character responses resolving uploaded avatars to `/api/files/:id/download`.
 
 ## Ongoing Cleanup Rule
 - old plan files that mainly describe implemented reality should be reduced or replaced with pointers to `docs/`

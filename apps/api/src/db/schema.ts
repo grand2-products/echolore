@@ -536,6 +536,7 @@ export const aituberCharacters = pgTable("aituber_characters", {
   languageCode: text("language_code").default("ja-JP").notNull(),
   voiceName: text("voice_name"),
   avatarUrl: text("avatar_url"),
+  avatarFileId: text("avatar_file_id").references(() => files.id, { onDelete: "set null" }),
   createdBy: text("created_by")
     .references(() => users.id)
     .notNull(),

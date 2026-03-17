@@ -2,16 +2,13 @@
 
 import { ParticipantEvent } from "livekit-client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useCoworkingRoom } from "@/lib/coworking-room-context";
 import { useT } from "@/lib/i18n";
 
 export function CoworkingFloatingBar() {
   const { room, isConnected, leave } = useCoworkingRoom();
-  const pathname = usePathname();
   const t = useT();
-  const isOnCoworkingPage = pathname === "/coworking";
 
   const [cameraEnabled, setCameraEnabled] = useState(false);
   const [micEnabled, setMicEnabled] = useState(false);
@@ -47,11 +44,11 @@ export function CoworkingFloatingBar() {
     await room.localParticipant.setMicrophoneEnabled(!micEnabled);
   }, [room, micEnabled]);
 
-  // Don't show on coworking page or when not connected
-  if (isOnCoworkingPage || !isConnected) return null;
+  // Keep visible while connected so leaving is always accessible
+  if (!isConnected) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 shadow-xl ring-1 ring-gray-200/50 backdrop-blur">
+    <div className="fixed bottom-24 right-6 z-50 flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 shadow-xl ring-1 ring-gray-200/50 backdrop-blur">
       <div className="mr-1 flex h-2 w-2 rounded-full bg-red-500" title={t("coworking.streaming")} />
       <Link href="/coworking" className="text-xs font-medium text-gray-700 hover:text-blue-600">
         {t("coworking.title")}

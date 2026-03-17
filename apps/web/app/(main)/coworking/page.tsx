@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import BackgroundEffectButton from "@/components/livekit/BackgroundEffectButton";
 import MediaToggle from "@/components/livekit/MediaToggle";
 import { apiFetch } from "@/lib/api";
+import { fetchText } from "@/lib/api/fetch";
 import { useAuthContext } from "@/lib/auth-context";
 import {
   addCustomBackground,
@@ -170,15 +171,12 @@ async function waitForHls(signal: AbortSignal, maxAttempts = 45): Promise<boolea
   for (let i = 0; i < maxAttempts; i++) {
     if (signal.aborted) return false;
     try {
-      const res = await fetch(url);
-      if (res.ok) {
-        const body = await res.text();
-        // Ignore stale playlists from a previous egress that have already ended
-        if (body.includes("#EXT-X-ENDLIST") || !body.includes("#EXTINF")) {
-          // Playlist is stale or empty — keep waiting for a live one
-        } else {
-          return true;
-        }
+      const body = await fetchText(url);
+      // Ignore stale playlists from a previous egress that have already ended
+      if (body.includes("#EXT-X-ENDLIST") || !body.includes("#EXTINF")) {
+        // Playlist is stale or empty — keep waiting for a live one
+      } else {
+        return true;
       }
     } catch {
       // ignore

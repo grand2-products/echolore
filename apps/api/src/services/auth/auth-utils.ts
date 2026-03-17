@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
 import { UserRole } from "@echolore/shared/contracts";
-import { count, eq } from "drizzle-orm";
-import { db } from "../../db/index.js";
-import { users } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
+import {
+  getUserByEmail,
+  getUserById,
+  getUserCount as getUserCountRepo,
+} from "../../repositories/user/user-repository.js";
 
 export const ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 export const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
@@ -53,8 +55,7 @@ export type RefreshResult = {
 };
 
 export async function getUserCount() {
-  const [row] = await db.select({ value: count() }).from(users);
-  return row?.value ?? 0;
+  return getUserCountRepo();
 }
 
 export async function isRegistrationOpen() {
@@ -77,7 +78,13 @@ export function hashValue(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
 
-export function toSessionUser(user: typeof users.$inferSelect): SessionUser {
+export function toSessionUser(user: {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  avatarUrl: string | null;
+}): SessionUser {
   return {
     id: user.id,
     email: user.email,
@@ -88,14 +95,9 @@ export function toSessionUser(user: typeof users.$inferSelect): SessionUser {
 }
 
 export async function findUserByEmail(email: string) {
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, normalizeEmail(email)));
-  return user ?? null;
+  return getUserByEmail(normalizeEmail(email));
 }
 
 export async function findUserById(id: string) {
-  const [user] = await db.select().from(users).where(eq(users.id, id));
-  return user ?? null;
+  return getUserById(id);
 }

@@ -8,10 +8,9 @@ import { useAituberStore } from "./use-aituber-store";
 
 interface AituberChatProps {
   sessionId: string;
-  userName: string;
 }
 
-export function AituberChat({ sessionId, userName }: AituberChatProps) {
+export function AituberChat({ sessionId }: AituberChatProps) {
   const t = useT();
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -31,10 +30,7 @@ export function AituberChat({ sessionId, userName }: AituberChatProps) {
     setSending(true);
     setError(null);
     try {
-      await aituberApi.sendMessage(sessionId, {
-        content,
-        senderName: userName,
-      });
+      await aituberApi.sendMessage(sessionId, { content });
     } catch {
       setError(t("aituber.viewer.sendError"));
     } finally {

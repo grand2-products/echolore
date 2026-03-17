@@ -18,6 +18,7 @@ describe("navigation visibility", () => {
       "/ai-chat",
       "/meetings",
       "/coworking",
+      "/aituber",
       "/search",
     ]);
   });
@@ -37,6 +38,7 @@ describe("navigation visibility", () => {
       "/ai-chat",
       "/meetings",
       "/coworking",
+      "/aituber",
       "/search",
       "/admin",
     ]);

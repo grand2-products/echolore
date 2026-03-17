@@ -13,7 +13,6 @@ interface CharacterForm {
   speakingStyle: string;
   languageCode: string;
   voiceName: string;
-  avatarUrl: string;
   isPublic: boolean;
 }
 
@@ -24,7 +23,6 @@ const emptyForm: CharacterForm = {
   speakingStyle: "",
   languageCode: "ja-JP",
   voiceName: "",
-  avatarUrl: "",
   isPublic: false,
 };
 
@@ -39,6 +37,7 @@ export default function AituberCharactersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CharacterForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -63,14 +62,15 @@ export default function AituberCharactersPage() {
       speakingStyle: char.speakingStyle || "",
       languageCode: char.languageCode,
       voiceName: char.voiceName || "",
-      avatarUrl: char.avatarUrl || "",
       isPublic: char.isPublic,
     });
+    setAvatarFile(null);
   };
 
   const handleNew = () => {
     setEditingId("new");
     setForm(emptyForm);
+    setAvatarFile(null);
   };
 
   const handleSave = async () => {
@@ -85,10 +85,19 @@ export default function AituberCharactersPage() {
           speakingStyle: form.speakingStyle || undefined,
           languageCode: form.languageCode,
           voiceName: form.voiceName || undefined,
-          avatarUrl: form.avatarUrl || undefined,
           isPublic: form.isPublic,
         });
-        setCharacters((prev) => [character, ...prev]);
+        let createdCharacter = character;
+        if (avatarFile != null) {
+          try {
+            createdCharacter = (await aituberApi.uploadCharacterAvatar(character.id, avatarFile))
+              .character;
+          } catch {
+            // Character created but avatar upload failed — still add to list
+            setError(t("aituber.characters.avatarUploadError") ?? "Avatar upload failed");
+          }
+        }
+        setCharacters((prev) => [createdCharacter, ...prev]);
         setMessage(t("aituber.characters.created"));
       } else if (editingId) {
         const { character } = await aituberApi.updateCharacter(editingId, {
@@ -98,13 +107,17 @@ export default function AituberCharactersPage() {
           speakingStyle: form.speakingStyle || null,
           languageCode: form.languageCode,
           voiceName: form.voiceName || null,
-          avatarUrl: form.avatarUrl || null,
           isPublic: form.isPublic,
         });
-        setCharacters((prev) => prev.map((c) => (c.id === editingId ? character : c)));
+        const updatedCharacter =
+          avatarFile != null
+            ? (await aituberApi.uploadCharacterAvatar(editingId, avatarFile)).character
+            : character;
+        setCharacters((prev) => prev.map((c) => (c.id === editingId ? updatedCharacter : c)));
         setMessage(t("aituber.characters.updated"));
       }
       setEditingId(null);
+      setAvatarFile(null);
     } catch {
       setError(t("aituber.characters.saveError"));
     } finally {
@@ -131,7 +144,7 @@ export default function AituberCharactersPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <p className="text-gray-400">{t("common.status.loading")}</p>
+        <p className="text-gray-500">{t("common.status.loading")}</p>
       </div>
     );
   }
@@ -140,7 +153,7 @@ export default function AituberCharactersPage() {
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/aituber" className="text-gray-400 hover:text-white">
+          <Link href="/aituber" className="text-gray-400 hover:text-gray-600">
             <svg
               className="h-5 w-5"
               fill="none"
@@ -157,19 +170,19 @@ export default function AituberCharactersPage() {
               />
             </svg>
           </Link>
-          <h1 className="text-2xl font-bold text-white">{t("aituber.characters.title")}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t("aituber.characters.title")}</h1>
         </div>
         <button
           type="button"
           onClick={handleNew}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           {t("aituber.characters.create")}
         </button>
       </div>
 
-      {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
-      {message && <p className="mb-4 text-sm text-green-400">{message}</p>}
+      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      {message && <p className="mb-4 text-sm text-green-600">{message}</p>}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Character list */}
@@ -183,8 +196,8 @@ export default function AituberCharactersPage() {
               key={char.id}
               className={`cursor-pointer rounded-lg border p-4 text-left transition ${
                 editingId === char.id
-                  ? "border-indigo-500 bg-gray-800"
-                  : "border-gray-700 bg-gray-800/50 hover:bg-gray-800"
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-gray-200 bg-white hover:bg-gray-50 hover:border-blue-300"
               }`}
               onClick={() => handleEdit(char)}
               onKeyDown={(e) => {
@@ -192,10 +205,10 @@ export default function AituberCharactersPage() {
               }}
             >
               <div className="flex items-center justify-between">
-                <span className="font-medium text-white">{char.name}</span>
+                <span className="font-medium text-gray-900">{char.name}</span>
                 <div className="flex items-center gap-2">
                   {char.isPublic && (
-                    <span className="rounded bg-green-900/50 px-1.5 py-0.5 text-xs text-green-400">
+                    <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700">
                       {t("aituber.characters.isPublic")}
                     </span>
                   )}
@@ -205,21 +218,21 @@ export default function AituberCharactersPage() {
                       e.stopPropagation();
                       void handleDelete(char.id);
                     }}
-                    className="text-xs text-red-400 hover:text-red-300"
+                    className="text-xs text-red-600 hover:text-red-700"
                   >
                     {t("aituber.characters.delete")}
                   </button>
                 </div>
               </div>
-              <p className="mt-1 text-xs text-gray-400 line-clamp-2">{char.personality}</p>
+              <p className="mt-1 text-xs text-gray-500 line-clamp-2">{char.personality}</p>
             </button>
           ))}
         </div>
 
         {/* Edit form */}
         {editingId && (
-          <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-6">
-            <h2 className="mb-4 text-lg font-semibold text-white">
+          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">
               {editingId === "new" ? t("aituber.characters.create") : t("aituber.characters.edit")}
             </h2>
 
@@ -229,7 +242,7 @@ export default function AituberCharactersPage() {
                   type="text"
                   value={form.name}
                   onChange={(e) => updateField("name", e.target.value)}
-                  className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                 />
               </Field>
 
@@ -238,7 +251,7 @@ export default function AituberCharactersPage() {
                   value={form.personality}
                   onChange={(e) => updateField("personality", e.target.value)}
                   rows={3}
-                  className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                 />
               </Field>
 
@@ -247,7 +260,7 @@ export default function AituberCharactersPage() {
                   value={form.systemPrompt}
                   onChange={(e) => updateField("systemPrompt", e.target.value)}
                   rows={5}
-                  className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                 />
               </Field>
 
@@ -256,7 +269,7 @@ export default function AituberCharactersPage() {
                   type="text"
                   value={form.speakingStyle}
                   onChange={(e) => updateField("speakingStyle", e.target.value)}
-                  className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                 />
               </Field>
 
@@ -266,7 +279,7 @@ export default function AituberCharactersPage() {
                     type="text"
                     value={form.languageCode}
                     onChange={(e) => updateField("languageCode", e.target.value)}
-                    className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                   />
                 </Field>
 
@@ -275,26 +288,54 @@ export default function AituberCharactersPage() {
                     type="text"
                     value={form.voiceName}
                     onChange={(e) => updateField("voiceName", e.target.value)}
-                    className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                   />
                 </Field>
               </div>
 
-              <Field label={t("aituber.characters.avatarUrl")}>
+              <Field label={t("aituber.characters.avatarFile")}>
                 <input
-                  type="text"
-                  value={form.avatarUrl}
-                  onChange={(e) => updateField("avatarUrl", e.target.value)}
-                  className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white"
+                  type="file"
+                  accept=".vrm,model/gltf-binary"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    if (file && file.size > 50 * 1024 * 1024) {
+                      setError(t("aituber.characters.fileTooLarge") ?? "File exceeds 50MB limit");
+                      e.target.value = "";
+                      return;
+                    }
+                    setAvatarFile(file);
+                  }}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  {t("aituber.characters.avatarUploadHint")}
+                </p>
               </Field>
 
-              <label className="flex items-center gap-2 text-sm text-gray-300">
+              {editingId !== "new" && characters.find((c) => c.id === editingId)?.avatarUrl ? (
+                <Field label={t("aituber.characters.avatarPreview")}>
+                  <a
+                    href={(() => {
+                      const url = characters.find((c) => c.id === editingId)?.avatarUrl;
+                      if (!url || (!url.startsWith("/") && !url.startsWith("https://"))) return "#";
+                      return url;
+                    })()}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    {t("aituber.characters.avatarDownload")}
+                  </a>
+                </Field>
+              ) : null}
+
+              <label className="flex items-center gap-2 text-sm text-gray-700">
                 <input
                   type="checkbox"
                   checked={form.isPublic}
                   onChange={(e) => updateField("isPublic", e.target.checked)}
-                  className="rounded border-gray-600"
+                  className="rounded border-gray-300"
                 />
                 {t("aituber.characters.isPublic")}
               </label>
@@ -303,7 +344,7 @@ export default function AituberCharactersPage() {
                 <button
                   type="button"
                   onClick={() => setEditingId(null)}
-                  className="rounded-lg border border-gray-600 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                 >
                   {t("common.actions.cancel")}
                 </button>
@@ -311,7 +352,7 @@ export default function AituberCharactersPage() {
                   type="button"
                   onClick={() => void handleSave()}
                   disabled={saving || !form.name || !form.personality || !form.systemPrompt}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                 >
                   {saving ? t("aituber.characters.saving") : t("aituber.characters.save")}
                 </button>
@@ -328,7 +369,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   const id = label.toLowerCase().replace(/\s+/g, "-");
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-sm text-gray-400">
+      <label htmlFor={id} className="mb-1 block text-sm text-gray-700">
         {label}
       </label>
       <div id={id}>{children}</div>

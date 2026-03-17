@@ -1,6 +1,8 @@
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
-import { db } from "../../db/index.js";
-import { authRefreshTokens } from "../../db/schema.js";
+import {
+  getAuthRefreshTokenById,
+  listAuthRefreshTokens,
+  revokeAuthRefreshToken,
+} from "../../repositories/auth/auth-repository.js";
 import type { AuthSessionRecord, ResolvedAccessTokenSession } from "./auth-utils.js";
 import { findUserById, hashValue, toSessionUser } from "./auth-utils.js";
 import { parseSignedAccessToken } from "./token-service.js";
@@ -23,19 +25,8 @@ export async function listAuthSessionsForUser(input: {
   userId: string;
   currentRefreshToken?: string | null;
 }) {
-  const now = new Date();
   const currentHash = input.currentRefreshToken ? hashValue(input.currentRefreshToken) : null;
-  const sessions = await db
-    .select()
-    .from(authRefreshTokens)
-    .where(
-      and(
-        eq(authRefreshTokens.userId, input.userId),
-        isNull(authRefreshTokens.revokedAt),
-        gt(authRefreshTokens.expiresAt, now)
-      )
-    )
-    .orderBy(desc(authRefreshTokens.createdAt));
+  const sessions = await listAuthRefreshTokens(input.userId);
 
   return sessions.map(
     (session): AuthSessionRecord => ({
@@ -52,25 +43,12 @@ export async function listAuthSessionsForUser(input: {
 }
 
 export async function revokeAuthSessionById(input: { userId: string; sessionId: string }) {
-  const now = new Date();
-  const [session] = await db
-    .select()
-    .from(authRefreshTokens)
-    .where(
-      and(
-        eq(authRefreshTokens.id, input.sessionId),
-        eq(authRefreshTokens.userId, input.userId),
-        isNull(authRefreshTokens.revokedAt)
-      )
-    );
+  const session = await getAuthRefreshTokenById(input.sessionId);
 
-  if (!session) {
+  if (!session || session.userId !== input.userId || session.revokedAt) {
     return false;
   }
 
-  await db
-    .update(authRefreshTokens)
-    .set({ revokedAt: now })
-    .where(eq(authRefreshTokens.id, session.id));
+  await revokeAuthRefreshToken(input.sessionId, new Date());
   return true;
 }

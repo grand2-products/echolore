@@ -22,6 +22,7 @@
     "@livekit/components-styles": "^1.1.4",
     "@livekit/track-processors": "^0.7.2",
     "@pixiv/three-vrm": "^3.5.1",
+    "@pixiv/three-vrm-animation": "^3.5.1",
     "@tanstack/react-query": "^5.66.9",
     "hls.js": "^1.5.17",
     "js-yaml": "^4.1.1",

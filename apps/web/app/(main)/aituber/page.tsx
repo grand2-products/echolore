@@ -58,9 +58,9 @@ export default function AituberPage() {
 
   const statusBadge = (status: string) => {
     const colors: Record<string, string> = {
-      created: "bg-gray-600 text-gray-200",
-      live: "bg-red-600 text-white animate-pulse",
-      ended: "bg-gray-500 text-gray-300",
+      created: "bg-gray-100 text-gray-600",
+      live: "bg-red-100 text-red-700",
+      ended: "bg-gray-100 text-gray-500",
     };
     return (
       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${colors[status] || ""}`}>
@@ -72,7 +72,7 @@ export default function AituberPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <p className="text-gray-400">{t("common.status.loading")}</p>
+        <p className="text-gray-500">{t("common.status.loading")}</p>
       </div>
     );
   }
@@ -81,33 +81,33 @@ export default function AituberPage() {
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">{t("aituber.title")}</h1>
-          <p className="mt-1 text-sm text-gray-400">{t("aituber.description")}</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t("aituber.title")}</h1>
+          <p className="mt-1 text-sm text-gray-500">{t("aituber.description")}</p>
         </div>
         <div className="flex gap-2">
           <Link
             href="/aituber/characters"
-            className="rounded-lg border border-gray-600 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800"
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
             {t("aituber.characters.title")}
           </Link>
           <button
             type="button"
             onClick={() => setShowCreate(true)}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             {t("aituber.sessions.create")}
           </button>
         </div>
       </div>
 
-      {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
+      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {/* Create session modal */}
       {showCreate && (
         <div
           role="dialog"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           onClick={() => setShowCreate(false)}
           onKeyDown={(e) => {
             if (e.key === "Escape") setShowCreate(false);
@@ -115,23 +115,23 @@ export default function AituberPage() {
         >
           <div
             role="document"
-            className="mx-4 w-full max-w-md rounded-xl border border-gray-700 bg-gray-900 p-6 shadow-2xl"
+            className="mx-4 w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
-            <h2 className="mb-4 text-lg font-semibold text-white">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900">
               {t("aituber.sessions.create")}
             </h2>
 
             <div className="mb-4">
-              <label htmlFor="aituber-char-select" className="mb-1 block text-sm text-gray-400">
+              <label htmlFor="aituber-char-select" className="mb-1 block text-sm text-gray-700">
                 {t("aituber.sessions.selectCharacter")}
               </label>
               <select
                 id="aituber-char-select"
                 value={selectedCharId}
                 onChange={(e) => setSelectedCharId(e.target.value)}
-                className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
               >
                 <option value="">--</option>
                 {characters.map((c) => (
@@ -143,7 +143,7 @@ export default function AituberPage() {
             </div>
 
             <div className="mb-4">
-              <label htmlFor="aituber-session-title" className="mb-1 block text-sm text-gray-400">
+              <label htmlFor="aituber-session-title" className="mb-1 block text-sm text-gray-700">
                 {t("aituber.sessions.sessionTitle")}
               </label>
               <input
@@ -152,7 +152,7 @@ export default function AituberPage() {
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder={t("aituber.sessions.titlePlaceholder")}
-                className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400"
               />
             </div>
 
@@ -160,7 +160,7 @@ export default function AituberPage() {
               <button
                 type="button"
                 onClick={() => setShowCreate(false)}
-                className="rounded-lg border border-gray-600 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800"
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
               >
                 {t("common.actions.cancel")}
               </button>
@@ -168,7 +168,7 @@ export default function AituberPage() {
                 type="button"
                 onClick={() => void handleCreate()}
                 disabled={creating || !selectedCharId || !newTitle.trim()}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 {creating ? "..." : t("aituber.sessions.create")}
               </button>
@@ -186,18 +186,18 @@ export default function AituberPage() {
           <Link
             key={session.id}
             href={`/aituber/${session.id}`}
-            className="flex items-center justify-between rounded-lg border border-gray-700 bg-gray-800/50 p-4 transition hover:bg-gray-800"
+            className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-blue-500 hover:shadow-md"
           >
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-medium text-white">{session.title}</span>
+                <span className="font-medium text-gray-900">{session.title}</span>
                 {statusBadge(session.status)}
               </div>
               {session.characterName && (
-                <p className="mt-1 text-xs text-gray-400">{session.characterName}</p>
+                <p className="mt-1 text-xs text-gray-500">{session.characterName}</p>
               )}
             </div>
-            <div className="text-right text-xs text-gray-500">
+            <div className="text-right text-xs text-gray-400">
               {new Date(session.createdAt).toLocaleDateString()}
             </div>
           </Link>
