@@ -76,7 +76,7 @@ export async function listMessagesByConversationId(conversationId: string) {
     .orderBy(aiChatMessages.createdAt);
 }
 
-export async function getRecentMessages(conversationId: string, limit = 20) {
+export async function listRecentMessages(conversationId: string, limit = 20) {
   const rows = await db
     .select()
     .from(aiChatMessages)

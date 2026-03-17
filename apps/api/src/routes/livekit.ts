@@ -29,16 +29,13 @@ const stopRecordingBody = z.object({
   meetingId: z.string().min(1),
 });
 
-const apiKey = livekitApiKey;
-const apiSecret = livekitApiSecret;
-
-if (!apiKey || !apiSecret) {
+if (!livekitApiKey || !livekitApiSecret) {
   console.warn(
     "[livekit] LIVEKIT_API_KEY / LIVEKIT_API_SECRET not set — LiveKit routes will fail at runtime"
   );
 }
 
-const roomService = new RoomServiceClient(livekitHost, apiKey, apiSecret);
+const roomService = new RoomServiceClient(livekitHost, livekitApiKey, livekitApiSecret);
 
 // POST /api/livekit/token - Generate access token for a room
 livekitRoutes.post(
@@ -58,7 +55,7 @@ livekitRoutes.post(
       );
     }
 
-    const at = new AccessToken(apiKey, apiSecret, {
+    const at = new AccessToken(livekitApiKey, livekitApiSecret, {
       identity: participantIdentity,
       name: participantName,
     });
@@ -98,21 +95,10 @@ const createRoomSchema = z.object({
 livekitRoutes.post(
   "/rooms",
   requireRole(UserRole.Admin),
+  zValidator("json", createRoomSchema),
   withErrorHandler("LIVEKIT_ROOM_CREATE_FAILED", "Failed to create room"),
   async (c) => {
-    const body = await c.req.json();
-    const parsed = createRoomSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return jsonError(
-        c,
-        400,
-        "LIVEKIT_ROOM_VALIDATION_FAILED",
-        parsed.error.issues.map((e: { message: string }) => e.message).join(", ")
-      );
-    }
-
-    const { name, emptyTimeout, maxParticipants } = parsed.data;
+    const { name, emptyTimeout, maxParticipants } = c.req.valid("json");
 
     const room = await roomService.createRoom({
       name,
@@ -153,17 +139,12 @@ livekitRoutes.get(
 // POST /api/livekit/rooms/:name/start-recording - Start recording
 livekitRoutes.post(
   "/rooms/:name/start-recording",
+  zValidator("json", startRecordingBody),
   withErrorHandler("LIVEKIT_RECORDING_START_FAILED", "Failed to start recording"),
   async (c) => {
     const { name } = c.req.param();
     const user = c.get("user");
-
-    const body = await c.req.json().catch(() => ({}));
-    const parsed = startRecordingBody.safeParse(body);
-    if (!parsed.success) {
-      return jsonError(c, 400, "VALIDATION_ERROR", "meetingId is required");
-    }
-    const { meetingId } = parsed.data;
+    const { meetingId } = c.req.valid("json");
 
     const meeting = await getMeetingById(meetingId);
     if (!meeting || !isOwnerOrAdmin(user, meeting.creatorId)) {
@@ -182,15 +163,11 @@ livekitRoutes.post(
 // POST /api/livekit/rooms/:name/stop-recording - Stop recording
 livekitRoutes.post(
   "/rooms/:name/stop-recording",
+  zValidator("json", stopRecordingBody),
   withErrorHandler("LIVEKIT_RECORDING_STOP_FAILED", "Failed to stop recording"),
   async (c) => {
     const user = c.get("user");
-    const body = await c.req.json().catch(() => ({}));
-    const parsed = stopRecordingBody.safeParse(body);
-    if (!parsed.success) {
-      return jsonError(c, 400, "VALIDATION_ERROR", "egressId and meetingId are required");
-    }
-    const { egressId, meetingId } = parsed.data;
+    const { egressId, meetingId } = c.req.valid("json");
 
     const meeting = await getMeetingById(meetingId);
     if (!meeting || !isOwnerOrAdmin(user, meeting.creatorId)) {

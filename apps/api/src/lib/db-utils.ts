@@ -1,8 +1,28 @@
+import { eq } from "drizzle-orm";
+import type { PgColumn, PgTable, TableConfig } from "drizzle-orm/pg-core";
+import { db } from "../db/index.js";
+
 /**
  * Extract first row from query result, return null if empty.
  */
 export function firstOrNull<T>(rows: T[]): T | null {
   return rows[0] ?? null;
+}
+
+/**
+ * Fetch a single record by its `id` column, returning null when not found.
+ */
+export async function getRecordById<T extends PgTable<TableConfig> & { id: PgColumn }>(
+  table: T,
+  id: string
+): Promise<T["$inferSelect"] | null> {
+  return firstOrNull(
+    await db
+      .select()
+      // biome-ignore lint/suspicious/noExplicitAny: Drizzle's from() conditional type requires cast
+      .from(table as any)
+      .where(eq(table.id, id))
+  );
 }
 
 /**
@@ -35,7 +55,7 @@ export async function createOrThrow<T>(
   errorMessage: string
 ): Promise<T> {
   const result = await operation();
-  if (!result) throw new Error(errorMessage);
+  if (result == null) throw new Error(errorMessage);
   return result;
 }
 

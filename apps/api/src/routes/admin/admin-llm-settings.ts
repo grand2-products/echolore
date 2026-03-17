@@ -1,4 +1,3 @@
-import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import type { LlmOverrides } from "../../ai/llm/index.js";
 import {
@@ -6,35 +5,24 @@ import {
   isTextGenerationEnabled,
   resolveTextProvider,
 } from "../../ai/llm/index.js";
-import { withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
-import { maskSecrets, stripMaskedValues } from "../../lib/secret-mask.js";
+import type { LlmSettings } from "../../services/admin/admin-service.js";
 import { getLlmSettings, updateLlmSettings } from "../../services/admin/admin-service.js";
+import { createAdminSettingsRoutes } from "./create-settings-routes.js";
 import { updateLlmSettingsSchema } from "./schemas.js";
 
-const SECRET_FIELDS = ["geminiApiKey", "zhipuApiKey"] as const;
+const settingsRoutes = createAdminSettingsRoutes<LlmSettings>({
+  path: "llm-settings",
+  secretFields: ["geminiApiKey", "zhipuApiKey"],
+  getSettings: getLlmSettings,
+  updateSettings: updateLlmSettings,
+  validationSchema: updateLlmSettingsSchema,
+  errorPrefix: "ADMIN_LLM_SETTINGS",
+  label: "LLM settings",
+});
 
 export const adminLlmSettingsRoutes = new Hono<AppEnv>();
-
-adminLlmSettingsRoutes.get(
-  "/llm-settings",
-  withErrorHandler("ADMIN_LLM_SETTINGS_FETCH_FAILED", "Failed to fetch LLM settings"),
-  async (c) => {
-    const settings = await getLlmSettings();
-    return c.json(maskSecrets(settings, [...SECRET_FIELDS]));
-  }
-);
-
-adminLlmSettingsRoutes.put(
-  "/llm-settings",
-  zValidator("json", updateLlmSettingsSchema),
-  withErrorHandler("ADMIN_LLM_SETTINGS_UPDATE_FAILED", "Failed to update LLM settings"),
-  async (c) => {
-    const data = stripMaskedValues(c.req.valid("json"), [...SECRET_FIELDS]);
-    const updated = await updateLlmSettings(data);
-    return c.json(maskSecrets(updated, [...SECRET_FIELDS]));
-  }
-);
+adminLlmSettingsRoutes.route("/", settingsRoutes);
 
 adminLlmSettingsRoutes.post("/llm-settings/test", async (c) => {
   try {

@@ -2,10 +2,8 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import type { Page, Summary } from "../../db/schema.js";
 import { blocks, meetings, pages, summaries, transcripts } from "../../db/schema.js";
-import { firstOrNull } from "../../lib/db-utils.js";
-import { createPageWithAccessDefaultsTx } from "../../services/wiki/wiki-service.js";
-
-type MeetingWriteTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+import { firstOrNull, getRecordById } from "../../lib/db-utils.js";
+import { createPageWithAccessDefaultsTx, type WikiWriteTx } from "../wiki/wiki-repository.js";
 
 export async function listMeetingsByUser(userId: string) {
   return db
@@ -28,7 +26,7 @@ export async function listMeetingsByStatus(status: string) {
 }
 
 export async function getMeetingById(id: string) {
-  return firstOrNull(await db.select().from(meetings).where(eq(meetings.id, id)));
+  return getRecordById(meetings, id);
 }
 
 export async function getMeetingByRoomName(roomName: string) {
@@ -173,7 +171,7 @@ export async function createMeetingSummaryArtifactsTx(input: {
   authorId: string;
   now: Date;
 }): Promise<{ createdSummary: Summary; createdPage: Page }> {
-  return db.transaction(async (tx: MeetingWriteTx) => {
+  return db.transaction(async (tx: WikiWriteTx) => {
     const [summary] = await tx
       .insert(summaries)
       .values({

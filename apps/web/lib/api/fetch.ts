@@ -186,6 +186,31 @@ export async function fetchPublic<T>(path: string, options?: RequestInit): Promi
   return response.json();
 }
 
+export async function uploadFile<T>(
+  path: string,
+  file: File,
+  extraFields?: Record<string, string>
+): Promise<T> {
+  const formData = new FormData();
+  formData.append("file", file, file.name);
+  if (extraFields) {
+    for (const [key, value] of Object.entries(extraFields)) {
+      formData.append(key, value);
+    }
+  }
+
+  const response = await executeApiRequest(path, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw await parseApiError(response);
+  }
+
+  return response.json();
+}
+
 /**
  * Fetch plain text from an absolute or relative URL.
  * Useful for endpoints like HLS manifests where the response is not JSON.
@@ -196,7 +221,10 @@ export async function fetchText(url: string, options?: RequestInit): Promise<str
   });
 
   if (!response.ok) {
-    throw await parseApiError(response);
+    const text = await response.text().catch(() => "");
+    throw new ApiError(text || `HTTP error! status: ${response.status}`, {
+      status: response.status,
+    });
   }
 
   return response.text();

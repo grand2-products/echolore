@@ -2,31 +2,31 @@ import { UserRole } from "@echolore/shared/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  mockGetGeneralSpace,
+  mockFindGeneralSpace,
   mockCreateSpace,
-  mockGetPersonalSpaceByUserId,
+  mockFindPersonalSpaceByUserId,
   mockListSpaces,
-  mockGetTeamSpaceByGroupId,
+  mockFindTeamSpaceByGroupId,
   mockDbSelect,
   mockDbFrom,
   mockDbWhere,
 } = vi.hoisted(() => ({
-  mockGetGeneralSpace: vi.fn(),
+  mockFindGeneralSpace: vi.fn(),
   mockCreateSpace: vi.fn(),
-  mockGetPersonalSpaceByUserId: vi.fn(),
+  mockFindPersonalSpaceByUserId: vi.fn(),
   mockListSpaces: vi.fn(),
-  mockGetTeamSpaceByGroupId: vi.fn(),
+  mockFindTeamSpaceByGroupId: vi.fn(),
   mockDbSelect: vi.fn(),
   mockDbFrom: vi.fn(),
   mockDbWhere: vi.fn(),
 }));
 
 vi.mock("../../repositories/wiki/space-repository.js", () => ({
-  getGeneralSpace: mockGetGeneralSpace,
+  findGeneralSpace: mockFindGeneralSpace,
   createSpace: mockCreateSpace,
-  getPersonalSpaceByUserId: mockGetPersonalSpaceByUserId,
+  findPersonalSpaceByUserId: mockFindPersonalSpaceByUserId,
   listSpaces: mockListSpaces,
-  getTeamSpaceByGroupId: mockGetTeamSpaceByGroupId,
+  findTeamSpaceByGroupId: mockFindTeamSpaceByGroupId,
 }));
 
 vi.mock("../../db/index.js", () => ({
@@ -112,7 +112,7 @@ describe("space-service", () => {
   describe("ensureGeneralSpace", () => {
     it("returns existing general space when it exists", async () => {
       const existing = makeSpace({ id: GENERAL_SPACE_ID, type: "general" });
-      mockGetGeneralSpace.mockResolvedValue(existing);
+      mockFindGeneralSpace.mockResolvedValue(existing);
 
       const result = await ensureGeneralSpace();
 
@@ -121,7 +121,7 @@ describe("space-service", () => {
     });
 
     it("creates general space when it does not exist", async () => {
-      mockGetGeneralSpace.mockResolvedValue(null);
+      mockFindGeneralSpace.mockResolvedValue(null);
       const created = makeSpace({ id: GENERAL_SPACE_ID, type: "general" });
       mockCreateSpace.mockResolvedValue(created);
 
@@ -137,11 +137,11 @@ describe("space-service", () => {
       );
     });
 
-    it("handles race condition by retrying getGeneralSpace", async () => {
-      mockGetGeneralSpace.mockResolvedValueOnce(null);
+    it("handles race condition by retrying findGeneralSpace", async () => {
+      mockFindGeneralSpace.mockResolvedValueOnce(null);
       mockCreateSpace.mockRejectedValue(new Error("unique constraint"));
       const existing = makeSpace({ id: GENERAL_SPACE_ID });
-      mockGetGeneralSpace.mockResolvedValueOnce(existing);
+      mockFindGeneralSpace.mockResolvedValueOnce(existing);
 
       const result = await ensureGeneralSpace();
 
@@ -149,7 +149,7 @@ describe("space-service", () => {
     });
 
     it("throws when create fails and retry also returns null", async () => {
-      mockGetGeneralSpace.mockResolvedValue(null);
+      mockFindGeneralSpace.mockResolvedValue(null);
       mockCreateSpace.mockRejectedValue(new Error("db error"));
 
       await expect(ensureGeneralSpace()).rejects.toThrow("Failed to create general space");
@@ -165,8 +165,8 @@ describe("space-service", () => {
         makeSpace({ id: "s3", type: "team", groupId: "g1" }),
       ];
 
-      mockGetGeneralSpace.mockResolvedValue(spaces[0]);
-      mockGetPersonalSpaceByUserId.mockResolvedValue(
+      mockFindGeneralSpace.mockResolvedValue(spaces[0]);
+      mockFindPersonalSpaceByUserId.mockResolvedValue(
         makeSpace({ type: "personal", ownerUserId: admin.id })
       );
       mockListSpaces.mockResolvedValue(spaces);
@@ -185,8 +185,8 @@ describe("space-service", () => {
       const otherPersonal = makeSpace({ id: "s3", type: "personal", ownerUserId: "other" });
       const teamSpace = makeSpace({ id: "s4", type: "team", groupId: "g1" });
 
-      mockGetGeneralSpace.mockResolvedValue(generalSpace);
-      mockGetPersonalSpaceByUserId.mockResolvedValue(ownPersonal);
+      mockFindGeneralSpace.mockResolvedValue(generalSpace);
+      mockFindPersonalSpaceByUserId.mockResolvedValue(ownPersonal);
       mockListSpaces.mockResolvedValue([generalSpace, ownPersonal, otherPersonal, teamSpace]);
 
       // db.select().from() calls:
@@ -226,7 +226,7 @@ describe("space-service", () => {
     it("returns existing personal space", async () => {
       const user = makeUser();
       const existing = makeSpace({ type: "personal", ownerUserId: user.id });
-      mockGetPersonalSpaceByUserId.mockResolvedValue(existing);
+      mockFindPersonalSpaceByUserId.mockResolvedValue(existing);
 
       const result = await getOrCreatePersonalSpace(user);
 
@@ -236,7 +236,7 @@ describe("space-service", () => {
 
     it("creates personal space when none exists", async () => {
       const user = makeUser({ id: "user_1", name: "Alice" });
-      mockGetPersonalSpaceByUserId.mockResolvedValue(null);
+      mockFindPersonalSpaceByUserId.mockResolvedValue(null);
       const created = makeSpace({ type: "personal", ownerUserId: user.id, name: "Alice" });
       mockCreateSpace.mockResolvedValue(created);
 
@@ -254,10 +254,10 @@ describe("space-service", () => {
 
     it("handles race condition on create", async () => {
       const user = makeUser();
-      mockGetPersonalSpaceByUserId.mockResolvedValueOnce(null);
+      mockFindPersonalSpaceByUserId.mockResolvedValueOnce(null);
       mockCreateSpace.mockRejectedValue(new Error("unique constraint"));
       const existing = makeSpace({ type: "personal", ownerUserId: user.id });
-      mockGetPersonalSpaceByUserId.mockResolvedValueOnce(existing);
+      mockFindPersonalSpaceByUserId.mockResolvedValueOnce(existing);
 
       const result = await getOrCreatePersonalSpace(user);
 

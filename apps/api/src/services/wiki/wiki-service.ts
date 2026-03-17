@@ -1,5 +1,4 @@
 import { UserRole } from "@echolore/shared/contracts";
-import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   cosineSimilarity,
@@ -7,16 +6,7 @@ import {
   getEmbeddingModel,
   isEmbeddingEnabled,
 } from "../../ai/embeddings.js";
-import { db } from "../../db/index.js";
-import {
-  blocks,
-  type Page,
-  pageInheritance,
-  pagePermissions,
-  pageRevisions,
-  pages,
-  userGroupMemberships,
-} from "../../db/schema.js";
+import type { Page } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { canReadPage } from "../../policies/authorization-policy.js";
 import {
@@ -25,11 +15,13 @@ import {
   getRevisionById,
 } from "../../repositories/wiki/revision-repository.js";
 import {
+  createPageWithAccessDefaults as createPageWithAccessDefaultsRepo,
   getPageBlocks,
   getPageById,
   getPageParentId,
   listBlockContentsByPageIds,
   listPagesOrderedByUpdatedAt,
+  restorePageRevision as restorePageRevisionRepo,
   searchPagesLexically,
 } from "../../repositories/wiki/wiki-repository.js";
 
@@ -146,59 +138,6 @@ export async function searchVisiblePages(
   }
 }
 
-type WikiWriteTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-export async function createPageWithAccessDefaultsTx(
-  tx: WikiWriteTx,
-  input: {
-    id: string;
-    title: string;
-    spaceId: string;
-    parentId: string | null;
-    authorId: string;
-    createdAt: Date;
-    updatedAt: Date;
-  }
-) {
-  const [page] = await tx.insert(pages).values(input).returning();
-  if (!page) {
-    throw new Error("Failed to create page");
-  }
-
-  await tx.insert(pageInheritance).values({
-    id: `inherit_${nanoid(12)}`,
-    pageId: page.id,
-    inheritFromParent: Boolean(page.parentId),
-    createdAt: input.createdAt,
-  });
-
-  if (!page.parentId) {
-    const memberships = await tx
-      .select({ groupId: userGroupMemberships.groupId })
-      .from(userGroupMemberships)
-      .where(eq(userGroupMemberships.userId, input.authorId));
-
-    const uniqueGroupIds = [...new Set(memberships.map((membership) => membership.groupId))];
-
-    if (uniqueGroupIds.length > 0) {
-      await tx.insert(pagePermissions).values(
-        uniqueGroupIds.map((groupId) => ({
-          id: `perm_${nanoid(12)}`,
-          pageId: page.id,
-          groupId,
-          canRead: true,
-          canWrite: true,
-          canDelete: false,
-          createdAt: input.createdAt,
-          updatedAt: input.updatedAt,
-        }))
-      );
-    }
-  }
-
-  return page;
-}
-
 export async function createPageWithAccessDefaults(input: {
   id: string;
   title: string;
@@ -208,7 +147,7 @@ export async function createPageWithAccessDefaults(input: {
   createdAt: Date;
   updatedAt: Date;
 }) {
-  return db.transaction((tx) => createPageWithAccessDefaultsTx(tx, input));
+  return createPageWithAccessDefaultsRepo(input);
 }
 
 export async function createPageRevision(pageId: string, authorId: string) {
@@ -252,57 +191,20 @@ export async function restoreRevision(pageId: string, revisionId: string, actorU
     throw new Error("Revision does not belong to this page");
   }
 
-  return db.transaction(async (tx) => {
-    const now = new Date();
+  const currentBlocks = await getPageBlocks(pageId);
+  const revisionNumber = await getNextRevisionNumber(pageId);
 
-    // Snapshot current state before restoring (inside transaction)
-    const currentBlocks = await tx
-      .select()
-      .from(blocks)
-      .where(eq(blocks.pageId, pageId))
-      .orderBy(blocks.sortOrder);
-    const revisionNumber = await getNextRevisionNumber(pageId);
-    await tx.insert(pageRevisions).values({
-      id: `rev_${crypto.randomUUID().slice(0, 12)}`,
-      pageId,
-      revisionNumber,
-      title: page.title,
-      blocks: currentBlocks.map((b) => ({
-        type: b.type,
-        content: b.content,
-        properties: b.properties as Record<string, unknown> | null,
-        sortOrder: b.sortOrder,
-      })),
-      authorId: actorUserId,
-      createdAt: now,
-    });
-
-    // Update page title
-    const [updatedPage] = await tx
-      .update(pages)
-      .set({ title: revision.title, updatedAt: now })
-      .where(eq(pages.id, pageId))
-      .returning();
-
-    // Delete existing blocks
-    await tx.delete(blocks).where(eq(blocks.pageId, pageId));
-
-    // Re-create blocks from revision snapshot
-    if (revision.blocks.length > 0) {
-      await tx.insert(blocks).values(
-        revision.blocks.map((block) => ({
-          id: crypto.randomUUID(),
-          pageId,
-          type: block.type,
-          content: block.content,
-          properties: block.properties,
-          sortOrder: block.sortOrder,
-          createdAt: now,
-          updatedAt: now,
-        }))
-      );
-    }
-
-    return updatedPage;
+  return restorePageRevisionRepo({
+    pageId,
+    revision,
+    currentTitle: page.title,
+    currentBlocks: currentBlocks.map((b) => ({
+      type: b.type,
+      content: b.content,
+      properties: b.properties,
+      sortOrder: b.sortOrder,
+    })),
+    revisionNumber,
+    actorUserId,
   });
 }

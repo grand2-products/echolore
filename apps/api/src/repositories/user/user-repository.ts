@@ -1,14 +1,19 @@
-import { eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { users } from "../../db/schema.js";
-import { firstOrNull } from "../../lib/db-utils.js";
+import { firstOrNull, getRecordById } from "../../lib/db-utils.js";
+
+export async function getUserCount() {
+  const [row] = await db.select({ value: count() }).from(users);
+  return row?.value ?? 0;
+}
 
 export async function listUsers() {
   return db.select().from(users);
 }
 
 export async function getUserById(id: string) {
-  return firstOrNull(await db.select().from(users).where(eq(users.id, id)));
+  return getRecordById(users, id);
 }
 
 export async function getUserByEmail(email: string) {

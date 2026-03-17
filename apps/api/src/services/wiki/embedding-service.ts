@@ -1,10 +1,12 @@
-import { eq, sql } from "drizzle-orm";
-import { nanoid } from "nanoid";
 import { embedText, getEmbeddingModel, isEmbeddingEnabled } from "../../ai/embeddings.js";
-import { db } from "../../db/index.js";
-import { pageEmbeddings, pages } from "../../db/schema.js";
 import { stripHtml } from "../../lib/html-utils.js";
-import { getPageBlocks, getPageById } from "../../repositories/wiki/wiki-repository.js";
+import {
+  deletePageEmbeddingsByPageId,
+  getPageBlocks,
+  getPageById,
+  listNonDeletedPageIds,
+  replacePageEmbeddings,
+} from "../../repositories/wiki/wiki-repository.js";
 
 const EMBEDDING_DIMENSIONS = 768;
 const MAX_CHUNK_CHARS = 1500;
@@ -68,9 +70,6 @@ export function chunkText(
   return chunks.filter((c) => c.length > 0);
 }
 
-/**
- * Index a page: extract text, chunk, embed, and upsert into page_embeddings.
- */
 export async function indexPage(pageId: string): Promise<void> {
   if (!(await isEmbeddingEnabled())) return;
 
@@ -84,7 +83,6 @@ export async function indexPage(pageId: string): Promise<void> {
   const modelId = await getEmbeddingModel();
   const now = new Date();
 
-  // Embed all chunks
   const embeddings: { chunkIndex: number; text: string; vector: number[] }[] = [];
   for (let i = 0; i < chunks.length; i++) {
     const chunkText_ = chunks[i];
@@ -100,41 +98,27 @@ export async function indexPage(pageId: string): Promise<void> {
 
   if (embeddings.length === 0) return;
 
-  await db.transaction(async (tx) => {
-    // Delete existing embeddings for this page
-    await tx.delete(pageEmbeddings).where(eq(pageEmbeddings.pageId, pageId));
+  const finalModelId = modelId ?? "gemini-embedding-001";
 
-    // Insert new embeddings
-    await tx.insert(pageEmbeddings).values(
-      embeddings.map((e) => ({
-        id: `emb_${nanoid(12)}`,
-        pageId,
-        chunkIndex: e.chunkIndex,
-        plainText: e.text,
-        embedding: e.vector,
-        modelId,
-        createdAt: now,
-        updatedAt: now,
-      }))
-    );
-  });
+  await replacePageEmbeddings(
+    pageId,
+    embeddings.map((e) => ({
+      chunkIndex: e.chunkIndex,
+      plainText: e.text,
+      embedding: e.vector,
+      modelId: finalModelId,
+      createdAt: now,
+      updatedAt: now,
+    }))
+  );
 }
 
-/**
- * Delete all embeddings for a page.
- */
 export async function deletePageEmbeddings(pageId: string): Promise<void> {
-  await db.delete(pageEmbeddings).where(eq(pageEmbeddings.pageId, pageId));
+  await deletePageEmbeddingsByPageId(pageId);
 }
 
-/**
- * Reindex all non-deleted pages. For admin use.
- */
 export async function reindexAllPages(): Promise<{ indexed: number; errors: number }> {
-  const allPages = await db
-    .select({ id: pages.id })
-    .from(pages)
-    .where(sql`${pages.deletedAt} IS NULL`);
+  const allPages = await listNonDeletedPageIds();
 
   let indexed = 0;
   let errors = 0;

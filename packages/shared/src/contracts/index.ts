@@ -78,7 +78,7 @@ export interface PageRevisionDto {
   revisionNumber: number;
   title: string;
   blocks: Array<{
-    type: string;
+    type: BlockType;
     content: string | null;
     properties: Record<string, unknown> | null;
     sortOrder: number;
@@ -90,7 +90,7 @@ export interface PageRevisionDto {
 export interface BlockDto {
   id: string;
   pageId: string;
-  type: string;
+  type: BlockType;
   content: string | null;
   properties: Record<string, unknown> | null;
   sortOrder: number;
@@ -151,27 +151,23 @@ export interface FileMetadataDto {
   createdAt: ISODateString;
 }
 
-export class ErrorResponse {
-  constructor(
-    public error: string,
-    public code?: string,
-    public message?: string
-  ) {}
+export interface ErrorResponse {
+  error: string;
+  code?: string;
+  message?: string;
 }
 
-export class SuccessResponse {
-  public readonly success = true;
+export interface SuccessResponse {
+  success: true;
 }
 
-export class ListUsersResponse {
-  constructor(
-    public users: UserDto[],
-    public total?: number
-  ) {}
+export interface ListUsersResponse {
+  users: UserDto[];
+  total?: number;
 }
 
-export class GetUserResponse {
-  constructor(public user: UserDto) {}
+export interface GetUserResponse {
+  user: UserDto;
 }
 
 export interface CreateUserRequest {
@@ -185,19 +181,17 @@ export interface UpdateUserRequest {
   avatarUrl?: string;
 }
 
-export class ListSpacesResponse {
-  constructor(public spaces: SpaceDto[]) {}
+export interface ListSpacesResponse {
+  spaces: SpaceDto[];
 }
 
-export class ListPagesResponse {
-  constructor(public pages: PageDto[]) {}
+export interface ListPagesResponse {
+  pages: PageDto[];
 }
 
-export class GetPageResponse {
-  constructor(
-    public page: PageDto,
-    public blocks: BlockDto[]
-  ) {}
+export interface GetPageResponse {
+  page: PageDto;
+  blocks: BlockDto[];
 }
 
 export interface CreatePageRequest {
@@ -278,8 +272,8 @@ export interface TokenRefreshResponse {
   authMode: "password" | "sso";
 }
 
-export class ListAuthSessionsResponse {
-  constructor(public sessions: AuthSessionDto[]) {}
+export interface ListAuthSessionsResponse {
+  sessions: AuthSessionDto[];
 }
 
 export interface PasswordRegistrationRequest {
@@ -323,23 +317,19 @@ export interface UpdateBlockRequest {
   sortOrder?: number;
 }
 
-export class CreateBlockResponse {
-  constructor(public block: BlockDto) {}
+export interface CreateBlockResponse {
+  block: BlockDto;
 }
 
-export class ListMeetingsResponse {
-  constructor(
-    public meetings: MeetingDto[],
-    public total?: number
-  ) {}
+export interface ListMeetingsResponse {
+  meetings: MeetingDto[];
+  total?: number;
 }
 
-export class GetMeetingResponse {
-  constructor(
-    public meeting: MeetingDto,
-    public transcripts: TranscriptDto[],
-    public summaries: SummaryDto[]
-  ) {}
+export interface GetMeetingResponse {
+  meeting: MeetingDto;
+  transcripts: TranscriptDto[];
+  summaries: SummaryDto[];
 }
 
 export interface CreateMeetingRequest {
@@ -353,8 +343,8 @@ export interface UpdateMeetingRequest {
   status?: MeetingStatus;
 }
 
-export class CreateMeetingResponse {
-  constructor(public meeting: MeetingDto) {}
+export interface CreateMeetingResponse {
+  meeting: MeetingDto;
 }
 
 export interface CreateTranscriptRequest {
@@ -363,35 +353,33 @@ export interface CreateTranscriptRequest {
   timestamp: ISODateString;
 }
 
-export class CreateTranscriptResponse {
-  constructor(public transcript: TranscriptDto) {}
+export interface CreateTranscriptResponse {
+  transcript: TranscriptDto;
 }
 
 export interface CreateSummaryRequest {
   content: string;
 }
 
-export class CreateSummaryResponse {
-  constructor(public summary: SummaryDto) {}
+export interface CreateSummaryResponse {
+  summary: SummaryDto;
 }
 
-export class ListFilesResponse {
-  constructor(
-    public files: FileMetadataDto[],
-    public total?: number
-  ) {}
+export interface ListFilesResponse {
+  files: FileMetadataDto[];
+  total?: number;
 }
 
-export class GetFileResponse {
-  constructor(public file: FileMetadataDto) {}
+export interface GetFileResponse {
+  file: FileMetadataDto;
 }
 
-export class UploadFileResponse {
-  constructor(public file: FileMetadataDto) {}
+export interface UploadFileResponse {
+  file: FileMetadataDto;
 }
 
-export class GetFileDownloadUrlResponse {
-  constructor(public url: string) {}
+export interface GetFileDownloadUrlResponse {
+  url: string;
 }
 
 // AI Chat
@@ -455,8 +443,8 @@ export interface LivekitTokenRequest {
   participantIdentity: string;
 }
 
-export class LivekitTokenResponse {
-  constructor(public token: string) {}
+export interface LivekitTokenResponse {
+  token: string;
 }
 
 export interface LivekitCreateRoomRequest {
@@ -635,6 +623,7 @@ export interface AituberSessionDto {
   endedAt: ISODateString | null;
   createdAt: ISODateString;
   characterName?: string;
+  characterAvatarUrl?: string | null;
 }
 
 export interface AituberMessageDto {
@@ -657,6 +646,7 @@ export interface CreateAituberCharacterRequest {
   languageCode?: string;
   voiceName?: string;
   avatarUrl?: string;
+  avatarFileId?: string;
   isPublic?: boolean;
 }
 
@@ -668,7 +658,12 @@ export interface UpdateAituberCharacterRequest {
   languageCode?: string;
   voiceName?: string | null;
   avatarUrl?: string | null;
+  avatarFileId?: string | null;
   isPublic?: boolean;
+}
+
+export interface UploadAituberAvatarResponse {
+  character: AituberCharacterDto;
 }
 
 export interface CreateAituberSessionRequest {
@@ -678,44 +673,43 @@ export interface CreateAituberSessionRequest {
 
 export interface SendAituberMessageRequest {
   content: string;
-  senderName: string;
 }
 
 // AITuber Responses
-export class ListAituberCharactersResponse {
-  constructor(public characters: AituberCharacterDto[]) {}
+export interface ListAituberCharactersResponse {
+  characters: AituberCharacterDto[];
 }
 
-export class GetAituberCharacterResponse {
-  constructor(public character: AituberCharacterDto) {}
+export interface GetAituberCharacterResponse {
+  character: AituberCharacterDto;
 }
 
-export class CreateAituberCharacterResponse {
-  constructor(public character: AituberCharacterDto) {}
+export interface CreateAituberCharacterResponse {
+  character: AituberCharacterDto;
 }
 
-export class ListAituberSessionsResponse {
-  constructor(public sessions: AituberSessionDto[]) {}
+export interface ListAituberSessionsResponse {
+  sessions: AituberSessionDto[];
 }
 
-export class GetAituberSessionResponse {
-  constructor(public session: AituberSessionDto) {}
+export interface GetAituberSessionResponse {
+  session: AituberSessionDto;
 }
 
-export class CreateAituberSessionResponse {
-  constructor(public session: AituberSessionDto) {}
+export interface CreateAituberSessionResponse {
+  session: AituberSessionDto;
 }
 
-export class ListAituberMessagesResponse {
-  constructor(public messages: AituberMessageDto[]) {}
+export interface ListAituberMessagesResponse {
+  messages: AituberMessageDto[];
 }
 
-export class SendAituberMessageResponse {
-  constructor(public message: AituberMessageDto) {}
+export interface SendAituberMessageResponse {
+  message: AituberMessageDto;
 }
 
-export class AituberTokenResponse {
-  constructor(public token: string) {}
+export interface AituberTokenResponse {
+  token: string;
 }
 
 // AITuber Data Channel Events
@@ -725,7 +719,15 @@ export type AituberDataEvent =
   | { type: "ai-complete"; messageId: string; fullContent: string }
   | { type: "avatar-state"; state: AituberAvatarState }
   | { type: "image-share"; url: string; caption?: string }
-  | { type: "viewer-count"; count: number };
+  | { type: "viewer-count"; count: number }
+  | {
+      type: "tts-audio";
+      audio: string;
+      mimeType: string;
+      visemes?: Array<{ time: number; viseme: string }>;
+    }
+  | { type: "emotion"; emotion: string; intensity: number }
+  | { type: "action"; action: string };
 
 // --- Knowledge Suggestions ---
 
@@ -758,13 +760,11 @@ export interface KnowledgeSuggestionDto {
   updatedAt: ISODateString;
 }
 
-export class ListKnowledgeSuggestionsResponse {
-  constructor(
-    public suggestions: KnowledgeSuggestionDto[],
-    public total?: number
-  ) {}
+export interface ListKnowledgeSuggestionsResponse {
+  suggestions: KnowledgeSuggestionDto[];
+  total?: number;
 }
 
-export class GetKnowledgeSuggestionResponse {
-  constructor(public suggestion: KnowledgeSuggestionDto) {}
+export interface GetKnowledgeSuggestionResponse {
+  suggestion: KnowledgeSuggestionDto;
 }

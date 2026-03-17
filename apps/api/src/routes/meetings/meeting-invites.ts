@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, desc, eq, isNull } from "drizzle-orm";
+import type { Context } from "hono";
 import { Hono } from "hono";
 import { DataPacket_Kind, RoomServiceClient } from "livekit-server-sdk";
 import { z } from "zod";
@@ -15,6 +16,26 @@ const encoder = new TextEncoder();
 
 export const meetingInviteRoutes = new Hono<AppEnv>();
 
+type Meeting = typeof meetings.$inferSelect;
+
+async function requireMeetingAccess(
+  c: Context<AppEnv>,
+  id: string,
+  action: "read" | "write"
+): Promise<Meeting | Response> {
+  const meeting = await db.query.meetings.findFirst({
+    where: eq(meetings.id, id),
+  });
+  if (!meeting) {
+    return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+  }
+  const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, action);
+  if (!authz.allowed) {
+    return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+  }
+  return meeting;
+}
+
 const createInviteSchema = z.object({
   label: z.string().max(200).optional(),
   maxUses: z.number().int().min(1).max(1000).optional(),
@@ -28,20 +49,11 @@ meetingInviteRoutes.post(
   withErrorHandler("INVITE_CREATE_FAILED", "Failed to create invite"),
   async (c) => {
     const { id } = c.req.param();
+    const result = await requireMeetingAccess(c, id, "write");
+    if (result instanceof Response) return result;
+
     const user = c.get("user");
     const data = c.req.valid("json");
-
-    const meeting = await db.query.meetings.findFirst({
-      where: eq(meetings.id, id),
-    });
-    if (!meeting) {
-      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-    }
-
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
-    if (!authz.allowed) {
-      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
-    }
 
     const invite = {
       id: crypto.randomUUID(),
@@ -71,18 +83,8 @@ meetingInviteRoutes.get(
   withErrorHandler("INVITE_LIST_FAILED", "Failed to list invites"),
   async (c) => {
     const { id } = c.req.param();
-
-    const meeting = await db.query.meetings.findFirst({
-      where: eq(meetings.id, id),
-    });
-    if (!meeting) {
-      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-    }
-
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
-    if (!authz.allowed) {
-      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
-    }
+    const result = await requireMeetingAccess(c, id, "read");
+    if (result instanceof Response) return result;
 
     const invites = await db
       .select()
@@ -100,18 +102,8 @@ meetingInviteRoutes.delete(
   withErrorHandler("INVITE_REVOKE_FAILED", "Failed to revoke invite"),
   async (c) => {
     const { id, inviteId } = c.req.param();
-
-    const meeting = await db.query.meetings.findFirst({
-      where: eq(meetings.id, id),
-    });
-    if (!meeting) {
-      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-    }
-
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
-    if (!authz.allowed) {
-      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
-    }
+    const result = await requireMeetingAccess(c, id, "write");
+    if (result instanceof Response) return result;
 
     const [revoked] = await db
       .update(meetingInvites)
@@ -139,18 +131,8 @@ meetingInviteRoutes.get(
   withErrorHandler("GUEST_REQUESTS_LIST_FAILED", "Failed to list guest requests"),
   async (c) => {
     const { id } = c.req.param();
-
-    const meeting = await db.query.meetings.findFirst({
-      where: eq(meetings.id, id),
-    });
-    if (!meeting) {
-      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-    }
-
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
-    if (!authz.allowed) {
-      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
-    }
+    const result = await requireMeetingAccess(c, id, "read");
+    if (result instanceof Response) return result;
 
     const requests = await db
       .select()
@@ -163,30 +145,16 @@ meetingInviteRoutes.get(
 );
 
 // POST /api/meetings/:id/guest-requests/:requestId/approve — Approve guest
-// Only the meeting owner or an admin can approve guest requests.
 meetingInviteRoutes.post(
   "/:id/guest-requests/:requestId/approve",
   withErrorHandler("GUEST_APPROVE_FAILED", "Failed to approve guest request"),
   async (c) => {
     const { id, requestId } = c.req.param();
+    const result = await requireMeetingAccess(c, id, "write");
+    if (result instanceof Response) return result;
+    const meeting = result;
+
     const user = c.get("user");
-
-    const meeting = await db.query.meetings.findFirst({
-      where: eq(meetings.id, id),
-    });
-    if (!meeting) {
-      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-    }
-
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
-    if (!authz.allowed) {
-      return jsonError(
-        c,
-        403,
-        "MEETING_FORBIDDEN",
-        "Only the meeting owner or an admin can approve guest requests"
-      );
-    }
 
     const [updated] = await db
       .update(meetingGuestRequests)
@@ -208,7 +176,6 @@ meetingInviteRoutes.post(
       return jsonError(c, 404, "REQUEST_NOT_FOUND", "Request not found or already resolved");
     }
 
-    // Notify room via DataChannel
     try {
       const msg = {
         type: "guest-request-resolved",
@@ -236,24 +203,11 @@ meetingInviteRoutes.post(
   withErrorHandler("GUEST_REJECT_FAILED", "Failed to reject guest request"),
   async (c) => {
     const { id, requestId } = c.req.param();
+    const result = await requireMeetingAccess(c, id, "write");
+    if (result instanceof Response) return result;
+    const meeting = result;
+
     const user = c.get("user");
-
-    const meeting = await db.query.meetings.findFirst({
-      where: eq(meetings.id, id),
-    });
-    if (!meeting) {
-      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
-    }
-
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
-    if (!authz.allowed) {
-      return jsonError(
-        c,
-        403,
-        "MEETING_FORBIDDEN",
-        "Only the meeting owner or an admin can reject guest requests"
-      );
-    }
 
     const [updated] = await db
       .update(meetingGuestRequests)
@@ -275,7 +229,6 @@ meetingInviteRoutes.post(
       return jsonError(c, 404, "REQUEST_NOT_FOUND", "Request not found or already resolved");
     }
 
-    // Notify room via DataChannel
     try {
       const msg = {
         type: "guest-request-resolved",

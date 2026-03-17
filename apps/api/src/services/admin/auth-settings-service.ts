@@ -1,4 +1,4 @@
-import { createSettingsCache } from "./create-settings-cache.js";
+import { createTypedSettingsService, FieldCodecs, field } from "./create-settings-cache.js";
 
 export interface AuthSettings {
   googleClientId: string | null;
@@ -9,32 +9,17 @@ export interface AuthSettings {
   googleOauthAudiences: string | null;
 }
 
-const cache = createSettingsCache<AuthSettings>({
-  keys: [
-    "authGoogleClientId",
-    "authGoogleClientSecret",
-    "authAllowedDomain",
-    "authGoogleIosClientId",
-    "authGoogleAndroidClientId",
-    "authGoogleOauthAudiences",
-  ],
-  mapToSettings: (map) => ({
-    googleClientId: map.authGoogleClientId || null,
-    googleClientSecret: map.authGoogleClientSecret || null,
-    allowedDomain: map.authAllowedDomain || null,
-    googleIosClientId: map.authGoogleIosClientId || null,
-    googleAndroidClientId: map.authGoogleAndroidClientId || null,
-    googleOauthAudiences: map.authGoogleOauthAudiences || null,
-  }),
-  mapToKeyValues: (input) => ({
-    authGoogleClientId: input.googleClientId ?? undefined,
-    authGoogleClientSecret: input.googleClientSecret ?? undefined,
-    authAllowedDomain: input.allowedDomain ?? undefined,
-    authGoogleIosClientId: input.googleIosClientId ?? undefined,
-    authGoogleAndroidClientId: input.googleAndroidClientId ?? undefined,
-    authGoogleOauthAudiences: input.googleOauthAudiences ?? undefined,
-  }),
-});
+const cache = createTypedSettingsService(
+  {
+    googleClientId: field("authGoogleClientId", FieldCodecs.nullable),
+    googleClientSecret: field("authGoogleClientSecret", FieldCodecs.nullable),
+    allowedDomain: field("authAllowedDomain", FieldCodecs.nullable),
+    googleIosClientId: field("authGoogleIosClientId", FieldCodecs.nullable),
+    googleAndroidClientId: field("authGoogleAndroidClientId", FieldCodecs.nullable),
+    googleOauthAudiences: field("authGoogleOauthAudiences", FieldCodecs.nullable),
+  },
+  { encryptedKeys: ["authGoogleClientSecret"] }
+);
 
 export const getAuthSettings = cache.get;
 export const updateAuthSettings = cache.update;

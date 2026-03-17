@@ -1,20 +1,13 @@
-import { createSettingsCache } from "./create-settings-cache.js";
+import { createTypedSettingsService, FieldCodecs, field } from "./create-settings-cache.js";
 
 export interface GcpCredentials {
   gcpProjectId: string | null;
   gcpServiceAccountKeyJson: string | null;
 }
 
-const cache = createSettingsCache<GcpCredentials>({
-  keys: ["gcpProjectId", "gcpServiceAccountKeyJson"],
-  mapToSettings: (map) => ({
-    gcpProjectId: map.gcpProjectId || null,
-    gcpServiceAccountKeyJson: map.gcpServiceAccountKeyJson || null,
-  }),
-  mapToKeyValues: (input) => ({
-    gcpProjectId: input.gcpProjectId ?? undefined,
-    gcpServiceAccountKeyJson: input.gcpServiceAccountKeyJson ?? undefined,
-  }),
+const cache = createTypedSettingsService({
+  gcpProjectId: field("gcpProjectId", FieldCodecs.nullable),
+  gcpServiceAccountKeyJson: field("gcpServiceAccountKeyJson", FieldCodecs.nullable),
 });
 
 export const getGcpCredentials = cache.get;

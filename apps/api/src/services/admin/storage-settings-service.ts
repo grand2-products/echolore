@@ -1,5 +1,5 @@
 import type { StorageProviderConfig, StorageProviderType } from "../../lib/file-storage.js";
-import { createSettingsCache } from "./create-settings-cache.js";
+import { createTypedSettingsService, FieldCodecs, field } from "./create-settings-cache.js";
 import { getGcpCredentials } from "./gcp-credentials-service.js";
 
 export interface StorageSettings {
@@ -17,53 +17,23 @@ export interface StorageSettings {
   gcsKeyJson: string | null;
 }
 
-const cache = createSettingsCache<StorageSettings>({
-  keys: [
-    "storageProvider",
-    "storageLocalPath",
-    "storageS3Endpoint",
-    "storageS3Region",
-    "storageS3Bucket",
-    "storageS3AccessKey",
-    "storageS3SecretKey",
-    "storageS3ForcePathStyle",
-    "storageGcsBucket",
-    "storageGcsUseGcpDefaults",
-    "storageGcsProjectId",
-    "storageGcsKeyJson",
-  ],
-  cacheTtlMs: false,
-  mapToSettings: (map) => ({
-    provider: (map.storageProvider as StorageProviderType) || "local",
-    localPath: map.storageLocalPath || null,
-    s3Endpoint: map.storageS3Endpoint || null,
-    s3Region: map.storageS3Region || null,
-    s3Bucket: map.storageS3Bucket || null,
-    s3AccessKey: map.storageS3AccessKey || null,
-    s3SecretKey: map.storageS3SecretKey || null,
-    s3ForcePathStyle: map.storageS3ForcePathStyle !== "false",
-    gcsBucket: map.storageGcsBucket || null,
-    gcsUseGcpDefaults: map.storageGcsUseGcpDefaults !== "false",
-    gcsProjectId: map.storageGcsProjectId || null,
-    gcsKeyJson: map.storageGcsKeyJson || null,
-  }),
-  mapToKeyValues: (input) => ({
-    storageProvider: input.provider,
-    storageLocalPath: input.localPath ?? undefined,
-    storageS3Endpoint: input.s3Endpoint ?? undefined,
-    storageS3Region: input.s3Region ?? undefined,
-    storageS3Bucket: input.s3Bucket ?? undefined,
-    storageS3AccessKey: input.s3AccessKey ?? undefined,
-    storageS3SecretKey: input.s3SecretKey ?? undefined,
-    storageS3ForcePathStyle:
-      input.s3ForcePathStyle !== undefined ? String(input.s3ForcePathStyle) : undefined,
-    storageGcsBucket: input.gcsBucket ?? undefined,
-    storageGcsUseGcpDefaults:
-      input.gcsUseGcpDefaults !== undefined ? String(input.gcsUseGcpDefaults) : undefined,
-    storageGcsProjectId: input.gcsProjectId ?? undefined,
-    storageGcsKeyJson: input.gcsKeyJson ?? undefined,
-  }),
-});
+const cache = createTypedSettingsService(
+  {
+    provider: field("storageProvider", FieldCodecs.withDefault<StorageProviderType>("local")),
+    localPath: field("storageLocalPath", FieldCodecs.nullable),
+    s3Endpoint: field("storageS3Endpoint", FieldCodecs.nullable),
+    s3Region: field("storageS3Region", FieldCodecs.nullable),
+    s3Bucket: field("storageS3Bucket", FieldCodecs.nullable),
+    s3AccessKey: field("storageS3AccessKey", FieldCodecs.nullable),
+    s3SecretKey: field("storageS3SecretKey", FieldCodecs.nullable),
+    s3ForcePathStyle: field("storageS3ForcePathStyle", FieldCodecs.boolTrue),
+    gcsBucket: field("storageGcsBucket", FieldCodecs.nullable),
+    gcsUseGcpDefaults: field("storageGcsUseGcpDefaults", FieldCodecs.boolTrue),
+    gcsProjectId: field("storageGcsProjectId", FieldCodecs.nullable),
+    gcsKeyJson: field("storageGcsKeyJson", FieldCodecs.nullable),
+  },
+  { cacheTtlMs: false }
+);
 
 export const getStorageSettings = cache.get;
 export const updateStorageSettings = cache.update;

@@ -7,7 +7,7 @@ import type {
   SendAituberMessageRequest,
   UpdateAituberCharacterRequest,
 } from "@echolore/shared/contracts";
-import { fetchApi } from "./fetch";
+import { fetchApi, uploadFile } from "./fetch";
 
 export const aituberApi = {
   // Characters
@@ -27,6 +27,9 @@ export const aituberApi = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+
+  uploadCharacterAvatar: (id: string, file: File) =>
+    uploadFile<{ character: AituberCharacterDto }>(`/aituber/characters/${id}/avatar`, file),
 
   deleteCharacter: (id: string) =>
     fetchApi<{ success: boolean }>(`/aituber/characters/${id}`, {

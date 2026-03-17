@@ -1,14 +1,12 @@
-import { and, eq } from "drizzle-orm";
-import { nanoid } from "nanoid";
-import { db } from "../../db/index.js";
-import { userGroupMemberships } from "../../db/schema.js";
 import {
+  addGroupMembers as addGroupMembersRepo,
   getGroupById,
   listGroups,
   listMemberships,
   listMembershipsByGroup,
   listUsersForAdmin,
   listUsersWithIds,
+  replaceUserGroups as replaceUserGroupsRepo,
 } from "../../repositories/admin/admin-repository.js";
 
 export async function listGroupsWithMemberCounts() {
@@ -65,50 +63,9 @@ export async function listUsersWithGroups() {
 }
 
 export async function addGroupMembers(groupId: string, userIds: string[]) {
-  const now = new Date();
-
-  return db.transaction(async (tx) => {
-    const records = [];
-    for (const userId of userIds) {
-      const [exists] = await tx
-        .select()
-        .from(userGroupMemberships)
-        .where(
-          and(eq(userGroupMemberships.groupId, groupId), eq(userGroupMemberships.userId, userId))
-        );
-      if (exists) continue;
-
-      const [record] = await tx
-        .insert(userGroupMemberships)
-        .values({
-          id: `membership_${nanoid(12)}`,
-          userId,
-          groupId,
-          addedBy: null,
-          createdAt: now,
-        })
-        .returning();
-
-      if (record) records.push(record);
-    }
-
-    return records;
-  });
+  return addGroupMembersRepo(groupId, userIds);
 }
 
 export async function replaceUserGroups(userId: string, groupIds: string[]) {
-  await db.transaction(async (tx) => {
-    await tx.delete(userGroupMemberships).where(eq(userGroupMemberships.userId, userId));
-    const now = new Date();
-
-    for (const groupId of groupIds) {
-      await tx.insert(userGroupMemberships).values({
-        id: `membership_${nanoid(12)}`,
-        userId,
-        groupId,
-        addedBy: null,
-        createdAt: now,
-      });
-    }
-  });
+  await replaceUserGroupsRepo(userId, groupIds);
 }

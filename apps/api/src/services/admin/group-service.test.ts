@@ -7,54 +7,28 @@ const {
   listMembershipsByGroupMock,
   listUsersWithIdsMock,
   listUsersForAdminMock,
-  dbMock,
-} = vi.hoisted(() => {
-  const selectFromWhereMock = vi.fn();
-  return {
-    listGroupsMock: vi.fn(),
-    listMembershipsMock: vi.fn(),
-    getGroupByIdMock: vi.fn(),
-    listMembershipsByGroupMock: vi.fn(),
-    listUsersWithIdsMock: vi.fn(),
-    listUsersForAdminMock: vi.fn(),
-    dbMock: {
-      transaction: vi.fn(),
-      select: vi.fn(() => ({
-        from: vi.fn(() => ({
-          where: selectFromWhereMock,
-        })),
-      })),
-      insert: vi.fn(() => ({
-        values: vi.fn(() => ({
-          returning: vi.fn(),
-        })),
-      })),
-      delete: vi.fn(() => ({
-        where: vi.fn(),
-      })),
-      _selectFromWhereMock: selectFromWhereMock,
-    },
-  };
-});
+  addGroupMembersRepoMock,
+  replaceUserGroupsRepoMock,
+} = vi.hoisted(() => ({
+  listGroupsMock: vi.fn(),
+  listMembershipsMock: vi.fn(),
+  getGroupByIdMock: vi.fn(),
+  listMembershipsByGroupMock: vi.fn(),
+  listUsersWithIdsMock: vi.fn(),
+  listUsersForAdminMock: vi.fn(),
+  addGroupMembersRepoMock: vi.fn(),
+  replaceUserGroupsRepoMock: vi.fn(),
+}));
 
 vi.mock("../../repositories/admin/admin-repository.js", () => ({
+  addGroupMembers: addGroupMembersRepoMock,
   getGroupById: getGroupByIdMock,
   listGroups: listGroupsMock,
   listMemberships: listMembershipsMock,
   listMembershipsByGroup: listMembershipsByGroupMock,
   listUsersForAdmin: listUsersForAdminMock,
   listUsersWithIds: listUsersWithIdsMock,
-}));
-
-vi.mock("../../db/index.js", () => ({
-  db: dbMock,
-}));
-
-vi.mock("../../db/schema.js", () => ({
-  userGroupMemberships: {
-    groupId: "groupId",
-    userId: "userId",
-  },
+  replaceUserGroups: replaceUserGroupsRepoMock,
 }));
 
 import {
@@ -75,8 +49,8 @@ describe("group-service", () => {
     listMembershipsByGroupMock.mockReset();
     listUsersWithIdsMock.mockReset();
     listUsersForAdminMock.mockReset();
-    dbMock.transaction.mockReset();
-    dbMock._selectFromWhereMock.mockReset();
+    addGroupMembersRepoMock.mockReset();
+    replaceUserGroupsRepoMock.mockReset();
   });
 
   describe("listGroupsWithMemberCounts", () => {
@@ -213,50 +187,24 @@ describe("group-service", () => {
 
   describe("addGroupMembers", () => {
     it("inserts new members and skips existing ones", async () => {
-      const insertReturningMock = vi.fn();
-      const insertValuesMock = vi.fn(() => ({ returning: insertReturningMock }));
-      const insertMock = vi.fn(() => ({ values: insertValuesMock }));
-      const selectFromWhereMock = vi.fn();
-      const selectFromMock = vi.fn(() => ({ where: selectFromWhereMock }));
-      const selectMock = vi.fn(() => ({ from: selectFromMock }));
-
-      // First user already exists, second does not
-      selectFromWhereMock.mockResolvedValueOnce([{ id: "existing" }]).mockResolvedValueOnce([]);
-
-      insertReturningMock.mockResolvedValueOnce([
+      addGroupMembersRepoMock.mockResolvedValue([
         { id: "membership_new1", userId: "u2", groupId: "g1" },
       ]);
-
-      dbMock.transaction.mockImplementation(
-        async (
-          callback: (tx: { select: typeof selectMock; insert: typeof insertMock }) => unknown
-        ) => callback({ select: selectMock, insert: insertMock })
-      );
 
       const result = await addGroupMembers("g1", ["u1", "u2"]);
 
       expect(result).toEqual([{ id: "membership_new1", userId: "u2", groupId: "g1" }]);
-      expect(selectFromWhereMock).toHaveBeenCalledTimes(2);
-      expect(insertReturningMock).toHaveBeenCalledTimes(1);
+      expect(addGroupMembersRepoMock).toHaveBeenCalledWith("g1", ["u1", "u2"]);
     });
   });
 
   describe("replaceUserGroups", () => {
     it("deletes existing memberships and inserts new ones", async () => {
-      const deleteMock = vi.fn(() => ({ where: vi.fn() }));
-      const insertMock = vi.fn(() => ({ values: vi.fn() }));
-
-      dbMock.transaction.mockImplementation(
-        async (
-          callback: (tx: { delete: typeof deleteMock; insert: typeof insertMock }) => unknown
-        ) => callback({ delete: deleteMock, insert: insertMock })
-      );
+      replaceUserGroupsRepoMock.mockResolvedValue(undefined);
 
       await replaceUserGroups("u1", ["g1", "g2"]);
 
-      expect(dbMock.transaction).toHaveBeenCalledTimes(1);
-      expect(deleteMock).toHaveBeenCalledTimes(1);
-      expect(insertMock).toHaveBeenCalledTimes(2);
+      expect(replaceUserGroupsRepoMock).toHaveBeenCalledWith("u1", ["g1", "g2"]);
     });
   });
 });

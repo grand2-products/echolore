@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import type { RealtimeTranscriptSegment } from "@/lib/api";
 import { useAutoScrollNearBottom } from "@/lib/hooks/use-auto-scroll";
 import { useFormatters, useT } from "@/lib/i18n";
+import DialogBackdrop from "./DialogBackdrop";
+import { useEscapeKey } from "./use-escape-key";
 
 export interface TranscriptPanelProps {
   segments: RealtimeTranscriptSegment[];
@@ -17,31 +19,16 @@ export default function TranscriptPanel({ segments, open, onClose }: TranscriptP
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useAutoScrollNearBottom(scrollRef, segments);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [open, onClose]);
+  useEscapeKey(open, onClose);
 
   return (
     <>
-      {open ? (
-        <button
-          type="button"
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm appearance-none border-none p-0 m-0 cursor-default"
-          onClick={onClose}
-          aria-label="Close"
-        />
-      ) : null}
+      <DialogBackdrop open={open} onClose={onClose} />
       <dialog
         open={open}
         aria-modal="true"
         aria-label={t("meetings.room.realtimeTranscript")}
-        className={`fixed left-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-r border-gray-700/50 bg-gray-900 shadow-2xl transition-transform duration-300 ${
+        className={`fixed left-0 top-0 z-50 m-0 flex h-full w-full max-w-sm flex-col border-r border-gray-700/50 bg-gray-900 shadow-2xl transition-transform duration-300 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >

@@ -8,10 +8,10 @@ const {
   chatModelMock,
 } = vi.hoisted(() => ({
   aituberServiceMock: {
-    getUnprocessedMessages: vi.fn(),
+    listUnprocessedMessages: vi.fn(),
     markMessageProcessed: vi.fn(),
     saveAssistantMessage: vi.fn(),
-    getMessageHistory: vi.fn(),
+    listMessageHistory: vi.fn(),
   },
   ttsServiceMock: {
     splitIntoSentences: vi.fn(),
@@ -57,7 +57,7 @@ vi.mock("@langchain/core/messages", () => ({
   },
 }));
 
-import { startProcessingLoop, stopProcessingLoop } from "./aituber-ai-service.js";
+import { parseAnnotations, startProcessingLoop, stopProcessingLoop } from "./aituber-ai-service.js";
 
 const makeCharacter = (overrides = {}) => ({
   id: "char-1",
@@ -90,10 +90,10 @@ const makeViewerMessage = (overrides = {}) => ({
 describe("aituber-ai-service", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    aituberServiceMock.getUnprocessedMessages.mockReset();
+    aituberServiceMock.listUnprocessedMessages.mockReset();
     aituberServiceMock.markMessageProcessed.mockReset();
     aituberServiceMock.saveAssistantMessage.mockReset();
-    aituberServiceMock.getMessageHistory.mockReset();
+    aituberServiceMock.listMessageHistory.mockReset();
     ttsServiceMock.splitIntoSentences.mockReset();
     ttsServiceMock.synthesizeSpeech.mockReset();
     livekitServiceMock.sendDataToRoom.mockReset();
@@ -107,11 +107,11 @@ describe("aituber-ai-service", () => {
       const viewerMsg = makeViewerMessage();
 
       // First call returns a message, second returns empty to stop the loop
-      aituberServiceMock.getUnprocessedMessages
+      aituberServiceMock.listUnprocessedMessages
         .mockResolvedValueOnce([viewerMsg])
         .mockResolvedValue([]);
       aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
-      aituberServiceMock.getMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
       aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
 
       initLlmWithSettingsMock.mockResolvedValue({
@@ -132,6 +132,7 @@ describe("aituber-ai-service", () => {
       ttsServiceMock.synthesizeSpeech.mockResolvedValue({
         audio: Buffer.from("audio"),
         mimeType: "audio/mp3",
+        visemes: [],
       });
       livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
 
@@ -184,11 +185,11 @@ describe("aituber-ai-service", () => {
         },
       ];
 
-      aituberServiceMock.getUnprocessedMessages
+      aituberServiceMock.listUnprocessedMessages
         .mockResolvedValueOnce([viewerMsg])
         .mockResolvedValue([]);
       aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
-      aituberServiceMock.getMessageHistory.mockResolvedValue(historyMessages);
+      aituberServiceMock.listMessageHistory.mockResolvedValue(historyMessages);
       aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
 
       initLlmWithSettingsMock.mockResolvedValue({
@@ -207,6 +208,7 @@ describe("aituber-ai-service", () => {
       ttsServiceMock.synthesizeSpeech.mockResolvedValue({
         audio: Buffer.from("audio"),
         mimeType: "audio/mp3",
+        visemes: [],
       });
       livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
 
@@ -230,11 +232,11 @@ describe("aituber-ai-service", () => {
       const character = makeCharacter();
       const viewerMsg = makeViewerMessage();
 
-      aituberServiceMock.getUnprocessedMessages
+      aituberServiceMock.listUnprocessedMessages
         .mockResolvedValueOnce([viewerMsg])
         .mockResolvedValue([]);
       aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
-      aituberServiceMock.getMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
 
       initLlmWithSettingsMock.mockResolvedValue({
         model: chatModelMock,
@@ -266,11 +268,11 @@ describe("aituber-ai-service", () => {
       const character = makeCharacter();
       const viewerMsg = makeViewerMessage();
 
-      aituberServiceMock.getUnprocessedMessages
+      aituberServiceMock.listUnprocessedMessages
         .mockResolvedValueOnce([viewerMsg])
         .mockResolvedValue([]);
       aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
-      aituberServiceMock.getMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
       aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
 
       initLlmWithSettingsMock.mockResolvedValue({
@@ -312,6 +314,86 @@ describe("aituber-ai-service", () => {
     });
   });
 
+  describe("parseAnnotations", () => {
+    it("parses emotion and action tags", () => {
+      const result = parseAnnotations(
+        "[emotion:happy:0.7][action:greeting-wave-casual] やっほー！"
+      );
+      expect(result.emotion).toEqual({ type: "happy", intensity: 0.7 });
+      expect(result.action).toBe("greeting-wave-casual");
+      expect(result.text).toBe("やっほー！");
+    });
+
+    it("parses emotion only", () => {
+      const result = parseAnnotations("[emotion:sad:0.4] 悲しいね");
+      expect(result.emotion).toEqual({ type: "sad", intensity: 0.4 });
+      expect(result.action).toBeNull();
+      expect(result.text).toBe("悲しいね");
+    });
+
+    it("returns null emotion for missing tag", () => {
+      const result = parseAnnotations("普通の応答です");
+      expect(result.emotion).toBeNull();
+      expect(result.action).toBeNull();
+      expect(result.text).toBe("普通の応答です");
+    });
+
+    it("clamps intensity to [0, 1]", () => {
+      const result = parseAnnotations("[emotion:angry:1.5] 怒った！");
+      expect(result.emotion?.intensity).toBe(1);
+    });
+
+    it("rejects invalid emotion types", () => {
+      const result = parseAnnotations("[emotion:rage:0.8] 怒った！");
+      expect(result.emotion).toBeNull();
+    });
+
+    it("only matches tag at the beginning of text", () => {
+      const result = parseAnnotations("途中に [emotion:happy:0.5] がある");
+      expect(result.emotion).toBeNull();
+      expect(result.text).toBe("途中に [emotion:happy:0.5] がある");
+    });
+
+    it("handles tag without trailing space", () => {
+      const result = parseAnnotations("[emotion:sad:0.3]悲しいです");
+      expect(result.emotion).toEqual({ type: "sad", intensity: 0.3 });
+      expect(result.text).toBe("悲しいです");
+    });
+
+    it("parses action with hyphens in ID", () => {
+      const result = parseAnnotations("[emotion:neutral:0.0][action:nod-gentle-1] うん");
+      expect(result.action).toBe("nod-gentle-1");
+    });
+
+    it("rejects invalid action IDs not in registry", () => {
+      const result = parseAnnotations("[emotion:happy:0.5][action:dance-backflip] テスト");
+      expect(result.action).toBeNull();
+      expect(result.text).toBe("テスト");
+    });
+
+    it("accepts all registered action IDs", () => {
+      for (const id of [
+        "greeting-bow-polite",
+        "farewell-wave",
+        "nod-gentle-1",
+        "head-tilt-curious",
+        "laugh-mid",
+        "laugh-shy",
+        "surprise-mid",
+        "sad-mid",
+        "angry-mid",
+        "think-chin-hand",
+        "explain-point",
+        "react-impressed",
+        "react-embarrassed",
+        "idle-stretch",
+      ]) {
+        const result = parseAnnotations(`[emotion:neutral:0.0][action:${id}] test`);
+        expect(result.action).toBe(id);
+      }
+    });
+  });
+
   describe("stopProcessingLoop", () => {
     it("is a no-op when session is not active", () => {
       // Should not throw
@@ -319,7 +401,7 @@ describe("aituber-ai-service", () => {
     });
 
     it("does not start a duplicate loop for the same session", async () => {
-      aituberServiceMock.getUnprocessedMessages.mockResolvedValue([]);
+      aituberServiceMock.listUnprocessedMessages.mockResolvedValue([]);
       livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
 
       const character = makeCharacter();

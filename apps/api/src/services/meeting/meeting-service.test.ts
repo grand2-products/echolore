@@ -25,8 +25,12 @@ vi.mock("../../db/index.js", () => ({
   db: dbMock,
 }));
 
-vi.mock("../wiki/wiki-service.js", () => ({
+vi.mock("../../repositories/wiki/wiki-repository.js", () => ({
   createPageWithAccessDefaultsTx: createPageWithAccessDefaultsTxMock,
+}));
+
+vi.mock("../wiki/space-service.js", () => ({
+  GENERAL_SPACE_ID: "00000000-0000-0000-0000-000000000001",
 }));
 
 describe("meeting-service", () => {

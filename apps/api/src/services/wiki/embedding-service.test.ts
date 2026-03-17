@@ -6,30 +6,16 @@ const {
   mockGetEmbeddingModel,
   mockGetPageById,
   mockGetPageBlocks,
-  mockDbDelete,
-  mockDbDeleteWhere,
-  mockTxDelete,
-  mockTxDeleteWhere,
-  mockTxInsert,
-  mockTxInsertValues,
-  mockDbSelect,
-  mockDbSelectFrom,
-  mockDbSelectFromWhere,
+  mockDeletePageEmbeddingsByPageId,
+  mockReplacePageEmbeddings,
 } = vi.hoisted(() => ({
   mockIsEmbeddingEnabled: vi.fn(),
   mockEmbedText: vi.fn(),
   mockGetEmbeddingModel: vi.fn(),
   mockGetPageById: vi.fn(),
   mockGetPageBlocks: vi.fn(),
-  mockDbDelete: vi.fn(),
-  mockDbDeleteWhere: vi.fn(),
-  mockTxDelete: vi.fn(),
-  mockTxDeleteWhere: vi.fn(),
-  mockTxInsert: vi.fn(),
-  mockTxInsertValues: vi.fn(),
-  mockDbSelect: vi.fn(),
-  mockDbSelectFrom: vi.fn(),
-  mockDbSelectFromWhere: vi.fn(),
+  mockDeletePageEmbeddingsByPageId: vi.fn(),
+  mockReplacePageEmbeddings: vi.fn(),
 }));
 
 vi.mock("../../ai/embeddings.js", () => ({
@@ -41,40 +27,13 @@ vi.mock("../../ai/embeddings.js", () => ({
 vi.mock("../../repositories/wiki/wiki-repository.js", () => ({
   getPageById: mockGetPageById,
   getPageBlocks: mockGetPageBlocks,
+  deletePageEmbeddingsByPageId: mockDeletePageEmbeddingsByPageId,
+  replacePageEmbeddings: mockReplacePageEmbeddings,
+  listNonDeletedPageIds: vi.fn(async () => []),
 }));
 
 vi.mock("../../lib/html-utils.js", () => ({
   stripHtml: vi.fn((html: string) => html.replace(/<[^>]*>/g, "")),
-}));
-
-vi.mock("../../db/index.js", () => ({
-  db: {
-    delete: (...args: unknown[]) => mockDbDelete(...args),
-    select: (...args: unknown[]) => mockDbSelect(...args),
-    transaction: vi.fn(async (fn: (tx: unknown) => Promise<void>) => {
-      const tx = {
-        delete: (...args: unknown[]) => mockTxDelete(...args),
-        insert: (...args: unknown[]) => mockTxInsert(...args),
-      };
-      mockTxDelete.mockReturnValue({ where: mockTxDeleteWhere });
-      mockTxInsert.mockReturnValue({ values: mockTxInsertValues });
-      await fn(tx);
-    }),
-  },
-}));
-
-vi.mock("../../db/schema.js", () => ({
-  pageEmbeddings: { pageId: "pageEmbeddings.pageId" },
-  pages: { id: "pages.id", deletedAt: "pages.deletedAt" },
-}));
-
-vi.mock("drizzle-orm", () => ({
-  eq: vi.fn((a: unknown, b: unknown) => ({ _tag: "eq", a, b })),
-  sql: vi.fn(),
-}));
-
-vi.mock("nanoid", () => ({
-  nanoid: vi.fn(() => "mock12nanoid"),
 }));
 
 import {
@@ -88,9 +47,8 @@ describe("embedding-service", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
-    mockDbDelete.mockReturnValue({ where: mockDbDeleteWhere });
-    mockDbSelect.mockReturnValue({ from: mockDbSelectFrom });
-    mockDbSelectFrom.mockReturnValue({ where: mockDbSelectFromWhere });
+    mockDeletePageEmbeddingsByPageId.mockResolvedValue(undefined);
+    mockReplacePageEmbeddings.mockResolvedValue(undefined);
   });
 
   describe("chunkText", () => {
@@ -216,7 +174,7 @@ describe("embedding-service", () => {
 
       await indexPage("page_missing");
 
-      expect(mockDbDelete).toHaveBeenCalled();
+      expect(mockDeletePageEmbeddingsByPageId).toHaveBeenCalledWith("page_missing");
     });
 
     it("generates and stores embeddings for page content", async () => {
@@ -233,7 +191,7 @@ describe("embedding-service", () => {
       await indexPage("page_1");
 
       expect(mockEmbedText).toHaveBeenCalled();
-      expect(mockTxInsert).toHaveBeenCalled();
+      expect(mockReplacePageEmbeddings).toHaveBeenCalled();
     });
 
     it("does not store when embedding API returns null", async () => {
@@ -249,7 +207,7 @@ describe("embedding-service", () => {
 
       await indexPage("page_1");
 
-      expect(mockTxInsert).not.toHaveBeenCalled();
+      expect(mockReplacePageEmbeddings).not.toHaveBeenCalled();
     });
   });
 
@@ -257,8 +215,7 @@ describe("embedding-service", () => {
     it("deletes embeddings for the given page", async () => {
       await deletePageEmbeddings("page_1");
 
-      expect(mockDbDelete).toHaveBeenCalled();
-      expect(mockDbDeleteWhere).toHaveBeenCalled();
+      expect(mockDeletePageEmbeddingsByPageId).toHaveBeenCalledWith("page_1");
     });
   });
 });

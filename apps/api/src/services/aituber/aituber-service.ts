@@ -14,6 +14,7 @@ export async function createCharacter(input: {
   languageCode?: string;
   voiceName?: string;
   avatarUrl?: string;
+  avatarFileId?: string;
   isPublic?: boolean;
   createdBy: string;
 }): Promise<AituberCharacter> {
@@ -28,6 +29,7 @@ export async function createCharacter(input: {
         languageCode: input.languageCode ?? "ja-JP",
         voiceName: input.voiceName ?? null,
         avatarUrl: input.avatarUrl ?? null,
+        avatarFileId: input.avatarFileId ?? null,
         isPublic: input.isPublic ?? false,
         createdBy: input.createdBy,
       }),
@@ -53,10 +55,15 @@ export async function updateCharacter(
     languageCode: string;
     voiceName: string | null;
     avatarUrl: string | null;
+    avatarFileId: string | null;
     isPublic: boolean;
   }>
-) {
-  return repo.updateCharacter(id, { ...payload, updatedAt: new Date() });
+): Promise<AituberCharacter> {
+  const updated = await repo.updateCharacter(id, { ...payload, updatedAt: new Date() });
+  if (!updated) {
+    throw new Error("Character not found");
+  }
+  return updated;
 }
 
 export async function deleteCharacter(id: string) {
@@ -94,28 +101,22 @@ export async function listSessions(opts?: { status?: string; creatorId?: string 
 }
 
 export async function startSession(id: string): Promise<AituberSession> {
-  const session = await repo.getSessionById(id);
-  if (!session) throw new Error("Session not found");
-  if (session.status !== "created") throw new Error("Session is not in created state");
-
-  const updated = await repo.updateSession(id, {
+  // Atomic status transition: only update if currently "created"
+  const updated = await repo.updateSessionWithStatus(id, "created", {
     status: "live",
     startedAt: new Date(),
   });
-  if (!updated) throw new Error("Failed to start session");
+  if (!updated) throw new Error("Session not found or not in created state");
   return updated;
 }
 
 export async function stopSession(id: string): Promise<AituberSession> {
-  const session = await repo.getSessionById(id);
-  if (!session) throw new Error("Session not found");
-  if (session.status !== "live") throw new Error("Session is not live");
-
-  const updated = await repo.updateSession(id, {
+  // Atomic status transition: only update if currently "live"
+  const updated = await repo.updateSessionWithStatus(id, "live", {
     status: "ended",
     endedAt: new Date(),
   });
-  if (!updated) throw new Error("Failed to stop session");
+  if (!updated) throw new Error("Session not found or not live");
   return updated;
 }
 
@@ -161,16 +162,16 @@ export async function saveAssistantMessage(input: {
   );
 }
 
-export async function getUnprocessedMessages(sessionId: string) {
-  return repo.getUnprocessedMessages(sessionId);
+export async function listUnprocessedMessages(sessionId: string) {
+  return repo.listUnprocessedMessages(sessionId);
 }
 
 export async function markMessageProcessed(id: string) {
   return repo.markMessageProcessed(id);
 }
 
-export async function getMessageHistory(sessionId: string, limit?: number) {
-  return repo.getRecentMessages(sessionId, limit);
+export async function listMessageHistory(sessionId: string, limit?: number) {
+  return repo.listRecentMessages(sessionId, limit);
 }
 
 export async function listMessages(sessionId: string, limit?: number) {

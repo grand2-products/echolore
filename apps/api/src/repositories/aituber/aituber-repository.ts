@@ -8,7 +8,7 @@ import {
   type NewAituberMessage,
   type NewAituberSession,
 } from "../../db/schema.js";
-import { firstOrNull } from "../../lib/db-utils.js";
+import { firstOrNull, getRecordById } from "../../lib/db-utils.js";
 
 // --- Characters ---
 
@@ -17,7 +17,7 @@ export async function createCharacter(character: NewAituberCharacter) {
 }
 
 export async function getCharacterById(id: string) {
-  return firstOrNull(await db.select().from(aituberCharacters).where(eq(aituberCharacters.id, id)));
+  return getRecordById(aituberCharacters, id);
 }
 
 export async function listCharacters(opts?: { createdBy?: string }) {
@@ -42,6 +42,7 @@ export async function updateCharacter(
     languageCode: string;
     voiceName: string | null;
     avatarUrl: string | null;
+    avatarFileId: string | null;
     isPublic: boolean;
     updatedAt: Date;
   }>
@@ -62,7 +63,7 @@ export async function createSession(session: NewAituberSession) {
 }
 
 export async function getSessionById(id: string) {
-  return firstOrNull(await db.select().from(aituberSessions).where(eq(aituberSessions.id, id)));
+  return getRecordById(aituberSessions, id);
 }
 
 export async function listSessions(opts?: { status?: string; creatorId?: string }) {
@@ -93,13 +94,32 @@ export async function updateSession(
   );
 }
 
+/** Atomic status transition: only updates if current status matches expectedStatus */
+export async function updateSessionWithStatus(
+  id: string,
+  expectedStatus: string,
+  payload: Partial<{
+    status: string;
+    startedAt: Date;
+    endedAt: Date;
+  }>
+) {
+  return firstOrNull(
+    await db
+      .update(aituberSessions)
+      .set(payload)
+      .where(and(eq(aituberSessions.id, id), eq(aituberSessions.status, expectedStatus)))
+      .returning()
+  );
+}
+
 // --- Messages ---
 
 export async function createMessage(message: NewAituberMessage) {
   return firstOrNull(await db.insert(aituberMessages).values(message).returning());
 }
 
-export async function getUnprocessedMessages(sessionId: string, limit = 10) {
+export async function listUnprocessedMessages(sessionId: string, limit = 10) {
   return db
     .select()
     .from(aituberMessages)
@@ -133,7 +153,7 @@ export async function listMessagesBySession(sessionId: string, limit = 50) {
     .limit(limit);
 }
 
-export async function getRecentMessages(sessionId: string, limit = 20) {
+export async function listRecentMessages(sessionId: string, limit = 20) {
   const rows = await db
     .select()
     .from(aituberMessages)

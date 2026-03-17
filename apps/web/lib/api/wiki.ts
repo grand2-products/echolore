@@ -8,7 +8,7 @@ import type {
   UpdateBlockRequest,
   UpdatePageRequest,
 } from "@echolore/shared/contracts";
-import { executeApiRequest, fetchApi, parseApiError } from "./fetch";
+import { fetchApi, uploadFile } from "./fetch";
 import type {
   AdminGroup,
   AdminPagePermissionsResponse,
@@ -109,27 +109,11 @@ export const wikiApi = {
     }),
 
   // Import
-  importFile: async (
-    file: File,
-    spaceId: string,
-    parentId?: string
-  ): Promise<{ page: Page; blocks: Block[] }> => {
-    const formData = new FormData();
-    formData.append("file", file, file.name);
-    formData.append("spaceId", spaceId);
-    if (parentId) formData.append("parentId", parentId);
-
-    const response = await executeApiRequest("/wiki/import", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw await parseApiError(response);
-    }
-
-    return response.json();
-  },
+  importFile: (file: File, spaceId: string, parentId?: string) =>
+    uploadFile<{ page: Page; blocks: Block[] }>("/wiki/import", file, {
+      spaceId,
+      ...(parentId ? { parentId } : {}),
+    }),
 
   // Permissions
   listGroups: () => fetchApi<{ groups: AdminGroup[] }>("/wiki/groups"),

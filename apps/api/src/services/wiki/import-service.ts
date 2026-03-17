@@ -1,12 +1,7 @@
-/**
- * Import service: parses Markdown/Typst files and creates a wiki page + blocks
- * in a single DB transaction.
- */
-import { db } from "../../db/index.js";
-import { type Block, blocks, type Page } from "../../db/schema.js";
+import type { Block, Page } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
+import { type BlockDraft, importPageWithBlocks } from "../../repositories/wiki/wiki-repository.js";
 import { parseMarkdown, parseTypst } from "./import-parser.js";
-import { createPageWithAccessDefaultsTx } from "./wiki-service.js";
 
 export const IMPORT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
@@ -83,44 +78,21 @@ export async function importFile(
   const title = extractTitle(drafts, filename);
   const now = new Date();
 
-  return db.transaction(async (tx) => {
-    const page = await createPageWithAccessDefaultsTx(tx, {
-      id: crypto.randomUUID(),
-      title,
-      spaceId,
-      parentId,
-      authorId: user.id,
-      createdAt: now,
-      updatedAt: now,
-    });
+  const blockDrafts: BlockDraft[] = drafts.map((d) => ({
+    type: d.type,
+    content: d.content,
+    properties: d.properties,
+  }));
 
-    if (drafts.length === 0) {
-      return { page, blocks: [] };
-    }
-
-    const blockValues = drafts.map((draft, index) => ({
-      id: crypto.randomUUID(),
-      pageId: page.id,
-      type: draft.type,
-      content: draft.content,
-      properties: draft.properties,
-      sortOrder: index,
-      createdAt: now,
-      updatedAt: now,
-    }));
-
-    await tx.insert(blocks).values(blockValues);
-
-    return {
-      page,
-      blocks: blockValues.map(({ id, pageId, type, content, properties, sortOrder }) => ({
-        id,
-        pageId,
-        type,
-        content,
-        properties,
-        sortOrder,
-      })),
-    };
+  const result = await importPageWithBlocks({
+    pageId: crypto.randomUUID(),
+    title,
+    spaceId,
+    parentId,
+    authorId: user.id,
+    now,
+    blockDrafts,
   });
+
+  return result;
 }

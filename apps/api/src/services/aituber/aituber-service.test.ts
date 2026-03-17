@@ -11,11 +11,12 @@ const { repoMock } = vi.hoisted(() => ({
     getSessionById: vi.fn(),
     listSessions: vi.fn(),
     updateSession: vi.fn(),
+    updateSessionWithStatus: vi.fn(),
     createMessage: vi.fn(),
-    getUnprocessedMessages: vi.fn(),
+    listUnprocessedMessages: vi.fn(),
     markMessageProcessed: vi.fn(),
     listMessagesBySession: vi.fn(),
-    getRecentMessages: vi.fn(),
+    listRecentMessages: vi.fn(),
   },
 }));
 
@@ -26,12 +27,12 @@ import {
   createSession,
   deleteCharacter,
   getCharacter,
-  getMessageHistory,
   getSession,
-  getUnprocessedMessages,
   listCharacters,
+  listMessageHistory,
   listMessages,
   listSessions,
+  listUnprocessedMessages,
   markMessageProcessed,
   saveAssistantMessage,
   sendViewerMessage,
@@ -312,16 +313,15 @@ describe("aituber-service", () => {
   });
 
   describe("startSession", () => {
-    it("starts a session that is in created state", async () => {
-      const session = makeSession({ status: "created" });
+    it("atomically transitions session from created to live", async () => {
       const updated = makeSession({ status: "live", startedAt: new Date() });
-      repoMock.getSessionById.mockResolvedValue(session);
-      repoMock.updateSession.mockResolvedValue(updated);
+      repoMock.updateSessionWithStatus.mockResolvedValue(updated);
 
       const result = await startSession("session-1");
 
-      expect(repoMock.updateSession).toHaveBeenCalledWith(
+      expect(repoMock.updateSessionWithStatus).toHaveBeenCalledWith(
         "session-1",
+        "created",
         expect.objectContaining({
           status: "live",
           startedAt: expect.any(Date),
@@ -330,37 +330,25 @@ describe("aituber-service", () => {
       expect(result).toEqual(updated);
     });
 
-    it("throws when session is not found", async () => {
-      repoMock.getSessionById.mockResolvedValue(null);
+    it("throws when session not found or not in created state", async () => {
+      repoMock.updateSessionWithStatus.mockResolvedValue(null);
 
-      await expect(startSession("nonexistent")).rejects.toThrow("Session not found");
-    });
-
-    it("throws when session is not in created state", async () => {
-      repoMock.getSessionById.mockResolvedValue(makeSession({ status: "live" }));
-
-      await expect(startSession("session-1")).rejects.toThrow("Session is not in created state");
-    });
-
-    it("throws when update returns null", async () => {
-      repoMock.getSessionById.mockResolvedValue(makeSession({ status: "created" }));
-      repoMock.updateSession.mockResolvedValue(null);
-
-      await expect(startSession("session-1")).rejects.toThrow("Failed to start session");
+      await expect(startSession("nonexistent")).rejects.toThrow(
+        "Session not found or not in created state"
+      );
     });
   });
 
   describe("stopSession", () => {
-    it("stops a live session", async () => {
-      const session = makeSession({ status: "live" });
+    it("atomically transitions session from live to ended", async () => {
       const updated = makeSession({ status: "ended", endedAt: new Date() });
-      repoMock.getSessionById.mockResolvedValue(session);
-      repoMock.updateSession.mockResolvedValue(updated);
+      repoMock.updateSessionWithStatus.mockResolvedValue(updated);
 
       const result = await stopSession("session-1");
 
-      expect(repoMock.updateSession).toHaveBeenCalledWith(
+      expect(repoMock.updateSessionWithStatus).toHaveBeenCalledWith(
         "session-1",
+        "live",
         expect.objectContaining({
           status: "ended",
           endedAt: expect.any(Date),
@@ -369,23 +357,10 @@ describe("aituber-service", () => {
       expect(result).toEqual(updated);
     });
 
-    it("throws when session is not found", async () => {
-      repoMock.getSessionById.mockResolvedValue(null);
+    it("throws when session not found or not live", async () => {
+      repoMock.updateSessionWithStatus.mockResolvedValue(null);
 
-      await expect(stopSession("nonexistent")).rejects.toThrow("Session not found");
-    });
-
-    it("throws when session is not live", async () => {
-      repoMock.getSessionById.mockResolvedValue(makeSession({ status: "created" }));
-
-      await expect(stopSession("session-1")).rejects.toThrow("Session is not live");
-    });
-
-    it("throws when update returns null", async () => {
-      repoMock.getSessionById.mockResolvedValue(makeSession({ status: "live" }));
-      repoMock.updateSession.mockResolvedValue(null);
-
-      await expect(stopSession("session-1")).rejects.toThrow("Failed to stop session");
+      await expect(stopSession("nonexistent")).rejects.toThrow("Session not found or not live");
     });
   });
 
@@ -482,14 +457,14 @@ describe("aituber-service", () => {
     });
   });
 
-  describe("getUnprocessedMessages", () => {
+  describe("listUnprocessedMessages", () => {
     it("delegates to repo", async () => {
       const messages = [makeMessage()];
-      repoMock.getUnprocessedMessages.mockResolvedValue(messages);
+      repoMock.listUnprocessedMessages.mockResolvedValue(messages);
 
-      const result = await getUnprocessedMessages("session-1");
+      const result = await listUnprocessedMessages("session-1");
 
-      expect(repoMock.getUnprocessedMessages).toHaveBeenCalledWith("session-1");
+      expect(repoMock.listUnprocessedMessages).toHaveBeenCalledWith("session-1");
       expect(result).toEqual(messages);
     });
   });
@@ -506,13 +481,13 @@ describe("aituber-service", () => {
     });
   });
 
-  describe("getMessageHistory", () => {
+  describe("listMessageHistory", () => {
     it("delegates to repo with limit", async () => {
-      repoMock.getRecentMessages.mockResolvedValue([]);
+      repoMock.listRecentMessages.mockResolvedValue([]);
 
-      await getMessageHistory("session-1", 10);
+      await listMessageHistory("session-1", 10);
 
-      expect(repoMock.getRecentMessages).toHaveBeenCalledWith("session-1", 10);
+      expect(repoMock.listRecentMessages).toHaveBeenCalledWith("session-1", 10);
     });
   });
 

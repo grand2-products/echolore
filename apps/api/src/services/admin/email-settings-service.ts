@@ -1,4 +1,4 @@
-import { createSettingsCache } from "./create-settings-cache.js";
+import { createTypedSettingsService, FieldCodecs, field } from "./create-settings-cache.js";
 
 export type EmailProvider = "none" | "resend" | "smtp";
 
@@ -14,46 +14,20 @@ export interface EmailSettings {
   smtpFrom: string | null;
 }
 
-const cache = createSettingsCache<EmailSettings>({
-  keys: [
-    "emailProvider",
-    "emailResendApiKey",
-    "emailResendFrom",
-    "emailSmtpHost",
-    "emailSmtpPort",
-    "emailSmtpSecure",
-    "emailSmtpUser",
-    "emailSmtpPass",
-    "emailSmtpFrom",
-  ],
-  cacheTtlMs: false,
-  mapToSettings: (map) => ({
-    provider: (map.emailProvider as EmailProvider) || "none",
-    resendApiKey: map.emailResendApiKey || null,
-    resendFrom: map.emailResendFrom || null,
-    smtpHost: map.emailSmtpHost || null,
-    smtpPort: map.emailSmtpPort
-      ? Number.isFinite(Number(map.emailSmtpPort))
-        ? Number(map.emailSmtpPort)
-        : null
-      : null,
-    smtpSecure: map.emailSmtpSecure === "true",
-    smtpUser: map.emailSmtpUser || null,
-    smtpPass: map.emailSmtpPass || null,
-    smtpFrom: map.emailSmtpFrom || null,
-  }),
-  mapToKeyValues: (input) => ({
-    emailProvider: input.provider,
-    emailResendApiKey: input.resendApiKey ?? undefined,
-    emailResendFrom: input.resendFrom ?? undefined,
-    emailSmtpHost: input.smtpHost ?? undefined,
-    emailSmtpPort: input.smtpPort != null ? String(input.smtpPort) : undefined,
-    emailSmtpSecure: input.smtpSecure != null ? String(input.smtpSecure) : undefined,
-    emailSmtpUser: input.smtpUser ?? undefined,
-    emailSmtpPass: input.smtpPass ?? undefined,
-    emailSmtpFrom: input.smtpFrom ?? undefined,
-  }),
-});
+const cache = createTypedSettingsService(
+  {
+    provider: field("emailProvider", FieldCodecs.withDefault<EmailProvider>("none")),
+    resendApiKey: field("emailResendApiKey", FieldCodecs.nullable),
+    resendFrom: field("emailResendFrom", FieldCodecs.nullable),
+    smtpHost: field("emailSmtpHost", FieldCodecs.nullable),
+    smtpPort: field("emailSmtpPort", FieldCodecs.nullableNumber),
+    smtpSecure: field("emailSmtpSecure", FieldCodecs.boolFalse),
+    smtpUser: field("emailSmtpUser", FieldCodecs.nullable),
+    smtpPass: field("emailSmtpPass", FieldCodecs.nullable),
+    smtpFrom: field("emailSmtpFrom", FieldCodecs.nullable),
+  },
+  { cacheTtlMs: false }
+);
 
 export const getEmailSettings = cache.get;
 export const updateEmailSettings = cache.update;

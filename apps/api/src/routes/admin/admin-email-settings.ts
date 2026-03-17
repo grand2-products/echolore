@@ -1,31 +1,14 @@
-import { zValidator } from "@hono/zod-validator";
-import { Hono } from "hono";
-import { withErrorHandler } from "../../lib/api-error.js";
-import type { AppEnv } from "../../lib/auth.js";
-import { maskSecrets, stripMaskedValues } from "../../lib/secret-mask.js";
+import type { EmailSettings } from "../../services/admin/admin-service.js";
 import { getEmailSettings, updateEmailSettings } from "../../services/admin/admin-service.js";
+import { createAdminSettingsRoutes } from "./create-settings-routes.js";
 import { updateEmailSettingsSchema } from "./schemas.js";
 
-const SECRET_FIELDS = ["resendApiKey", "smtpPass"] as const;
-
-export const adminEmailSettingsRoutes = new Hono<AppEnv>();
-
-adminEmailSettingsRoutes.get(
-  "/email-settings",
-  withErrorHandler("ADMIN_EMAIL_SETTINGS_FETCH_FAILED", "Failed to fetch email settings"),
-  async (c) => {
-    const settings = await getEmailSettings();
-    return c.json(maskSecrets(settings, [...SECRET_FIELDS]));
-  }
-);
-
-adminEmailSettingsRoutes.put(
-  "/email-settings",
-  zValidator("json", updateEmailSettingsSchema),
-  withErrorHandler("ADMIN_EMAIL_SETTINGS_UPDATE_FAILED", "Failed to update email settings"),
-  async (c) => {
-    const data = stripMaskedValues(c.req.valid("json"), [...SECRET_FIELDS]);
-    const updated = await updateEmailSettings(data);
-    return c.json(maskSecrets(updated, [...SECRET_FIELDS]));
-  }
-);
+export const adminEmailSettingsRoutes = createAdminSettingsRoutes<EmailSettings>({
+  path: "email-settings",
+  secretFields: ["resendApiKey", "smtpPass"],
+  getSettings: getEmailSettings,
+  updateSettings: updateEmailSettings,
+  validationSchema: updateEmailSettingsSchema,
+  errorPrefix: "ADMIN_EMAIL_SETTINGS",
+  label: "email settings",
+});

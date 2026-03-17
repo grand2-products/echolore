@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   createMessageMock,
-  getRecentMessagesMock,
+  listRecentMessagesMock,
   updateConversationMock,
   initLlmWithSettingsMock,
   searchVisibleChunksMock,
@@ -11,7 +11,7 @@ const {
   createAiChatReadPageToolMock,
 } = vi.hoisted(() => ({
   createMessageMock: vi.fn(),
-  getRecentMessagesMock: vi.fn(),
+  listRecentMessagesMock: vi.fn(),
   updateConversationMock: vi.fn(),
   initLlmWithSettingsMock: vi.fn(),
   searchVisibleChunksMock: vi.fn(),
@@ -22,7 +22,7 @@ const {
 
 vi.mock("../../repositories/ai-chat/ai-chat-repository.js", () => ({
   createMessage: createMessageMock,
-  getRecentMessages: getRecentMessagesMock,
+  listRecentMessages: listRecentMessagesMock,
   updateConversation: updateConversationMock,
 }));
 
@@ -58,7 +58,7 @@ describe("ai-chat-ai-service", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     createMessageMock.mockReset();
-    getRecentMessagesMock.mockReset();
+    listRecentMessagesMock.mockReset();
     updateConversationMock.mockReset();
     initLlmWithSettingsMock.mockReset();
     searchVisibleChunksMock.mockReset();
@@ -81,7 +81,7 @@ describe("ai-chat-ai-service", () => {
         role: "assistant",
         content: "Hi there!",
       });
-    getRecentMessagesMock.mockResolvedValue([]);
+    listRecentMessagesMock.mockResolvedValue([]);
     updateConversationMock.mockResolvedValue({});
     initLlmWithSettingsMock.mockResolvedValue({
       model: {},
@@ -159,7 +159,7 @@ describe("ai-chat-ai-service", () => {
           role: "assistant",
           content: "unavailable",
         });
-      getRecentMessagesMock.mockResolvedValue([]);
+      listRecentMessagesMock.mockResolvedValue([]);
       updateConversationMock.mockResolvedValue({});
       initLlmWithSettingsMock.mockResolvedValue(null);
 
@@ -189,7 +189,7 @@ describe("ai-chat-ai-service", () => {
           role: "assistant",
           content: "Answer",
         });
-      getRecentMessagesMock.mockResolvedValue([]);
+      listRecentMessagesMock.mockResolvedValue([]);
       updateConversationMock.mockResolvedValue({});
       initLlmWithSettingsMock.mockResolvedValue({
         model: {},
@@ -235,7 +235,7 @@ describe("ai-chat-ai-service", () => {
           role: "assistant",
           content: "error",
         });
-      getRecentMessagesMock.mockResolvedValue([]);
+      listRecentMessagesMock.mockResolvedValue([]);
       updateConversationMock.mockResolvedValue({});
       initLlmWithSettingsMock.mockResolvedValue({
         model: {},

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { withErrorHandler } from "../lib/api-error.js";
 import { ONE_DAY_MS } from "../lib/time.js";
+import { toNumber } from "../lib/utils.js";
 import {
   countActiveUsers,
   getMeetingStats,
@@ -9,12 +10,6 @@ import {
 } from "../repositories/metrics/metrics-repository.js";
 
 export const metricsRoutes = new Hono();
-
-const toNumber = (value: unknown): number => {
-  if (typeof value === "number") return value;
-  if (typeof value === "string") return Number(value);
-  return 0;
-};
 
 const SECURITY_ALERT_THRESHOLDS = {
   authRejectedWarning: 5,

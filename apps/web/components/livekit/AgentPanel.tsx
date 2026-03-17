@@ -9,6 +9,8 @@ import {
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useLocale, useT } from "@/lib/i18n";
+import DialogBackdrop from "./DialogBackdrop";
+import { useEscapeKey } from "./use-escape-key";
 
 export function localeToLanguageCode(locale: string) {
   switch (locale) {
@@ -50,14 +52,7 @@ export default function AgentPanel(props: AgentPanelProps) {
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => {
-    if (!props.open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") props.onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [props.open, props.onClose]);
+  useEscapeKey(props.open, props.onClose);
 
   useEffect(() => {
     const firstAgent = props.agents[0];
@@ -154,22 +149,14 @@ export default function AgentPanel(props: AgentPanelProps) {
 
   return (
     <>
-      {/* Backdrop */}
-      {props.open ? (
-        <button
-          type="button"
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity appearance-none border-none p-0 m-0 cursor-default"
-          onClick={props.onClose}
-          aria-label="Close"
-        />
-      ) : null}
+      <DialogBackdrop open={props.open} onClose={props.onClose} />
 
       {/* Drawer */}
       <dialog
         open={props.open}
         aria-modal="true"
         aria-label={t("meetings.room.aiEmployee")}
-        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-gray-700/50 bg-gray-900 shadow-2xl transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-50 m-0 flex h-full w-full max-w-md flex-col border-l border-gray-700/50 bg-gray-900 shadow-2xl transition-transform duration-300 ${
           props.open ? "translate-x-0" : "translate-x-full"
         }`}
       >

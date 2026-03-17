@@ -10,7 +10,7 @@ import {
 import type { SessionUser } from "../../lib/auth.js";
 import {
   createMessage,
-  getRecentMessages,
+  listRecentMessages,
   updateConversation,
 } from "../../repositories/ai-chat/ai-chat-repository.js";
 import { searchVisibleChunks, type VectorSearchResult } from "../wiki/vector-search-service.js";
@@ -35,7 +35,7 @@ export async function sendMessageAndGetResponse(
   }
 
   // Load conversation history and build LangChain messages
-  const recentMessages = await getRecentMessages(conversationId, 20);
+  const recentMessages = await listRecentMessages(conversationId, 20);
   const messageHistory = recentMessages
     .filter((m) => m.id !== userMessage.id)
     .map((m) => (m.role === "user" ? new HumanMessage(m.content) : new AIMessage(m.content)));

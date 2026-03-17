@@ -20,14 +20,33 @@ const {
 
 vi.mock("../services/admin/admin-service.js", () => ({
   addGroupMembers: addGroupMembersMock,
+  changeUserRole: vi.fn(),
+  createAgentDefinition: vi.fn(),
+  deleteSpacePermissionForGroup: vi.fn(),
+  getAuthSettings: vi.fn(async () => ({})),
+  getEmailSettings: vi.fn(async () => ({})),
+  getGcpCredentials: vi.fn(async () => ({})),
   getGroupDetail: vi.fn(),
+  getLlmSettings: vi.fn(async () => ({})),
   getPagePermissionsDetail: vi.fn(),
+  getSiteSettings: vi.fn(async () => ({})),
+  getSpacePermissionsDetail: vi.fn(),
+  getStorageSettings: vi.fn(async () => ({})),
+  listAvailableAgents: vi.fn(async () => []),
   listGroupMembers: vi.fn(),
   listGroupsWithMemberCounts: listGroupsWithMemberCountsMock,
   listUsersWithGroups: vi.fn(),
   replacePageInheritance: vi.fn(),
   replacePagePermissions: vi.fn(),
+  replaceSpacePermissions: vi.fn(),
   replaceUserGroups: replaceUserGroupsMock,
+  updateAgentDefinition: vi.fn(),
+  updateAuthSettings: vi.fn(),
+  updateEmailSettings: vi.fn(),
+  updateGcpCredentials: vi.fn(),
+  updateLlmSettings: vi.fn(),
+  updateSiteSettings: vi.fn(),
+  updateStorageSettings: vi.fn(),
 }));
 
 vi.mock("../repositories/admin/admin-repository.js", () => ({
@@ -35,10 +54,36 @@ vi.mock("../repositories/admin/admin-repository.js", () => ({
   deleteGroup: vi.fn(),
   deleteMembership: vi.fn(),
   deletePagePermission: vi.fn(),
+  deleteSiteSetting: vi.fn(),
   getGroupById: vi.fn(),
   getGroupByName: vi.fn(),
   getPageInheritance: vi.fn(),
   updateGroup: vi.fn(),
+  upsertSiteSetting: vi.fn(),
+}));
+
+vi.mock("../repositories/wiki/space-repository.js", () => ({
+  getSpaceById: vi.fn(),
+}));
+
+vi.mock("../services/wiki/space-service.js", () => ({
+  ensureTeamSpaceForGroup: vi.fn(),
+}));
+
+vi.mock("../services/wiki/embedding-service.js", () => ({
+  reindexAllPages: vi.fn(async () => ({ indexed: 0, errors: 0 })),
+}));
+
+vi.mock("../lib/file-storage.js", () => ({
+  createStorageProvider: vi.fn(),
+  removeFile: vi.fn(),
+  saveFile: vi.fn(),
+  setStorageProvider: vi.fn(),
+}));
+
+vi.mock("../lib/secret-mask.js", () => ({
+  maskSecrets: vi.fn((v: unknown) => v),
+  stripMaskedValues: vi.fn((v: unknown) => v),
 }));
 
 vi.mock("../lib/audit.js", () => ({

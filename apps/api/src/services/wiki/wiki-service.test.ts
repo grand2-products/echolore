@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pageInheritance, pagePermissions, pages, userGroupMemberships } from "../../db/schema.js";
-import { createPageWithAccessDefaultsTx } from "./wiki-service.js";
+import { createPageWithAccessDefaultsTx } from "../../repositories/wiki/wiki-repository.js";
 
 describe("wiki-service", () => {
   beforeEach(() => {

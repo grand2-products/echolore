@@ -1,44 +1,31 @@
-import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { createStorageProvider, setStorageProvider } from "../../lib/file-storage.js";
-import { maskSecrets, stripMaskedValues } from "../../lib/secret-mask.js";
+import type { StorageSettings } from "../../services/admin/admin-service.js";
 import {
   buildStorageConfig,
   getStorageSettings,
   updateStorageSettings,
 } from "../../services/admin/admin-service.js";
+import { createAdminSettingsRoutes } from "./create-settings-routes.js";
 import { updateStorageSettingsSchema } from "./schemas.js";
 
-const SECRET_FIELDS = ["s3SecretKey", "gcsKeyJson"] as const;
-
-export const adminStorageSettingsRoutes = new Hono<AppEnv>();
-
-adminStorageSettingsRoutes.get(
-  "/storage-settings",
-  withErrorHandler("ADMIN_STORAGE_SETTINGS_FETCH_FAILED", "Failed to fetch storage settings"),
-  async (c) => {
-    const settings = await getStorageSettings();
-    return c.json(maskSecrets(settings, [...SECRET_FIELDS]));
-  }
-);
-
-adminStorageSettingsRoutes.put(
-  "/storage-settings",
-  zValidator("json", updateStorageSettingsSchema),
-  withErrorHandler("ADMIN_STORAGE_SETTINGS_UPDATE_FAILED", "Failed to update storage settings"),
-  async (c) => {
-    const data = stripMaskedValues(c.req.valid("json"), [...SECRET_FIELDS]);
-    const updated = await updateStorageSettings(data);
-
-    // Apply the new provider immediately
+const settingsRoutes = createAdminSettingsRoutes<StorageSettings>({
+  path: "storage-settings",
+  secretFields: ["s3SecretKey", "gcsKeyJson"],
+  getSettings: getStorageSettings,
+  updateSettings: updateStorageSettings,
+  validationSchema: updateStorageSettingsSchema,
+  errorPrefix: "ADMIN_STORAGE_SETTINGS",
+  label: "storage settings",
+  onAfterUpdate: async (updated) => {
     const config = await buildStorageConfig(updated);
     setStorageProvider(createStorageProvider(config));
+  },
+});
 
-    return c.json(maskSecrets(updated, [...SECRET_FIELDS]));
-  }
-);
+export const adminStorageSettingsRoutes = new Hono<AppEnv>();
+adminStorageSettingsRoutes.route("/", settingsRoutes);
 
 adminStorageSettingsRoutes.post("/storage-settings/test", async (c) => {
   try {

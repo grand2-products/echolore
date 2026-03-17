@@ -1,47 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { listPagePermissionsMock, listGroupsMock, getPageInheritanceMock, dbMock } = vi.hoisted(
-  () => {
-    const selectFromWhereMock = vi.fn();
-    return {
-      listPagePermissionsMock: vi.fn(),
-      listGroupsMock: vi.fn(),
-      getPageInheritanceMock: vi.fn(),
-      dbMock: {
-        transaction: vi.fn(),
-        select: vi.fn(() => ({
-          from: vi.fn(() => ({
-            where: selectFromWhereMock,
-          })),
-        })),
-        insert: vi.fn(() => ({
-          values: vi.fn(),
-        })),
-        delete: vi.fn(() => ({
-          where: vi.fn(() => ({
-            returning: vi.fn(),
-          })),
-        })),
-        _selectFromWhereMock: selectFromWhereMock,
-      },
-    };
-  }
-);
+const {
+  listPagePermissionsMock,
+  listGroupsMock,
+  getPageInheritanceMock,
+  listSpacePermissionsMock,
+  replacePagePermissionsRepoMock,
+  replacePageInheritanceRepoMock,
+  replaceSpacePermissionsRepoMock,
+  deleteSpacePermissionForGroupRepoMock,
+} = vi.hoisted(() => ({
+  listPagePermissionsMock: vi.fn(),
+  listGroupsMock: vi.fn(),
+  getPageInheritanceMock: vi.fn(),
+  listSpacePermissionsMock: vi.fn(),
+  replacePagePermissionsRepoMock: vi.fn(),
+  replacePageInheritanceRepoMock: vi.fn(),
+  replaceSpacePermissionsRepoMock: vi.fn(),
+  deleteSpacePermissionForGroupRepoMock: vi.fn(),
+}));
 
 vi.mock("../../repositories/admin/admin-repository.js", () => ({
+  deleteSpacePermissionForGroup: deleteSpacePermissionForGroupRepoMock,
   getPageInheritance: getPageInheritanceMock,
   listGroups: listGroupsMock,
   listPagePermissions: listPagePermissionsMock,
-}));
-
-vi.mock("../../db/index.js", () => ({
-  db: dbMock,
-}));
-
-vi.mock("../../db/schema.js", () => ({
-  pagePermissions: { pageId: "pageId", groupId: "groupId" },
-  pageInheritance: { pageId: "pageId" },
-  spacePermissions: { spaceId: "spaceId", groupId: "groupId" },
+  listSpacePermissions: listSpacePermissionsMock,
+  replacePageInheritance: replacePageInheritanceRepoMock,
+  replacePagePermissions: replacePagePermissionsRepoMock,
+  replaceSpacePermissions: replaceSpacePermissionsRepoMock,
 }));
 
 import {
@@ -59,9 +46,11 @@ describe("permission-service", () => {
     listPagePermissionsMock.mockReset();
     listGroupsMock.mockReset();
     getPageInheritanceMock.mockReset();
-    dbMock.transaction.mockReset();
-    dbMock.select.mockClear();
-    dbMock._selectFromWhereMock.mockReset();
+    listSpacePermissionsMock.mockReset();
+    replacePagePermissionsRepoMock.mockReset();
+    replacePageInheritanceRepoMock.mockReset();
+    replaceSpacePermissionsRepoMock.mockReset();
+    deleteSpacePermissionForGroupRepoMock.mockReset();
   });
 
   describe("getPagePermissionsDetail", () => {
@@ -132,51 +121,34 @@ describe("permission-service", () => {
   });
 
   describe("replacePagePermissions", () => {
-    it("deletes existing permissions and inserts new ones in a transaction", async () => {
-      const deleteMock = vi.fn(() => ({ where: vi.fn() }));
-      const insertMock = vi.fn(() => ({ values: vi.fn() }));
-
-      dbMock.transaction.mockImplementation(
-        async (
-          callback: (tx: { delete: typeof deleteMock; insert: typeof insertMock }) => unknown
-        ) => callback({ delete: deleteMock, insert: insertMock })
-      );
+    it("delegates to the repository with correct arguments", async () => {
+      replacePagePermissionsRepoMock.mockResolvedValue(undefined);
 
       await replacePagePermissions("page1", false, [
         { groupId: "g1", canRead: true, canWrite: true, canDelete: false },
         { groupId: "g2", canRead: true, canWrite: false, canDelete: false },
       ]);
 
-      expect(dbMock.transaction).toHaveBeenCalledTimes(1);
-      // delete pagePermissions + delete pageInheritance = 2 deletes
-      expect(deleteMock).toHaveBeenCalledTimes(2);
-      // insert pageInheritance + 2 permission inserts = 3 inserts
-      expect(insertMock).toHaveBeenCalledTimes(3);
+      expect(replacePagePermissionsRepoMock).toHaveBeenCalledWith("page1", false, [
+        { groupId: "g1", canRead: true, canWrite: true, canDelete: false },
+        { groupId: "g2", canRead: true, canWrite: false, canDelete: false },
+      ]);
     });
   });
 
   describe("replacePageInheritance", () => {
-    it("replaces inheritance record in a transaction", async () => {
-      const deleteMock = vi.fn(() => ({ where: vi.fn() }));
-      const insertMock = vi.fn(() => ({ values: vi.fn() }));
-
-      dbMock.transaction.mockImplementation(
-        async (
-          callback: (tx: { delete: typeof deleteMock; insert: typeof insertMock }) => unknown
-        ) => callback({ delete: deleteMock, insert: insertMock })
-      );
+    it("delegates to the repository with correct arguments", async () => {
+      replacePageInheritanceRepoMock.mockResolvedValue(undefined);
 
       await replacePageInheritance("page1", true);
 
-      expect(dbMock.transaction).toHaveBeenCalledTimes(1);
-      expect(deleteMock).toHaveBeenCalledTimes(1);
-      expect(insertMock).toHaveBeenCalledTimes(1);
+      expect(replacePageInheritanceRepoMock).toHaveBeenCalledWith("page1", true);
     });
   });
 
   describe("getSpacePermissionsDetail", () => {
     it("returns space permissions with group names", async () => {
-      dbMock._selectFromWhereMock.mockResolvedValue([
+      listSpacePermissionsMock.mockResolvedValue([
         {
           id: "sp1",
           spaceId: "s1",
@@ -207,7 +179,7 @@ describe("permission-service", () => {
     });
 
     it("sets groupName to undefined when group not found", async () => {
-      dbMock._selectFromWhereMock.mockResolvedValue([
+      listSpacePermissionsMock.mockResolvedValue([
         {
           id: "sp1",
           spaceId: "s1",
@@ -226,32 +198,22 @@ describe("permission-service", () => {
   });
 
   describe("replaceSpacePermissions", () => {
-    it("deletes existing and inserts new space permissions", async () => {
-      const deleteMock = vi.fn(() => ({ where: vi.fn() }));
-      const insertMock = vi.fn(() => ({ values: vi.fn() }));
-
-      dbMock.transaction.mockImplementation(
-        async (
-          callback: (tx: { delete: typeof deleteMock; insert: typeof insertMock }) => unknown
-        ) => callback({ delete: deleteMock, insert: insertMock })
-      );
+    it("delegates to the repository with correct arguments", async () => {
+      replaceSpacePermissionsRepoMock.mockResolvedValue(undefined);
 
       await replaceSpacePermissions("s1", [
         { groupId: "g1", canRead: true, canWrite: true, canDelete: true },
       ]);
 
-      expect(dbMock.transaction).toHaveBeenCalledTimes(1);
-      expect(deleteMock).toHaveBeenCalledTimes(1);
-      expect(insertMock).toHaveBeenCalledTimes(1);
+      expect(replaceSpacePermissionsRepoMock).toHaveBeenCalledWith("s1", [
+        { groupId: "g1", canRead: true, canWrite: true, canDelete: true },
+      ]);
     });
   });
 
   describe("deleteSpacePermissionForGroup", () => {
     it("returns true when a record is deleted", async () => {
-      const returningMock = vi.fn().mockResolvedValue([{ id: "sp1" }]);
-      const whereMock = vi.fn(() => ({ returning: returningMock }));
-      // biome-ignore lint/suspicious/noExplicitAny: mock chain
-      dbMock.delete = vi.fn(() => ({ where: whereMock })) as any;
+      deleteSpacePermissionForGroupRepoMock.mockResolvedValue(true);
 
       const result = await deleteSpacePermissionForGroup("s1", "g1");
 
@@ -259,10 +221,7 @@ describe("permission-service", () => {
     });
 
     it("returns false when no record is deleted", async () => {
-      const returningMock = vi.fn().mockResolvedValue([]);
-      const whereMock = vi.fn(() => ({ returning: returningMock }));
-      // biome-ignore lint/suspicious/noExplicitAny: mock chain
-      dbMock.delete = vi.fn(() => ({ where: whereMock })) as any;
+      deleteSpacePermissionForGroupRepoMock.mockResolvedValue(false);
 
       const result = await deleteSpacePermissionForGroup("s1", "nonexistent");
 
