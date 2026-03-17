@@ -120,6 +120,75 @@ function Test-PublicTablesPresent {
   return [int]$tableCount -gt 0
 }
 
+function Sync-EnvFile {
+  param(
+    [string]$ExamplePath,
+    [string]$TargetPath
+  )
+
+  if (-not (Test-Path $ExamplePath)) { return }
+
+  # Collect existing keys from the target .env (if it exists)
+  $existingKeys = @{}
+  if (Test-Path $TargetPath) {
+    Get-Content $TargetPath | ForEach-Object {
+      $line = $_.Trim()
+      if ($line -and -not $line.StartsWith("#") -and $line.Contains("=")) {
+        $key = ($line -split "=", 2)[0].Trim()
+        if ($key) { $existingKeys[$key] = $true }
+      }
+    }
+  }
+
+  # Read example and find missing keys
+  $missing = @()
+  $currentComment = @()
+  Get-Content $ExamplePath | ForEach-Object {
+    $line = $_.Trim()
+    if (-not $line -or $line.StartsWith("#")) {
+      $currentComment += $_
+      return
+    }
+    if ($line.Contains("=")) {
+      $key = ($line -split "=", 2)[0].Trim()
+      if ($key -and -not $existingKeys.ContainsKey($key)) {
+        $missing += $currentComment
+        $missing += $_
+      }
+    }
+    $currentComment = @()
+  }
+
+  if ($missing.Count -eq 0) { return }
+
+  # Create or append
+  if (-not (Test-Path $TargetPath)) {
+    $missing | Set-Content -Path $TargetPath -Encoding utf8NoBOM
+    Write-Step "Created $TargetPath with default values from $(Split-Path -Leaf $ExamplePath)"
+  } else {
+    ("", "# --- Added from $(Split-Path -Leaf $ExamplePath) ---") + $missing |
+      Add-Content -Path $TargetPath -Encoding utf8NoBOM
+    $keyNames = ($missing | Where-Object { $_ -and -not $_.TrimStart().StartsWith("#") -and $_.Contains("=") } |
+      ForEach-Object { ($_ -split "=", 2)[0].Trim() }) -join ", "
+    Write-Step "Appended missing keys to $($TargetPath): $keyNames"
+  }
+}
+
+function Sync-AllEnvFiles {
+  $pairs = @(
+    @{ Example = ".env.example";                Target = ".env" },
+    @{ Example = "apps/api/.env.example";       Target = "apps/api/.env" },
+    @{ Example = "apps/web/.env.local.example"; Target = "apps/web/.env.local" },
+    @{ Example = "apps/worker/.env.example";    Target = "apps/worker/.env" }
+  )
+
+  foreach ($pair in $pairs) {
+    Sync-EnvFile `
+      -ExamplePath (Join-Path $repoRoot $pair.Example) `
+      -TargetPath  (Join-Path $repoRoot $pair.Target)
+  }
+}
+
 Import-OptionalEnvFiles -Paths @(
   (Join-Path $repoRoot ".env")
 )
@@ -269,6 +338,7 @@ function Invoke-ApplySchema {
 # ---------------------------------------------------------------------------
 
 function Invoke-Start {
+  Sync-AllEnvFiles
   Assert-PortsFree
   Invoke-InstallDependencies
 
