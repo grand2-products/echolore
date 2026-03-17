@@ -4,7 +4,7 @@ import { useState } from "react";
 import { adminApi } from "@/lib/api";
 import { useSettingsForm } from "@/lib/hooks/use-settings-form";
 import { useT } from "@/lib/i18n";
-import { INPUT_CLASS, SettingsSectionShell } from "./SettingsSectionShell";
+import { INPUT_CLASS, SettingsSaveButton, SettingsSectionShell } from "./SettingsSectionShell";
 
 export function EmbeddingSettingsSection() {
   const t = useT();
@@ -62,16 +62,7 @@ export function EmbeddingSettingsSection() {
           />
         </label>
 
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={saving}
-            className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-          >
-            {saving ? t("admin.settings.saving") : t("admin.settings.save")}
-          </button>
-        </div>
+        <SettingsSaveButton saving={saving} onClick={() => void handleSave()} />
       </div>
     </SettingsSectionShell>
   );

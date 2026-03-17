@@ -4,7 +4,7 @@ import { useState } from "react";
 import { adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
-import { SettingsCheckbox, SettingsSectionShell } from "./SettingsSectionShell";
+import { SettingsCheckbox, SettingsSaveButton, SettingsSectionShell } from "./SettingsSectionShell";
 
 interface MeetingVideoSectionProps {
   refetchSiteSettings: () => void;
@@ -74,14 +74,7 @@ export function MeetingVideoSection({
           label={t("admin.settings.adaptiveStream")}
           hint={t("admin.settings.adaptiveStreamHint")}
         />
-        <button
-          type="button"
-          onClick={() => void handleMtgVideoSave()}
-          disabled={mtgVideoSaving}
-          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-        >
-          {mtgVideoSaving ? t("admin.settings.saving") : t("admin.settings.save")}
-        </button>
+        <SettingsSaveButton saving={mtgVideoSaving} onClick={() => void handleMtgVideoSave()} />
       </div>
     </SettingsSectionShell>
   );

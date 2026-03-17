@@ -5,13 +5,46 @@ import type { AiChatMessage } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { MarkdownContent } from "./markdown-content";
 
-interface ChatMessageBubbleProps {
-  message: AiChatMessage;
+/** Shared shape accepted by both chat variants. */
+export interface ChatBubbleMessage {
+  id: string;
+  role: string;
+  content: string;
+  senderName?: string;
+  citations?: AiChatMessage["citations"];
 }
 
-export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
+interface ChatMessageBubbleProps {
+  message: ChatBubbleMessage;
+  /**
+   * - `"default"` – white/blue bubbles used in the floating AI chat
+   * - `"aituber"` – dark indigo/gray bubbles used in the AituberChat panel
+   */
+  variant?: "default" | "aituber";
+}
+
+export function ChatMessageBubble({ message, variant = "default" }: ChatMessageBubbleProps) {
   const t = useT();
-  const isUser = message.role === "user";
+  const isUser = message.role === "user" || message.role === "viewer";
+
+  if (variant === "aituber") {
+    return (
+      <div className={`flex gap-2 ${isUser ? "justify-end" : ""}`}>
+        <div
+          className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+            isUser ? "bg-gray-700 text-gray-200" : "bg-indigo-900/50 text-indigo-200"
+          }`}
+        >
+          <span
+            className={`mb-1 block text-xs font-medium ${isUser ? "text-gray-400" : "text-indigo-400"}`}
+          >
+            {message.senderName}
+          </span>
+          {message.content}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>

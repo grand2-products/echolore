@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { adminApi, type LlmProvider } from "@/lib/api";
-import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useSettingsForm } from "@/lib/hooks/use-settings-form";
 import { useT } from "@/lib/i18n";
-import { INPUT_CLASS, SettingsSectionShell } from "./SettingsSectionShell";
+import { INPUT_CLASS, SettingsSaveButton, SettingsSectionShell } from "./SettingsSectionShell";
 import type { TestModalState } from "./TestConnectionModal";
+import { useConnectionTest } from "./use-connection-test";
 
 interface LlmSettingsSectionProps {
   onTestModal: (modal: TestModalState | null) => void;
@@ -14,7 +14,6 @@ interface LlmSettingsSectionProps {
 
 export function LlmSettingsSection({ onTestModal }: LlmSettingsSectionProps) {
   const t = useT();
-  const getApiErrorMessage = useApiErrorMessage();
 
   const [llmProvider, setLlmProvider] = useState<LlmProvider>("google");
   const [geminiApiKey, setGeminiApiKey] = useState("");
@@ -25,8 +24,6 @@ export function LlmSettingsSection({ onTestModal }: LlmSettingsSectionProps) {
   const [zhipuApiKey, setZhipuApiKey] = useState("");
   const [zhipuTextModel, setZhipuTextModel] = useState("");
   const [zhipuUseCodingPlan, setZhipuUseCodingPlan] = useState(false);
-  const [llmTesting, setLlmTesting] = useState(false);
-
   const { loading, saving, error, notice, loadSettings, handleSave, setError, setNotice } =
     useSettingsForm({
       load: () => adminApi.getLlmSettings(),
@@ -55,42 +52,24 @@ export function LlmSettingsSection({ onTestModal }: LlmSettingsSectionProps) {
       },
     });
 
-  const handleLlmTest = async () => {
-    setLlmTesting(true);
-    setError(null);
-    setNotice(null);
-    onTestModal({
-      title: t("admin.settings.llmTestTitle"),
-      status: "loading",
-      message: t("admin.settings.testing"),
-    });
-    try {
+  const { testing: llmTesting, handleTest: handleLlmTest } = useConnectionTest({
+    title: t("admin.settings.llmTestTitle"),
+    test: async () => {
       const result = await adminApi.testLlmConnection();
-      if (result.ok) {
-        onTestModal({
-          title: t("admin.settings.llmTestTitle"),
-          status: "success",
-          message: result.reply
-            ? `${t("admin.settings.llmTestSuccess")}\n\n${t("admin.settings.llmTestReply")}: ${result.reply}`
-            : t("admin.settings.llmTestSuccess"),
-        });
-      } else {
-        onTestModal({
-          title: t("admin.settings.llmTestTitle"),
-          status: "error",
-          message: result.error ?? t("admin.settings.llmTestFail"),
-        });
-      }
-    } catch (testError) {
-      onTestModal({
-        title: t("admin.settings.llmTestTitle"),
-        status: "error",
-        message: getApiErrorMessage(testError, t("admin.settings.llmTestFail")),
-      });
-    } finally {
-      setLlmTesting(false);
-    }
-  };
+      return {
+        ok: result.ok,
+        message: result.reply
+          ? `${t("admin.settings.llmTestSuccess")}\n\n${t("admin.settings.llmTestReply")}: ${result.reply}`
+          : t("admin.settings.llmTestSuccess"),
+        error: result.error,
+      };
+    },
+    setError,
+    setNotice,
+    onTestModal,
+    testingMessage: t("admin.settings.testing"),
+    failMessage: t("admin.settings.llmTestFail"),
+  });
 
   return (
     <SettingsSectionShell
@@ -207,14 +186,11 @@ export function LlmSettingsSection({ onTestModal }: LlmSettingsSectionProps) {
         )}
 
         <div className="flex gap-3">
-          <button
-            type="button"
+          <SettingsSaveButton
+            saving={saving}
             onClick={() => void handleSave()}
-            disabled={saving}
-            className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-          >
-            {saving ? t("admin.settings.saving") : t("admin.settings.save")}
-          </button>
+            widthClass="flex-1"
+          />
           <button
             type="button"
             onClick={() => void handleLlmTest()}

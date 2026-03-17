@@ -2,11 +2,16 @@
 
 import { useState } from "react";
 import { adminApi, type StorageProviderType } from "@/lib/api";
-import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useSettingsForm } from "@/lib/hooks/use-settings-form";
 import { useT } from "@/lib/i18n";
-import { INPUT_CLASS, SettingsCheckbox, SettingsSectionShell } from "./SettingsSectionShell";
+import {
+  INPUT_CLASS,
+  SettingsCheckbox,
+  SettingsSaveButton,
+  SettingsSectionShell,
+} from "./SettingsSectionShell";
 import type { TestModalState } from "./TestConnectionModal";
+import { useConnectionTest } from "./use-connection-test";
 
 interface StorageSettingsSectionProps {
   onTestModal: (modal: TestModalState | null) => void;
@@ -14,7 +19,6 @@ interface StorageSettingsSectionProps {
 
 export function StorageSettingsSection({ onTestModal }: StorageSettingsSectionProps) {
   const t = useT();
-  const getApiErrorMessage = useApiErrorMessage();
 
   const [storageProvider, setStorageProvider] = useState<StorageProviderType>("local");
   const [storageLocalPath, setStorageLocalPath] = useState("");
@@ -28,8 +32,6 @@ export function StorageSettingsSection({ onTestModal }: StorageSettingsSectionPr
   const [storageGcsUseGcpDefaults, setStorageGcsUseGcpDefaults] = useState(true);
   const [storageGcsProjectId, setStorageGcsProjectId] = useState("");
   const [storageGcsKeyJson, setStorageGcsKeyJson] = useState("");
-  const [storageTesting, setStorageTesting] = useState(false);
-
   const { loading, saving, error, notice, loadSettings, handleSave, setError, setNotice } =
     useSettingsForm({
       load: () => adminApi.getStorageSettings(),
@@ -72,42 +74,24 @@ export function StorageSettingsSection({ onTestModal }: StorageSettingsSectionPr
       },
     });
 
-  const handleStorageTest = async () => {
-    setStorageTesting(true);
-    setError(null);
-    setNotice(null);
-    onTestModal({
-      title: t("admin.settings.storageTestTitle"),
-      status: "loading",
-      message: t("admin.settings.testing"),
-    });
-    try {
+  const { testing: storageTesting, handleTest: handleStorageTest } = useConnectionTest({
+    title: t("admin.settings.storageTestTitle"),
+    test: async () => {
       const result = await adminApi.testStorageConnection();
-      if (result.ok) {
-        onTestModal({
-          title: t("admin.settings.storageTestTitle"),
-          status: "success",
-          message: result.provider
-            ? `${t("admin.settings.storageTestSuccess")} (${result.provider})`
-            : t("admin.settings.storageTestSuccess"),
-        });
-      } else {
-        onTestModal({
-          title: t("admin.settings.storageTestTitle"),
-          status: "error",
-          message: result.error ?? t("admin.settings.storageTestFail"),
-        });
-      }
-    } catch (testError) {
-      onTestModal({
-        title: t("admin.settings.storageTestTitle"),
-        status: "error",
-        message: getApiErrorMessage(testError, t("admin.settings.storageTestFail")),
-      });
-    } finally {
-      setStorageTesting(false);
-    }
-  };
+      return {
+        ok: result.ok,
+        message: result.provider
+          ? `${t("admin.settings.storageTestSuccess")} (${result.provider})`
+          : t("admin.settings.storageTestSuccess"),
+        error: result.error,
+      };
+    },
+    setError,
+    setNotice,
+    onTestModal,
+    testingMessage: t("admin.settings.testing"),
+    failMessage: t("admin.settings.storageTestFail"),
+  });
 
   return (
     <SettingsSectionShell
@@ -245,14 +229,11 @@ export function StorageSettingsSection({ onTestModal }: StorageSettingsSectionPr
         )}
 
         <div className="flex gap-3">
-          <button
-            type="button"
+          <SettingsSaveButton
+            saving={saving}
             onClick={() => void handleSave()}
-            disabled={saving}
-            className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-          >
-            {saving ? t("admin.settings.saving") : t("admin.settings.save")}
-          </button>
+            widthClass="flex-1"
+          />
           <button
             type="button"
             onClick={() => void handleStorageTest()}

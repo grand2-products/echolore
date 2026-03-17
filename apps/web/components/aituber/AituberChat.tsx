@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { ChatMessageBubble } from "@/components/ai-chat/chat-message-bubble";
 import { aituberApi } from "@/lib/api/aituber";
+import { useScrollIntoView } from "@/lib/hooks/use-auto-scroll";
+import { useEnterToSend } from "@/lib/hooks/use-enter-to-send";
 import { useT } from "@/lib/i18n";
 import type { AituberChatMessage } from "./use-aituber-store";
 import { useAituberStore } from "./use-aituber-store";
@@ -19,9 +22,8 @@ export function AituberChat({ sessionId }: AituberChatProps) {
   const messages = useAituberStore((s) => s.messages);
   const streamingContent = useAituberStore((s) => s.streamingContent);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  });
+  // タスク3: 既存の useScrollIntoView フックで自動スクロールを統一
+  useScrollIntoView(messagesEndRef, `${messages.length}-${streamingContent}`);
 
   const handleSend = async () => {
     if (!input.trim() || sending) return;
@@ -38,19 +40,16 @@ export function AituberChat({ sessionId }: AituberChatProps) {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      void handleSend();
-    }
-  };
+  // タスク1: 共通フックで Enter キーハンドラを共用化
+  const handleKeyDown = useEnterToSend(() => void handleSend());
 
   return (
     <div className="flex h-full flex-col">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.map((msg: AituberChatMessage) => (
-          <ChatBubble key={msg.id} message={msg} />
+          // タスク2: インライン ChatBubble を共通コンポーネントに置き換え
+          <ChatMessageBubble key={msg.id} message={msg} variant="aituber" />
         ))}
         {streamingContent && (
           <div className="flex gap-2">
@@ -86,27 +85,6 @@ export function AituberChat({ sessionId }: AituberChatProps) {
             {t("aituber.viewer.send")}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ChatBubble({ message }: { message: AituberChatMessage }) {
-  const isAi = message.role === "assistant";
-
-  return (
-    <div className={`flex gap-2 ${isAi ? "" : "justify-end"}`}>
-      <div
-        className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-          isAi ? "bg-indigo-900/50 text-indigo-200" : "bg-gray-700 text-gray-200"
-        }`}
-      >
-        <span
-          className={`mb-1 block text-xs font-medium ${isAi ? "text-indigo-400" : "text-gray-400"}`}
-        >
-          {message.senderName}
-        </span>
-        {message.content}
       </div>
     </div>
   );

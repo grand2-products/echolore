@@ -5,7 +5,12 @@ import { adminApi, type LivekitParticipantInfo, livekitApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 import { COWORKING_ROOM_NAME } from "@/lib/livekit";
-import { INPUT_CLASS, SettingsCheckbox, SettingsSectionShell } from "./SettingsSectionShell";
+import {
+  INPUT_CLASS,
+  SettingsCheckbox,
+  SettingsSaveButton,
+  SettingsSectionShell,
+} from "./SettingsSectionShell";
 
 interface CoworkingVideoSectionProps {
   refetchSiteSettings: () => void;
@@ -238,14 +243,7 @@ export function CoworkingVideoSection({
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => void handleCwVideoSave()}
-          disabled={cwVideoSaving}
-          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-        >
-          {cwVideoSaving ? t("admin.settings.saving") : t("admin.settings.save")}
-        </button>
+        <SettingsSaveButton saving={cwVideoSaving} onClick={() => void handleCwVideoSave()} />
       </div>
     </SettingsSectionShell>
   );

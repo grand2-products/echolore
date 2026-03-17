@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { type AiChatMessage, aiChatApi } from "@/lib/api";
 import { useScrollIntoView } from "@/lib/hooks/use-auto-scroll";
+import { useEnterToSend } from "@/lib/hooks/use-enter-to-send";
 import { useT } from "@/lib/i18n";
 import { ChatMessageBubble } from "./chat-message-bubble";
 import { TypingIndicator } from "./typing-indicator";
@@ -68,12 +69,7 @@ export function FloatingChat() {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      void handleSend();
-    }
-  };
+  const handleKeyDown = useEnterToSend(() => void handleSend());
 
   const handleNewChat = () => {
     setMessages([]);

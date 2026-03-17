@@ -39,6 +39,35 @@ export function SettingsCheckbox({ checked, onChange, label, hint }: SettingsChe
   );
 }
 
+interface SettingsSaveButtonProps {
+  saving: boolean;
+  onClick: () => void;
+  /** ボタンの幅クラス。デフォルトは "w-full"。テストボタンと並べる場合は "flex-1" を指定する */
+  widthClass?: string;
+}
+
+/**
+ * 設定保存ボタンの共通コンポーネント。
+ * saving 状態に応じてラベルを切り替え、disabled 制御を行う。
+ */
+export function SettingsSaveButton({
+  saving,
+  onClick,
+  widthClass = "w-full",
+}: SettingsSaveButtonProps) {
+  const t = useT();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={saving}
+      className={`${widthClass} rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60`}
+    >
+      {saving ? t("admin.settings.saving") : t("admin.settings.save")}
+    </button>
+  );
+}
+
 export function SettingsSectionShell({
   title,
   description,
