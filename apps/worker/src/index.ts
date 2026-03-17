@@ -37,7 +37,7 @@ const shutdownController = new AbortController();
 
 async function runMonitorMode() {
   const config = getWorkerConfig();
-  await waitForApiReady(config.apiBaseUrl);
+  await waitForApiReady(config.apiBaseUrl, config.apiReadyTimeoutMs);
   console.log(`[room-ai-worker] monitor mode started; polling every ${config.pollIntervalMs}ms`);
 
   while (!shutdownController.signal.aborted) {

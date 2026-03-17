@@ -30,7 +30,7 @@ export default function BackgroundEffectButton({ variant = "light" }: Background
   const [customBgs, setCustomBgs] = useState<string[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { localParticipant } = useLocalParticipant();
+  const { localParticipant, cameraTrack } = useLocalParticipant();
 
   useEffect(() => {
     setEffect(getStoredBackgroundEffect());
@@ -47,7 +47,6 @@ export default function BackgroundEffectButton({ variant = "light" }: Background
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
-
   const localParticipantRef = useRef(localParticipant);
   localParticipantRef.current = localParticipant;
 
@@ -57,15 +56,15 @@ export default function BackgroundEffectButton({ variant = "light" }: Background
     return pub.track as LocalVideoTrack;
   }, []);
 
+  // Re-fire whenever the camera track appears (e.g. camera enabled after mount).
   const appliedRef = useRef(false);
   useEffect(() => {
+    if (appliedRef.current || !cameraTrack?.track) return;
     const stored = getStoredBackgroundEffect();
-    if (stored === "none" || appliedRef.current) return;
-    const track = getVideoTrack();
-    if (!track) return;
+    if (stored === "none") return;
     appliedRef.current = true;
-    void applyBackgroundEffect(track, stored);
-  }, [getVideoTrack]);
+    void applyBackgroundEffect(cameraTrack.track as LocalVideoTrack, stored);
+  }, [cameraTrack]);
 
   const handleSelect = async (next: BackgroundEffect) => {
     setApplying(true);
@@ -76,8 +75,8 @@ export default function BackgroundEffectButton({ variant = "light" }: Background
       }
       setEffect(next);
       storeBackgroundEffect(next);
-    } catch {
-      // processor not supported
+    } catch (err) {
+      console.error("[BackgroundEffectButton] processor failed:", err);
     } finally {
       setApplying(false);
     }

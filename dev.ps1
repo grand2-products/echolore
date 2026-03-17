@@ -82,7 +82,7 @@ function Wait-ForContainerHealth {
 }
 
 function Test-DockerAvailable {
-  docker info *> $null
+  docker info 2>&1 | Out-Null
   return $LASTEXITCODE -eq 0
 }
 
@@ -163,11 +163,11 @@ function Sync-EnvFile {
 
   # Create or append
   if (-not (Test-Path $TargetPath)) {
-    $missing | Set-Content -Path $TargetPath -Encoding utf8NoBOM
+    [System.IO.File]::WriteAllLines($TargetPath, $missing, [System.Text.UTF8Encoding]::new($false))
     Write-Step "Created $TargetPath with default values from $(Split-Path -Leaf $ExamplePath)"
   } else {
-    ("", "# --- Added from $(Split-Path -Leaf $ExamplePath) ---") + $missing |
-      Add-Content -Path $TargetPath -Encoding utf8NoBOM
+    $toAppend = ("", "# --- Added from $(Split-Path -Leaf $ExamplePath) ---") + $missing
+    [System.IO.File]::AppendAllLines($TargetPath, [string[]]$toAppend, [System.Text.UTF8Encoding]::new($false))
     $keyNames = ($missing | Where-Object { $_ -and -not $_.TrimStart().StartsWith("#") -and $_.Contains("=") } |
       ForEach-Object { ($_ -split "=", 2)[0].Trim() }) -join ", "
     Write-Step "Appended missing keys to $($TargetPath): $keyNames"
@@ -200,7 +200,7 @@ Set-DefaultEnv -Name "LIVEKIT_PORT" -Value "17722"
 Set-DefaultEnv -Name "LIVEKIT_SIGNAL_PORT" -Value "17723"
 Set-DefaultEnv -Name "DB_PORT" -Value "17724"
 Set-DefaultEnv -Name "VALKEY_PORT" -Value "17725"
-Set-DefaultEnv -Name "LIVEKIT_RTC_PORT_RANGE" -Value "17730-17930"
+Set-DefaultEnv -Name "LIVEKIT_RTC_PORT_RANGE" -Value "17730-17750"
 Set-DefaultEnv -Name "AUTH_SECRET" -Value "local-dev-auth-secret"
 Set-DefaultEnv -Name "GOOGLE_CLIENT_ID" -Value "local-dev-client-id"
 Set-DefaultEnv -Name "GOOGLE_CLIENT_SECRET" -Value "local-dev-client-secret"
@@ -227,22 +227,40 @@ function Assert-PortsFree {
     @{ Name = "VALKEY_PORT";         Label = "Valkey" }
   )
 
-  $conflicts = @()
+  $dockerConflicts = @()
+  $otherConflicts  = @()
+
   foreach ($pv in $portVars) {
     $port = [int][Environment]::GetEnvironmentVariable($pv.Name, "Process")
     if (-not (Test-PortAvailable -Port $port)) {
       $proc = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue |
         Where-Object { $_.State -eq "Listen" } | Select-Object -First 1
-      $ownerPid = $proc.OwningProcess
-      $procName = (Get-Process -Id $ownerPid -ErrorAction SilentlyContinue).ProcessName
-      $conflicts += "  $($pv.Label) port $port is in use by $procName (PID $ownerPid)"
+      $ownerPid  = $proc.OwningProcess
+      $procName  = (Get-Process -Id $ownerPid -ErrorAction SilentlyContinue).ProcessName
+      $entry     = @{ Label = $pv.Label; Port = $port; Pid = $ownerPid; ProcName = $procName }
+      if ($procName -like "com.docker*") {
+        $dockerConflicts += $entry
+      } else {
+        $otherConflicts += $entry
+      }
     }
   }
 
-  if ($conflicts.Count -gt 0) {
+  # Ports held by com.docker.backend mean containers are already running — not a conflict.
+  if ($dockerConflicts.Count -gt 0) {
+    Write-Host ""
+    Write-Host "Docker containers appear to be already running:" -ForegroundColor Green
+    $dockerConflicts | ForEach-Object {
+      Write-Host "  $($_.Label) port $($_.Port) (Docker)" -ForegroundColor DarkGreen
+    }
+  }
+
+  if ($otherConflicts.Count -gt 0) {
     Write-Host ""
     Write-Host "Port conflicts detected:" -ForegroundColor Red
-    $conflicts | ForEach-Object { Write-Host $_ -ForegroundColor Yellow }
+    $otherConflicts | ForEach-Object {
+      Write-Host "  $($_.Label) port $($_.Port) is in use by $($_.ProcName) (PID $($_.Pid))" -ForegroundColor Yellow
+    }
     Write-Host ""
     Write-Host "  k) Kill conflicting processes and continue" -ForegroundColor Cyan
     Write-Host "  q) Quit" -ForegroundColor Cyan
@@ -250,16 +268,9 @@ function Assert-PortsFree {
     $answer = Read-Host "Select action"
 
     if ($answer.Trim().ToLower() -in "k", "kill") {
-      foreach ($pv in $portVars) {
-        $port = [int][Environment]::GetEnvironmentVariable($pv.Name, "Process")
-        $listeners = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue |
-          Where-Object { $_.State -eq "Listen" }
-        foreach ($l in $listeners) {
-          $ownerPid = $l.OwningProcess
-          $procName = (Get-Process -Id $ownerPid -ErrorAction SilentlyContinue).ProcessName
-          Write-Step "Stopping $procName (PID $ownerPid) on port $port"
-          Stop-Process -Id $ownerPid -Force -ErrorAction SilentlyContinue
-        }
+      foreach ($entry in $otherConflicts) {
+        Write-Step "Stopping $($entry.ProcName) (PID $($entry.Pid)) on port $($entry.Port)"
+        Stop-Process -Id $entry.Pid -Force -ErrorAction SilentlyContinue
       }
       Write-Step "Conflicting processes stopped"
     } else {

@@ -87,6 +87,7 @@ services:
     environment:
       WEB_NODE_ENV: development
       NODE_ENV: development
+      WEB_PORT: "3000"
       NEXT_PUBLIC_LIVEKIT_URL: ""
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
