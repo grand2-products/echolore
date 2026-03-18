@@ -1,10 +1,15 @@
-import { GoogleTextToSpeechGateway } from "../../ai/gateway/google/google-text-to-speech-gateway.js";
+import type { VisemeEntry } from "@echolore/shared/contracts";
+import {
+  GoogleTextToSpeechGateway,
+  type GoogleTtsVoice,
+} from "../../ai/gateway/google/google-text-to-speech-gateway.js";
 
 const ttsGateway = new GoogleTextToSpeechGateway();
 
-export interface VisemeEntry {
-  time: number;
-  viseme: string;
+export type { GoogleTtsVoice, VisemeEntry };
+
+export async function listVoices(languageCode?: string): Promise<GoogleTtsVoice[]> {
+  return ttsGateway.listVoices(languageCode);
 }
 
 export interface TtsSynthesisResult {

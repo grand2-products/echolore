@@ -514,7 +514,7 @@ export const pageEmbeddings = pgTable(
     chunkIndex: integer("chunk_index").default(0).notNull(),
     plainText: text("plain_text").notNull(),
     embedding: vector("embedding").notNull(),
-    modelId: text("model_id").default("gemini-embedding-001").notNull(),
+    modelId: text("model_id").default("gemini-embedding-2-preview").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

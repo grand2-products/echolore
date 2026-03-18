@@ -7,13 +7,39 @@ import type {
 import { getGoogleCloudAccessToken } from "./google-cloud-auth.js";
 
 const GOOGLE_TTS_API_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
+const GOOGLE_TTS_VOICES_URL = "https://texttospeech.googleapis.com/v1/voices";
 
 type GoogleTextToSpeechResponse = {
   audioContent?: string;
 };
 
+export interface GoogleTtsVoice {
+  name: string;
+  languageCodes: string[];
+  ssmlGender: string;
+  naturalSampleRateHertz: number;
+}
+
 export class GoogleTextToSpeechGateway implements TextToSpeechGateway {
   readonly provider: SpeechProvider = "google";
+
+  async listVoices(languageCode?: string): Promise<GoogleTtsVoice[]> {
+    const accessToken = await getGoogleCloudAccessToken();
+    const url = languageCode
+      ? `${GOOGLE_TTS_VOICES_URL}?languageCode=${encodeURIComponent(languageCode)}`
+      : GOOGLE_TTS_VOICES_URL;
+
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Google TTS listVoices failed with status ${response.status}`);
+    }
+
+    const data = (await response.json()) as { voices?: GoogleTtsVoice[] };
+    return data.voices ?? [];
+  }
 
   async synthesize(input: TextToSpeechRequest): Promise<TextToSpeechResult> {
     const accessToken = await getGoogleCloudAccessToken();

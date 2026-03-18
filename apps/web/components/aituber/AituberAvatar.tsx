@@ -2,6 +2,7 @@
 
 import type { AituberAvatarState } from "@echolore/shared/contracts";
 import { useEffect, useRef, useState } from "react";
+import { fetchBlobUrl } from "@/lib/api/fetch";
 import {
   AnimationCompositor,
   BlinkLayer,
@@ -11,6 +12,7 @@ import {
   LipSyncLayer,
   LookAtLayer,
   MotionClipLayer,
+  RestPoseLayer,
   StateExpressionLayer,
 } from "./animation";
 import type { AnimationContext, EmotionState, VisemeEntry } from "./animation/types";
@@ -37,6 +39,7 @@ export function AituberAvatar({
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<unknown>(null);
   const vrmRef = useRef<unknown>(null);
+  const blobUrlRef = useRef<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const clockRef = useRef<{ getDelta: () => number } | null>(null);
   const animFrameRef = useRef<number>(0);
@@ -76,6 +79,13 @@ export function AituberAvatar({
     const abortController = new AbortController();
 
     const initScene = async () => {
+      // Resolve /api/... paths to blob URLs (handles auth + cross-origin)
+      const resolvedUrl = await fetchBlobUrl(avatarUrl);
+      if (resolvedUrl !== avatarUrl) {
+        blobUrlRef.current = resolvedUrl;
+      }
+      if (abortController.signal.aborted) return;
+
       const THREE = await import("three");
       if (abortController.signal.aborted) return;
 
@@ -114,7 +124,7 @@ export function AituberAvatar({
       loader.register((parser: unknown) => new VRMLoaderPlugin(parser as never));
 
       try {
-        const gltf = await loader.loadAsync(avatarUrl);
+        const gltf = await loader.loadAsync(resolvedUrl);
         if (abortController.signal.aborted) return;
 
         const vrm = gltf.userData.vrm;
@@ -129,6 +139,7 @@ export function AituberAvatar({
         // Set up compositor with all layers
         const compositor = new AnimationCompositor();
         compositor.setThree(THREE);
+        compositor.addLayer(new RestPoseLayer());
         compositor.addLayer(new BlinkLayer());
         compositor.addLayer(new BreathingLayer());
         compositor.addLayer(new IdleMotionLayer());
@@ -208,6 +219,10 @@ export function AituberAvatar({
       renderer?.dispose?.();
       rendererRef.current = null;
       vrmRef.current = null;
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
     };
   }, [avatarUrl]);
 

@@ -212,6 +212,24 @@ export async function uploadFile<T>(
 }
 
 /**
+ * Fetch a file via the authenticated API client and return a blob URL.
+ * Resolves relative `/api/...` paths through the API base URL.
+ * Used by Three.js loaders that cannot send auth cookies cross-origin.
+ */
+export async function fetchBlobUrl(url: string): Promise<string> {
+  if (url.startsWith("/api/")) {
+    const apiPath = url.replace(/^\/api/, "");
+    const response = await executeApiRequest(apiPath);
+    if (!response.ok) {
+      throw await parseApiError(response);
+    }
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  }
+  return url;
+}
+
+/**
  * Fetch plain text from an absolute or relative URL.
  * Useful for endpoints like HLS manifests where the response is not JSON.
  */

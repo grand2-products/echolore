@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
         loaders: ["raw-loader"],
         as: "*.js",
       },
+      "*.md": {
+        loaders: ["raw-loader"],
+        as: "*.js",
+      },
     },
   },
   webpack(config) {
@@ -24,9 +28,13 @@ const nextConfig: NextConfig = {
       };
     }
 
-    // Load .yaml files as raw strings (used by i18n messages)
+    // Load .yaml and .md files as raw strings
     config.module.rules.push({
       test: /\.yaml$/,
+      type: "asset/source",
+    });
+    config.module.rules.push({
+      test: /\.md$/,
       type: "asset/source",
     });
 

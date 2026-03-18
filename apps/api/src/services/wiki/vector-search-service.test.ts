@@ -4,12 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   mockEmbedText,
   mockIsEmbeddingEnabled,
+  mockGetEmbeddingDimensions,
   mockSearchByVectorRepo,
   mockSearchPagesByIlike,
   mockCanReadPage,
 } = vi.hoisted(() => ({
   mockEmbedText: vi.fn(),
   mockIsEmbeddingEnabled: vi.fn(),
+  mockGetEmbeddingDimensions: vi.fn(),
   mockSearchByVectorRepo: vi.fn(),
   mockSearchPagesByIlike: vi.fn(),
   mockCanReadPage: vi.fn(),
@@ -18,6 +20,7 @@ const {
 vi.mock("../../ai/embeddings.js", () => ({
   embedText: mockEmbedText,
   isEmbeddingEnabled: mockIsEmbeddingEnabled,
+  getEmbeddingDimensions: mockGetEmbeddingDimensions,
 }));
 
 vi.mock("../../repositories/wiki/wiki-repository.js", () => ({
@@ -48,6 +51,7 @@ describe("vector-search-service", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
+    mockGetEmbeddingDimensions.mockResolvedValue(768);
   });
 
   describe("searchByVector", () => {
@@ -90,6 +94,21 @@ describe("vector-search-service", () => {
       const results = await searchByVector("obscure query");
 
       expect(results).toEqual([]);
+    });
+
+    it("falls back to keyword search when vector search throws (dimension mismatch)", async () => {
+      mockEmbedText.mockResolvedValue([0.1, 0.2, 0.3]);
+      mockSearchByVectorRepo.mockRejectedValue(new Error("different vector dimensions"));
+      mockSearchPagesByIlike.mockResolvedValue([
+        { pageId: "p1", pageTitle: "Fallback", chunkText: "keyword match", similarity: 0.5 },
+      ]);
+
+      const results = await searchByVector("test query");
+
+      expect(results).toEqual([
+        { pageId: "p1", pageTitle: "Fallback", chunkText: "keyword match", similarity: 0.5 },
+      ]);
+      expect(mockSearchPagesByIlike).toHaveBeenCalledWith("test query", 10);
     });
   });
 

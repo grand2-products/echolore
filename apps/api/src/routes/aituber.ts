@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { UserRole } from "@echolore/shared/contracts";
+import { MAX_VRM_FILE_SIZE_BYTES, UserRole } from "@echolore/shared/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -11,11 +11,10 @@ import { createFile, deleteFile, getFileById } from "../repositories/file/file-r
 import * as aiService from "../services/aituber/aituber-ai-service.js";
 import * as livekitService from "../services/aituber/aituber-livekit-service.js";
 import * as aituberService from "../services/aituber/aituber-service.js";
+import * as ttsService from "../services/aituber/aituber-tts-service.js";
 import { resolveCharacterAvatarUrl, sanitizeText, toCharacterResponse } from "./aituber-dto.js";
 
 export const aituberRoutes = new Hono<AppEnv>();
-
-const MAX_VRM_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 
 // glTF binary magic number: "glTF" in little-endian
 const GLTF_BINARY_MAGIC = 0x46546c67;
@@ -241,6 +240,56 @@ aituberRoutes.delete(
     }
     await aituberService.deleteCharacter(id);
     return c.json({ success: true });
+  }
+);
+
+// --- Voices ---
+
+aituberRoutes.get(
+  "/voices",
+  withErrorHandler("AITUBER_VOICES_FAILED", "Failed to list voices"),
+  async (c) => {
+    const languageCode = c.req.query("languageCode");
+    const voices = await ttsService.listVoices(languageCode || undefined);
+    return c.json({
+      voices: voices.map((v) => ({
+        name: v.name,
+        gender: v.ssmlGender,
+        languageCodes: v.languageCodes,
+      })),
+    });
+  }
+);
+
+// --- TTS Preview ---
+
+const ttsPreviewSchema = z.object({
+  text: z.string().min(1).max(200),
+});
+
+aituberRoutes.post(
+  "/characters/:id/tts-preview",
+  zValidator("json", ttsPreviewSchema),
+  withErrorHandler("AITUBER_TTS_PREVIEW_FAILED", "Failed to synthesize preview"),
+  async (c) => {
+    const { id } = c.req.param();
+    const user = c.get("user");
+    const character = await aituberService.getCharacter(id);
+    if (!character) return jsonError(c, 404, "NOT_FOUND", "Character not found");
+    if (!character.isPublic && !isOwnerOrAdmin(user, character.createdBy)) {
+      return jsonError(c, 403, "FORBIDDEN", "Not authorized to preview this character");
+    }
+    const { text } = c.req.valid("json");
+    const result = await ttsService.synthesizeSpeech(
+      text,
+      character.languageCode,
+      character.voiceName
+    );
+    return c.json({
+      audio: result.audio.toString("base64"),
+      mimeType: result.mimeType,
+      visemes: result.visemes,
+    });
   }
 );
 

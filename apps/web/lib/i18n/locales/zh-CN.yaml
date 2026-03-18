@@ -7,6 +7,7 @@ common:
     coworking: "协作室"
     search: "搜索"
     aituber: "AITuber"
+    help: "帮助"
     admin: "管理"
     access: "访问管理"
     kpi: "KPI"
@@ -438,6 +439,18 @@ coworking:
     hlsError: "HLS 流播放失败。"
     hlsUnsupported: "您的浏览器不支持 HLS 播放。"
     participantList: "参与者列表"
+help:
+  sidebar:
+    title: "帮助"
+  topics:
+    gettingStarted: "入门指南"
+    wiki: "Wiki"
+    aiChat: "AI 聊天"
+    meetings: "会议"
+    coworking: "协作室"
+    aituber: "AITuber"
+    search: "搜索"
+    aiKnowledge: "AI 知识"
 admin:
   title: "管理"
   description: "管理用户、分组、AI 助手、KPI 和站点设置。"
@@ -478,6 +491,7 @@ admin:
     notFound: "未找到建议。"
     forbidden: "您没有权限访问知识建议。"
     pageTitle: "AI 知识建议"
+    pageDescription: "AI 根据文件上传、会议转录和定期扫描提出维基页面的创建和更新建议。请审核每条建议并批准或拒绝。"
   users:
     loading: "正在加载用户..."
     loadError: "加载用户失败。"

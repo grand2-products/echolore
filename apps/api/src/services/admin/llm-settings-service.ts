@@ -14,6 +14,7 @@ export interface LlmSettings {
   zhipuUseCodingPlan: boolean;
   embeddingEnabled: boolean;
   embeddingModel: string | null;
+  embeddingDimensions: number | null;
 }
 
 const cache = createTypedSettingsService({
@@ -28,6 +29,7 @@ const cache = createTypedSettingsService({
   zhipuUseCodingPlan: field("llmZhipuUseCodingPlan", FieldCodecs.boolFalse),
   embeddingEnabled: field("llmEmbeddingEnabled", FieldCodecs.boolTrue),
   embeddingModel: field("llmEmbeddingModel", FieldCodecs.nullable),
+  embeddingDimensions: field("llmEmbeddingDimensions", FieldCodecs.nullableNumber),
 });
 
 export const getLlmSettings = cache.get;

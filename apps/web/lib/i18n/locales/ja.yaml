@@ -7,6 +7,7 @@ common:
     coworking: "コワーキング"
     search: "検索"
     aituber: "AITuber"
+    help: "ヘルプ"
     admin: "管理"
     access: "アクセス管理"
     kpi: "KPI"
@@ -216,6 +217,9 @@ wiki:
     saveError: "ページの保存に失敗しました。"
     loadError: "ページの読み込みに失敗しました。"
     saved: "ページを保存しました。"
+  shorthand:
+    placeholder: "メモを入力してAIが適切な位置に挿入..."
+    error: "速記の処理に失敗しました。末尾に追加しました。"
   collab:
     live: "接続中"
     connecting: "接続中..."
@@ -437,6 +441,18 @@ coworking:
     hlsError: "HLS ストリームの再生に失敗しました。"
     hlsUnsupported: "このブラウザは HLS 再生に対応していません。"
     participantList: "参加者一覧"
+help:
+  sidebar:
+    title: "ヘルプ"
+  topics:
+    gettingStarted: "はじめに"
+    wiki: "Wiki"
+    aiChat: "AI チャット"
+    meetings: "会議"
+    coworking: "コワーキング"
+    aituber: "AITuber"
+    search: "検索"
+    aiKnowledge: "AI ナレッジ"
 admin:
   title: "管理"
   description: "ユーザー、グループ、エージェント、KPI、サイト設定を管理します。"
@@ -477,6 +493,7 @@ admin:
     notFound: "提案が見つかりません。"
     forbidden: "ナレッジ提案へのアクセス権限がありません。"
     pageTitle: "AI ナレッジ提案"
+    pageDescription: "ファイルアップロードや会議の文字起こし、定期スキャンなどから AI が Wiki ページの作成・更新を提案します。内容を確認し、承認または却下してください。"
   users:
     loading: "ユーザーを読み込み中..."
     loadError: "ユーザーの読み込みに失敗しました。"
@@ -705,6 +722,13 @@ admin:
     llmEmbeddingDescription: "Wiki のセマンティック検索に使用する Gemini Embedding モデルを設定します。Gemini API キーは AI エージェントタブの設定を使用します。"
     llmEmbeddingEnabled: "セマンティック検索（Embedding）を有効化"
     llmEmbeddingModel: "Embedding モデル"
+    llmEmbeddingDimensions: "Embedding 次元数"
+    llmEmbeddingDimensionsHint: "次元数が大きいほど精度が向上しますが、ストレージ使用量と処理時間が増加します。"
+    llmEmbeddingReindexWarning: "Embedding の次元数が変更されました。セマンティック検索を正しく動作させるには、全 Wiki ページの再インデックスが必要です。"
+    llmEmbeddingReindexButton: "全ページを再インデックス"
+    llmEmbeddingReindexing: "再インデックス中..."
+    llmEmbeddingReindexStarted: "再インデックスを開始しました。ページ数によっては時間がかかる場合があります。"
+    llmEmbeddingReindexError: "再インデックスに失敗しました。もう一度お試しください。"
     llmEmbeddingDisabledWarning: "無効にすると、Wiki検索はキーワード一致のみになります（セマンティック検索なし）。新しいページのインデックス作成は停止しますが、既存のEmbeddingデータは保持されます。"
   google:
     title: "Google / GCP 設定"
@@ -762,7 +786,8 @@ aituber:
     systemPrompt: "システムプロンプト"
     speakingStyle: "話し方"
     languageCode: "言語コード"
-    voiceName: "音声名"
+    voiceName: "音声"
+    voiceDefault: "デフォルト（自動選択）"
     avatarFile: "アバターVRMファイル"
     avatarUploadHint: "VRMファイル（.vrm）をアップロードしてください。"
     avatarPreview: "現在のアバター"
@@ -779,6 +804,16 @@ aituber:
     loadError: "キャラクターの読み込みに失敗しました。"
     saveError: "キャラクターの保存に失敗しました。"
     deleteError: "キャラクターの削除に失敗しました。"
+    preview:
+      title: "プレビュー"
+      ttsLabel: "音声テスト"
+      ttsPlaceholder: "テスト用のテキストを入力..."
+      speak: "再生"
+      synthesizing: "合成中..."
+      ttsError: "音声合成に失敗しました。"
+      motions: "モーション"
+      allCategories: "すべて"
+      emotions: "表情"
   sessions:
     title: "セッション"
     create: "セッションを作成"

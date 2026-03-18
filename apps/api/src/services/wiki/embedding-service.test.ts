@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   mockIsEmbeddingEnabled,
   mockEmbedText,
-  mockGetEmbeddingModel,
+  mockGetEmbeddingConfig,
   mockGetPageById,
   mockGetPageBlocks,
   mockDeletePageEmbeddingsByPageId,
@@ -11,7 +11,7 @@ const {
 } = vi.hoisted(() => ({
   mockIsEmbeddingEnabled: vi.fn(),
   mockEmbedText: vi.fn(),
-  mockGetEmbeddingModel: vi.fn(),
+  mockGetEmbeddingConfig: vi.fn(),
   mockGetPageById: vi.fn(),
   mockGetPageBlocks: vi.fn(),
   mockDeletePageEmbeddingsByPageId: vi.fn(),
@@ -21,7 +21,7 @@ const {
 vi.mock("../../ai/embeddings.js", () => ({
   isEmbeddingEnabled: mockIsEmbeddingEnabled,
   embedText: mockEmbedText,
-  getEmbeddingModel: mockGetEmbeddingModel,
+  getEmbeddingConfig: mockGetEmbeddingConfig,
 }));
 
 vi.mock("../../repositories/wiki/wiki-repository.js", () => ({
@@ -49,6 +49,10 @@ describe("embedding-service", () => {
     vi.clearAllMocks();
     mockDeletePageEmbeddingsByPageId.mockResolvedValue(undefined);
     mockReplacePageEmbeddings.mockResolvedValue(undefined);
+    mockGetEmbeddingConfig.mockResolvedValue({
+      model: "gemini-embedding-2-preview",
+      dimensions: 768,
+    });
   });
 
   describe("chunkText", () => {
@@ -185,7 +189,7 @@ describe("embedding-service", () => {
         deletedAt: null,
       });
       mockGetPageBlocks.mockResolvedValue([{ content: "Some content" }]);
-      mockGetEmbeddingModel.mockResolvedValue("text-embedding-004");
+      mockGetEmbeddingConfig.mockResolvedValue({ model: "text-embedding-004", dimensions: 768 });
       mockEmbedText.mockResolvedValue([0.1, 0.2, 0.3]);
 
       await indexPage("page_1");
@@ -202,7 +206,7 @@ describe("embedding-service", () => {
         deletedAt: null,
       });
       mockGetPageBlocks.mockResolvedValue([{ content: "Some content" }]);
-      mockGetEmbeddingModel.mockResolvedValue("text-embedding-004");
+      mockGetEmbeddingConfig.mockResolvedValue({ model: "text-embedding-004", dimensions: 768 });
       mockEmbedText.mockResolvedValue(null);
 
       await indexPage("page_1");

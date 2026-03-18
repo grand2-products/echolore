@@ -1,5 +1,5 @@
 import { UserRole } from "@echolore/shared/contracts";
-import { embedText, isEmbeddingEnabled } from "../../ai/embeddings.js";
+import { embedText, getEmbeddingDimensions, isEmbeddingEnabled } from "../../ai/embeddings.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { canReadPage } from "../../policies/authorization-policy.js";
 import {
@@ -8,19 +8,25 @@ import {
   type VectorSearchResult,
 } from "../../repositories/wiki/wiki-repository.js";
 
-const EMBEDDING_DIMENSIONS = 768;
-
 export type { VectorSearchResult };
 
 export async function searchByVector(queryText: string, limit = 10): Promise<VectorSearchResult[]> {
+  const dimensions = await getEmbeddingDimensions();
   const queryEmbedding = await embedText(queryText, {
     taskType: "RETRIEVAL_QUERY",
-    outputDimensionality: EMBEDDING_DIMENSIONS,
+    outputDimensionality: dimensions,
   });
 
   if (!queryEmbedding) return [];
 
-  return searchByVectorRepo(queryText, queryEmbedding, limit);
+  try {
+    return await searchByVectorRepo(queryText, queryEmbedding, limit);
+  } catch (err) {
+    // pgvector throws when query dimensions don't match stored dimensions
+    // (e.g. after a dimension change before re-indexing completes)
+    console.warn("Vector search failed, falling back to keyword search:", err);
+    return searchPagesByIlike(queryText, limit);
+  }
 }
 
 export async function searchVisibleChunks(

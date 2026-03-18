@@ -1,4 +1,4 @@
-import { embedText, getEmbeddingModel, isEmbeddingEnabled } from "../../ai/embeddings.js";
+import { embedText, getEmbeddingConfig, isEmbeddingEnabled } from "../../ai/embeddings.js";
 import { stripHtml } from "../../lib/html-utils.js";
 import {
   deletePageEmbeddingsByPageId,
@@ -8,7 +8,6 @@ import {
   replacePageEmbeddings,
 } from "../../repositories/wiki/wiki-repository.js";
 
-const EMBEDDING_DIMENSIONS = 768;
 const MAX_CHUNK_CHARS = 1500;
 const CHUNK_OVERLAP = 200;
 
@@ -80,7 +79,7 @@ export async function indexPage(pageId: string): Promise<void> {
   }
 
   const chunks = chunkText(plainText);
-  const modelId = await getEmbeddingModel();
+  const { model: modelId, dimensions } = await getEmbeddingConfig();
   const now = new Date();
 
   const embeddings: { chunkIndex: number; text: string; vector: number[] }[] = [];
@@ -89,7 +88,7 @@ export async function indexPage(pageId: string): Promise<void> {
     if (!chunkText_) continue;
     const vector = await embedText(chunkText_, {
       taskType: "RETRIEVAL_DOCUMENT",
-      outputDimensionality: EMBEDDING_DIMENSIONS,
+      outputDimensionality: dimensions,
     });
     if (vector) {
       embeddings.push({ chunkIndex: i, text: chunkText_, vector });
@@ -98,15 +97,13 @@ export async function indexPage(pageId: string): Promise<void> {
 
   if (embeddings.length === 0) return;
 
-  const finalModelId = modelId ?? "gemini-embedding-001";
-
   await replacePageEmbeddings(
     pageId,
     embeddings.map((e) => ({
       chunkIndex: e.chunkIndex,
       plainText: e.text,
       embedding: e.vector,
-      modelId: finalModelId,
+      modelId,
       createdAt: now,
       updatedAt: now,
     }))

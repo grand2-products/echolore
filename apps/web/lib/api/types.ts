@@ -277,6 +277,7 @@ export interface LlmSettings {
   zhipuUseCodingPlan: boolean;
   embeddingEnabled: boolean;
   embeddingModel: string | null;
+  embeddingDimensions: number | null;
 }
 
 export interface UpdateLlmSettingsRequest {
@@ -291,6 +292,7 @@ export interface UpdateLlmSettingsRequest {
   zhipuUseCodingPlan?: boolean;
   embeddingEnabled?: boolean;
   embeddingModel?: string | null;
+  embeddingDimensions?: number | null;
 }
 
 export interface GcpCredentials {

@@ -7,6 +7,7 @@ export { LipSyncLayer } from "./lip-sync-layer";
 export { LookAtLayer } from "./look-at-layer";
 export { MotionClipLayer } from "./motion-clip-layer";
 export { fbm1D, noise1D } from "./noise";
+export { RestPoseLayer } from "./rest-pose-layer";
 export { StateExpressionLayer } from "./state-expression-layer";
 export type {
   AnimationContext,

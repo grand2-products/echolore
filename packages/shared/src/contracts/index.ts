@@ -597,6 +597,13 @@ export type AituberSessionStatus = "created" | "live" | "ended";
 export type AituberMessageRole = "viewer" | "assistant";
 export type AituberAvatarState = "idle" | "thinking" | "talking";
 
+export interface VisemeEntry {
+  time: number;
+  viseme: string;
+}
+
+export const MAX_VRM_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
+
 export interface AituberCharacterDto {
   id: string;
   name: string;
@@ -724,7 +731,7 @@ export type AituberDataEvent =
       type: "tts-audio";
       audio: string;
       mimeType: string;
-      visemes?: Array<{ time: number; viseme: string }>;
+      visemes?: VisemeEntry[];
     }
   | { type: "emotion"; emotion: string; intensity: number }
   | { type: "action"; action: string };

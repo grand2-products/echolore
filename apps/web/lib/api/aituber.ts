@@ -6,10 +6,23 @@ import type {
   CreateAituberSessionRequest,
   SendAituberMessageRequest,
   UpdateAituberCharacterRequest,
+  VisemeEntry,
 } from "@echolore/shared/contracts";
 import { fetchApi, uploadFile } from "./fetch";
 
+export interface TtsVoice {
+  name: string;
+  gender: string;
+  languageCodes: string[];
+}
+
 export const aituberApi = {
+  // Voices
+  listVoices: (languageCode?: string) =>
+    fetchApi<{ voices: TtsVoice[] }>(
+      `/aituber/voices${languageCode ? `?languageCode=${encodeURIComponent(languageCode)}` : ""}`
+    ),
+
   // Characters
   listCharacters: () => fetchApi<{ characters: AituberCharacterDto[] }>("/aituber/characters"),
 
@@ -35,6 +48,15 @@ export const aituberApi = {
     fetchApi<{ success: boolean }>(`/aituber/characters/${id}`, {
       method: "DELETE",
     }),
+
+  previewTts: (id: string, text: string) =>
+    fetchApi<{ audio: string; mimeType: string; visemes: VisemeEntry[] }>(
+      `/aituber/characters/${id}/tts-preview`,
+      {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      }
+    ),
 
   // Sessions
   listSessions: (status?: string) =>

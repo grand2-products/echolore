@@ -12,6 +12,8 @@ interface EmbedTextOptions {
 }
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta";
+const DEFAULT_EMBEDDING_MODEL = "gemini-embedding-2-preview";
+const DEFAULT_EMBEDDING_DIMENSIONS = 768;
 
 export async function isEmbeddingEnabled() {
   try {
@@ -23,14 +25,26 @@ export async function isEmbeddingEnabled() {
   }
 }
 
-export async function getEmbeddingModel() {
+export async function getEmbeddingConfig(): Promise<{ model: string; dimensions: number }> {
   try {
     const settings = await getLlmSettings();
-    if (settings.embeddingModel) return settings.embeddingModel;
+    return {
+      model: settings.embeddingModel || DEFAULT_EMBEDDING_MODEL,
+      dimensions: settings.embeddingDimensions || DEFAULT_EMBEDDING_DIMENSIONS,
+    };
   } catch {
-    /* fall through */
+    return { model: DEFAULT_EMBEDDING_MODEL, dimensions: DEFAULT_EMBEDDING_DIMENSIONS };
   }
-  return "gemini-embedding-002";
+}
+
+export async function getEmbeddingModel() {
+  const config = await getEmbeddingConfig();
+  return config.model;
+}
+
+export async function getEmbeddingDimensions(): Promise<number> {
+  const config = await getEmbeddingConfig();
+  return config.dimensions;
 }
 
 export function vectorToJson(values: number[]) {
@@ -66,10 +80,10 @@ export async function embedText(
     const settings = await getLlmSettings();
     if (settings.embeddingEnabled === false) return null;
     apiKey = settings.geminiApiKey || null;
-    model = settings.embeddingModel || "gemini-embedding-002";
+    model = settings.embeddingModel || DEFAULT_EMBEDDING_MODEL;
   } catch {
     apiKey = null;
-    model = "gemini-embedding-002";
+    model = DEFAULT_EMBEDDING_MODEL;
   }
   if (!apiKey) return null;
   const body = {

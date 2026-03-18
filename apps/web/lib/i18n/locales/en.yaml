@@ -7,6 +7,7 @@ common:
     coworking: "Coworking"
     search: "Search"
     aituber: "AITuber"
+    help: "Help"
     admin: "Admin"
     access: "Access"
     kpi: "KPI"
@@ -216,6 +217,9 @@ wiki:
     saveError: "Failed to save the page."
     loadError: "Failed to load the page."
     saved: "Page saved."
+  shorthand:
+    placeholder: "Type a note and AI will insert it in the right place..."
+    error: "Failed to process shorthand. Appended at the end."
   collab:
     live: "Live"
     connecting: "Connecting..."
@@ -438,6 +442,18 @@ coworking:
     hlsError: "Failed to play the HLS stream."
     hlsUnsupported: "Your browser does not support HLS playback."
     participantList: "Participant List"
+help:
+  sidebar:
+    title: "Help"
+  topics:
+    gettingStarted: "Getting Started"
+    wiki: "Wiki"
+    aiChat: "AI Chat"
+    meetings: "Meetings"
+    coworking: "Coworking"
+    aituber: "AITuber"
+    search: "Search"
+    aiKnowledge: "AI Knowledge"
 admin:
   title: "Administration"
   description: "Manage users, groups, agents, metrics, and site settings."
@@ -478,6 +494,7 @@ admin:
     notFound: "Suggestion not found."
     forbidden: "You do not have permission to access knowledge suggestions."
     pageTitle: "AI Knowledge Suggestions"
+    pageDescription: "AI proposes wiki page creation and updates from file uploads, meeting transcriptions, and periodic scans. Review each suggestion and approve or reject it."
   users:
     loading: "Loading users..."
     loadError: "Failed to load users."
@@ -706,6 +723,13 @@ admin:
     llmEmbeddingDescription: "Configure the Gemini Embedding model used for semantic search in the Wiki. Uses the Gemini API key configured in the AI Agents tab."
     llmEmbeddingEnabled: "Enable semantic search (Embedding)"
     llmEmbeddingModel: "Embedding Model"
+    llmEmbeddingDimensions: "Embedding Dimensions"
+    llmEmbeddingDimensionsHint: "Higher dimensions provide better accuracy but use more storage and are slower."
+    llmEmbeddingReindexWarning: "Embedding dimensions have been changed. You must re-index all Wiki pages for semantic search to work correctly."
+    llmEmbeddingReindexButton: "Re-index All Pages"
+    llmEmbeddingReindexing: "Re-indexing..."
+    llmEmbeddingReindexStarted: "Re-indexing started. This may take a while depending on the number of pages."
+    llmEmbeddingReindexError: "Re-indexing failed. Please try again."
     llmEmbeddingDisabledWarning: "When disabled, Wiki search will use keyword matching only (no semantic search). New pages will not be indexed for semantic search, but existing embedding data will be preserved."
   google:
     title: "Google / GCP Settings"
@@ -763,7 +787,8 @@ aituber:
     systemPrompt: "System Prompt"
     speakingStyle: "Speaking Style"
     languageCode: "Language Code"
-    voiceName: "Voice Name"
+    voiceName: "Voice"
+    voiceDefault: "Default (auto-select)"
     avatarFile: "Avatar VRM file"
     avatarUploadHint: "Upload a VRM file (.vrm)."
     avatarPreview: "Current avatar"
@@ -780,6 +805,16 @@ aituber:
     loadError: "Failed to load characters."
     saveError: "Failed to save character."
     deleteError: "Failed to delete character."
+    preview:
+      title: "Preview"
+      ttsLabel: "Voice Test"
+      ttsPlaceholder: "Enter text to test..."
+      speak: "Play"
+      synthesizing: "Synthesizing..."
+      ttsError: "Failed to synthesize speech."
+      motions: "Motions"
+      allCategories: "All"
+      emotions: "Emotions"
   sessions:
     title: "Sessions"
     create: "Create Session"

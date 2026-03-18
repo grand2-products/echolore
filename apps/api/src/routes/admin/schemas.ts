@@ -92,6 +92,10 @@ export const updateLlmSettingsSchema = z.object({
   zhipuUseCodingPlan: z.boolean().optional(),
   embeddingEnabled: z.boolean().optional(),
   embeddingModel: z.string().max(100).nullable().optional(),
+  embeddingDimensions: z
+    .union([z.literal(768), z.literal(1536), z.literal(3072)])
+    .nullable()
+    .optional(),
 });
 
 export const updateStorageSettingsSchema = z.object({

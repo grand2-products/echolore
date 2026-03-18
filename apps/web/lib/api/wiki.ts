@@ -115,6 +115,29 @@ export const wikiApi = {
       ...(parentId ? { parentId } : {}),
     }),
 
+  // Shorthand
+  shorthand: (
+    pageId: string,
+    data: {
+      input: string;
+      pageTitle: string;
+      blocks: Array<{ id: string; type: string; text: string }>;
+    }
+  ) =>
+    fetchApi<{
+      operations: Array<
+        | {
+            action: "insert";
+            afterBlockId: string | null;
+            blocks: Array<{ type: string; content: string }>;
+          }
+        | { action: "update"; blockId: string; content: string }
+      >;
+    }>(`/wiki/${pageId}/shorthand`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   // Permissions
   listGroups: () => fetchApi<{ groups: AdminGroup[] }>("/wiki/groups"),
 

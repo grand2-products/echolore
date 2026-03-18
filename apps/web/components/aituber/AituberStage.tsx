@@ -4,6 +4,12 @@ import type { AituberSessionDto } from "@echolore/shared/contracts";
 import { Room, RoomEvent } from "livekit-client";
 import { useCallback, useEffect, useRef } from "react";
 import { aituberApi } from "@/lib/api/aituber";
+import {
+  type AudioNodes,
+  decodeBase64Audio,
+  ensureAudioNodes,
+  playAudioBuffer,
+} from "@/lib/audio-utils";
 import { useT } from "@/lib/i18n";
 import { AituberAvatar } from "./AituberAvatar";
 import { AituberChat } from "./AituberChat";
@@ -19,8 +25,7 @@ const decoder = new TextDecoder();
 export function AituberStage({ session, livekitUrl }: AituberStageProps) {
   const t = useT();
   const roomRef = useRef<Room | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioNodesRef = useRef<AudioNodes | null>(null);
   const isPlayingRef = useRef(false);
 
   const connected = useAituberStore((s) => s.connected);
@@ -47,29 +52,17 @@ export function AituberStage({ session, livekitUrl }: AituberStageProps) {
     isPlayingRef.current = true;
 
     try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
-        analyserRef.current = audioContextRef.current.createAnalyser();
-        analyserRef.current.fftSize = 512;
-        setAudioSampleRate(audioContextRef.current.sampleRate);
-      }
+      const nodes = ensureAudioNodes(audioNodesRef.current);
+      audioNodesRef.current = nodes;
+      setAudioSampleRate(nodes.context.sampleRate);
 
-      const audioData = Uint8Array.from(atob(item.audio), (c) => c.charCodeAt(0));
-      const audioBuffer = await audioContextRef.current.decodeAudioData(audioData.buffer);
-
-      const source = audioContextRef.current.createBufferSource();
-      source.buffer = audioBuffer;
-      if (analyserRef.current) {
-        source.connect(analyserRef.current);
-        analyserRef.current.connect(audioContextRef.current.destination);
-      }
+      const audioBuffer = await decodeBase64Audio(nodes.context, item.audio);
+      const source = playAudioBuffer(nodes, audioBuffer);
 
       source.onended = () => {
         isPlayingRef.current = false;
         void playNextAudio();
       };
-
-      source.start();
     } catch (err) {
       console.error("[AituberStage] Audio playback error:", err);
       isPlayingRef.current = false;
@@ -139,7 +132,7 @@ export function AituberStage({ session, livekitUrl }: AituberStageProps) {
         <AituberAvatar
           avatarUrl={session.characterAvatarUrl ?? null}
           avatarState={avatarState}
-          audioAnalyser={analyserRef.current}
+          audioAnalyser={audioNodesRef.current?.analyser ?? null}
           audioSampleRate={audioSampleRate}
           emotion={emotion}
           visemes={currentVisemes}

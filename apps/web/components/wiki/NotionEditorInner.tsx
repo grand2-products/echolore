@@ -12,6 +12,7 @@ import { filesApi, getWikiFileDownloadUrl, wikiApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { blockDtosToBlocks } from "@/lib/wiki-serializer";
 import { CollaboratorAvatars } from "./CollaboratorAvatars";
+import { ShorthandBar } from "./ShorthandBar";
 
 import "@blocknote/shadcn/style.css";
 
@@ -116,6 +117,7 @@ export default function NotionEditorInner({
       {provider && fragment ? (
         <CollabEditor
           pageId={pageId}
+          pageTitle={pageTitle}
           fragment={fragment}
           provider={provider}
           initialBlocks={initialBlocks}
@@ -135,6 +137,7 @@ export default function NotionEditorInner({
 /** Inner editor component that requires a non-null provider/fragment. */
 function CollabEditor({
   pageId,
+  pageTitle,
   fragment,
   provider,
   initialBlocks,
@@ -143,6 +146,7 @@ function CollabEditor({
   userColor,
 }: {
   pageId: string;
+  pageTitle: string;
   fragment: XmlFragment;
   provider: WebsocketProvider;
   initialBlocks: BlockDto[];
@@ -234,12 +238,15 @@ function CollabEditor({
   );
 
   return (
-    <BlockNoteView
-      editor={editor}
-      editable={!readOnly}
-      theme="light"
-      onKeyDownCapture={handleKeyDown}
-    />
+    <>
+      <BlockNoteView
+        editor={editor}
+        editable={!readOnly}
+        theme="light"
+        onKeyDownCapture={handleKeyDown}
+      />
+      {!readOnly && <ShorthandBar pageId={pageId} pageTitle={pageTitle} editor={editor} />}
+    </>
   );
 }
 

@@ -1,15 +1,12 @@
+import type { AituberAvatarState, VisemeEntry } from "@echolore/shared/contracts";
+
+export type { AituberAvatarState, VisemeEntry };
+
 export type EmotionType = "neutral" | "happy" | "sad" | "angry" | "surprised" | "relaxed";
 
 export interface EmotionState {
   type: EmotionType;
   intensity: number;
-}
-
-export type AituberAvatarState = "idle" | "thinking" | "talking";
-
-export interface VisemeEntry {
-  time: number;
-  viseme: string;
 }
 
 export interface AnimationContext {

@@ -149,6 +149,11 @@ export const adminApi = {
       method: "POST",
     }),
 
+  reindexWiki: () =>
+    fetchApi<{ success: boolean; message: string }>("/admin/reindex-wiki", {
+      method: "POST",
+    }),
+
   getStorageSettings: () => fetchApi<StorageSettings>("/admin/storage-settings"),
 
   updateStorageSettings: (data: UpdateStorageSettingsRequest) =>
