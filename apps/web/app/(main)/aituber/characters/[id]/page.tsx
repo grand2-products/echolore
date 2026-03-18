@@ -33,7 +33,7 @@ export default function CharacterDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-8">
+    <div className="p-8">
       <div className="mb-6 flex items-center gap-3">
         <Link href="/aituber/characters" className="text-gray-400 hover:text-gray-600">
           <svg
@@ -58,7 +58,7 @@ export default function CharacterDetailPage() {
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
       {message && <p className="mb-4 text-sm text-green-600">{message}</p>}
 
-      <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-2">
         <CharacterEditForm
           isNew={false}
           form={form}

@@ -222,7 +222,9 @@ export function CharacterPreview({ character }: CharacterPreviewProps) {
                   onClick={() => handleAction(clip.id)}
                   title={clip.description}
                   className={`rounded-md px-2 py-1 text-xs font-medium transition ${
-                    CATEGORY_COLORS[clip.category] ?? DEFAULT_CHIP
+                    action === clip.id
+                      ? "bg-gray-900 text-white ring-1 ring-gray-900"
+                      : (CATEGORY_COLORS[clip.category] ?? DEFAULT_CHIP)
                   }`}
                 >
                   {clip.id}

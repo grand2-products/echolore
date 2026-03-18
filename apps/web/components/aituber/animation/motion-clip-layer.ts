@@ -14,6 +14,8 @@ interface ThreeAnimationMixer {
   clipAction: (clip: unknown) => ThreeAnimationAction;
   stopAllAction: () => void;
   update: (delta: number) => void;
+  setTime: (time: number) => void;
+  time: number;
 }
 
 interface ThreeAnimationAction {
@@ -22,6 +24,7 @@ interface ThreeAnimationAction {
   fadeOut: (duration: number) => ThreeAnimationAction;
   setLoop: (mode: number, count: number) => ThreeAnimationAction;
   play: () => ThreeAnimationAction;
+  stop: () => ThreeAnimationAction;
   isRunning: () => boolean;
   clampWhenFinished: boolean;
   paused: boolean;
@@ -162,6 +165,7 @@ export class MotionClipLayer implements AnimationLayer {
   private idleCooldown = 0;
   private idlePreloaded = false;
   private isIdleClip = false;
+  private isSeeking = false;
 
   // References for on-demand VRMA loading
   private humanoid: VrmHumanoid | null = null;
@@ -335,21 +339,25 @@ export class MotionClipLayer implements AnimationLayer {
     }
   }
 
-  play(clipId: string, fadeIn = 0.3): void {
+  play(clipId: string): void {
     const clip = this.clips.get(clipId);
     if (!clip || !this.mixer) return;
 
+    // Stop previous action and start new one atomically.
+    // Immediately evaluate (mixer.update(0)) so the new clip's frame 0
+    // is applied before the next render — no 1-frame T-pose flash.
     if (this.currentAction) {
-      this.currentAction.fadeOut(0.3);
+      this.currentAction.stop();
     }
 
     const action = this.mixer.clipAction(clip);
     const def = this.manifest.find((c) => c.id === clipId);
     if (def && !def.loop) {
       action.setLoop(2200, 1); // THREE.LoopOnce = 2200
-      action.clampWhenFinished = false;
+      action.clampWhenFinished = true;
     }
-    action.reset().fadeIn(fadeIn).play();
+    action.reset().play();
+    this.mixer.update(0); // evaluate immediately
     this.currentAction = action;
     this.isPlaying = true;
   }
@@ -387,40 +395,35 @@ export class MotionClipLayer implements AnimationLayer {
       this.pendingAction = null;
     }
 
-    // Seek mode: pause the action and jump to the requested time
-    if (context.seekTime != null && this.currentAction) {
-      this.currentAction.paused = true;
-      this.currentAction.time = context.seekTime;
-      this.mixer?.update(0);
+    // Seek mode: use mixer.setTime to jump to absolute time
+    if (context.seekTime != null && this.currentAction && this.mixer) {
+      this.mixer.setTime(context.seekTime);
+      this.isSeeking = true;
     } else {
-      if (this.currentAction?.paused) {
-        this.currentAction.paused = false;
-      }
+      this.isSeeking = false;
       this.mixer?.update(delta);
     }
 
-    if (this.currentAction && !this.currentAction.isRunning() && !this.currentAction.paused) {
-      this.mixer?.stopAllAction();
-      this.isPlaying = false;
-      this.currentAction = null;
-      if (this.isIdleClip) {
-        this.idleCooldown = IDLE_MIN_PAUSE + Math.random() * IDLE_RANDOM_PAUSE;
-      }
-      this.isIdleClip = false;
-    }
+    // Detect clip finished (skip during seek)
+    const clipFinished = !this.isSeeking && this.currentAction && !this.currentAction.isRunning();
 
+    // Idle auto-play: only when no explicit action is set.
+    // When an idle clip finishes, immediately play the next one (no gap).
     if (
-      !this.isPlaying &&
       !this.pendingAction &&
       this.idlePreloaded &&
       context.avatarState === "idle" &&
       context.seekTime == null
     ) {
+      if (clipFinished && this.isIdleClip) {
+        this.idleCooldown = IDLE_MIN_PAUSE + Math.random() * IDLE_RANDOM_PAUSE;
+      }
+
       this.idleCooldown -= delta;
-      if (this.idleCooldown <= 0) {
+      if (this.idleCooldown <= 0 && (!this.isPlaying || (clipFinished && this.isIdleClip))) {
         const nextIdle = this.pickNextIdleClip();
         if (nextIdle && this.clips.has(nextIdle)) {
-          this.play(nextIdle, 0.5);
+          this.play(nextIdle);
           this.isIdleClip = true;
         }
       }
