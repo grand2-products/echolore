@@ -194,7 +194,7 @@ Import-OptionalEnvFiles -Paths @(
 )
 
 Set-DefaultEnv -Name "DB_PASSWORD" -Value "wiki_password"
-Set-DefaultEnv -Name "WEB_PORT" -Value "17720"
+Set-DefaultEnv -Name "WEB_PORT" -Value "17760"
 Set-DefaultEnv -Name "API_PORT" -Value "17721"
 Set-DefaultEnv -Name "LIVEKIT_PORT" -Value "17722"
 Set-DefaultEnv -Name "LIVEKIT_SIGNAL_PORT" -Value "17723"

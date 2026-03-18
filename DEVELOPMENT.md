@@ -26,7 +26,7 @@ High-level project overview lives in `README.md`.
    - `curl http://localhost:17721/health`
 
 ## Local Runtime
-- Web: `http://localhost:17720`
+- Web: `http://localhost:17760`
 - API: `http://localhost:17721`
 - Auth: Auth.js sessions managed by API at `http://localhost:17721/api/auth/*`
 - LiveKit: `http://localhost:17722`
@@ -42,7 +42,7 @@ High-level project overview lives in `README.md`.
 - Turborepo uses `stream` UI so terminal output stays copyable in regular shells.
 - `dev.ps1` only loads root `.env` for orchestration overrides such as shared local ports.
 - Each app dev script loads its own `.env` and `.env.local` via `dotenv-cli`.
-- The default local ports are `17720`-series values and can be overridden in root `.env` for middleware or in the app-specific env files for app processes.
+- The default local ports are `17760`-series values and can be overridden in root `.env` for middleware or in the app-specific env files for app processes.
 - Keep the app env files explicit. If you change `WEB_PORT`, `API_PORT`, `DB_PORT`, or `LIVEKIT_PORT`, also update related localhost URL values such as `NEXT_PUBLIC_API_URL`, `CORS_ORIGIN`, `ROOM_AI_API_BASE_URL`, `LIVEKIT_HOST`, and `DATABASE_URL` in the same app env file.
 - `dev.ps1` is orchestration only. It does not rewrite app connection targets before `turbo run dev`.
 - App branding can be overridden in `apps/api/.env` and `apps/web/.env.local` via `APP_TITLE`, `NEXT_PUBLIC_APP_TITLE`, and `NEXT_PUBLIC_APP_TAGLINE`.

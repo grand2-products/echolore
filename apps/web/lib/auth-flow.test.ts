@@ -10,7 +10,7 @@ describe("auth flow", () => {
     vi.stubGlobal("window", {
       location: {
         assign,
-        origin: "http://localhost:17720",
+        origin: "http://localhost:17760",
       },
     });
 
