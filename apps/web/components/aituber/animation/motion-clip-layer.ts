@@ -357,7 +357,6 @@ export class MotionClipLayer implements AnimationLayer {
       action.clampWhenFinished = true;
     }
     action.reset().play();
-    this.mixer.update(0); // evaluate immediately
     this.currentAction = action;
     this.isPlaying = true;
   }
@@ -397,6 +396,7 @@ export class MotionClipLayer implements AnimationLayer {
 
     // Seek mode: use mixer.setTime to jump to absolute time
     if (context.seekTime != null && this.currentAction && this.mixer) {
+      this.currentAction.reset().play();
       this.mixer.setTime(context.seekTime);
       this.isSeeking = true;
     } else {

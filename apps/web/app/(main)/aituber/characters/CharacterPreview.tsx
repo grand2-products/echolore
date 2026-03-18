@@ -152,7 +152,11 @@ export function CharacterPreview({ character }: CharacterPreviewProps) {
                 checked={seekEnabled}
                 onChange={(e) => {
                   setSeekEnabled(e.target.checked);
-                  if (!e.target.checked) setSeekTime(null);
+                  if (e.target.checked) {
+                    setSeekTime((prev) => prev ?? 0);
+                  } else {
+                    setSeekTime(null);
+                  }
                 }}
               />
               Seek
