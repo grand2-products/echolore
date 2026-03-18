@@ -766,3 +766,13 @@ floatingChat:
   error: "메시지 전송에 실패했습니다."
   openFull: "전체 화면으로 열기"
   newChat: "새 대화"
+aituber:
+  characters:
+    vrmMeta:
+      loading: "메타데이터를 불러오는 중..."
+      error: "메타데이터를 불러오지 못했습니다."
+      vrm0Warning: "VRM 0.x 모델입니다. 작동은 되지만 이 시스템은 VRM 1.0만 지원합니다."
+      modelName: "모델 이름"
+      author: "제작자"
+      license: "라이선스"
+      version: "버전"
