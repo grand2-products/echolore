@@ -1,18 +1,17 @@
 "use client";
 
-import type { AituberCharacterDto } from "@echolore/shared/contracts";
 import { MAX_VRM_FILE_SIZE_BYTES } from "@echolore/shared/contracts";
 import { useEffect, useMemo, useState } from "react";
 import type { TtsVoice } from "@/lib/api/aituber";
 import { aituberApi } from "@/lib/api/aituber";
 import { useT } from "@/lib/i18n";
-import type { CharacterForm } from "./use-characters";
+import type { CharacterForm } from "./use-character-form";
 
 interface CharacterEditFormProps {
-  editingId: string;
+  isNew: boolean;
   form: CharacterForm;
   saving: boolean;
-  characters: AituberCharacterDto[];
+  avatarUrl: string | null;
   onUpdateField: <K extends keyof CharacterForm>(key: K, value: CharacterForm[K]) => void;
   onAvatarFileChange: (file: File | null) => void;
   onSave: () => void;
@@ -21,10 +20,10 @@ interface CharacterEditFormProps {
 }
 
 export function CharacterEditForm({
-  editingId,
+  isNew,
   form,
   saving,
-  characters,
+  avatarUrl,
   onUpdateField,
   onAvatarFileChange,
   onSave,
@@ -34,9 +33,6 @@ export function CharacterEditForm({
   const t = useT();
   const [allVoices, setAllVoices] = useState<TtsVoice[]>([]);
   const [loadingVoices, setLoadingVoices] = useState(true);
-
-  const currentAvatarUrl =
-    editingId !== "new" ? (characters.find((c) => c.id === editingId)?.avatarUrl ?? null) : null;
 
   // Fetch all voices once
   useEffect(() => {
@@ -82,7 +78,7 @@ export function CharacterEditForm({
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
       <h2 className="mb-4 text-lg font-semibold text-gray-900">
-        {editingId === "new" ? t("aituber.characters.create") : t("aituber.characters.edit")}
+        {isNew ? t("aituber.characters.create") : t("aituber.characters.edit")}
       </h2>
 
       <div className="space-y-4">
@@ -198,14 +194,10 @@ export function CharacterEditForm({
           <p className="mt-1 text-xs text-gray-500">{t("aituber.characters.avatarUploadHint")}</p>
         </Field>
 
-        {currentAvatarUrl && (
+        {avatarUrl && (
           <Field label={t("aituber.characters.avatarPreview")}>
             <a
-              href={
-                currentAvatarUrl.startsWith("/") || currentAvatarUrl.startsWith("https://")
-                  ? currentAvatarUrl
-                  : "#"
-              }
+              href={avatarUrl.startsWith("/") || avatarUrl.startsWith("https://") ? avatarUrl : "#"}
               target="_blank"
               rel="noreferrer"
               className="text-sm text-blue-600 hover:underline"

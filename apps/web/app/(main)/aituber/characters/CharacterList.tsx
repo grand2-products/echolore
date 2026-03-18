@@ -1,16 +1,15 @@
 "use client";
 
 import type { AituberCharacterDto } from "@echolore/shared/contracts";
+import Link from "next/link";
 import { useT } from "@/lib/i18n";
 
 interface CharacterListProps {
   characters: AituberCharacterDto[];
-  editingId: string | null;
-  onEdit: (char: AituberCharacterDto) => void;
   onDelete: (id: string) => void;
 }
 
-export function CharacterList({ characters, editingId, onEdit, onDelete }: CharacterListProps) {
+export function CharacterList({ characters, onDelete }: CharacterListProps) {
   const t = useT();
 
   if (characters.length === 0) {
@@ -20,15 +19,10 @@ export function CharacterList({ characters, editingId, onEdit, onDelete }: Chara
   return (
     <div className="space-y-3">
       {characters.map((char) => (
-        <button
-          type="button"
+        <Link
           key={char.id}
-          className={`w-full cursor-pointer rounded-lg border p-4 text-left transition ${
-            editingId === char.id
-              ? "border-blue-500 bg-blue-50"
-              : "border-gray-200 bg-white hover:bg-gray-50 hover:border-blue-300"
-          }`}
-          onClick={() => onEdit(char)}
+          href={`/aituber/characters/${char.id}`}
+          className={`block w-full rounded-lg border border-gray-200 bg-white p-4 text-left transition hover:bg-gray-50 hover:border-blue-300`}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -53,7 +47,7 @@ export function CharacterList({ characters, editingId, onEdit, onDelete }: Chara
               <button
                 type="button"
                 onClick={(e) => {
-                  e.stopPropagation();
+                  e.preventDefault();
                   void onDelete(char.id);
                 }}
                 className="text-xs text-red-600 hover:text-red-700"
@@ -63,7 +57,7 @@ export function CharacterList({ characters, editingId, onEdit, onDelete }: Chara
             </div>
           </div>
           <p className="mt-1 text-xs text-gray-500 line-clamp-2">{char.personality}</p>
-        </button>
+        </Link>
       ))}
     </div>
   );

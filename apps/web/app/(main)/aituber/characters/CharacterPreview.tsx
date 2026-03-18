@@ -15,7 +15,10 @@ import {
 import { useT } from "@/lib/i18n";
 
 interface CharacterPreviewProps {
-  character: AituberCharacterDto;
+  character: Pick<
+    AituberCharacterDto,
+    "id" | "name" | "avatarUrl" | "languageCode" | "voiceName" | "speakingStyle"
+  >;
 }
 
 const EMOTIONS: EmotionType[] = ["neutral", "happy", "sad", "angry", "surprised", "relaxed"];
