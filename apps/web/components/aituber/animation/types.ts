@@ -17,6 +17,8 @@ export interface AnimationContext {
   elapsedTime: number;
   visemes: VisemeEntry[] | null;
   action: string | null;
+  /** When set, pause the active clip and seek to this time (seconds). */
+  seekTime: number | null;
 }
 
 export interface LayerOutput {

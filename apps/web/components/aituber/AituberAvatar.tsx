@@ -25,6 +25,7 @@ interface AituberAvatarProps {
   emotion?: EmotionState | null;
   visemes?: VisemeEntry[] | null;
   action?: string | null;
+  seekTime?: number | null;
 }
 
 export function AituberAvatar({
@@ -35,6 +36,7 @@ export function AituberAvatar({
   emotion,
   visemes,
   action,
+  seekTime,
 }: AituberAvatarProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<unknown>(null);
@@ -52,6 +54,7 @@ export function AituberAvatar({
   const emotionRef = useRef<EmotionState | null>(emotion ?? null);
   const visemesRef = useRef<VisemeEntry[] | null>(visemes ?? null);
   const actionRef = useRef<string | null>(action ?? null);
+  const seekTimeRef = useRef<number | null>(seekTime ?? null);
 
   useEffect(() => {
     avatarStateRef.current = avatarState;
@@ -71,6 +74,9 @@ export function AituberAvatar({
   useEffect(() => {
     actionRef.current = action ?? null;
   }, [action]);
+  useEffect(() => {
+    seekTimeRef.current = seekTime ?? null;
+  }, [seekTime]);
 
   useEffect(() => {
     if (!containerRef.current || !avatarUrl) return;
@@ -174,6 +180,7 @@ export function AituberAvatar({
             elapsedTime: elapsedRef.current,
             visemes: visemesRef.current,
             action: actionRef.current,
+            seekTime: seekTimeRef.current,
           };
 
           compositor.update(delta, context, vrm);

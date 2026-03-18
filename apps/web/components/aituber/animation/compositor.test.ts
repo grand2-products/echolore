@@ -10,6 +10,7 @@ const makeContext = (overrides: Partial<AnimationContext> = {}): AnimationContex
   elapsedTime: 0,
   visemes: null,
   action: null,
+  seekTime: null,
   ...overrides,
 });
 

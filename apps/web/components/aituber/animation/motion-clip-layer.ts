@@ -24,10 +24,14 @@ interface ThreeAnimationAction {
   play: () => ThreeAnimationAction;
   isRunning: () => boolean;
   clampWhenFinished: boolean;
+  paused: boolean;
+  time: number;
 }
 
-// Upper body bones that motion clips typically control
+// Bones whose animation tracks are driven by VRMAs.
+// While a clip is playing, the compositor skips these and lets the mixer control them.
 const MOTION_CLIP_BONES = new Set([
+  "hips",
   "spine",
   "chest",
   "upperChest",
@@ -41,21 +45,106 @@ const MOTION_CLIP_BONES = new Set([
   "rightUpperArm",
   "rightLowerArm",
   "rightHand",
-  "hips",
   "leftUpperLeg",
   "leftLowerLeg",
   "leftFoot",
+  "leftToes",
   "rightUpperLeg",
   "rightLowerLeg",
   "rightFoot",
+  "rightToes",
 ]);
+
+// Rest pose quaternions for bones that differ from identity (T-pose).
+// Must match RestPoseLayer so clip frame 0 = compositor rest state.
+const REST_POSE_EULER: Record<string, { x: number; y: number; z: number }> = {
+  leftUpperArm: { x: 0, y: 0, z: -1.15 },
+  rightUpperArm: { x: 0, y: 0, z: 1.15 },
+  leftLowerArm: { x: 0, y: 0, z: -0.12 },
+  rightLowerArm: { x: 0, y: 0, z: 0.12 },
+};
 
 // Minimum pause between idle clips (seconds)
 const IDLE_MIN_PAUSE = 1.0;
 // Maximum additional random pause (seconds)
 const IDLE_RANDOM_PAUSE = 3.0;
 
-type VrmAnimationConverter = (animation: unknown, vrm: unknown) => unknown;
+// -- Quaternion helpers (xyzw) --------------------------------------------
+
+type Q = { x: number; y: number; z: number; w: number };
+
+function qInv(q: Q): Q {
+  return { x: -q.x, y: -q.y, z: -q.z, w: q.w };
+}
+
+function qMul(a: Q, b: Q): Q {
+  return {
+    x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+    y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+    z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+    w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
+  };
+}
+
+function qFromEulerXYZ(x: number, y: number, z: number): Q {
+  const cx = Math.cos(x * 0.5),
+    sx = Math.sin(x * 0.5);
+  const cy = Math.cos(y * 0.5),
+    sy = Math.sin(y * 0.5);
+  const cz = Math.cos(z * 0.5),
+    sz = Math.sin(z * 0.5);
+  return {
+    x: sx * cy * cz + cx * sy * sz,
+    y: cx * sy * cz - sx * cy * sz,
+    z: cx * cy * sz + sx * sy * cz,
+    w: cx * cy * cz - sx * sy * sz,
+  };
+}
+
+function qRead(arr: Float32Array, frame: number): Q {
+  const o = frame * 4;
+  return {
+    x: arr[o] ?? 0,
+    y: arr[o + 1] ?? 0,
+    z: arr[o + 2] ?? 0,
+    w: arr[o + 3] ?? 1,
+  };
+}
+
+function qWrite(arr: Float32Array, frame: number, q: Q): void {
+  const o = frame * 4;
+  arr[o] = q.x;
+  arr[o + 1] = q.y;
+  arr[o + 2] = q.z;
+  arr[o + 3] = q.w;
+}
+
+// -------------------------------------------------------------------------
+
+interface VrmAnimRotationTrack {
+  times: Float32Array;
+  values: Float32Array;
+}
+
+interface VrmAnimationData {
+  duration: number;
+  restHipsPosition: { y: number };
+  humanoidTracks: {
+    translation: Map<string, { times: Float32Array; values: Float32Array }>;
+    rotation: Map<string, VrmAnimRotationTrack>;
+  };
+}
+
+interface VrmHumanoid {
+  getNormalizedBoneNode: (name: string) => {
+    name: string;
+    quaternion: Q;
+    position: { x: number; y: number; z: number };
+  } | null;
+  normalizedRestPose: {
+    hips: { position: [number, number, number] };
+  };
+}
 
 export class MotionClipLayer implements AnimationLayer {
   private mixer: ThreeAnimationMixer | null = null;
@@ -74,13 +163,12 @@ export class MotionClipLayer implements AnimationLayer {
   private idlePreloaded = false;
   private isIdleClip = false;
 
-  // References needed for on-demand VRMA loading
-  private vrm: Record<string, unknown> | null = null;
+  // References for on-demand VRMA loading
+  private humanoid: VrmHumanoid | null = null;
   private loaderInstance: {
     loadAsync: (url: string) => Promise<{ userData: Record<string, unknown> }>;
   } | null = null;
-  private createClipFn: VrmAnimationConverter | null = null;
-  private hipsRestPosition: { x: number; y: number; z: number } | null = null;
+  private threeMod: Record<string, unknown> | null = null;
 
   async initialize(
     vrm: Record<string, unknown>,
@@ -92,40 +180,17 @@ export class MotionClipLayer implements AnimationLayer {
     ).AnimationMixer;
     const vrmScene = (vrm as { scene: unknown }).scene;
     this.mixer = new AnimationMixerCtor(vrmScene);
-    this.vrm = vrm;
+    this.threeMod = THREE;
+    this.humanoid = (vrm as { humanoid?: VrmHumanoid }).humanoid ?? null;
 
-    // Capture hips bone rest position for translation correction
-    const humanoid = (
-      vrm as {
-        humanoid?: {
-          getNormalizedBoneNode: (
-            name: string
-          ) => { position: { x: number; y: number; z: number } } | null;
-        };
-      }
-    ).humanoid;
-    const hipsNode = humanoid?.getNormalizedBoneNode("hips");
-    if (hipsNode) {
-      const p = hipsNode.position;
-      this.hipsRestPosition = { x: p.x, y: p.y, z: p.z };
-      console.log(
-        `[MotionClipLayer] Hips rest position: [${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${p.z.toFixed(3)}]`
-      );
-    }
-
-    // Set up VRMA loader
     try {
       const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js");
-      const { VRMAnimationLoaderPlugin, createVRMAnimationClip } = await import(
-        "@pixiv/three-vrm-animation"
-      );
+      const { VRMAnimationLoaderPlugin } = await import("@pixiv/three-vrm-animation");
 
       const loader = new GLTFLoader();
       loader.register((parser: unknown) => new VRMAnimationLoaderPlugin(parser as never));
       this.loaderInstance = loader;
-      this.createClipFn = createVRMAnimationClip as VrmAnimationConverter;
 
-      // Fetch manifest
       const res = await fetch(`${basePath}/manifest.json`);
       if (res.ok) {
         const data = (await res.json()) as { clips: MotionClipDef[] };
@@ -134,13 +199,9 @@ export class MotionClipLayer implements AnimationLayer {
         console.log(
           `[MotionClipLayer] Loaded manifest: ${data.clips.length} clips (${this.idleClipIds.length} idle)`
         );
-
-        // Pre-load idle clips so they're ready immediately
         void this.preloadIdleClips();
       } else {
-        console.error(
-          `[MotionClipLayer] Failed to load manifest: ${res.status} ${res.statusText}. Motion clips will not be available.`
-        );
+        console.error(`[MotionClipLayer] Failed to load manifest: ${res.status} ${res.statusText}`);
       }
     } catch (err) {
       console.error("[MotionClipLayer] Failed to initialize VRMA loader:", err);
@@ -150,7 +211,6 @@ export class MotionClipLayer implements AnimationLayer {
   private async preloadIdleClips(): Promise<void> {
     await Promise.all(this.idleClipIds.map((id) => this.loadClipOnDemand(id)));
     this.idlePreloaded = true;
-    // Start first idle clip right away
     this.idleCooldown = 0;
   }
 
@@ -162,9 +222,98 @@ export class MotionClipLayer implements AnimationLayer {
     this.clips.set(id, clip);
   }
 
+  /**
+   * Build a Three.js AnimationClip from parsed VRMAnimation data.
+   *
+   * VRMAnimationLoaderPlugin outputs rotation tracks as raw SMPL-H joint
+   * quaternions (because the VRMA source nodes have identity rest poses,
+   * so the plugin's retargeting is a no-op). These absolute rotations
+   * cannot be applied directly to VRM bones.
+   *
+   * For each bone we compute:
+   *   outputQ[i] = restQ * inv(srcQ[0]) * srcQ[i]
+   *
+   * - srcQ[0]: the source skeleton's standing pose for this bone (frame 0).
+   * - inv(srcQ[0]) * srcQ[i]: motion delta from the standing pose.
+   * - restQ: the VRM bone's desired rest quaternion. For most bones this
+   *   is identity (T-pose). For arm bones it uses REST_POSE_EULER values
+   *   matching RestPoseLayer, so frame 0 = natural standing pose.
+   */
+  private buildClip(vrmAnim: VrmAnimationData): unknown {
+    if (!this.humanoid || !this.threeMod) return null;
+
+    const THREE = this.threeMod as {
+      QuaternionKeyframeTrack: new (n: string, t: Float32Array, v: Float32Array) => unknown;
+      VectorKeyframeTrack: new (n: string, t: Float32Array, v: Float32Array) => unknown;
+      AnimationClip: new (n: string, d: number, t: unknown[]) => unknown;
+    };
+
+    const tracks: unknown[] = [];
+
+    // --- Rotation tracks ---
+    for (const [boneName, srcTrack] of vrmAnim.humanoidTracks.rotation.entries()) {
+      const node = this.humanoid.getNormalizedBoneNode(boneName);
+      if (!node) continue;
+
+      const frameCount = srcTrack.values.length / 4;
+      if (frameCount < 1) continue;
+
+      const euler = REST_POSE_EULER[boneName];
+      const restQ: Q = euler
+        ? qFromEulerXYZ(euler.x, euler.y, euler.z)
+        : {
+            x: node.quaternion.x,
+            y: node.quaternion.y,
+            z: node.quaternion.z,
+            w: node.quaternion.w,
+          };
+
+      const src0 = qRead(srcTrack.values, 0);
+      const src0Inv = qInv(src0);
+
+      const out = new Float32Array(srcTrack.values.length);
+      for (let i = 0; i < frameCount; i++) {
+        const srcQ = qRead(srcTrack.values, i);
+        const delta = qMul(src0Inv, srcQ);
+        qWrite(out, i, qMul(restQ, delta));
+      }
+
+      tracks.push(
+        new THREE.QuaternionKeyframeTrack(`${node.name}.quaternion`, srcTrack.times, out)
+      );
+    }
+
+    // --- Hips translation ---
+    const hipsSrc = vrmAnim.humanoidTracks.translation.get("hips");
+    const hipsNode = this.humanoid.getNormalizedBoneNode("hips");
+    if (hipsSrc && hipsNode) {
+      const frameCount = hipsSrc.values.length / 3;
+      const rest = hipsNode.position;
+      const bx = hipsSrc.values[0] ?? 0;
+      const by = hipsSrc.values[1] ?? 0;
+      const bz = hipsSrc.values[2] ?? 0;
+
+      const vrmHipsY = this.humanoid.normalizedRestPose.hips.position[1];
+      const srcHipsY = vrmAnim.restHipsPosition.y;
+      const scale = srcHipsY > 0.001 ? vrmHipsY / srcHipsY : 1;
+
+      const out = new Float32Array(hipsSrc.values.length);
+      for (let i = 0; i < frameCount; i++) {
+        const o = i * 3;
+        out[o] = rest.x + ((hipsSrc.values[o] ?? 0) - bx) * scale;
+        out[o + 1] = rest.y + ((hipsSrc.values[o + 1] ?? 0) - by) * scale;
+        out[o + 2] = rest.z + ((hipsSrc.values[o + 2] ?? 0) - bz) * scale;
+      }
+
+      tracks.push(new THREE.VectorKeyframeTrack(`${hipsNode.name}.position`, hipsSrc.times, out));
+    }
+
+    return new THREE.AnimationClip("Clip", vrmAnim.duration, tracks);
+  }
+
   private async loadClipOnDemand(clipId: string): Promise<void> {
     if (this.clips.has(clipId) || this.loadingClips.has(clipId)) return;
-    if (!this.loaderInstance || !this.createClipFn || !this.vrm) return;
+    if (!this.loaderInstance || !this.humanoid) return;
 
     const def = this.manifest.find((c) => c.id === clipId);
     if (!def) return;
@@ -174,15 +323,10 @@ export class MotionClipLayer implements AnimationLayer {
       const gltf = await this.loaderInstance.loadAsync(`/motions/${def.file}`);
       const animations = gltf.userData.vrmAnimations as unknown[] | undefined;
       if (animations?.[0]) {
-        const clip = this.createClipFn(animations[0], this.vrm) as {
-          tracks: { name: string; values: Float32Array; times: Float32Array }[];
-        };
-        // Fix: VRMA source files have hips translation in SMPL world-space,
-        // but the VRMA node rest pose is in bone-local space. This causes
-        // createVRMAnimationClip to compute a huge incorrect delta.
-        // Correct by making the hips position track relative to its first frame.
-        this.correctHipsTranslation(clip);
-        this.clips.set(clipId, clip);
+        const clip = this.buildClip(animations[0] as VrmAnimationData);
+        if (clip) {
+          this.clips.set(clipId, clip);
+        }
       }
     } catch (err) {
       console.warn(`[MotionClipLayer] Failed to load clip ${clipId}:`, err);
@@ -191,44 +335,10 @@ export class MotionClipLayer implements AnimationLayer {
     }
   }
 
-  /**
-   * VRMA files generated from SMPL-H have hips translation in world-space
-   * (Y ≈ 1.0 = pelvis height from ground), but the VRMA node rest pose stores
-   * bone-local coordinates (Y ≈ -0.19). createVRMAnimationClip computes
-   * delta = anim - restPose, producing a ~1.2m upward offset.
-   *
-   * Fix: replace track values with  restPosition + (frame - frame[0])
-   * so that frame 0 = rest position, and subsequent frames carry only
-   * the relative motion (a few cm for bows/shifts).
-   */
-  private correctHipsTranslation(clip: {
-    tracks: { name: string; values: Float32Array; times: Float32Array }[];
-  }): void {
-    const track = clip.tracks.find((t) => t.name.endsWith(".position"));
-    if (!track || track.values.length < 3 || !this.hipsRestPosition) return;
-
-    const baseX = track.values[0] ?? 0;
-    const baseY = track.values[1] ?? 0;
-    const baseZ = track.values[2] ?? 0;
-    const rest = this.hipsRestPosition;
-
-    const vals = track.values;
-    for (let i = 0; i < vals.length; i += 3) {
-      vals[i] = rest.x + ((vals[i] ?? 0) - baseX);
-      vals[i + 1] = rest.y + ((vals[i + 1] ?? 0) - baseY);
-      vals[i + 2] = rest.z + ((vals[i + 2] ?? 0) - baseZ);
-    }
-
-    console.log(
-      `[MotionClipLayer] Corrected hips translation: base [${baseX.toFixed(3)}, ${baseY.toFixed(3)}, ${baseZ.toFixed(3)}] → rest [${rest.x.toFixed(3)}, ${rest.y.toFixed(3)}, ${rest.z.toFixed(3)}]`
-    );
-  }
-
   play(clipId: string, fadeIn = 0.3): void {
     const clip = this.clips.get(clipId);
     if (!clip || !this.mixer) return;
 
-    // Stop previous action fully to clear residual transforms (especially hip translations)
     if (this.currentAction) {
       this.currentAction.fadeOut(0.3);
     }
@@ -237,7 +347,6 @@ export class MotionClipLayer implements AnimationLayer {
     const def = this.manifest.find((c) => c.id === clipId);
     if (def && !def.loop) {
       action.setLoop(2200, 1); // THREE.LoopOnce = 2200
-      // Do NOT set clampWhenFinished — it causes hip translations to persist and accumulate
       action.clampWhenFinished = false;
     }
     action.reset().fadeIn(fadeIn).play();
@@ -247,7 +356,6 @@ export class MotionClipLayer implements AnimationLayer {
 
   private pickNextIdleClip(): string | null {
     if (this.idleClipIds.length === 0) return null;
-    // Avoid repeating the same clip consecutively
     let idx: number;
     if (this.idleClipIds.length === 1) {
       idx = 0;
@@ -257,12 +365,10 @@ export class MotionClipLayer implements AnimationLayer {
       } while (idx === this.lastIdleIndex);
     }
     this.lastIdleIndex = idx;
-    // idx is always valid because it's bounded by idleClipIds.length
     return this.idleClipIds[idx] as string;
   }
 
   update(delta: number, context: AnimationContext): LayerOutput {
-    // Check for new action from context (explicit actions override idle)
     const actionId = context.action;
     if (actionId && actionId !== this.pendingAction) {
       this.pendingAction = actionId;
@@ -281,28 +387,34 @@ export class MotionClipLayer implements AnimationLayer {
       this.pendingAction = null;
     }
 
-    this.mixer?.update(delta);
+    // Seek mode: pause the action and jump to the requested time
+    if (context.seekTime != null && this.currentAction) {
+      this.currentAction.paused = true;
+      this.currentAction.time = context.seekTime;
+      this.mixer?.update(0);
+    } else {
+      if (this.currentAction?.paused) {
+        this.currentAction.paused = false;
+      }
+      this.mixer?.update(delta);
+    }
 
-    // Check if current action finished
-    if (this.currentAction && !this.currentAction.isRunning()) {
-      // Stop all actions to fully clear residual bone transforms (position/rotation)
-      // so they don't accumulate across clips
+    if (this.currentAction && !this.currentAction.isRunning() && !this.currentAction.paused) {
       this.mixer?.stopAllAction();
       this.isPlaying = false;
       this.currentAction = null;
-      // After an idle clip ends, schedule the next one with a random pause
       if (this.isIdleClip) {
         this.idleCooldown = IDLE_MIN_PAUSE + Math.random() * IDLE_RANDOM_PAUSE;
       }
       this.isIdleClip = false;
     }
 
-    // Auto-play idle clips when nothing is happening
     if (
       !this.isPlaying &&
       !this.pendingAction &&
       this.idlePreloaded &&
-      context.avatarState === "idle"
+      context.avatarState === "idle" &&
+      context.seekTime == null
     ) {
       this.idleCooldown -= delta;
       if (this.idleCooldown <= 0) {

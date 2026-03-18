@@ -49,6 +49,8 @@ export function CharacterPreview({ character }: CharacterPreviewProps) {
   const audioNodesRef = useRef<AudioNodes | null>(null);
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
   const [audioSampleRate, setAudioSampleRate] = useState(48000);
+  const [seekTime, setSeekTime] = useState<number | null>(null);
+  const [seekEnabled, setSeekEnabled] = useState(false);
 
   // Load motion manifest
   useEffect(() => {
@@ -65,7 +67,11 @@ export function CharacterPreview({ character }: CharacterPreviewProps) {
     ? motionClips.filter((c) => c.category === selectedCategory)
     : motionClips;
 
+  const activeClipDef = motionClips.find((c) => c.id === action);
+
   const handleAction = useCallback((clipId: string) => {
+    setSeekEnabled(false);
+    setSeekTime(null);
     // Clear then set to re-trigger even if same clip
     setAction(null);
     requestAnimationFrame(() => setAction(clipId));
@@ -129,8 +135,45 @@ export function CharacterPreview({ character }: CharacterPreviewProps) {
           visemes={visemes}
           emotion={emotion}
           action={action}
+          seekTime={seekEnabled ? seekTime : null}
         />
       </div>
+
+      {/* Seek bar */}
+      {activeClipDef && (
+        <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1 text-xs text-gray-600">
+              <input
+                type="checkbox"
+                checked={seekEnabled}
+                onChange={(e) => {
+                  setSeekEnabled(e.target.checked);
+                  if (!e.target.checked) setSeekTime(null);
+                }}
+              />
+              Seek
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={activeClipDef.duration}
+              step={0.01}
+              value={seekTime ?? 0}
+              onChange={(e) => {
+                setSeekEnabled(true);
+                setSeekTime(Number(e.target.value));
+              }}
+              className="flex-1"
+              disabled={!seekEnabled}
+            />
+            <span className="text-xs font-mono text-gray-500 w-20 text-right">
+              {(seekTime ?? 0).toFixed(2)}s / {activeClipDef.duration.toFixed(2)}s
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mt-0.5">{activeClipDef.id}</p>
+        </div>
+      )}
 
       <div className="p-4 space-y-4">
         {/* Motion picker */}

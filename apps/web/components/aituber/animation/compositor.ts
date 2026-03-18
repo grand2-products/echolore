@@ -24,6 +24,7 @@ export class AnimationCompositor {
   private currentExpressions = new Map<string, number>();
   private currentBoneRotations = new Map<string, { x: number; y: number; z: number }>();
   private three: Record<string, unknown> | null = null;
+  private firstFrame = true;
 
   addLayer(layer: AnimationLayer): void {
     this.layers.push(layer);
@@ -88,7 +89,9 @@ export class AnimationCompositor {
     }
 
     // 4. Lerp expressions toward targets
-    const lerpFactor = 1 - Math.exp(-LERP_SPEED * delta);
+    // Skip lerp on the first frame to avoid visible T-pose → rest-pose transition
+    const lerpFactor = this.firstFrame ? 1 : 1 - Math.exp(-LERP_SPEED * delta);
+    this.firstFrame = false;
 
     const allExprNames = new Set([...this.currentExpressions.keys(), ...targetExpressions.keys()]);
 
@@ -140,5 +143,6 @@ export class AnimationCompositor {
     }
     this.currentExpressions.clear();
     this.currentBoneRotations.clear();
+    this.firstFrame = true;
   }
 }
