@@ -6,6 +6,7 @@ import type { TtsVoice } from "@/lib/api/aituber";
 import { aituberApi } from "@/lib/api/aituber";
 import { useT } from "@/lib/i18n";
 import type { CharacterForm } from "./use-character-form";
+import { VrmMetaPanel } from "./VrmMetaPanel";
 
 interface CharacterEditFormProps {
   isNew: boolean;
@@ -33,6 +34,7 @@ export function CharacterEditForm({
   const t = useT();
   const [allVoices, setAllVoices] = useState<TtsVoice[]>([]);
   const [loadingVoices, setLoadingVoices] = useState(true);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Fetch all voices once
   useEffect(() => {
@@ -187,11 +189,13 @@ export function CharacterEditForm({
                 e.target.value = "";
                 return;
               }
+              setSelectedFile(file);
               onAvatarFileChange(file);
             }}
             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
           />
           <p className="mt-1 text-xs text-gray-500">{t("aituber.characters.avatarUploadHint")}</p>
+          {selectedFile && <VrmMetaPanel file={selectedFile} />}
         </Field>
 
         {avatarUrl && (

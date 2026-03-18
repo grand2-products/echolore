@@ -766,3 +766,13 @@ floatingChat:
   error: "发送消息失败。"
   openFull: "全屏打开"
   newChat: "新建对话"
+aituber:
+  characters:
+    vrmMeta:
+      loading: "正在加载元数据..."
+      error: "加载元数据失败。"
+      vrm0Warning: "这是 VRM 0.x 模型。虽然可以运行，但本系统仅支持 VRM 1.0。"
+      modelName: "模型名称"
+      author: "作者"
+      license: "许可证"
+      version: "版本"
