@@ -29,11 +29,6 @@ export function AituberStage({ session, livekitUrl }: AituberStageProps) {
   const isPlayingRef = useRef(false);
 
   const connected = useAituberStore((s) => s.connected);
-  const avatarState = useAituberStore((s) => s.avatarState);
-  const emotion = useAituberStore((s) => s.emotion);
-  const pendingAction = useAituberStore((s) => s.pendingAction);
-  const currentVisemes = useAituberStore((s) => s.currentVisemes);
-  const audioSampleRate = useAituberStore((s) => s.audioSampleRate);
   const viewerCount = useAituberStore((s) => s.viewerCount);
   const setConnected = useAituberStore((s) => s.setConnected);
   const setAudioSampleRate = useAituberStore((s) => s.setAudioSampleRate);
@@ -129,15 +124,7 @@ export function AituberStage({ session, livekitUrl }: AituberStageProps) {
     <div className="flex h-full flex-col lg:flex-row">
       {/* Left: Avatar */}
       <div className="relative h-[40vh] w-full lg:h-full lg:w-2/3">
-        <AituberAvatar
-          avatarUrl={session.characterAvatarUrl ?? null}
-          avatarState={avatarState}
-          audioAnalyser={audioNodesRef.current?.analyser ?? null}
-          audioSampleRate={audioSampleRate}
-          emotion={emotion}
-          visemes={currentVisemes}
-          action={pendingAction}
-        />
+        <AituberAvatar avatarUrl={session.characterAvatarUrl ?? null} />
 
         {/* Overlay info */}
         <div className="absolute bottom-3 left-3 flex items-center gap-3">

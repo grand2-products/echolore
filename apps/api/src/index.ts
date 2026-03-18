@@ -170,9 +170,10 @@ app.route("/api/admin", adminRoutes);
 app.route("/api/admin/metrics", metricsRoutes);
 
 app.notFound((c) => jsonError(c, 404, "NOT_FOUND", "Not Found"));
-app.onError((err, c) =>
-  jsonError(c, 500, "INTERNAL_SERVER_ERROR", "Internal Server Error", err.message)
-);
+app.onError((err, c) => {
+  console.error("Unhandled server error:", err);
+  return jsonError(c, 500, "INTERNAL_SERVER_ERROR", "Internal Server Error", err.message);
+});
 
 // Restore storage provider from DB settings on startup
 (async () => {
