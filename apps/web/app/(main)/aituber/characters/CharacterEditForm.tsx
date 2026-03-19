@@ -308,7 +308,11 @@ function VrmFileInput({
   const [dragging, setDragging] = useState(false);
 
   const [validating, setValidating] = useState(false);
-  const [vrmMeta, setVrmMeta] = useState<{ title: string; version: string } | null>(null);
+  const [vrmMeta, setVrmMeta] = useState<{
+    title: string;
+    version: string;
+    isVrm0: boolean;
+  } | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const previewUrlRef = useRef<string | null>(null);
 
@@ -362,6 +366,7 @@ function VrmFileInput({
         setVrmMeta({
           title: meta?.name || meta?.title || file.name,
           version: meta?.metaVersion === "0" ? "VRM 0.x" : "VRM 1.0",
+          isVrm0: meta?.metaVersion === "0",
         });
         // Clean up parsed scene to free memory
         VRMUtils.deepDispose(vrm.scene);
@@ -462,6 +467,11 @@ function VrmFileInput({
             {vrmMeta && (
               <p className="text-xs text-gray-500">
                 {vrmMeta.title} ({vrmMeta.version})
+              </p>
+            )}
+            {vrmMeta?.isVrm0 && (
+              <p className="text-xs text-amber-600">
+                {t("aituber.characters.vrmMeta.vrm0Warning")}
               </p>
             )}
           </div>
