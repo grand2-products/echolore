@@ -838,8 +838,14 @@ aituber:
       allCategories: "All"
       emotions: "Emotions"
   preview:
+    panelExpression: "Expression"
+    panelPose: "Pose"
+    panelMotion: "Motion"
     allCategories: "All"
     selectMotion: "-- Motion --"
+    pose:
+      rest: "Rest"
+      tpose: "T-Pose"
     emotions:
       neutral: "Neutral"
       happy: "Happy"

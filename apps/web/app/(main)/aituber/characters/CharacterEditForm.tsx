@@ -7,6 +7,7 @@ import type { TtsVoice } from "@/lib/api/aituber";
 import { aituberApi } from "@/lib/api/aituber";
 import { useT } from "@/lib/i18n";
 import type { CharacterForm } from "./use-character-form";
+import { type VrmMeta, VrmMetaPanel } from "./VrmMetaPanel";
 
 const VrmPreviewCanvas = dynamic(
   () =>
@@ -308,11 +309,7 @@ function VrmFileInput({
   const [dragging, setDragging] = useState(false);
 
   const [validating, setValidating] = useState(false);
-  const [vrmMeta, setVrmMeta] = useState<{
-    title: string;
-    version: string;
-    isVrm0: boolean;
-  } | null>(null);
+  const [vrmMeta, setVrmMeta] = useState<VrmMeta | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const previewUrlRef = useRef<string | null>(null);
 
@@ -363,10 +360,16 @@ function VrmFileInput({
           return;
         }
         const meta = vrm.meta;
+        const isVrm0 = meta?.metaVersion === "0";
         setVrmMeta({
-          title: meta?.name || meta?.title || file.name,
-          version: meta?.metaVersion === "0" ? "VRM 0.x" : "VRM 1.0",
-          isVrm0: meta?.metaVersion === "0",
+          metaVersion: isVrm0 ? "0" : "1",
+          name: (isVrm0 ? meta?.title : meta?.name) || file.name,
+          authors: isVrm0
+            ? ([meta?.author].filter(Boolean) as string[])
+            : Array.isArray(meta?.authors)
+              ? (meta.authors as string[])
+              : [],
+          licenseUrl: (isVrm0 ? meta?.licenseName : meta?.licenseUrl) ?? "",
         });
         // Clean up parsed scene to free memory
         VRMUtils.deepDispose(vrm.scene);
@@ -464,16 +467,6 @@ function VrmFileInput({
                 </svg>
               </button>
             </div>
-            {vrmMeta && (
-              <p className="text-xs text-gray-500">
-                {vrmMeta.title} ({vrmMeta.version})
-              </p>
-            )}
-            {vrmMeta?.isVrm0 && (
-              <p className="text-xs text-amber-600">
-                {t("aituber.characters.vrmMeta.vrm0Warning")}
-              </p>
-            )}
           </div>
         ) : (
           <>
@@ -489,6 +482,11 @@ function VrmFileInput({
           className="hidden"
         />
       </div>
+      {vrmMeta && (
+        <div className="mt-3">
+          <VrmMetaPanel meta={vrmMeta} />
+        </div>
+      )}
       {previewUrl && (
         <div className="mt-3 h-96 w-full overflow-hidden rounded-lg border border-gray-200">
           <VrmPreviewCanvas avatarUrl={previewUrl} />

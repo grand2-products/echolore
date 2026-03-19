@@ -837,8 +837,14 @@ aituber:
       allCategories: "すべて"
       emotions: "表情"
   preview:
+    panelExpression: "表情"
+    panelPose: "ポーズ"
+    panelMotion: "モーション"
     allCategories: "すべて"
     selectMotion: "-- モーション --"
+    pose:
+      rest: "レスト"
+      tpose: "Tポーズ"
     emotions:
       neutral: "普通"
       happy: "喜び"
