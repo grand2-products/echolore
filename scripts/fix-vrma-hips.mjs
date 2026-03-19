@@ -19,8 +19,8 @@
  *   (defaults to apps/web/public/motions)
  */
 
-import { readFileSync, writeFileSync, readdirSync } from "fs";
-import { join } from "path";
+import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 
 const dir = process.argv[2] || "apps/web/public/motions";
 
