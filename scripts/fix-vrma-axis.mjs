@@ -12,7 +12,7 @@
  *   (defaults to apps/web/public/motions)
  */
 
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const dir = process.argv[2] || "apps/web/public/motions";
@@ -33,7 +33,6 @@ function fixVrma(filePath) {
 
   // Binary chunk
   const binStart = 20 + jsonChunkLen;
-  const binChunkLen = buf.readUInt32LE(binStart);
   const binOffset = binStart + 8; // skip chunk header (length + type)
 
   const accessors = jsonData.accessors || [];

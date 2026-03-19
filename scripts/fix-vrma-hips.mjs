@@ -19,7 +19,7 @@
  *   (defaults to apps/web/public/motions)
  */
 
-import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const dir = process.argv[2] || "apps/web/public/motions";
@@ -79,8 +79,7 @@ function fixVrma(filePath) {
 
   const binChunkOffset = 20 + jsonChunkLen;
   const binDataOffset = binChunkOffset + 8; // skip chunk header
-  const dataOffset =
-    binDataOffset + (bv.byteOffset || 0) + (outputAcc.byteOffset || 0);
+  const dataOffset = binDataOffset + (bv.byteOffset || 0) + (outputAcc.byteOffset || 0);
 
   const frame0X = buf.readFloatLE(dataOffset);
   const frame0Y = buf.readFloatLE(dataOffset + 4);
