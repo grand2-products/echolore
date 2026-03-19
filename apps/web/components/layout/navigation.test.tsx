@@ -20,6 +20,7 @@ describe("navigation visibility", () => {
       "/coworking",
       "/aituber",
       "/search",
+      "/help",
     ]);
   });
 
@@ -40,6 +41,7 @@ describe("navigation visibility", () => {
       "/coworking",
       "/aituber",
       "/search",
+      "/help",
       "/admin",
     ]);
   });

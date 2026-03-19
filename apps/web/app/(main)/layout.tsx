@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { FloatingChat } from "@/components/ai-chat/floating-chat";
 import { CoworkingFloatingBar } from "@/components/coworking/floating-bar";
 import { Header, Sidebar } from "@/components/layout";
@@ -19,6 +19,20 @@ interface MainLayoutProps {
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gray-50 text-sm text-gray-500">
+          Loading...
+        </div>
+      }
+    >
+      <MainLayoutInner>{children}</MainLayoutInner>
+    </Suspense>
+  );
+}
+
+function MainLayoutInner({ children }: MainLayoutProps) {
   const { user, authMode, error, isError, isLoading, refetch, isFetching } = useAuthContext();
   const t = useT();
   const { googleSignInUrl } = useAuthActions();
