@@ -1,6 +1,6 @@
 # Implementation Notes
 
-Last updated: 2026-03-16
+Last updated: 2026-03-19
 
 This document captures durable implementation notes that do not belong in short-term planning files.
 
@@ -37,6 +37,7 @@ This document captures durable implementation notes that do not belong in short-
 - admin route responses are mapped to shared DTOs in `apps/api/src/routes/admin/dto.ts`
 - user creation no longer accepts client-provided `id`; server assigns `user_${crypto.randomUUID()}` in `apps/api/src/routes/users.ts`
 - AITuber character avatars now support VRM upload flow: backend stores uploaded VRM via StorageProvider and links it by file ID (`avatarFileId`) while preserving `avatarUrl` compatibility, with character responses resolving uploaded avatars to `/api/files/:id/download`.
+- AITuber live session avatar animation uses a layered compositor architecture (`apps/web/components/aituber/animation/`): `AnimationCompositor` merges outputs from `BlinkLayer`, `BreathingLayer`, `IdleMotionLayer`, `LipSyncLayer`, `EmotionLayer`, `StateExpressionLayer`. Face expressions use MAX merge to prevent conflicts (1-A); lip-sync supports TTS viseme timestamps with audio-analysis fallback (1-B); emotions auto-fadeout after 5s hold (1-C). `LookAtController` manages gaze drift via fbm noise. `VrmAnimationController` handles VRMA clip playback (idle loop + action clips from `/motions/manifest.json`), integrated into `VrmModel.tsx` which reads store state per frame.
 
 ## Ongoing Cleanup Rule
 - old plan files that mainly describe implemented reality should be reduced or replaced with pointers to `docs/`
