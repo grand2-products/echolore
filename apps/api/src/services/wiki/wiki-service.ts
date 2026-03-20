@@ -25,6 +25,26 @@ import {
   searchPagesLexically,
 } from "../../repositories/wiki/wiki-repository.js";
 
+export type { NewBlock } from "../../db/schema.js";
+export {
+  getRevisionById,
+  listRevisionsByPageId,
+} from "../../repositories/wiki/revision-repository.js";
+// Re-export repository CRUD for route layer access
+export {
+  createBlock,
+  deleteBlock,
+  getBlockById,
+  getPageBlocks,
+  getPageById,
+  listDeletedPages,
+  permanentDeletePage,
+  restorePage,
+  softDeletePage,
+  updateBlock,
+  updatePage,
+} from "../../repositories/wiki/wiki-repository.js";
+
 const SEMANTIC_RERANK_LIMIT = 20;
 
 function buildPageSearchText(title: string, blockContents: string[]) {

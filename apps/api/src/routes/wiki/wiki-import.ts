@@ -1,8 +1,6 @@
 import { Hono } from "hono";
 import { jsonError } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
-import { getSpaceById } from "../../repositories/wiki/space-repository.js";
-import { getPageById } from "../../repositories/wiki/wiki-repository.js";
 import { indexPage } from "../../services/wiki/embedding-service.js";
 import {
   IMPORT_ALLOWED_EXTENSIONS,
@@ -10,7 +8,8 @@ import {
   ImportValidationError,
   importFile,
 } from "../../services/wiki/import-service.js";
-import { canAccessSpace } from "../../services/wiki/space-service.js";
+import { canAccessSpace, getSpaceById } from "../../services/wiki/space-service.js";
+import { getPageById } from "../../services/wiki/wiki-service.js";
 
 export const wikiImportRoutes = new Hono<AppEnv>();
 

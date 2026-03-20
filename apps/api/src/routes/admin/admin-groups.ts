@@ -5,19 +5,19 @@ import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { parsePaginationParams } from "../../lib/pagination.js";
 import {
+  addGroupMembers,
+  getGroupDetail,
+  listGroupMembers,
+  listGroupsWithMemberCounts,
+} from "../../services/admin/admin-service.js";
+import {
   createGroup,
   deleteGroup,
   deleteMembership,
   getGroupById,
   getGroupByName,
   updateGroup as updateGroupRecord,
-} from "../../repositories/admin/admin-repository.js";
-import {
-  addGroupMembers,
-  getGroupDetail,
-  listGroupMembers,
-  listGroupsWithMemberCounts,
-} from "../../services/admin/admin-service.js";
+} from "../../services/admin/group-service.js";
 import { ensureTeamSpaceForGroup } from "../../services/wiki/space-service.js";
 import { toAdminGroupDetailDto, toAdminGroupDto } from "./dto.js";
 import { addMembersSchema, createGroupSchema, updateGroupSchema } from "./schemas.js";

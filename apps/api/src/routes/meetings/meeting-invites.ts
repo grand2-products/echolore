@@ -1,31 +1,35 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, desc, eq, isNull } from "drizzle-orm";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { DataPacket_Kind, RoomServiceClient } from "livekit-server-sdk";
 import { z } from "zod";
-import { db } from "../../db/index.js";
-import { meetingGuestRequests, meetingInvites, meetings } from "../../db/schema.js";
+import type { meetingGuestRequests, meetingInvites } from "../../db/schema.js";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { livekitApiKey, livekitApiSecret, livekitHost } from "../../lib/livekit-config.js";
 import { authorizeOwnerResource } from "../../policies/authorization-policy.js";
+import {
+  createInvite,
+  listGuestRequestsByMeeting,
+  listInvitesByMeeting,
+  resolveGuestRequest,
+  revokeInvite,
+} from "../../services/meeting/meeting-invite-service.js";
+import { getMeetingById } from "../../services/meeting/meeting-service.js";
 
 const roomService = new RoomServiceClient(livekitHost, livekitApiKey, livekitApiSecret);
 const encoder = new TextEncoder();
 
 export const meetingInviteRoutes = new Hono<AppEnv>();
 
-type Meeting = typeof meetings.$inferSelect;
+type Meeting = NonNullable<Awaited<ReturnType<typeof getMeetingById>>>;
 
 async function requireMeetingAccess(
   c: Context<AppEnv>,
   id: string,
   action: "read" | "write"
 ): Promise<Meeting | Response> {
-  const meeting = await db.query.meetings.findFirst({
-    where: eq(meetings.id, id),
-  });
+  const meeting = await getMeetingById(id);
   if (!meeting) {
     return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
   }
@@ -55,7 +59,7 @@ meetingInviteRoutes.post(
     const user = c.get("user");
     const data = c.req.valid("json");
 
-    const invite = {
+    const created = await createInvite({
       id: crypto.randomUUID(),
       meetingId: id,
       token: crypto.randomUUID(),
@@ -65,9 +69,7 @@ meetingInviteRoutes.post(
       useCount: 0,
       expiresAt: new Date(Date.now() + data.expiresInSeconds * 1000),
       createdAt: new Date(),
-    };
-
-    const [created] = await db.insert(meetingInvites).values(invite).returning();
+    });
 
     if (!created) {
       return jsonError(c, 500, "INVITE_CREATE_FAILED", "Failed to create invite");
@@ -86,11 +88,7 @@ meetingInviteRoutes.get(
     const result = await requireMeetingAccess(c, id, "read");
     if (result instanceof Response) return result;
 
-    const invites = await db
-      .select()
-      .from(meetingInvites)
-      .where(eq(meetingInvites.meetingId, id))
-      .orderBy(desc(meetingInvites.createdAt));
+    const invites = await listInvitesByMeeting(id);
 
     return c.json({ invites: invites.map(toInviteDto) });
   }
@@ -105,17 +103,7 @@ meetingInviteRoutes.delete(
     const result = await requireMeetingAccess(c, id, "write");
     if (result instanceof Response) return result;
 
-    const [revoked] = await db
-      .update(meetingInvites)
-      .set({ revokedAt: new Date() })
-      .where(
-        and(
-          eq(meetingInvites.id, inviteId),
-          eq(meetingInvites.meetingId, id),
-          isNull(meetingInvites.revokedAt)
-        )
-      )
-      .returning();
+    const revoked = await revokeInvite(inviteId, id);
 
     if (!revoked) {
       return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found or already revoked");
@@ -134,11 +122,7 @@ meetingInviteRoutes.get(
     const result = await requireMeetingAccess(c, id, "read");
     if (result instanceof Response) return result;
 
-    const requests = await db
-      .select()
-      .from(meetingGuestRequests)
-      .where(eq(meetingGuestRequests.meetingId, id))
-      .orderBy(desc(meetingGuestRequests.createdAt));
+    const requests = await listGuestRequestsByMeeting(id);
 
     return c.json({ requests: requests.map(toGuestRequestDto) });
   }
@@ -156,21 +140,7 @@ meetingInviteRoutes.post(
 
     const user = c.get("user");
 
-    const [updated] = await db
-      .update(meetingGuestRequests)
-      .set({
-        status: "approved",
-        approvedByUserId: user.id,
-        resolvedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(meetingGuestRequests.id, requestId),
-          eq(meetingGuestRequests.meetingId, id),
-          eq(meetingGuestRequests.status, "pending")
-        )
-      )
-      .returning();
+    const updated = await resolveGuestRequest(requestId, id, "approved", user.id);
 
     if (!updated) {
       return jsonError(c, 404, "REQUEST_NOT_FOUND", "Request not found or already resolved");
@@ -209,21 +179,7 @@ meetingInviteRoutes.post(
 
     const user = c.get("user");
 
-    const [updated] = await db
-      .update(meetingGuestRequests)
-      .set({
-        status: "rejected",
-        approvedByUserId: user.id,
-        resolvedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(meetingGuestRequests.id, requestId),
-          eq(meetingGuestRequests.meetingId, id),
-          eq(meetingGuestRequests.status, "pending")
-        )
-      )
-      .returning();
+    const updated = await resolveGuestRequest(requestId, id, "rejected", user.id);
 
     if (!updated) {
       return jsonError(c, 404, "REQUEST_NOT_FOUND", "Request not found or already resolved");

@@ -8,8 +8,8 @@ import type { AppEnv } from "../lib/auth.js";
 import { requireRole } from "../lib/auth.js";
 import { livekitApiKey, livekitApiSecret, livekitHost } from "../lib/livekit-config.js";
 import { isOwnerOrAdmin } from "../lib/route-helpers.js";
-import { getMeetingById } from "../repositories/meeting/meeting-repository.js";
 import * as coworkingMcu from "../services/coworking/coworking-mcu-service.js";
+import { getMeetingById } from "../services/meeting/meeting-service.js";
 import * as recordingService from "../services/meeting/recording-service.js";
 
 export const livekitRoutes = new Hono<AppEnv>();

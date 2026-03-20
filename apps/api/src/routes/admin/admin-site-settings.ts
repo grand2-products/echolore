@@ -3,8 +3,11 @@ import { Hono } from "hono";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { removeFile, saveFile } from "../../lib/file-storage.js";
-import { deleteSiteSetting, upsertSiteSetting } from "../../repositories/admin/admin-repository.js";
 import { getSiteSettings, updateSiteSettings } from "../../services/admin/admin-service.js";
+import {
+  deleteSiteSetting,
+  upsertSiteSetting,
+} from "../../services/admin/site-settings-service.js";
 import { updateSiteSettingsSchema } from "./schemas.js";
 
 export const adminSiteSettingsRoutes = new Hono<AppEnv>();

@@ -3,7 +3,7 @@ import type { UpgradeWebSocket } from "hono/ws";
 import type { AppEnv } from "../lib/auth.js";
 import { resolveAuthjsSession } from "../lib/auth.js";
 import { evaluatePageWriteAccess } from "../policies/authorization-policy.js";
-import { getPageById } from "../repositories/wiki/wiki-repository.js";
+import { getPageById } from "../services/wiki/wiki-service.js";
 import {
   addConnection,
   handleMessage,

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { jsonError, tryCatchResponse } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { authorizePageResource } from "../../policies/authorization-policy.js";
-import { getPageById } from "../../repositories/wiki/wiki-repository.js";
+import { getPageById } from "../../services/wiki/wiki-service.js";
 import { processShorthand } from "../../services/wiki/wiki-shorthand-service.js";
 
 export const wikiShorthandRoutes = new Hono<AppEnv>();

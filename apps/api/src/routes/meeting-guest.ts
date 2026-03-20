@@ -1,14 +1,19 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { AccessToken, DataPacket_Kind, RoomServiceClient } from "livekit-server-sdk";
 import { z } from "zod";
-import { db } from "../db/index.js";
-import { meetingGuestRequests, meetingInvites, meetings } from "../db/schema.js";
 import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import { livekitApiKey, livekitApiSecret, livekitHost } from "../lib/livekit-config.js";
 import { getRequestIp } from "../lib/password-auth-guard.js";
 import { getValkey } from "../lib/valkey.js";
+import {
+  findInviteByToken,
+  findValidInviteByToken,
+  getGuestRequestByIdAndInvite,
+  getMeetingRoomName,
+  incrementUseCountAndCreateGuestRequest,
+} from "../services/meeting/meeting-invite-service.js";
+import { getMeetingById } from "../services/meeting/meeting-service.js";
 
 const roomService = new RoomServiceClient(livekitHost, livekitApiKey, livekitApiSecret);
 const encoder = new TextEncoder();
@@ -44,16 +49,7 @@ meetingGuestRoutes.get(
   async (c) => {
     const { token } = c.req.param();
 
-    const [invite] = await db
-      .select()
-      .from(meetingInvites)
-      .where(
-        and(
-          eq(meetingInvites.token, token),
-          isNull(meetingInvites.revokedAt),
-          gt(meetingInvites.expiresAt, new Date())
-        )
-      );
+    const invite = await findValidInviteByToken(token);
 
     if (!invite) {
       return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found or expired");
@@ -63,7 +59,7 @@ meetingGuestRoutes.get(
       return jsonError(c, 410, "INVITE_EXHAUSTED", "Invite has reached its usage limit");
     }
 
-    const [meeting] = await db.select().from(meetings).where(eq(meetings.id, invite.meetingId));
+    const meeting = await getMeetingById(invite.meetingId);
 
     if (!meeting) {
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
@@ -100,38 +96,12 @@ meetingGuestRoutes.post(
     const guestIdentity = `guest-${shortId}`;
 
     // Atomic: increment useCount + create guest request in a single transaction
-    const result = await db.transaction(async (tx) => {
-      const [invite] = await tx
-        .update(meetingInvites)
-        .set({ useCount: sql`${meetingInvites.useCount} + 1` })
-        .where(
-          and(
-            eq(meetingInvites.token, token),
-            isNull(meetingInvites.revokedAt),
-            gt(meetingInvites.expiresAt, new Date()),
-            sql`(${meetingInvites.maxUses} IS NULL OR ${meetingInvites.useCount} < ${meetingInvites.maxUses})`
-          )
-        )
-        .returning();
-
-      if (!invite) return null;
-
-      const [guestRequest] = await tx
-        .insert(meetingGuestRequests)
-        .values({
-          id: requestId,
-          inviteId: invite.id,
-          meetingId: invite.meetingId,
-          guestName,
-          guestIdentity,
-          status: "pending",
-          ipAddress: ip,
-          userAgent: c.req.header("user-agent") ?? null,
-          createdAt: new Date(),
-        })
-        .returning();
-
-      return { invite, guestRequest };
+    const result = await incrementUseCountAndCreateGuestRequest(token, {
+      id: requestId,
+      guestName,
+      guestIdentity,
+      ipAddress: ip,
+      userAgent: c.req.header("user-agent") ?? null,
     });
 
     if (!result || !result.guestRequest) {
@@ -145,19 +115,16 @@ meetingGuestRoutes.post(
 
     // Notify room participants via LiveKit DataChannel
     try {
-      const [meeting] = await db
-        .select({ roomName: meetings.roomName })
-        .from(meetings)
-        .where(eq(meetings.id, invite.meetingId));
+      const roomName = await getMeetingRoomName(invite.meetingId);
 
-      if (meeting) {
+      if (roomName) {
         const msg = {
           type: "guest-request-new",
           requestId,
           guestName,
         };
         await roomService.sendData(
-          meeting.roomName,
+          roomName,
           encoder.encode(JSON.stringify(msg)),
           DataPacket_Kind.RELIABLE,
           { topic: "guest-request" }
@@ -179,21 +146,13 @@ meetingGuestRoutes.get(
     const { token, requestId } = c.req.param();
 
     // Verify invite token matches the request's invite
-    const [invite] = await db
-      .select({ id: meetingInvites.id })
-      .from(meetingInvites)
-      .where(eq(meetingInvites.token, token));
+    const invite = await findInviteByToken(token);
 
     if (!invite) {
       return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found");
     }
 
-    const [request] = await db
-      .select()
-      .from(meetingGuestRequests)
-      .where(
-        and(eq(meetingGuestRequests.id, requestId), eq(meetingGuestRequests.inviteId, invite.id))
-      );
+    const request = await getGuestRequestByIdAndInvite(requestId, invite.id);
 
     if (!request) {
       return jsonError(c, 404, "REQUEST_NOT_FOUND", "Guest request not found");
@@ -228,7 +187,7 @@ meetingGuestRoutes.get(
       }
     }
 
-    const [meeting] = await db.select().from(meetings).where(eq(meetings.id, request.meetingId));
+    const meeting = await getMeetingById(request.meetingId);
 
     if (!meeting) {
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");

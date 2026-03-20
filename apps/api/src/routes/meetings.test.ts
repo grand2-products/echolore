@@ -46,7 +46,7 @@ const {
   writeAuditLogMock: vi.fn(),
 }));
 
-vi.mock("../repositories/meeting/meeting-repository.js", () => ({
+vi.mock("../services/meeting/meeting-service.js", () => ({
   createMeeting: createMeetingMock,
   createSummary: createSummaryMock,
   createTranscript: createTranscriptMock,
@@ -57,9 +57,6 @@ vi.mock("../repositories/meeting/meeting-repository.js", () => ({
   listAllMeetings: listAllMeetingsMock,
   listMeetingsByUser: listMeetingsByUserMock,
   updateMeeting: updateMeetingMock,
-}));
-
-vi.mock("../services/meeting/meeting-service.js", () => ({
   createMeetingSummaryWikiArtifacts: createMeetingSummaryWikiArtifactsMock,
   getExistingRoomAiPipelineResult: getExistingRoomAiPipelineResultMock,
 }));

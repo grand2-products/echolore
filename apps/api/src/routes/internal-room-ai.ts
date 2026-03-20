@@ -4,15 +4,15 @@ import { z } from "zod";
 import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import { requireRoomAiWorker } from "../lib/internal-auth.js";
 import {
+  transcribeMeetingAudioSegment,
+  upsertTranscriptSegment,
+} from "../services/meeting/meeting-realtime-service.js";
+import {
   getMeetingById,
   getMeetingByRoomName,
   listMeetingsByStatus,
   updateMeeting,
-} from "../repositories/meeting/meeting-repository.js";
-import {
-  transcribeMeetingAudioSegment,
-  upsertTranscriptSegment,
-} from "../services/meeting/meeting-realtime-service.js";
+} from "../services/meeting/meeting-service.js";
 
 export const internalRoomAiRoutes = new Hono();
 

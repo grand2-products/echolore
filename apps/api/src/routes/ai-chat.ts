@@ -5,16 +5,14 @@ import { z } from "zod";
 import { jsonError, tryCatchResponse, withErrorHandler } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import {
+  canAccessConversation,
   createConversation,
   deleteConversation,
   getConversationStats,
   listConversations,
   listMessagesByConversationId,
-  updateConversation,
-} from "../repositories/ai-chat/ai-chat-repository.js";
-import {
-  canAccessConversation,
   sendMessageAndGetResponse,
+  updateConversation,
 } from "../services/ai-chat/ai-chat-service.js";
 
 export const aiChatRoutes = new Hono<AppEnv>();

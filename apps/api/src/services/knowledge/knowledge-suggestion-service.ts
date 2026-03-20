@@ -9,6 +9,13 @@ import {
   getSuggestionById,
   updateSuggestion,
 } from "../../repositories/knowledge/knowledge-suggestion-repository.js";
+
+// Re-export for route layer access
+export {
+  getSuggestionById,
+  listSuggestions,
+} from "../../repositories/knowledge/knowledge-suggestion-repository.js";
+
 import {
   insertBlocks,
   listActivePageTitles,

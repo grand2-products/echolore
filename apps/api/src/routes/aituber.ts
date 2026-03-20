@@ -7,11 +7,11 @@ import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import { buildStoragePath, removeFile, saveFile } from "../lib/file-storage.js";
 import { isOwnerOrAdmin } from "../lib/route-helpers.js";
-import { createFile, deleteFile, getFileById } from "../repositories/file/file-repository.js";
 import * as aiService from "../services/aituber/aituber-ai-service.js";
 import * as livekitService from "../services/aituber/aituber-livekit-service.js";
 import * as aituberService from "../services/aituber/aituber-service.js";
 import * as ttsService from "../services/aituber/aituber-tts-service.js";
+import { createFile, deleteFile, getFileById } from "../services/file/file-service.js";
 import { resolveCharacterAvatarUrl, sanitizeText, toCharacterResponse } from "./aituber-dto.js";
 
 export const aituberRoutes = new Hono<AppEnv>();

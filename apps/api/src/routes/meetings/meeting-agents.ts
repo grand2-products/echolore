@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { authorizeOwnerResource } from "../../policies/authorization-policy.js";
-import { getMeetingById } from "../../repositories/meeting/meeting-repository.js";
 import { generateMeetingAgentResponse } from "../../services/meeting/meeting-agent-runtime-service.js";
 import {
   invokeMeetingAgent,
@@ -11,6 +10,7 @@ import {
   listActiveAgentSessions,
   listMeetingAgentTimeline,
 } from "../../services/meeting/meeting-realtime-service.js";
+import { getMeetingById } from "../../services/meeting/meeting-service.js";
 import { agentRespondSchema } from "./schemas.js";
 
 export const meetingAgentRoutes = new Hono<AppEnv>();

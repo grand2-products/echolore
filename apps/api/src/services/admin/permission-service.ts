@@ -9,6 +9,12 @@ import {
   replaceSpacePermissions as replaceSpacePermissionsRepo,
 } from "../../repositories/admin/admin-repository.js";
 
+// Re-export repository functions for route layer access
+export {
+  deletePagePermission,
+  getPageInheritance,
+} from "../../repositories/admin/admin-repository.js";
+
 export async function getPagePermissionsDetail(pageId: string) {
   const [permissions, groups, inheritance] = await Promise.all([
     listPagePermissions(pageId),

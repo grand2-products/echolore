@@ -2,13 +2,13 @@ import { UserRole } from "@echolore/shared/contracts";
 import { Hono } from "hono";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
+import { indexPage } from "../../services/wiki/embedding-service.js";
 import {
   getPageById,
   listDeletedPages,
   permanentDeletePage,
   restorePage,
-} from "../../repositories/wiki/wiki-repository.js";
-import { indexPage } from "../../services/wiki/embedding-service.js";
+} from "../../services/wiki/wiki-service.js";
 
 export const wikiTrashRoutes = new Hono<AppEnv>();
 

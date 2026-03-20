@@ -2,12 +2,12 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
-import { getSpaceById } from "../../repositories/wiki/space-repository.js";
 import {
   deleteSpacePermissionForGroup,
   getSpacePermissionsDetail,
   replaceSpacePermissions,
 } from "../../services/admin/admin-service.js";
+import { getSpaceById } from "../../services/wiki/space-service.js";
 import { toAdminSpacePermissionsResponseDto } from "./dto.js";
 import { replaceSpacePermissionsSchema } from "./schemas.js";
 

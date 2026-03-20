@@ -14,7 +14,7 @@ import {
   getUserById,
   listUsers,
   updateUser,
-} from "../repositories/user/user-repository.js";
+} from "../services/admin/user-service.js";
 
 export const usersRoutes = new Hono<AppEnv>();
 
