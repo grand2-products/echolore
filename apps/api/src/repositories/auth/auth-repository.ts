@@ -1,3 +1,4 @@
+import { UserRole } from "@echolore/shared/contracts";
 import { and, count, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import {
@@ -245,7 +246,7 @@ export async function reconcileOAuthIdentity(input: {
           avatarUrl: null,
           emailVerifiedAt: now,
           tokenVersion: 1,
-          role: "admin",
+          role: UserRole.Admin,
           createdAt: now,
           updatedAt: now,
         })
@@ -351,7 +352,7 @@ export async function processEmailVerification(verification: {
           avatarUrl: null,
           emailVerifiedAt: now,
           tokenVersion: 1,
-          role: "admin",
+          role: UserRole.Admin,
           createdAt: now,
           updatedAt: now,
         })

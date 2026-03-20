@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { meetingGuestRequests, meetingInvites, meetings } from "../../db/schema.js";
+import { meetingGuestRequests, meetingInvites } from "../../db/schema.js";
 
 // ---------------------------------------------------------------------------
 // Invite queries
@@ -157,10 +157,5 @@ export async function resolveGuestRequest(
   return updated ?? null;
 }
 
-export async function getMeetingRoomName(meetingId: string) {
-  const [meeting] = await db
-    .select({ roomName: meetings.roomName })
-    .from(meetings)
-    .where(eq(meetings.id, meetingId));
-  return meeting?.roomName ?? null;
-}
+// Re-export from meeting-repository (this is a meetings-table query, not invite-specific)
+export { getMeetingRoomName } from "./meeting-repository.js";

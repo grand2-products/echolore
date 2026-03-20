@@ -222,3 +222,11 @@ export async function createMeetingSummaryArtifactsTx(input: {
     return { createdSummary: summary, createdPage: page };
   });
 }
+
+export async function getMeetingRoomName(meetingId: string) {
+  const [meeting] = await db
+    .select({ roomName: meetings.roomName })
+    .from(meetings)
+    .where(eq(meetings.id, meetingId));
+  return meeting?.roomName ?? null;
+}

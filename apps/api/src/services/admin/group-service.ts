@@ -14,10 +14,10 @@ export {
   createGroup,
   deleteGroup,
   deleteMembership,
-  getGroupById,
   getGroupByName,
   updateGroup,
 } from "../../repositories/admin/admin-repository.js";
+export { getGroupById };
 
 export async function listGroupsWithMemberCounts() {
   const [groups, memberships] = await Promise.all([listGroups(), listMemberships()]);
