@@ -1,4 +1,4 @@
-// Re-export repository CRUD for route layer access
+// Thin re-export — add authorization / validation logic here as needed
 export {
   createFile,
   deleteFile,

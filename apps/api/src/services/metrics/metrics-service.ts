@@ -1,4 +1,4 @@
-// Re-export repository queries for route layer access
+// Thin re-export — add caching / filtering logic here as needed
 export {
   countActiveUsers,
   getMeetingStats,

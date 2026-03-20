@@ -1,4 +1,4 @@
-// Re-export repository CRUD for route layer access
+// Thin re-export — add authorization / rate-limiting logic here as needed
 export {
   createInvite,
   findInviteByToken,
