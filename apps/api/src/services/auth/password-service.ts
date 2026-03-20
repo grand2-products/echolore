@@ -1,16 +1,18 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { UserRole } from "@echolore/shared/contracts";
-import { and, count, eq, gt, isNull } from "drizzle-orm";
-import { db } from "../../db/index.js";
-import { authIdentities, emailVerificationTokens, users } from "../../db/schema.js";
+import {
+  createUserWithPasswordIdentity,
+  findPasswordIdentityByUserId,
+  findUserByEmailWithPasswordIdentity,
+  findValidEmailVerificationToken,
+  processEmailVerification,
+} from "../../repositories/auth/auth-repository.js";
 import { resolveAllowedDomain } from "../admin/auth-settings-service.js";
 import {
   findUserByEmail,
   hashValue,
   isRegistrationOpen,
   normalizeEmail,
-  PASSWORD_PROVIDER,
   toSessionUser,
 } from "./auth-utils.js";
 
@@ -59,52 +61,21 @@ export async function registerPasswordUser(input: {
 
   const existingUser = await findUserByEmail(email);
 
-  const [existingPasswordIdentity] = existingUser
-    ? await db
-        .select()
-        .from(authIdentities)
-        .where(
-          and(
-            eq(authIdentities.userId, existingUser.id),
-            eq(authIdentities.provider, PASSWORD_PROVIDER)
-          )
-        )
-    : [];
+  const existingPasswordIdentity = existingUser
+    ? await findPasswordIdentityByUserId(existingUser.id)
+    : null;
 
   if (existingUser?.emailVerifiedAt && existingPasswordIdentity) {
     throw new Error("Password login is already configured for this email address");
   }
 
   // First user: create admin immediately without email verification
-  const user = await db.transaction(async (tx) => {
-    const [created] = await tx
-      .insert(users)
-      .values({
-        id: `user_${crypto.randomUUID()}`,
-        email,
-        name,
-        avatarUrl: null,
-        emailVerifiedAt: now,
-        tokenVersion: 1,
-        role: UserRole.Admin,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
-
-    if (!created) throw new Error("Failed to create initial admin user");
-
-    await tx.insert(authIdentities).values({
-      id: `auth_${crypto.randomUUID()}`,
-      userId: created.id,
-      provider: PASSWORD_PROVIDER,
-      providerUserId: email,
-      passwordHash,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    return created;
+  const user = await createUserWithPasswordIdentity({
+    id: `user_${crypto.randomUUID()}`,
+    email,
+    name,
+    passwordHash,
+    createdAt: now,
   });
 
   return { user: toSessionUser(user), immediate: true as const };
@@ -112,117 +83,28 @@ export async function registerPasswordUser(input: {
 
 export async function verifyEmailRegistrationToken(token: string) {
   const tokenHash = hashValue(token);
-  const now = new Date();
-  const [verification] = await db
-    .select()
-    .from(emailVerificationTokens)
-    .where(
-      and(
-        eq(emailVerificationTokens.tokenHash, tokenHash),
-        eq(emailVerificationTokens.purpose, "password-registration"),
-        isNull(emailVerificationTokens.usedAt),
-        gt(emailVerificationTokens.expiresAt, now)
-      )
-    );
+  const verification = await findValidEmailVerificationToken(tokenHash);
 
   if (!verification || !verification.pendingPasswordHash) {
     return null;
   }
 
-  return db.transaction(async (tx) => {
-    let user = verification.userId
-      ? ((await tx.select().from(users).where(eq(users.id, verification.userId)))[0] ?? null)
-      : null;
-
-    if (!user) {
-      user = (await tx.select().from(users).where(eq(users.email, verification.email)))[0] ?? null;
-    }
-
-    if (!user) {
-      const [countRow] = await tx.select({ value: count() }).from(users);
-      const isFirstUser = (countRow?.value ?? 0) === 0;
-      if (!isFirstUser) {
-        return null;
-      }
-      const [createdUser] = await tx
-        .insert(users)
-        .values({
-          id: `user_${crypto.randomUUID()}`,
-          email: verification.email,
-          name: verification.pendingName || verification.email.split("@")[0] || "User",
-          avatarUrl: null,
-          emailVerifiedAt: now,
-          tokenVersion: 1,
-          role: UserRole.Admin,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .returning();
-      user = createdUser ?? null;
-    } else {
-      const [updatedUser] = await tx
-        .update(users)
-        .set({
-          emailVerifiedAt: user.emailVerifiedAt ?? now,
-          updatedAt: now,
-        })
-        .where(eq(users.id, user.id))
-        .returning();
-      user = updatedUser ?? user;
-    }
-
-    if (!user) {
-      throw new Error("Failed to create user during verification");
-    }
-
-    const [passwordIdentity] = await tx
-      .select()
-      .from(authIdentities)
-      .where(
-        and(eq(authIdentities.userId, user.id), eq(authIdentities.provider, PASSWORD_PROVIDER))
-      );
-
-    if (passwordIdentity) {
-      await tx
-        .update(authIdentities)
-        .set({
-          passwordHash: verification.pendingPasswordHash,
-          updatedAt: now,
-        })
-        .where(eq(authIdentities.id, passwordIdentity.id));
-    } else {
-      await tx.insert(authIdentities).values({
-        id: `auth_${crypto.randomUUID()}`,
-        userId: user.id,
-        provider: PASSWORD_PROVIDER,
-        providerUserId: user.email,
-        passwordHash: verification.pendingPasswordHash,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-
-    await tx
-      .update(emailVerificationTokens)
-      .set({ usedAt: now })
-      .where(eq(emailVerificationTokens.id, verification.id));
-
-    return toSessionUser(user);
+  const user = await processEmailVerification({
+    id: verification.id,
+    email: verification.email,
+    userId: verification.userId,
+    pendingPasswordHash: verification.pendingPasswordHash,
+    pendingName: verification.pendingName,
   });
+
+  if (!user) return null;
+  return toSessionUser(user);
 }
 
 export async function authenticatePasswordUser(email: string, password: string) {
   const normalizedEmail = normalizeEmail(email);
-  const rows = await db
-    .select({
-      user: users,
-      identity: authIdentities,
-    })
-    .from(authIdentities)
-    .innerJoin(users, eq(authIdentities.userId, users.id))
-    .where(and(eq(users.email, normalizedEmail), eq(authIdentities.provider, PASSWORD_PROVIDER)));
+  const record = await findUserByEmailWithPasswordIdentity(normalizedEmail);
 
-  const record = rows[0];
   if (!record?.identity.passwordHash || !record.user.emailVerifiedAt) {
     return null;
   }

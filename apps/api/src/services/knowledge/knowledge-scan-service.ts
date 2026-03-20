@@ -1,6 +1,7 @@
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
-import { db } from "../../db/index.js";
-import { blocks, pages } from "../../db/schema.js";
+import {
+  listPageBlockContents,
+  listRecentUpdatedPages,
+} from "../../repositories/wiki/wiki-repository.js";
 import { generateSuggestions } from "./knowledge-suggestion-service.js";
 
 const SCAN_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
@@ -31,26 +32,12 @@ async function runScan(): Promise<void> {
   const scanSince = lastScanAt;
   try {
     // Only process pages updated since last scan
-    const recentPages = await db
-      .select({
-        id: pages.id,
-        title: pages.title,
-        spaceId: pages.spaceId,
-      })
-      .from(pages)
-      .where(and(isNull(pages.deletedAt), gt(pages.updatedAt, scanSince)))
-      .orderBy(desc(pages.updatedAt))
-      .limit(10);
+    const recentPages = await listRecentUpdatedPages(scanSince, 10);
 
     if (recentPages.length === 0) return;
 
     for (const page of recentPages) {
-      const pageBlocks = await db
-        .select({ content: blocks.content, type: blocks.type })
-        .from(blocks)
-        .where(eq(blocks.pageId, page.id))
-        .orderBy(blocks.sortOrder)
-        .limit(20);
+      const pageBlocks = await listPageBlockContents(page.id, 20);
 
       const content = pageBlocks
         .map((b) => b.content ?? "")

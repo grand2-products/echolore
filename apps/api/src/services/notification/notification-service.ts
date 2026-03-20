@@ -1,7 +1,5 @@
-import { eq } from "drizzle-orm";
 import nodemailer from "nodemailer";
-import { db } from "../../db/index.js";
-import { users } from "../../db/schema.js";
+import { getUserById } from "../../repositories/user/user-repository.js";
 import { type EmailSettings, getEmailSettings } from "../admin/admin-service.js";
 
 interface NotificationPayload {
@@ -79,9 +77,7 @@ export async function notifyRecordingComplete(
 
     // Notify the user who started the recording
     if (initiatedByUserId) {
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, initiatedByUserId),
-      });
+      const user = await getUserById(initiatedByUserId);
       if (user?.email) {
         const safeTitle = meetingTitle
           .replace(/[\r\n\t]/g, " ")
@@ -117,9 +113,7 @@ export async function notifyMeetingStarted(
     const settings = await getEmailSettings();
     if (settings.provider === "none") return;
 
-    const creator = await db.query.users.findFirst({
-      where: eq(users.id, creatorId),
-    });
+    const creator = await getUserById(creatorId);
     if (!creator) return;
 
     // For now, just log. In the future, this can notify invited participants.

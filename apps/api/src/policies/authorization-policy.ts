@@ -1,17 +1,15 @@
 import { UserRole } from "@echolore/shared/contracts";
-import { and, eq, inArray } from "drizzle-orm";
 import type { Context } from "hono";
-import { db } from "../db/index.js";
-import {
-  pageInheritance,
-  pagePermissions,
-  pages,
-  spacePermissions,
-  userGroupMemberships,
-  userGroups,
-} from "../db/schema.js";
 import { extractRequestMeta, writeAuditLog } from "../lib/audit.js";
 import type { AppEnv, SessionUser } from "../lib/auth.js";
+import {
+  getGroupPermissionsByIds,
+  getPageInheritance,
+  listMembershipsByUser,
+  listPagePermissions,
+  listSpacePermissionsForSpace,
+} from "../repositories/admin/admin-repository.js";
+import { getPageParentId, getPageSpaceId } from "../repositories/wiki/wiki-repository.js";
 
 export type AuthorizationAction = "read" | "write" | "delete";
 export type AuthorizationResourceType = "wiki-page" | "meeting" | "file" | "user" | "admin";
@@ -75,25 +73,17 @@ async function getEffectivePagePermissions(pageId: string, visited = new Set<str
   }
   visited.add(pageId);
 
-  const [[inheritance], [page]] = await Promise.all([
-    db.select().from(pageInheritance).where(eq(pageInheritance.pageId, pageId)),
-    db.select({ parentId: pages.parentId }).from(pages).where(eq(pages.id, pageId)),
+  const [inheritance, parentId] = await Promise.all([
+    getPageInheritance(pageId),
+    getPageParentId(pageId),
   ]);
 
   const shouldInherit = inheritance?.inheritFromParent ?? true;
-  if (shouldInherit && page?.parentId) {
-    return getEffectivePagePermissions(page.parentId, visited);
+  if (shouldInherit && parentId) {
+    return getEffectivePagePermissions(parentId, visited);
   }
 
-  return db.select().from(pagePermissions).where(eq(pagePermissions.pageId, pageId));
-}
-
-async function getSpacePermissionsForGroups(spaceId: string, groupIds: string[]) {
-  if (groupIds.length === 0) return [];
-  return db
-    .select()
-    .from(spacePermissions)
-    .where(and(eq(spacePermissions.spaceId, spaceId), inArray(spacePermissions.groupId, groupIds)));
+  return listPagePermissions(pageId);
 }
 
 async function evaluatePageAccess(
@@ -107,13 +97,10 @@ async function evaluatePageAccess(
     return ownerResult;
   }
 
-  const [memberships, permissions, [page]] = await Promise.all([
-    db
-      .select({ groupId: userGroupMemberships.groupId })
-      .from(userGroupMemberships)
-      .where(eq(userGroupMemberships.userId, user.id)),
+  const [memberships, permissions, spaceId] = await Promise.all([
+    listMembershipsByUser(user.id),
     getEffectivePagePermissions(pageId),
-    db.select({ spaceId: pages.spaceId }).from(pages).where(eq(pages.id, pageId)),
+    getPageSpaceId(pageId),
   ]);
 
   const groupIds = memberships.map((membership) => membership.groupId);
@@ -142,8 +129,8 @@ async function evaluatePageAccess(
   }
 
   // Layer 3: Fallback to space permissions
-  if (page?.spaceId) {
-    const spacePerms = await getSpacePermissionsForGroups(page.spaceId, groupIds);
+  if (spaceId) {
+    const spacePerms = await listSpacePermissionsForSpace(spaceId, groupIds);
     const matchedSpacePerm = spacePerms.find((sp) => {
       if (action === "read") return sp.canRead;
       if (action === "write") return sp.canWrite;
@@ -215,22 +202,11 @@ export async function authorizeUserResource(
 export async function canApproveKnowledge(user: SessionUser): Promise<boolean> {
   if (user.role === UserRole.Admin) return true;
 
-  const memberships = await db
-    .select({ groupId: userGroupMemberships.groupId })
-    .from(userGroupMemberships)
-    .where(eq(userGroupMemberships.userId, user.id));
-
+  const memberships = await listMembershipsByUser(user.id);
   if (memberships.length === 0) return false;
 
-  const groups = await db
-    .select({ permissions: userGroups.permissions })
-    .from(userGroups)
-    .where(
-      inArray(
-        userGroups.id,
-        memberships.map((m) => m.groupId)
-      )
-    );
+  const groupIds = memberships.map((m) => m.groupId);
+  const groups = await getGroupPermissionsByIds(groupIds);
 
   return groups.some(
     (g) => Array.isArray(g.permissions) && g.permissions.includes("knowledge.approve")

@@ -1,8 +1,12 @@
-import { eq } from "drizzle-orm";
 import { google } from "googleapis";
-import { db } from "../../db/index.js";
-import { googleCalendarTokens } from "../../db/schema.js";
 import { decrypt, encrypt } from "../../lib/crypto.js";
+import {
+  deleteCalendarToken,
+  getCalendarToken,
+  hasCalendarToken,
+  updateCalendarToken,
+  upsertCalendarToken,
+} from "../../repositories/calendar/calendar-repository.js";
 import { getAuthSettings } from "../admin/auth-settings-service.js";
 
 const SCOPES = ["https://www.googleapis.com/auth/calendar.events"];
@@ -35,47 +39,20 @@ export async function handleCallback(code: string, userId: string): Promise<void
     throw new Error("Failed to obtain tokens from Google");
   }
 
-  const now = new Date();
   const expiresAt = tokens.expiry_date
     ? new Date(tokens.expiry_date)
-    : new Date(now.getTime() + 3600 * 1000);
+    : new Date(Date.now() + 3600 * 1000);
 
-  const existing = await db
-    .select()
-    .from(googleCalendarTokens)
-    .where(eq(googleCalendarTokens.userId, userId))
-    .limit(1);
-
-  const values = {
+  await upsertCalendarToken(userId, {
     accessTokenEnc: encrypt(tokens.access_token),
     refreshTokenEnc: encrypt(tokens.refresh_token),
     expiresAt,
     scope: tokens.scope || SCOPES.join(" "),
-    updatedAt: now,
-  };
-
-  if (existing.length > 0) {
-    await db
-      .update(googleCalendarTokens)
-      .set(values)
-      .where(eq(googleCalendarTokens.userId, userId));
-  } else {
-    await db.insert(googleCalendarTokens).values({
-      id: crypto.randomUUID(),
-      userId,
-      ...values,
-      calendarId: "primary",
-      createdAt: now,
-    });
-  }
+  });
 }
 
 export async function getAuthedClient(userId: string) {
-  const [row] = await db
-    .select()
-    .from(googleCalendarTokens)
-    .where(eq(googleCalendarTokens.userId, userId))
-    .limit(1);
+  const row = await getCalendarToken(userId);
 
   if (!row) {
     throw new Error("Google Calendar not connected");
@@ -90,7 +67,7 @@ export async function getAuthedClient(userId: string) {
 
   // Auto-refresh handler
   client.on("tokens", async (tokens) => {
-    const updateValues: Record<string, unknown> = { updatedAt: new Date() };
+    const updateValues: Record<string, unknown> = {};
     if (tokens.access_token) {
       updateValues.accessTokenEnc = encrypt(tokens.access_token);
     }
@@ -100,21 +77,14 @@ export async function getAuthedClient(userId: string) {
     if (tokens.expiry_date) {
       updateValues.expiresAt = new Date(tokens.expiry_date);
     }
-    await db
-      .update(googleCalendarTokens)
-      .set(updateValues)
-      .where(eq(googleCalendarTokens.userId, userId));
+    await updateCalendarToken(userId, updateValues);
   });
 
   return { client, calendarId: row.calendarId };
 }
 
 export async function disconnect(userId: string): Promise<void> {
-  const [row] = await db
-    .select()
-    .from(googleCalendarTokens)
-    .where(eq(googleCalendarTokens.userId, userId))
-    .limit(1);
+  const row = await getCalendarToken(userId);
 
   if (row) {
     try {
@@ -123,15 +93,10 @@ export async function disconnect(userId: string): Promise<void> {
     } catch {
       // Best-effort revoke
     }
-    await db.delete(googleCalendarTokens).where(eq(googleCalendarTokens.userId, userId));
+    await deleteCalendarToken(userId);
   }
 }
 
 export async function isConnected(userId: string): Promise<boolean> {
-  const [row] = await db
-    .select({ id: googleCalendarTokens.id })
-    .from(googleCalendarTokens)
-    .where(eq(googleCalendarTokens.userId, userId))
-    .limit(1);
-  return Boolean(row);
+  return hasCalendarToken(userId);
 }

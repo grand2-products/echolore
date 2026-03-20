@@ -115,24 +115,24 @@ routes → services → policies → repositories → db
 
 **対象ファイル: 18ファイル**
 
-- [ ] `services/admin/group-service.ts`
-- [ ] `services/admin/permission-service.ts`
-- [ ] `services/auth/auth-utils.ts`
-- [ ] `services/auth/oauth-service.ts`
-- [ ] `services/auth/password-service.ts`
-- [ ] `services/auth/session-service.ts`
-- [ ] `services/auth/token-service.ts`
-- [ ] `services/calendar/google-calendar-auth-service.ts`
-- [ ] `services/calendar/google-calendar-sync-service.ts`
-- [ ] `services/knowledge/knowledge-scan-service.ts`
-- [ ] `services/knowledge/knowledge-suggestion-service.ts`
-- [ ] `services/meeting/recording-service.ts`
-- [ ] `services/notification/notification-service.ts`
-- [ ] `services/wiki/embedding-service.ts`
-- [ ] `services/wiki/import-service.ts`
-- [ ] `services/wiki/space-service.ts`
-- [ ] `services/wiki/vector-search-service.ts`
-- [ ] `services/wiki/wiki-service.ts`
+- [x] `services/admin/group-service.ts`
+- [x] `services/admin/permission-service.ts`
+- [x] `services/auth/auth-utils.ts`
+- [x] `services/auth/oauth-service.ts`
+- [x] `services/auth/password-service.ts`
+- [x] `services/auth/session-service.ts`
+- [x] `services/auth/token-service.ts`
+- [x] `services/calendar/google-calendar-auth-service.ts`
+- [x] `services/calendar/google-calendar-sync-service.ts`
+- [x] `services/knowledge/knowledge-scan-service.ts`
+- [x] `services/knowledge/knowledge-suggestion-service.ts`
+- [x] `services/meeting/recording-service.ts`
+- [x] `services/notification/notification-service.ts`
+- [x] `services/wiki/embedding-service.ts`
+- [x] `services/wiki/import-service.ts`
+- [x] `services/wiki/space-service.ts`
+- [x] `services/wiki/vector-search-service.ts`
+- [x] `services/wiki/wiki-service.ts`
 
 **作業内容:**
 
@@ -154,9 +154,9 @@ routes → services → policies → repositories → db
      - 確認して追加
 
 **受け入れ基準:**
-- [ ] services 内の `import { db }` が削除されている
-- [ ] services 内で `db.select/insert/update/delete` が使われていない
-- [ ] 全テストがパス
+- [x] services 内の `import { db }` が削除されている
+- [x] services 内で `db.select/insert/update/delete` が使われていない
+- [x] 全テストがパス (296/296)
 
 ### 1.2 routes → repositories 直接アクセス除去
 
@@ -212,7 +212,7 @@ routes → services → policies → repositories → db
 ### 2.1 policies → DB 直接アクセス除去
 
 **対象ファイル:**
-- [ ] `policies/authorization-policy.ts`
+- [x] `policies/authorization-policy.ts`
 
 **作業内容:**
 
@@ -233,8 +233,8 @@ routes → services → policies → repositories → db
    ```
 
 **受け入れ基準:**
-- [ ] policies 内の `import { db }` が削除されている
-- [ ] 認可テストがパス
+- [x] policies 内の `import { db }` が削除されている
+- [x] 認可テストがパス
 
 ### 2.2 AI依存の抽象化
 
@@ -550,14 +550,14 @@ export async function getOrCreatePersonalSpace(user: SessionUser) {
 
 | フェーズ | ステータス | 開始日 | 完了日 |
 |---------|-----------|--------|--------|
-| 1.1 services→DB除去 | **進行中** (wiki/admin完了, 残り12ファイル) | 2026-03-17 | - |
+| 1.1 services→DB除去 | **完了** | 2026-03-17 | 2026-03-20 |
 | 1.2 routes→repositories除去 | 未着手 | - | - |
-| 2.1 policies→DB除去 | 未着手 | - | - |
+| 2.1 policies→DB除去 | **完了** (1.1と同時) | 2026-03-20 | 2026-03-20 |
 | 2.2 AI抽象化 | 未着手 | - | - |
 
 ### 1.1 進捗詳細
 
-**完了:**
+**全19ファイル完了:**
 - [x] `services/wiki/wiki-service.ts`
 - [x] `services/wiki/space-service.ts`
 - [x] `services/wiki/embedding-service.ts`
@@ -565,24 +565,29 @@ export async function getOrCreatePersonalSpace(user: SessionUser) {
 - [x] `services/wiki/vector-search-service.ts`
 - [x] `services/admin/group-service.ts`
 - [x] `services/admin/permission-service.ts`
+- [x] `services/auth/auth-utils.ts` (既にリポジトリ経由)
+- [x] `services/auth/oauth-service.ts`
+- [x] `services/auth/password-service.ts`
+- [x] `services/auth/session-service.ts` (既にリポジトリ経由)
+- [x] `services/auth/token-service.ts`
+- [x] `services/calendar/google-calendar-auth-service.ts`
+- [x] `services/calendar/google-calendar-sync-service.ts`
+- [x] `services/knowledge/knowledge-scan-service.ts`
+- [x] `services/knowledge/knowledge-suggestion-service.ts`
+- [x] `services/meeting/recording-service.ts`
+- [x] `services/notification/notification-service.ts`
+- [x] `policies/authorization-policy.ts`
 
-**残り (12ファイル):**
-- [ ] `services/auth/auth-utils.ts`
-- [ ] `services/auth/oauth-service.ts`
-- [ ] `services/auth/password-service.ts`
-- [ ] `services/auth/session-service.ts`
-- [ ] `services/auth/token-service.ts`
-- [ ] `services/calendar/google-calendar-auth-service.ts`
-- [ ] `services/calendar/google-calendar-sync-service.ts`
-- [ ] `services/knowledge/knowledge-scan-service.ts`
-- [ ] `services/knowledge/knowledge-suggestion-service.ts`
-- [ ] `services/meeting/recording-service.ts`
-- [ ] `services/notification/notification-service.ts`
-- [ ] `policies/authorization-policy.ts`
+**新規リポジトリ:**
+- `repositories/calendar/calendar-repository.ts` — Google Calendar トークン管理
+- `repositories/meeting/recording-repository.ts` — 会議録音 CRUD
+
+**拡張リポジトリ:**
+- `repositories/auth/auth-repository.ts` — OAuth reconcile, email verification, graced token
+- `repositories/wiki/wiki-repository.ts` — knowledge scan/suggestion ヘルパー, page spaceId
+- `repositories/admin/admin-repository.ts` — group permissions by IDs
 
 ## 次のアクション
 
-1. `services/wiki/wiki-service.ts` のDBアクセス箇所を全て洗い出す
-2. `repositories/wiki/wiki-repository.ts` に必要な関数を追加
-3. wiki-service をリポジトリ経由に変更
-4. テスト実行して確認
+1. Phase 1.2: routes → repositories 直接アクセス除去 (25ファイル)
+2. Phase 2.2: AI依存の抽象化

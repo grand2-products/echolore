@@ -1,18 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  mockGetEmailSettings,
-  mockSendMail,
-  mockTransportClose,
-  mockDbQueryUsersFindFirst,
-  mockFetch,
-} = vi.hoisted(() => ({
-  mockGetEmailSettings: vi.fn(),
-  mockSendMail: vi.fn(),
-  mockTransportClose: vi.fn(),
-  mockDbQueryUsersFindFirst: vi.fn(),
-  mockFetch: vi.fn(),
-}));
+const { mockGetEmailSettings, mockSendMail, mockTransportClose, mockGetUserById, mockFetch } =
+  vi.hoisted(() => ({
+    mockGetEmailSettings: vi.fn(),
+    mockSendMail: vi.fn(),
+    mockTransportClose: vi.fn(),
+    mockGetUserById: vi.fn(),
+    mockFetch: vi.fn(),
+  }));
 
 vi.mock("../admin/admin-service.js", () => ({
   getEmailSettings: mockGetEmailSettings,
@@ -27,22 +22,8 @@ vi.mock("nodemailer", () => ({
   },
 }));
 
-vi.mock("../../db/index.js", () => ({
-  db: {
-    query: {
-      users: {
-        findFirst: (...args: unknown[]) => mockDbQueryUsersFindFirst(...args),
-      },
-    },
-  },
-}));
-
-vi.mock("../../db/schema.js", () => ({
-  users: { id: "users.id" },
-}));
-
-vi.mock("drizzle-orm", () => ({
-  eq: vi.fn((a: unknown, b: unknown) => ({ _tag: "eq", a, b })),
+vi.mock("../../repositories/user/user-repository.js", () => ({
+  getUserById: mockGetUserById,
 }));
 
 // Mock global fetch for Resend API calls
@@ -70,7 +51,7 @@ describe("notification-service", () => {
         smtpFrom: null,
       });
 
-      mockDbQueryUsersFindFirst.mockResolvedValue({
+      mockGetUserById.mockResolvedValue({
         id: "user_1",
         email: "user@test.com",
         name: "Alice",
@@ -112,7 +93,7 @@ describe("notification-service", () => {
         smtpFrom: null,
       });
 
-      mockDbQueryUsersFindFirst.mockResolvedValue({
+      mockGetUserById.mockResolvedValue({
         id: "user_1",
         email: "user@test.com",
         name: "Alice",
@@ -149,7 +130,7 @@ describe("notification-service", () => {
         smtpFrom: "noreply@smtp.test.com",
       });
 
-      mockDbQueryUsersFindFirst.mockResolvedValue({
+      mockGetUserById.mockResolvedValue({
         id: "user_1",
         email: "user@test.com",
         name: "Bob",
@@ -182,7 +163,7 @@ describe("notification-service", () => {
         smtpFrom: "noreply@smtp.test.com",
       });
 
-      mockDbQueryUsersFindFirst.mockResolvedValue({
+      mockGetUserById.mockResolvedValue({
         id: "user_1",
         email: "user@test.com",
         name: "Bob",
@@ -215,7 +196,7 @@ describe("notification-service", () => {
 
       await notifyRecordingComplete("meeting_1", "Test", "user_1");
 
-      expect(mockDbQueryUsersFindFirst).not.toHaveBeenCalled();
+      expect(mockGetUserById).not.toHaveBeenCalled();
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
@@ -234,7 +215,7 @@ describe("notification-service", () => {
 
       await notifyRecordingComplete("meeting_1", "Test", null);
 
-      expect(mockDbQueryUsersFindFirst).not.toHaveBeenCalled();
+      expect(mockGetUserById).not.toHaveBeenCalled();
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
@@ -251,7 +232,7 @@ describe("notification-service", () => {
         smtpFrom: null,
       });
 
-      mockDbQueryUsersFindFirst.mockResolvedValue({
+      mockGetUserById.mockResolvedValue({
         id: "user_1",
         email: null,
         name: "No Email User",
@@ -275,7 +256,7 @@ describe("notification-service", () => {
         smtpFrom: null,
       });
 
-      mockDbQueryUsersFindFirst.mockResolvedValue({
+      mockGetUserById.mockResolvedValue({
         id: "user_1",
         email: "user@test.com",
         name: "Alice",
