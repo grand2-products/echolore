@@ -1,15 +1,21 @@
 import type { VisemeEntry } from "@echolore/shared/contracts";
-import {
-  GoogleTextToSpeechGateway,
-  type GoogleTtsVoice,
-} from "../../ai/gateway/google/google-text-to-speech-gateway.js";
+import type { GoogleTtsVoice } from "../../ai/gateway/google/google-text-to-speech-gateway.js";
+import { createDefaultTtsProvider, type TextToSpeechGateway } from "../../ai/providers/index.js";
 
-const ttsGateway = new GoogleTextToSpeechGateway();
+let ttsGateway: TextToSpeechGateway = createDefaultTtsProvider();
+
+/** @internal Override TTS provider (test-only) */
+export function _setTtsProvider(p: TextToSpeechGateway) {
+  ttsGateway = p;
+}
 
 export type { GoogleTtsVoice, VisemeEntry };
 
 export async function listVoices(languageCode?: string): Promise<GoogleTtsVoice[]> {
-  return ttsGateway.listVoices(languageCode);
+  // listVoices is Google-specific; cast to access it when using default provider
+  const gateway = ttsGateway as { listVoices?: (lc?: string) => Promise<GoogleTtsVoice[]> };
+  if (!gateway.listVoices) return [];
+  return gateway.listVoices(languageCode);
 }
 
 export interface TtsSynthesisResult {

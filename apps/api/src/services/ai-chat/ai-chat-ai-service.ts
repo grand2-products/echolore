@@ -1,7 +1,7 @@
 import { AIMessage, type BaseMessage, HumanMessage } from "@langchain/core/messages";
 import { nanoid } from "nanoid";
 import { createAiChatAgent } from "../../ai/agent/create-ai-chat-agent.js";
-import { initLlmWithSettings } from "../../ai/llm/index.js";
+import { defaultLlmProvider, type LlmProvider } from "../../ai/providers/index.js";
 import {
   type AiChatToolResult,
   createAiChatReadPageTool,
@@ -14,6 +14,14 @@ import {
   updateConversation,
 } from "../../repositories/ai-chat/ai-chat-repository.js";
 import { searchVisibleChunks, type VectorSearchResult } from "../wiki/vector-search-service.js";
+
+// Replaceable for testing
+let llm: LlmProvider = defaultLlmProvider;
+
+/** @internal Override LLM provider (test-only) */
+export function _setLlmProvider(p: LlmProvider) {
+  llm = p;
+}
 
 export async function sendMessageAndGetResponse(
   user: SessionUser,
@@ -71,7 +79,7 @@ async function invokeAgent(
   messageHistory: (HumanMessage | AIMessage)[],
   conversationId: string
 ): Promise<{ responseContent: string; citations: AiChatToolResult[] }> {
-  const llmResult = await initLlmWithSettings({ temperature: 0.3, maxTokens: 2048 });
+  const llmResult = await llm.init({ temperature: 0.3, maxTokens: 2048 });
 
   if (!llmResult) {
     return {
