@@ -1,5 +1,12 @@
 import { getSiteSetting, upsertSiteSetting } from "../../repositories/admin/admin-repository.js";
 
+// Re-export repository functions for route layer access
+export {
+  deleteSiteSetting,
+  getSiteSetting,
+  upsertSiteSetting,
+} from "../../repositories/admin/admin-repository.js";
+
 export async function getSiteSettings() {
   const [
     title,

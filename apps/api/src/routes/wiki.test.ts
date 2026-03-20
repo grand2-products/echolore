@@ -59,7 +59,7 @@ vi.mock("../policies/authorization-policy.js", () => ({
   authorizePageResource: authorizePageResourceMock,
 }));
 
-vi.mock("../repositories/wiki/wiki-repository.js", () => ({
+vi.mock("../services/wiki/wiki-service.js", () => ({
   createBlock: createBlockMock,
   deleteBlock: deleteBlockMock,
   deletePage: deletePageMock,
@@ -68,29 +68,23 @@ vi.mock("../repositories/wiki/wiki-repository.js", () => ({
   getPageById: getPageByIdMock,
   updateBlock: updateBlockMock,
   updatePage: updatePageMock,
-}));
-
-vi.mock("../repositories/file/file-repository.js", () => ({
-  getFileById: getFileByIdMock,
-}));
-
-vi.mock("../repositories/admin/admin-repository.js", () => ({
-  deletePagePermission: vi.fn(),
-  getPageInheritance: vi.fn(),
-}));
-
-vi.mock("../services/admin/admin-service.js", () => ({
-  getPagePermissionsDetail: vi.fn(),
-  listGroupsWithMemberCounts: vi.fn().mockResolvedValue([]),
-  replacePageInheritance: vi.fn(),
-  replacePagePermissions: vi.fn(),
-}));
-
-vi.mock("../services/wiki/wiki-service.js", () => ({
   createPageWithAccessDefaults: createPageWithAccessDefaultsMock,
   detectPageCycle: detectPageCycleMock,
   listVisiblePages: listVisiblePagesMock,
   searchVisiblePages: searchVisiblePagesMock,
+}));
+
+vi.mock("../services/file/file-service.js", () => ({
+  getFileById: getFileByIdMock,
+}));
+
+vi.mock("../services/admin/admin-service.js", () => ({
+  deletePagePermission: vi.fn(),
+  getPageInheritance: vi.fn(),
+  getPagePermissionsDetail: vi.fn(),
+  listGroupsWithMemberCounts: vi.fn().mockResolvedValue([]),
+  replacePageInheritance: vi.fn(),
+  replacePagePermissions: vi.fn(),
 }));
 
 vi.mock("../lib/audit.js", () => ({
@@ -103,11 +97,8 @@ vi.mock("../services/wiki/space-service.js", () => ({
   GENERAL_SPACE_ID: "00000000-0000-0000-0000-000000000001",
   canAccessSpace: canAccessSpaceMock,
   getOrCreatePersonalSpace: getOrCreatePersonalSpaceMock,
-  listVisibleSpaces: listVisibleSpacesMock,
-}));
-
-vi.mock("../repositories/wiki/space-repository.js", () => ({
   getSpaceById: getSpaceByIdMock,
+  listVisibleSpaces: listVisibleSpacesMock,
 }));
 
 function createApp(sessionUser: SessionUser) {

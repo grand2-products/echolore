@@ -1,8 +1,12 @@
-import { eq } from "drizzle-orm";
 import { EgressClient, EncodedFileOutput, EncodedFileType } from "livekit-server-sdk";
-import { db } from "../../db/index.js";
-import { meetingRecordings } from "../../db/schema.js";
 import { livekitApiKey, livekitApiSecret, livekitHost } from "../../lib/livekit-config.js";
+import {
+  createRecording,
+  findActiveRecording as findActiveRecordingRepo,
+  getRecordingByEgressId,
+  listRecordingsByMeeting,
+  updateRecordingByEgressId,
+} from "../../repositories/meeting/recording-repository.js";
 import { getStorageSettings } from "../admin/admin-service.js";
 
 const egressClient = new EgressClient(livekitHost, livekitApiKey, livekitApiSecret);
@@ -19,42 +23,29 @@ export async function startRecording(roomName: string, meetingId: string, userId
   const info = await egressClient.startTrackCompositeEgress(roomName, fileOutput);
 
   const id = crypto.randomUUID();
-  const [recording] = await db
-    .insert(meetingRecordings)
-    .values({
-      id,
-      meetingId,
-      egressId: info.egressId,
-      status: "starting",
-      initiatedBy: userId,
-      contentType: "video/mp4",
-    })
-    .returning();
+  const recording = await createRecording({
+    id,
+    meetingId,
+    egressId: info.egressId,
+    status: "starting",
+    initiatedBy: userId,
+    contentType: "video/mp4",
+  });
 
   return { egressInfo: info, recording };
 }
 
 export async function stopRecording(egressId: string) {
   await egressClient.stopEgress(egressId);
-
-  await db
-    .update(meetingRecordings)
-    .set({ status: "stopping" })
-    .where(eq(meetingRecordings.egressId, egressId));
+  await updateRecordingByEgressId(egressId, { status: "stopping" });
 }
 
 export async function getRecordingStatus(meetingId: string) {
-  return db.query.meetingRecordings.findMany({
-    where: eq(meetingRecordings.meetingId, meetingId),
-    orderBy: (r, { desc }) => [desc(r.createdAt)],
-  });
+  return listRecordingsByMeeting(meetingId);
 }
 
 export async function getActiveRecording(meetingId: string) {
-  return db.query.meetingRecordings.findFirst({
-    where: (r, { and, inArray }) =>
-      and(eq(r.meetingId, meetingId), inArray(r.status, ["starting", "recording"])),
-  });
+  return findActiveRecordingRepo(meetingId);
 }
 
 export async function handleEgressWebhook(event: {
@@ -121,14 +112,11 @@ export async function handleEgressWebhook(event: {
     updates.errorMessage = info.error ?? "Unknown error";
   }
 
-  await db.update(meetingRecordings).set(updates).where(eq(meetingRecordings.egressId, egressId));
+  await updateRecordingByEgressId(egressId, updates);
 
   // Trigger transcription and notification on completion (fire-and-forget)
   if (status === "completed") {
-    const recording = await db.query.meetingRecordings.findFirst({
-      where: eq(meetingRecordings.egressId, egressId),
-      with: { meeting: true },
-    });
+    const recording = await getRecordingByEgressId(egressId);
     if (recording?.storagePath) {
       const path = recording.storagePath;
       import("./recording-transcription-service.js")

@@ -1,8 +1,5 @@
-import { UserRole } from "@echolore/shared/contracts";
-import { and, count, eq } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
-import { db } from "../../db/index.js";
-import { authIdentities, users } from "../../db/schema.js";
+import { reconcileOAuthIdentity } from "../../repositories/auth/auth-repository.js";
 import { getAuthSettings, resolveAllowedDomain } from "../admin/auth-settings-service.js";
 import { findUserById, GOOGLE_PROVIDER, normalizeEmail, toSessionUser } from "./auth-utils.js";
 import { buildAccessToken, issueRefreshToken } from "./token-service.js";
@@ -30,69 +27,14 @@ async function getGoogleAudiences() {
 
 export async function reconcileGoogleIdentity(input: { email: string; name: string }) {
   const email = normalizeEmail(input.email);
-  const now = new Date();
 
-  return db.transaction(async (tx) => {
-    let [user] = await tx.select().from(users).where(eq(users.email, email));
-
-    if (!user) {
-      const [countRow] = await tx.select({ value: count() }).from(users);
-      if ((countRow?.value ?? 0) !== 0) {
-        throw new Error("Registration is closed");
-      }
-      [user] = await tx
-        .insert(users)
-        .values({
-          id: `user_${crypto.randomUUID()}`,
-          email,
-          name: input.name,
-          avatarUrl: null,
-          emailVerifiedAt: now,
-          tokenVersion: 1,
-          role: UserRole.Admin,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .returning();
-    } else {
-      const nextName = user.name?.trim() ? user.name : input.name;
-      const [updatedUser] = await tx
-        .update(users)
-        .set({
-          name: nextName,
-          emailVerifiedAt: user.emailVerifiedAt ?? now,
-          updatedAt: now,
-        })
-        .where(eq(users.id, user.id))
-        .returning();
-      user = updatedUser ?? user;
-    }
-
-    if (!user) {
-      throw new Error("Failed to reconcile Google identity");
-    }
-
-    const [existingIdentity] = await tx
-      .select()
-      .from(authIdentities)
-      .where(
-        and(eq(authIdentities.provider, GOOGLE_PROVIDER), eq(authIdentities.providerUserId, email))
-      );
-
-    if (!existingIdentity) {
-      await tx.insert(authIdentities).values({
-        id: `auth_${crypto.randomUUID()}`,
-        userId: user.id,
-        provider: GOOGLE_PROVIDER,
-        providerUserId: email,
-        passwordHash: null,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-
-    return toSessionUser(user);
+  const user = await reconcileOAuthIdentity({
+    email,
+    name: input.name,
+    provider: GOOGLE_PROVIDER,
   });
+
+  return toSessionUser(user);
 }
 
 async function resolveGoogleUserFromIdToken(idToken: string) {

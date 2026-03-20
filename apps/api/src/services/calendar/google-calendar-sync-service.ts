@@ -1,8 +1,10 @@
-import { eq } from "drizzle-orm";
 import { type calendar_v3, google } from "googleapis";
-import { db } from "../../db/index.js";
-import { meetings } from "../../db/schema.js";
 import { ONE_DAY_MS, ONE_HOUR_MS } from "../../lib/time.js";
+import {
+  createMeeting,
+  getMeetingById,
+  updateMeeting,
+} from "../../repositories/meeting/meeting-repository.js";
 import { getAuthedClient, isConnected } from "./google-calendar-auth-service.js";
 
 export async function syncMeetingToCalendar(
@@ -12,7 +14,7 @@ export async function syncMeetingToCalendar(
 ): Promise<string | null> {
   if (!(await isConnected(userId))) return null;
 
-  const [meeting] = await db.select().from(meetings).where(eq(meetings.id, meetingId)).limit(1);
+  const meeting = await getMeetingById(meetingId);
   if (!meeting) return null;
 
   const { client, calendarId } = await getAuthedClient(userId);
@@ -41,10 +43,7 @@ export async function syncMeetingToCalendar(
 
   const eventId = res.data.id;
   if (eventId) {
-    await db
-      .update(meetings)
-      .set({ googleCalendarEventId: eventId })
-      .where(eq(meetings.id, meetingId));
+    await updateMeeting(meetingId, { googleCalendarEventId: eventId });
   }
 
   return eventId || null;
@@ -53,7 +52,7 @@ export async function syncMeetingToCalendar(
 export async function updateCalendarEvent(meetingId: string, userId: string): Promise<void> {
   if (!(await isConnected(userId))) return;
 
-  const [meeting] = await db.select().from(meetings).where(eq(meetings.id, meetingId)).limit(1);
+  const meeting = await getMeetingById(meetingId);
   if (!meeting?.googleCalendarEventId) return;
 
   const { client, calendarId } = await getAuthedClient(userId);
@@ -76,7 +75,7 @@ export async function updateCalendarEvent(meetingId: string, userId: string): Pr
 export async function deleteCalendarEvent(meetingId: string, userId: string): Promise<void> {
   if (!(await isConnected(userId))) return;
 
-  const [meeting] = await db.select().from(meetings).where(eq(meetings.id, meetingId)).limit(1);
+  const meeting = await getMeetingById(meetingId);
   if (!meeting?.googleCalendarEventId) return;
 
   const { client, calendarId } = await getAuthedClient(userId);
@@ -142,19 +141,16 @@ export async function importEventAsMeeting(userId: string, eventId: string) {
       ? new Date(event.start.date)
       : null;
 
-  const [newMeeting] = await db
-    .insert(meetings)
-    .values({
-      id,
-      title: event.summary || "Imported Meeting",
-      creatorId: userId,
-      roomName,
-      status: "scheduled",
-      scheduledAt,
-      googleCalendarEventId: eventId,
-      createdAt: new Date(),
-    })
-    .returning();
+  const newMeeting = await createMeeting({
+    id,
+    title: event.summary || "Imported Meeting",
+    creatorId: userId,
+    roomName,
+    status: "scheduled",
+    scheduledAt,
+    googleCalendarEventId: eventId,
+    createdAt: new Date(),
+  });
 
   return newMeeting;
 }

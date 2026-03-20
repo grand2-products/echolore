@@ -6,12 +6,10 @@ import { auditAction } from "../../lib/audit.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { authorizeOwnerResource } from "../../policies/authorization-policy.js";
 import {
-  getMeetingById,
-  getMeetingTranscripts,
-} from "../../repositories/meeting/meeting-repository.js";
-import {
   createMeetingSummaryWikiArtifacts,
   getExistingRoomAiPipelineResult,
+  getMeetingById,
+  getMeetingTranscripts,
 } from "../../services/meeting/meeting-service.js";
 import { toSummaryDto } from "./dto.js";
 import { runPipelineSchema } from "./schemas.js";

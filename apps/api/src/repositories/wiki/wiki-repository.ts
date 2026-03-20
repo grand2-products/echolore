@@ -1,4 +1,4 @@
-import { and, desc, eq, exists, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, exists, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "../../db/index.js";
 import {
@@ -507,6 +507,101 @@ export async function searchByVector(
     chunkText: row.chunk_text,
     similarity: Number(row.similarity),
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge scan / suggestion helpers
+// ---------------------------------------------------------------------------
+
+export async function listRecentUpdatedPages(since: Date, limit: number) {
+  return db
+    .select({
+      id: pages.id,
+      title: pages.title,
+      spaceId: pages.spaceId,
+    })
+    .from(pages)
+    .where(and(isNull(pages.deletedAt), gt(pages.updatedAt, since)))
+    .orderBy(desc(pages.updatedAt))
+    .limit(limit);
+}
+
+export async function listPageBlockContents(pageId: string, limit: number) {
+  return db
+    .select({ content: blocks.content, type: blocks.type })
+    .from(blocks)
+    .where(eq(blocks.pageId, pageId))
+    .orderBy(blocks.sortOrder)
+    .limit(limit);
+}
+
+export async function listActivePageTitles(limit: number) {
+  return db
+    .select({ id: pages.id, title: pages.title })
+    .from(pages)
+    .where(isNull(pages.deletedAt))
+    .orderBy(desc(pages.updatedAt))
+    .limit(limit);
+}
+
+export async function listBlockContentSnippets(pageId: string, limit: number) {
+  return db
+    .select({ content: blocks.content })
+    .from(blocks)
+    .where(eq(blocks.pageId, pageId))
+    .orderBy(blocks.sortOrder)
+    .limit(limit);
+}
+
+export async function insertBlocks(
+  blocksData: Array<{
+    id: string;
+    pageId: string;
+    type: string;
+    content: string | null;
+    properties: Record<string, unknown> | null;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }>
+) {
+  if (blocksData.length === 0) return;
+  await db.insert(blocks).values(blocksData);
+}
+
+export async function updatePageTitleAndReplaceBlocks(input: {
+  pageId: string;
+  title: string;
+  blocks: Array<{
+    id: string;
+    type: string;
+    content: string | null;
+    properties: Record<string, unknown> | null;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+  }>;
+  now: Date;
+}) {
+  return db.transaction(async (tx) => {
+    await tx
+      .update(pages)
+      .set({ title: input.title, updatedAt: input.now })
+      .where(eq(pages.id, input.pageId));
+
+    await tx.delete(blocks).where(eq(blocks.pageId, input.pageId));
+
+    if (input.blocks.length > 0) {
+      await tx
+        .insert(blocks)
+        .values(input.blocks.map((block) => ({ ...block, pageId: input.pageId })));
+    }
+  });
+}
+
+export async function getPageSpaceId(id: string) {
+  const [page] = await db.select({ spaceId: pages.spaceId }).from(pages).where(eq(pages.id, id));
+  return page?.spaceId ?? null;
 }
 
 export async function searchPagesByIlike(

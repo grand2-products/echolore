@@ -7,6 +7,11 @@ import type { AppEnv } from "../../lib/auth.js";
 import { parsePaginationParams } from "../../lib/pagination.js";
 import { authorizeOwnerResource } from "../../policies/authorization-policy.js";
 import {
+  deleteCalendarEvent,
+  syncMeetingToCalendar,
+  updateCalendarEvent,
+} from "../../services/calendar/google-calendar-sync-service.js";
+import {
   createMeeting,
   deleteMeeting,
   getMeetingById,
@@ -15,12 +20,7 @@ import {
   listAllMeetings,
   listMeetingsByUser,
   updateMeeting,
-} from "../../repositories/meeting/meeting-repository.js";
-import {
-  deleteCalendarEvent,
-  syncMeetingToCalendar,
-  updateCalendarEvent,
-} from "../../services/calendar/google-calendar-sync-service.js";
+} from "../../services/meeting/meeting-service.js";
 import { toMeetingDto, toSummaryDto, toTranscriptDto } from "./dto.js";
 import { createMeetingSchema, updateMeetingSchema } from "./schemas.js";
 

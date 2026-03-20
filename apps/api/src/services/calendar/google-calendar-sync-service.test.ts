@@ -1,38 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { meetings } from "../../db/schema.js";
 
-const { dbMock, isConnectedMock, getAuthedClientMock } = vi.hoisted(() => {
-  const selectWhereLimitMock = vi.fn();
-  const updateSetWhereMock = vi.fn();
-  return {
-    dbMock: {
-      select: vi.fn(() => ({
-        from: vi.fn(() => ({
-          where: vi.fn(() => ({
-            limit: selectWhereLimitMock,
-          })),
-        })),
-      })),
-      update: vi.fn(() => ({
-        set: vi.fn(() => ({
-          where: updateSetWhereMock,
-        })),
-      })),
-      insert: vi.fn(() => ({
-        values: vi.fn(() => ({
-          returning: vi.fn(async () => []),
-        })),
-      })),
-      _selectWhereLimitMock: selectWhereLimitMock,
-      _updateSetWhereMock: updateSetWhereMock,
-    },
-    isConnectedMock: vi.fn(),
-    getAuthedClientMock: vi.fn(),
-  };
-});
+const {
+  getMeetingByIdMock,
+  updateMeetingMock,
+  createMeetingMock,
+  isConnectedMock,
+  getAuthedClientMock,
+} = vi.hoisted(() => ({
+  getMeetingByIdMock: vi.fn(),
+  updateMeetingMock: vi.fn(),
+  createMeetingMock: vi.fn(),
+  isConnectedMock: vi.fn(),
+  getAuthedClientMock: vi.fn(),
+}));
 
-vi.mock("../../db/index.js", () => ({
-  db: dbMock,
+vi.mock("../../repositories/meeting/meeting-repository.js", () => ({
+  getMeetingById: getMeetingByIdMock,
+  updateMeeting: updateMeetingMock,
+  createMeeting: createMeetingMock,
 }));
 
 vi.mock("./google-calendar-auth-service.js", () => ({
@@ -64,18 +49,7 @@ vi.mock("../../lib/time.js", () => ({
 describe("google-calendar-sync-service", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    dbMock.select.mockClear();
-    dbMock.update.mockClear();
-    dbMock.insert.mockClear();
-    dbMock._selectWhereLimitMock.mockReset();
-    dbMock._updateSetWhereMock.mockReset();
-    isConnectedMock.mockReset();
-    getAuthedClientMock.mockReset();
-    calendarEventsMock.insert.mockReset();
-    calendarEventsMock.update.mockReset();
-    calendarEventsMock.delete.mockReset();
-    calendarEventsMock.list.mockReset();
-    calendarEventsMock.get.mockReset();
+    vi.clearAllMocks();
   });
 
   describe("syncMeetingToCalendar", () => {
@@ -91,7 +65,7 @@ describe("google-calendar-sync-service", () => {
 
     it("returns null when meeting is not found", async () => {
       isConnectedMock.mockResolvedValue(true);
-      dbMock._selectWhereLimitMock.mockResolvedValue([]);
+      getMeetingByIdMock.mockResolvedValue(null);
 
       const { syncMeetingToCalendar } = await import("./google-calendar-sync-service.js");
       const result = await syncMeetingToCalendar("missing-meeting", "user-1");
@@ -99,7 +73,7 @@ describe("google-calendar-sync-service", () => {
       expect(result).toBeNull();
     });
 
-    it("inserts a calendar event and stores the event ID in the DB", async () => {
+    it("inserts a calendar event and stores the event ID via updateMeeting", async () => {
       isConnectedMock.mockResolvedValue(true);
       const meetingRow = {
         id: "meeting-1",
@@ -108,12 +82,12 @@ describe("google-calendar-sync-service", () => {
         scheduledAt: new Date("2026-03-20T10:00:00Z"),
         createdAt: new Date("2026-03-15T09:00:00Z"),
       };
-      dbMock._selectWhereLimitMock.mockResolvedValue([meetingRow]);
+      getMeetingByIdMock.mockResolvedValue(meetingRow);
 
       const fakeClient = {};
       getAuthedClientMock.mockResolvedValue({ client: fakeClient, calendarId: "primary" });
       calendarEventsMock.insert.mockResolvedValue({ data: { id: "gcal-event-123" } });
-      dbMock._updateSetWhereMock.mockResolvedValue(undefined);
+      updateMeetingMock.mockResolvedValue(undefined);
 
       const { syncMeetingToCalendar } = await import("./google-calendar-sync-service.js");
       const result = await syncMeetingToCalendar("meeting-1", "user-1");
@@ -128,7 +102,9 @@ describe("google-calendar-sync-service", () => {
           sendUpdates: "none",
         })
       );
-      expect(dbMock.update).toHaveBeenCalledWith(meetings);
+      expect(updateMeetingMock).toHaveBeenCalledWith("meeting-1", {
+        googleCalendarEventId: "gcal-event-123",
+      });
     });
 
     it("sends updates to all attendees when attendeeEmails are provided", async () => {
@@ -140,10 +116,10 @@ describe("google-calendar-sync-service", () => {
         scheduledAt: new Date("2026-03-20T10:00:00Z"),
         createdAt: new Date("2026-03-15T09:00:00Z"),
       };
-      dbMock._selectWhereLimitMock.mockResolvedValue([meetingRow]);
+      getMeetingByIdMock.mockResolvedValue(meetingRow);
       getAuthedClientMock.mockResolvedValue({ client: {}, calendarId: "primary" });
       calendarEventsMock.insert.mockResolvedValue({ data: { id: "gcal-event-456" } });
-      dbMock._updateSetWhereMock.mockResolvedValue(undefined);
+      updateMeetingMock.mockResolvedValue(undefined);
 
       const { syncMeetingToCalendar } = await import("./google-calendar-sync-service.js");
       const result = await syncMeetingToCalendar("meeting-1", "user-1", {
@@ -174,9 +150,10 @@ describe("google-calendar-sync-service", () => {
 
     it("does nothing when meeting has no googleCalendarEventId", async () => {
       isConnectedMock.mockResolvedValue(true);
-      dbMock._selectWhereLimitMock.mockResolvedValue([
-        { id: "meeting-1", googleCalendarEventId: null },
-      ]);
+      getMeetingByIdMock.mockResolvedValue({
+        id: "meeting-1",
+        googleCalendarEventId: null,
+      });
 
       const { updateCalendarEvent } = await import("./google-calendar-sync-service.js");
       await updateCalendarEvent("meeting-1", "user-1");
@@ -193,7 +170,7 @@ describe("google-calendar-sync-service", () => {
         scheduledAt: new Date("2026-03-21T14:00:00Z"),
         createdAt: new Date("2026-03-15T09:00:00Z"),
       };
-      dbMock._selectWhereLimitMock.mockResolvedValue([meetingRow]);
+      getMeetingByIdMock.mockResolvedValue(meetingRow);
       getAuthedClientMock.mockResolvedValue({ client: {}, calendarId: "primary" });
       calendarEventsMock.update.mockResolvedValue({});
 
@@ -228,7 +205,7 @@ describe("google-calendar-sync-service", () => {
         id: "meeting-1",
         googleCalendarEventId: "gcal-event-123",
       };
-      dbMock._selectWhereLimitMock.mockResolvedValue([meetingRow]);
+      getMeetingByIdMock.mockResolvedValue(meetingRow);
       getAuthedClientMock.mockResolvedValue({ client: {}, calendarId: "primary" });
       calendarEventsMock.delete.mockResolvedValue({});
 
@@ -247,7 +224,7 @@ describe("google-calendar-sync-service", () => {
         id: "meeting-1",
         googleCalendarEventId: "gcal-event-gone",
       };
-      dbMock._selectWhereLimitMock.mockResolvedValue([meetingRow]);
+      getMeetingByIdMock.mockResolvedValue(meetingRow);
       getAuthedClientMock.mockResolvedValue({ client: {}, calendarId: "primary" });
       calendarEventsMock.delete.mockRejectedValue(new Error("Not Found"));
 
@@ -260,15 +237,13 @@ describe("google-calendar-sync-service", () => {
   describe("error handling", () => {
     it("propagates Google API errors from syncMeetingToCalendar", async () => {
       isConnectedMock.mockResolvedValue(true);
-      dbMock._selectWhereLimitMock.mockResolvedValue([
-        {
-          id: "meeting-1",
-          title: "Test",
-          roomName: "room-x",
-          scheduledAt: new Date(),
-          createdAt: new Date(),
-        },
-      ]);
+      getMeetingByIdMock.mockResolvedValue({
+        id: "meeting-1",
+        title: "Test",
+        roomName: "room-x",
+        scheduledAt: new Date(),
+        createdAt: new Date(),
+      });
       getAuthedClientMock.mockResolvedValue({ client: {}, calendarId: "primary" });
       calendarEventsMock.insert.mockRejectedValue(new Error("Google API quota exceeded"));
 
@@ -281,15 +256,13 @@ describe("google-calendar-sync-service", () => {
 
     it("propagates Google API errors from updateCalendarEvent", async () => {
       isConnectedMock.mockResolvedValue(true);
-      dbMock._selectWhereLimitMock.mockResolvedValue([
-        {
-          id: "meeting-1",
-          title: "Test",
-          googleCalendarEventId: "gcal-123",
-          scheduledAt: new Date(),
-          createdAt: new Date(),
-        },
-      ]);
+      getMeetingByIdMock.mockResolvedValue({
+        id: "meeting-1",
+        title: "Test",
+        googleCalendarEventId: "gcal-123",
+        scheduledAt: new Date(),
+        createdAt: new Date(),
+      });
       getAuthedClientMock.mockResolvedValue({ client: {}, calendarId: "primary" });
       calendarEventsMock.update.mockRejectedValue(new Error("Forbidden"));
 

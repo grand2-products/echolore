@@ -25,7 +25,7 @@ vi.mock("../lib/local-auth.js", () => ({
   revokeAuthSessionById: revokeAuthSessionByIdMock,
 }));
 
-vi.mock("../repositories/user/user-repository.js", () => ({
+vi.mock("../services/admin/user-service.js", () => ({
   createUser: vi.fn(),
   deleteUser: vi.fn(),
   getUserByEmail: vi.fn(),

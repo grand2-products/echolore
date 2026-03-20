@@ -7,6 +7,22 @@ import {
 } from "../../repositories/meeting/meeting-repository.js";
 import { GENERAL_SPACE_ID } from "../wiki/space-service.js";
 
+// Re-export repository CRUD for route layer access
+export {
+  createMeeting,
+  createSummary,
+  createTranscript,
+  deleteMeeting,
+  getMeetingById,
+  getMeetingByRoomName,
+  getMeetingSummaries,
+  getMeetingTranscripts,
+  listAllMeetings,
+  listMeetingsByStatus,
+  listMeetingsByUser,
+  updateMeeting,
+} from "../../repositories/meeting/meeting-repository.js";
+
 /** Fixed ID for the "Meeting Notes" parent page in General Space. */
 export const MEETING_NOTES_PAGE_ID = "00000000-0000-0000-0000-000000000002";
 

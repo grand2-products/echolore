@@ -2,13 +2,14 @@ import { Hono } from "hono";
 import { jsonError, tryCatchResponse, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { authorizePageResource } from "../../policies/authorization-policy.js";
+import { indexPage } from "../../services/wiki/embedding-service.js";
 import {
+  createPageRevision,
+  getPageById,
   getRevisionById,
   listRevisionsByPageId,
-} from "../../repositories/wiki/revision-repository.js";
-import { getPageById } from "../../repositories/wiki/wiki-repository.js";
-import { indexPage } from "../../services/wiki/embedding-service.js";
-import { createPageRevision, restoreRevision } from "../../services/wiki/wiki-service.js";
+  restoreRevision,
+} from "../../services/wiki/wiki-service.js";
 
 export const wikiRevisionRoutes = new Hono<AppEnv>();
 

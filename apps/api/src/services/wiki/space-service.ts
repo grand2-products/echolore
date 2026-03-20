@@ -17,6 +17,9 @@ import {
   listSpaces,
 } from "../../repositories/wiki/space-repository.js";
 
+// Re-export for route layer access
+export { getSpaceById } from "../../repositories/wiki/space-repository.js";
+
 export const GENERAL_SPACE_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function ensureGeneralSpace(): Promise<Space> {

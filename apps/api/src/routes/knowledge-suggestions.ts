@@ -4,11 +4,9 @@ import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import { canApproveKnowledge } from "../policies/authorization-policy.js";
 import {
+  approveSuggestion,
   getSuggestionById,
   listSuggestions,
-} from "../repositories/knowledge/knowledge-suggestion-repository.js";
-import {
-  approveSuggestion,
   rejectSuggestion,
 } from "../services/knowledge/knowledge-suggestion-service.js";
 

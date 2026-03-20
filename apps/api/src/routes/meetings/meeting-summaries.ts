@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { authorizeOwnerResource } from "../../policies/authorization-policy.js";
-import { createSummary, getMeetingById } from "../../repositories/meeting/meeting-repository.js";
+import { createSummary, getMeetingById } from "../../services/meeting/meeting-service.js";
 import { toSummaryDto } from "./dto.js";
 import { createSummarySchema } from "./schemas.js";
 

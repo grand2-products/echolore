@@ -1,7 +1,12 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { and, eq, gt, isNull } from "drizzle-orm";
-import { db } from "../../db/index.js";
-import { authRefreshTokens, type users } from "../../db/schema.js";
+import type { users } from "../../db/schema.js";
+import {
+  createAuthRefreshToken,
+  findAuthRefreshToken,
+  findGracedRefreshToken,
+  findSuccessorRefreshToken,
+  revokeAuthRefreshToken,
+} from "../../repositories/auth/auth-repository.js";
 import type {
   AccessTokenPayload,
   RefreshClientType,
@@ -68,36 +73,16 @@ export function buildAccessToken(user: typeof users.$inferSelect, authMode: Supp
 }
 
 async function findActiveRefreshToken(rawRefreshToken: string) {
-  const now = new Date();
   const tokenHash = hashValue(rawRefreshToken);
 
   // First try: non-revoked token
-  const [active] = await db
-    .select()
-    .from(authRefreshTokens)
-    .where(
-      and(
-        eq(authRefreshTokens.tokenHash, tokenHash),
-        isNull(authRefreshTokens.revokedAt),
-        gt(authRefreshTokens.expiresAt, now)
-      )
-    );
+  const active = await findAuthRefreshToken(tokenHash);
   if (active) return active;
 
   // Grace period: accept recently-revoked tokens for concurrent request tolerance.
   // Only valid if revoked within REFRESH_TOKEN_GRACE_SECONDS and not yet expired.
-  const graceThreshold = new Date(now.getTime() - REFRESH_TOKEN_GRACE_SECONDS * 1000);
-  const [graced] = await db
-    .select()
-    .from(authRefreshTokens)
-    .where(
-      and(
-        eq(authRefreshTokens.tokenHash, tokenHash),
-        gt(authRefreshTokens.revokedAt, graceThreshold),
-        gt(authRefreshTokens.expiresAt, now)
-      )
-    );
-  return graced ?? null;
+  const graceThreshold = new Date(Date.now() - REFRESH_TOKEN_GRACE_SECONDS * 1000);
+  return findGracedRefreshToken(tokenHash, graceThreshold);
 }
 
 export async function issueRefreshToken(input: {
@@ -110,7 +95,7 @@ export async function issueRefreshToken(input: {
   const rawRefreshToken = randomBytes(32).toString("base64url");
   const now = new Date();
   const expiresAt = new Date(now.getTime() + REFRESH_TOKEN_TTL_SECONDS * 1000);
-  await db.insert(authRefreshTokens).values({
+  await createAuthRefreshToken({
     id: `rt_${crypto.randomUUID()}`,
     userId: input.userId,
     clientType: input.clientType,
@@ -119,7 +104,6 @@ export async function issueRefreshToken(input: {
     tokenHash: hashValue(rawRefreshToken),
     expiresAt,
     rotatedFromId: input.rotatedFromId ?? null,
-    revokedAt: null,
     lastSeenAt: now,
     createdAt: now,
   });
@@ -148,15 +132,7 @@ export async function refreshAccessToken(input: {
   // refresh token instead of creating another one.
   if (refreshRecord.revokedAt) {
     const { accessToken, expiresAt } = buildAccessToken(user, authMode);
-    const [successor] = await db
-      .select()
-      .from(authRefreshTokens)
-      .where(
-        and(
-          eq(authRefreshTokens.rotatedFromId, refreshRecord.id),
-          isNull(authRefreshTokens.revokedAt)
-        )
-      );
+    const successor = await findSuccessorRefreshToken(refreshRecord.id);
     // If successor was already revoked/missing, reject — the chain moved on
     if (!successor) {
       return null;
@@ -171,10 +147,7 @@ export async function refreshAccessToken(input: {
   }
 
   // Normal path: revoke old token and issue a new pair
-  await db
-    .update(authRefreshTokens)
-    .set({ revokedAt: new Date(), lastSeenAt: new Date() })
-    .where(eq(authRefreshTokens.id, refreshRecord.id));
+  await revokeAuthRefreshToken(refreshRecord.id, new Date());
 
   const { accessToken, expiresAt } = buildAccessToken(user, authMode);
   const nextRefreshToken = await issueRefreshToken({
@@ -204,8 +177,5 @@ export async function revokeRefreshToken(rawRefreshToken: string | null | undefi
     return;
   }
 
-  await db
-    .update(authRefreshTokens)
-    .set({ revokedAt: new Date() })
-    .where(eq(authRefreshTokens.id, refreshRecord.id));
+  await revokeAuthRefreshToken(refreshRecord.id, new Date());
 }

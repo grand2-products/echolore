@@ -6,15 +6,15 @@ import { extractRequestMeta, writeAuditLog } from "../../lib/audit.js";
 import type { AppEnv } from "../../lib/auth.js";
 import type { authorizePageResource } from "../../policies/authorization-policy.js";
 import {
-  deletePagePermission,
-  getPageInheritance,
-} from "../../repositories/admin/admin-repository.js";
-import { getPageById } from "../../repositories/wiki/wiki-repository.js";
-import {
   getPagePermissionsDetail,
   replacePageInheritance,
   replacePagePermissions,
 } from "../../services/admin/admin-service.js";
+import {
+  deletePagePermission,
+  getPageInheritance,
+} from "../../services/admin/permission-service.js";
+import { getPageById } from "../../services/wiki/wiki-service.js";
 import { setPagePermissionsSchema, updateInheritanceSchema } from "./schemas.js";
 
 export const wikiPermissionRoutes = new Hono<AppEnv>();

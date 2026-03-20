@@ -49,25 +49,31 @@ vi.mock("../services/admin/admin-service.js", () => ({
   updateStorageSettings: vi.fn(),
 }));
 
-vi.mock("../repositories/admin/admin-repository.js", () => ({
+vi.mock("../services/admin/group-service.js", () => ({
   createGroup: createGroupMock,
   deleteGroup: vi.fn(),
   deleteMembership: vi.fn(),
-  deletePagePermission: vi.fn(),
-  deleteSiteSetting: vi.fn(),
   getGroupById: vi.fn(),
   getGroupByName: vi.fn(),
-  getPageInheritance: vi.fn(),
   updateGroup: vi.fn(),
+}));
+
+vi.mock("../services/admin/site-settings-service.js", () => ({
+  deleteSiteSetting: vi.fn(),
+  getSiteSetting: vi.fn(),
+  getSiteSettings: vi.fn(async () => ({})),
+  updateSiteSettings: vi.fn(),
   upsertSiteSetting: vi.fn(),
 }));
 
-vi.mock("../repositories/wiki/space-repository.js", () => ({
-  getSpaceById: vi.fn(),
+vi.mock("../services/admin/permission-service.js", () => ({
+  deletePagePermission: vi.fn(),
+  getPageInheritance: vi.fn(),
 }));
 
 vi.mock("../services/wiki/space-service.js", () => ({
   ensureTeamSpaceForGroup: vi.fn(),
+  getSpaceById: vi.fn(),
 }));
 
 vi.mock("../services/wiki/embedding-service.js", () => ({

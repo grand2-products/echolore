@@ -1,17 +1,17 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import type { NewBlock } from "../../db/schema.js";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { authorizePageResource } from "../../policies/authorization-policy.js";
+import { indexPage } from "../../services/wiki/embedding-service.js";
+import type { NewBlock } from "../../services/wiki/wiki-service.js";
 import {
   createBlock,
   deleteBlock,
   getBlockById,
   getPageById,
   updateBlock,
-} from "../../repositories/wiki/wiki-repository.js";
-import { indexPage } from "../../services/wiki/embedding-service.js";
+} from "../../services/wiki/wiki-service.js";
 import { createBlockSchema, updateBlockSchema } from "./schemas.js";
 
 export const wikiBlockRoutes = new Hono<AppEnv>();

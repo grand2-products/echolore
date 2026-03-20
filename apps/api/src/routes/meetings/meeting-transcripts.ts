@@ -3,11 +3,11 @@ import { Hono } from "hono";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { authorizeOwnerResource } from "../../policies/authorization-policy.js";
-import { createTranscript, getMeetingById } from "../../repositories/meeting/meeting-repository.js";
 import {
   listRealtimeTranscriptSegments,
   upsertTranscriptSegment,
 } from "../../services/meeting/meeting-realtime-service.js";
+import { createTranscript, getMeetingById } from "../../services/meeting/meeting-service.js";
 import { toRealtimeTranscriptSegmentDto, toTranscriptDto } from "./dto.js";
 import { createTranscriptSchema, realtimeTranscriptSchema } from "./schemas.js";
 

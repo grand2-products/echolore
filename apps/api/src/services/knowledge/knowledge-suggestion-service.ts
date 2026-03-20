@@ -1,17 +1,27 @@
 import crypto from "node:crypto";
 import type { KnowledgeSuggestionSourceType } from "@echolore/shared/contracts";
 import { HumanMessage } from "@langchain/core/messages";
-import { desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { buildKnowledgeSuggestionPrompt } from "../../ai/agent/knowledge-suggestion-prompt.js";
 import { initLlmWithSettings } from "../../ai/llm/index.js";
-import { db } from "../../db/index.js";
-import { blocks, pages } from "../../db/schema.js";
 import {
   createSuggestion,
   getSuggestionById,
   updateSuggestion,
 } from "../../repositories/knowledge/knowledge-suggestion-repository.js";
+
+// Re-export for route layer access
+export {
+  getSuggestionById,
+  listSuggestions,
+} from "../../repositories/knowledge/knowledge-suggestion-repository.js";
+
+import {
+  insertBlocks,
+  listActivePageTitles,
+  listBlockContentSnippets,
+  updatePageTitleAndReplaceBlocks,
+} from "../../repositories/wiki/wiki-repository.js";
 import { indexPage } from "../wiki/embedding-service.js";
 import { createPageRevision, createPageWithAccessDefaults } from "../wiki/wiki-service.js";
 
@@ -45,24 +55,11 @@ export async function generateSuggestions(input: SuggestionInput): Promise<void>
   }
 
   // Gather existing pages for context
-  const existingPages = await db
-    .select({
-      id: pages.id,
-      title: pages.title,
-    })
-    .from(pages)
-    .where(isNull(pages.deletedAt))
-    .orderBy(desc(pages.updatedAt))
-    .limit(30);
+  const existingPages = await listActivePageTitles(30);
 
   const existingPagesWithSnippet = await Promise.all(
     existingPages.map(async (p) => {
-      const pageBlocks = await db
-        .select({ content: blocks.content })
-        .from(blocks)
-        .where(eq(blocks.pageId, p.id))
-        .orderBy(blocks.sortOrder)
-        .limit(3);
+      const pageBlocks = await listBlockContentSnippets(p.id, 3);
       const snippet = pageBlocks
         .map((b) => b.content ?? "")
         .filter(Boolean)
@@ -186,7 +183,7 @@ export async function approveSuggestion(
 
     // Insert proposed blocks
     if (suggestion.proposedBlocks.length > 0) {
-      await db.insert(blocks).values(
+      await insertBlocks(
         suggestion.proposedBlocks.map((block) => ({
           id: crypto.randomUUID(),
           pageId: page.id,
@@ -208,28 +205,19 @@ export async function approveSuggestion(
     await createPageRevision(pageId, reviewerUserId);
 
     // Apply changes atomically
-    await db.transaction(async (tx) => {
-      await tx
-        .update(pages)
-        .set({ title: suggestion.proposedTitle, updatedAt: now })
-        .where(eq(pages.id, pageId));
-
-      await tx.delete(blocks).where(eq(blocks.pageId, pageId));
-
-      if (suggestion.proposedBlocks.length > 0) {
-        await tx.insert(blocks).values(
-          suggestion.proposedBlocks.map((block) => ({
-            id: crypto.randomUUID(),
-            pageId,
-            type: block.type,
-            content: block.content,
-            properties: block.properties,
-            sortOrder: block.sortOrder,
-            createdAt: now,
-            updatedAt: now,
-          }))
-        );
-      }
+    await updatePageTitleAndReplaceBlocks({
+      pageId,
+      title: suggestion.proposedTitle,
+      blocks: suggestion.proposedBlocks.map((block) => ({
+        id: crypto.randomUUID(),
+        type: block.type,
+        content: block.content,
+        properties: block.properties,
+        sortOrder: block.sortOrder,
+        createdAt: now,
+        updatedAt: now,
+      })),
+      now,
     });
   }
 

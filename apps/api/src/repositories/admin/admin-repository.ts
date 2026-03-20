@@ -313,3 +313,11 @@ export async function deleteSpacePermissionForGroup(
     .returning();
   return result.length > 0;
 }
+
+export async function getGroupPermissionsByIds(groupIds: string[]) {
+  if (groupIds.length === 0) return [];
+  return db
+    .select({ id: userGroups.id, permissions: userGroups.permissions })
+    .from(userGroups)
+    .where(inArray(userGroups.id, groupIds));
+}

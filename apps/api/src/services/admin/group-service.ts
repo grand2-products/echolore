@@ -9,6 +9,16 @@ import {
   replaceUserGroups as replaceUserGroupsRepo,
 } from "../../repositories/admin/admin-repository.js";
 
+// Re-export repository CRUD for route layer access
+export {
+  createGroup,
+  deleteGroup,
+  deleteMembership,
+  getGroupByName,
+  updateGroup,
+} from "../../repositories/admin/admin-repository.js";
+export { getGroupById };
+
 export async function listGroupsWithMemberCounts() {
   const [groups, memberships] = await Promise.all([listGroups(), listMemberships()]);
 
