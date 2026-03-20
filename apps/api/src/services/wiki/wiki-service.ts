@@ -1,11 +1,6 @@
 import { UserRole } from "@echolore/shared/contracts";
 import { nanoid } from "nanoid";
-import {
-  cosineSimilarity,
-  embedText,
-  getEmbeddingModel,
-  isEmbeddingEnabled,
-} from "../../ai/embeddings.js";
+import { defaultEmbeddingProvider, type EmbeddingProvider } from "../../ai/providers/index.js";
 import type { Page } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { canReadPage } from "../../policies/authorization-policy.js";
@@ -44,6 +39,14 @@ export {
   updateBlock,
   updatePage,
 } from "../../repositories/wiki/wiki-repository.js";
+
+// Replaceable for testing
+let embedding: EmbeddingProvider = defaultEmbeddingProvider;
+
+/** @internal Override embedding provider (test-only) */
+export function _setEmbeddingProvider(p: EmbeddingProvider) {
+  embedding = p;
+}
 
 const SEMANTIC_RERANK_LIMIT = 20;
 
@@ -97,7 +100,7 @@ export async function searchVisiblePages(
   const matchedPages = await searchPagesLexically(query);
   const visiblePages = await filterReadablePages(user, matchedPages);
 
-  if (!semantic || !(await isEmbeddingEnabled()) || visiblePages.length === 0) {
+  if (!semantic || !(await embedding.isAvailable()) || visiblePages.length === 0) {
     return {
       pages: visiblePages,
       searchMeta: { mode: "lexical", semanticApplied: false },
@@ -105,7 +108,7 @@ export async function searchVisiblePages(
   }
 
   try {
-    const queryEmbedding = await embedText(query, { taskType: "RETRIEVAL_QUERY" });
+    const queryEmbedding = await embedding.embed(query, { taskType: "RETRIEVAL_QUERY" });
     if (!queryEmbedding) {
       return {
         pages: visiblePages,
@@ -132,8 +135,10 @@ export async function searchVisiblePages(
     const scored = await Promise.all(
       rerankCandidates.map(async (page) => {
         const text = buildPageSearchText(page.title, blockMap.get(page.id) ?? []);
-        const pageEmbedding = await embedText(text, { taskType: "RETRIEVAL_DOCUMENT" });
-        const semanticScore = pageEmbedding ? cosineSimilarity(queryEmbedding, pageEmbedding) : 0;
+        const pageEmbedding = await embedding.embed(text, { taskType: "RETRIEVAL_DOCUMENT" });
+        const semanticScore = pageEmbedding
+          ? embedding.cosineSimilarity(queryEmbedding, pageEmbedding)
+          : 0;
         const lexicalScore = lexicalRank.get(page.id) ?? 0;
         return { page, score: semanticScore * 0.75 + lexicalScore * 0.25 };
       })
@@ -146,7 +151,7 @@ export async function searchVisiblePages(
       searchMeta: {
         mode: "hybrid",
         semanticApplied: true,
-        model: await getEmbeddingModel(),
+        model: await embedding.getModel(),
       },
     };
   } catch (error) {

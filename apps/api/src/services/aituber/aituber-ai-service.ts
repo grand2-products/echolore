@@ -1,12 +1,20 @@
 import crypto from "node:crypto";
 import type { AituberDataEvent } from "@echolore/shared/contracts";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { initLlmWithSettings } from "../../ai/llm/index.js";
+import { defaultLlmProvider, type LlmProvider } from "../../ai/providers/index.js";
 import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
 import type { AituberCharacter, AituberMessage } from "../../db/schema.js";
 import * as livekitService from "./aituber-livekit-service.js";
 import * as aituberService from "./aituber-service.js";
 import * as ttsService from "./aituber-tts-service.js";
+
+// Replaceable for testing
+let llm: LlmProvider = defaultLlmProvider;
+
+/** @internal Override LLM provider (test-only) */
+export function _setLlmProvider(p: LlmProvider) {
+  llm = p;
+}
 
 // Active processing loops per session
 const activeLoops = new Map<string, { running: boolean }>();
@@ -169,7 +177,7 @@ async function generateStreamingResponse(
   viewerMessage: AituberMessage,
   roomName: string
 ): Promise<string> {
-  const result = await initLlmWithSettings({ temperature: 0.7, maxTokens: 500 });
+  const result = await llm.init({ temperature: 0.7, maxTokens: 500 });
   if (!result) {
     return "";
   }
