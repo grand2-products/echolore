@@ -4,10 +4,11 @@ export {
   findInviteByToken,
   findValidInviteByToken,
   getGuestRequestByIdAndInvite,
-  getMeetingRoomName,
   incrementUseCountAndCreateGuestRequest,
   listGuestRequestsByMeeting,
   listInvitesByMeeting,
   resolveGuestRequest,
   revokeInvite,
 } from "../../repositories/meeting/meeting-invite-repository.js";
+
+export { getMeetingRoomName } from "../../repositories/meeting/meeting-repository.js";

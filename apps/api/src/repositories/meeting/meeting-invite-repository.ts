@@ -156,6 +156,3 @@ export async function resolveGuestRequest(
     .returning();
   return updated ?? null;
 }
-
-// Re-export from meeting-repository (this is a meetings-table query, not invite-specific)
-export { getMeetingRoomName } from "./meeting-repository.js";
