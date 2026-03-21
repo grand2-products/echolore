@@ -225,45 +225,7 @@ export async function createPageWithAccessDefaults(input: {
   updatedAt: Date;
   deletedAt: Date | null;
 }> {
-  return db.transaction(async (tx) => {
-    const [page] = await tx.insert(pages).values(input).returning();
-    if (!page) {
-      throw new Error("Failed to create page");
-    }
-
-    await tx.insert(pageInheritance).values({
-      id: `inherit_${nanoid(12)}`,
-      pageId: page.id,
-      inheritFromParent: Boolean(page.parentId),
-      createdAt: input.createdAt,
-    });
-
-    if (!page.parentId) {
-      const memberships = await tx
-        .select({ groupId: userGroupMemberships.groupId })
-        .from(userGroupMemberships)
-        .where(eq(userGroupMemberships.userId, input.authorId));
-
-      const uniqueGroupIds = [...new Set(memberships.map((m) => m.groupId))];
-
-      if (uniqueGroupIds.length > 0) {
-        await tx.insert(pagePermissions).values(
-          uniqueGroupIds.map((groupId) => ({
-            id: `perm_${nanoid(12)}`,
-            pageId: page.id,
-            groupId,
-            canRead: true,
-            canWrite: true,
-            canDelete: false,
-            createdAt: input.createdAt,
-            updatedAt: input.updatedAt,
-          }))
-        );
-      }
-    }
-
-    return page;
-  });
+  return db.transaction(async (tx) => createPageWithAccessDefaultsTx(tx, input));
 }
 
 export async function createPageWithAccessDefaultsTx(

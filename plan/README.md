@@ -16,7 +16,6 @@ Temporary planning artifacts. Implemented behavior belongs in `docs/`.
 
 - `aituber-motion-sota.md` — VRMA モーションクリップ生成 (Batch 4-B/4-C)
 - `backup-strategy.md` — バックアップ失敗通知のみ残
-- `clean-architecture-refactor.md` — Phase 1.2 (routes→services) + Phase 2.2 (AI 抽象化)
 
 ## Recently Completed (deleted from plan/, documented in docs/)
 

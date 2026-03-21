@@ -1,6 +1,7 @@
-import { and, eq, gt, or, sql } from "drizzle-orm";
-import { db } from "../db/index.js";
-import { auditLogs } from "../db/schema.js";
+import {
+  countAuditLogsByActionAndIdentity,
+  countAuditLogsByActionAndIp,
+} from "../repositories/audit/audit-repository.js";
 
 /**
  * Global per-IP rate limit to prevent distributed email enumeration.
@@ -26,41 +27,25 @@ export async function isRateLimited(input: RateLimitInput) {
   // Global per-IP check: block if this IP has too many attempts across ALL emails
   if (ipAddress) {
     const globalSince = new Date(Date.now() - GLOBAL_IP_RATE_LIMIT.windowMinutes * 60_000);
-    const [globalResult] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(auditLogs)
-      .where(
-        and(
-          eq(auditLogs.action, input.action),
-          gt(auditLogs.createdAt, globalSince),
-          eq(auditLogs.ipAddress, ipAddress)
-        )
-      );
-    if (Number(globalResult?.count ?? 0) >= GLOBAL_IP_RATE_LIMIT.maxAttempts) {
+    const count = await countAuditLogsByActionAndIp(input.action, ipAddress, globalSince);
+    if (count >= GLOBAL_IP_RATE_LIMIT.maxAttempts) {
       return true;
     }
   }
 
-  // Per-email+IP check (existing logic)
-  const since = new Date(Date.now() - input.windowMs);
-  const conditions = [eq(auditLogs.action, input.action), gt(auditLogs.createdAt, since)];
-
+  // Per-email+IP check
   const email = normalizeEmail(input.email);
-
-  const identityConditions = [];
-  if (email) identityConditions.push(eq(auditLogs.actorEmail, email));
-  if (ipAddress) identityConditions.push(eq(auditLogs.ipAddress, ipAddress));
-
-  if (identityConditions.length === 0) {
+  if (!email && !ipAddress) {
     return false;
   }
 
-  const [result] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(auditLogs)
-    .where(and(...conditions, or(...identityConditions)));
+  const since = new Date(Date.now() - input.windowMs);
+  const count = await countAuditLogsByActionAndIdentity(input.action, since, {
+    email,
+    ipAddress,
+  });
 
-  return Number(result?.count ?? 0) >= input.maxAttempts;
+  return count >= input.maxAttempts;
 }
 
 /**

@@ -1,6 +1,5 @@
 import type { Context } from "hono";
-import { db } from "../db/index.js";
-import { auditLogs } from "../db/schema.js";
+import { insertAuditLog } from "../repositories/audit/audit-repository.js";
 import type { AppEnv } from "./auth.js";
 
 export function extractRequestMeta(c: Context<AppEnv>) {
@@ -56,7 +55,7 @@ export async function writeAuditLog(input: AuditLogInput): Promise<void> {
   };
 
   try {
-    await db.insert(auditLogs).values(payload);
+    await insertAuditLog(payload);
   } catch (error) {
     // Keep audit logging best-effort; do not break request flow.
     console.error("Failed to persist audit log:", error);

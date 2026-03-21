@@ -121,17 +121,15 @@ export async function transcribeRecording(
     // Fire-and-forget: trigger knowledge suggestion from transcription
     if (segments.length > 0) {
       const fullText = segments.map((s) => `[${s.speaker}] ${s.content}`).join("\n");
-      import("../knowledge/knowledge-suggestion-service.js")
-        .then(async ({ generateSuggestions }) => {
-          const { db: dbInst } = await import("../../db/index.js");
-          const { meetings, spaces } = await import("../../db/schema.js");
-          const { eq } = await import("drizzle-orm");
-          const [meeting] = await dbInst
-            .select({ title: meetings.title })
-            .from(meetings)
-            .where(eq(meetings.id, meetingId))
-            .limit(1);
-          const [space] = await dbInst.select({ id: spaces.id }).from(spaces).limit(1);
+      Promise.all([
+        import("../knowledge/knowledge-suggestion-service.js"),
+        import("../../repositories/meeting/meeting-repository.js"),
+        import("../../repositories/wiki/space-repository.js"),
+      ])
+        .then(async ([{ generateSuggestions }, { getMeetingById }, { listSpaces }]) => {
+          const meeting = await getMeetingById(meetingId);
+          const allSpaces = await listSpaces();
+          const space = allSpaces[0];
           if (!space) return;
           const title = meeting?.title ?? meetingId;
           return generateSuggestions({
