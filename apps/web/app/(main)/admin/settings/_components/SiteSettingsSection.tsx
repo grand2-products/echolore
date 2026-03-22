@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Tooltip } from "@/components/ui";
 import { adminApi } from "@/lib/api";
 import { useSettingsForm } from "@/lib/hooks/use-settings-form";
 import { useT } from "@/lib/i18n";
@@ -71,12 +72,7 @@ export function SiteSettingsSection({
         <label className="block text-sm text-gray-700">
           <span className="inline-flex items-center gap-1">
             {t("admin.settings.siteTitle")}
-            <span
-              title={t("admin.settings.siteTitleTooltip")}
-              className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-400"
-            >
-              ?
-            </span>
+            <Tooltip text={t("admin.settings.siteTitleTooltip")} />
           </span>
           <input
             value={siteTitle}
@@ -87,12 +83,7 @@ export function SiteSettingsSection({
         <label className="block text-sm text-gray-700">
           <span className="inline-flex items-center gap-1">
             {t("admin.settings.siteTagline")}
-            <span
-              title={t("admin.settings.siteTaglineTooltip")}
-              className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-400"
-            >
-              ?
-            </span>
+            <Tooltip text={t("admin.settings.siteTaglineTooltip")} />
           </span>
           <input
             value={siteTagline}
