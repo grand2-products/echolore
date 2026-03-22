@@ -9,6 +9,12 @@ import { ModalShell } from "./ModalShell";
 import { SpaceList } from "./SpaceList";
 
 const ACCEPT = ".md,.typ,.typst";
+const ACCEPT_EXTENSIONS = new Set([".md", ".typ", ".typst"]);
+
+function isAcceptedFile(file: File): boolean {
+  const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+  return ACCEPT_EXTENSIONS.has(ext);
+}
 
 interface ImportFileModalProps {
   open: boolean;
@@ -24,6 +30,7 @@ export function ImportFileModal({ open, onClose }: ImportFileModalProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const { data: spacesData, isLoading } = useSpacesQuery();
   const spaces = spacesData?.spaces ?? [];
 
@@ -32,6 +39,7 @@ export function ImportFileModal({ open, onClose }: ImportFileModalProps) {
     setSelectedSpaceId(null);
     setError(null);
     setImporting(false);
+    setDragging(false);
     importingRef.current = false;
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
@@ -45,6 +53,33 @@ export function ImportFileModal({ open, onClose }: ImportFileModalProps) {
     setSelectedFile(e.target.files?.[0] ?? null);
     setError(null);
   }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragging(false);
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      if (!isAcceptedFile(file)) {
+        setError(t("wiki.import.invalidFileType"));
+        return;
+      }
+      setSelectedFile(file);
+      setError(null);
+    },
+    [t]
+  );
 
   const handleImport = useCallback(() => {
     if (importingRef.current || !selectedFile || !selectedSpaceId) return;
@@ -72,24 +107,44 @@ export function ImportFileModal({ open, onClose }: ImportFileModalProps) {
 
       {error && <ErrorBanner message={error} className="mb-4" />}
 
-      {/* File picker */}
+      {/* File picker with drag & drop */}
       <div className="mb-4">
         <label htmlFor="import-file-input" className="mb-1 block text-sm font-medium text-gray-700">
           {t("wiki.import.fileLabel")}
         </label>
+        <button
+          type="button"
+          className={`flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-6 text-center transition ${
+            dragging
+              ? "border-blue-500 bg-blue-50"
+              : selectedFile
+                ? "border-green-400 bg-green-50"
+                : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100"
+          }`}
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {selectedFile ? (
+            <p className="text-sm text-gray-700">
+              {selectedFile.name}{" "}
+              <span className="text-gray-500">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+            </p>
+          ) : (
+            <p className="text-sm text-gray-500">
+              {dragging ? t("wiki.import.dropzoneActive") : t("wiki.import.dropzone")}
+            </p>
+          )}
+        </button>
         <input
           id="import-file-input"
           ref={fileInputRef}
           type="file"
           accept={ACCEPT}
           onChange={handleFileChange}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100"
+          className="hidden"
         />
-        {selectedFile && (
-          <p className="mt-1 text-xs text-gray-500">
-            {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
-          </p>
-        )}
       </div>
 
       {/* Space picker */}
