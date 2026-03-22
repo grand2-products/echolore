@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 interface ModalShellProps {
   open: boolean;
@@ -9,9 +9,22 @@ interface ModalShellProps {
 }
 
 export function ModalShell({ open, onClose, children }: ModalShellProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open) dialogRef.current?.focus();
+  }, [open]);
+
   const handleBackdropClick = useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
+    (e: React.MouseEvent<HTMLDivElement>) => {
       if (e.target === e.currentTarget) onClose();
+    },
+    [onClose]
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === "Escape") onClose();
     },
     [onClose]
   );
@@ -19,13 +32,15 @@ export function ModalShell({ open, onClose, children }: ModalShellProps) {
   if (!open) return null;
 
   return (
-    <button
-      type="button"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 appearance-none border-none p-0 m-0 cursor-default"
+    <div
+      ref={dialogRef}
+      role="dialog"
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 outline-none"
       onClick={handleBackdropClick}
-      aria-label="Close"
+      onKeyDown={handleKeyDown}
     >
       <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">{children}</div>
-    </button>
+    </div>
   );
 }

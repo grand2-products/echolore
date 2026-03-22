@@ -1,6 +1,13 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { initLlmWithSettings } from "../../ai/llm/init-llm-with-settings.js";
 
+export class LlmNotConfiguredError extends Error {
+  constructor(message = "LLM is not configured or enabled") {
+    super(message);
+    this.name = "LlmNotConfiguredError";
+  }
+}
+
 interface ShorthandBlock {
   id: string;
   type: string;
@@ -55,13 +62,19 @@ export async function processShorthand(
 ): Promise<ShorthandResult> {
   const llm = await initLlmWithSettings({ temperature: 0.2, maxTokens: 2048 });
   if (!llm) {
-    throw new Error("LLM is not configured or enabled");
+    throw new LlmNotConfiguredError();
   }
 
-  const response = await llm.model.invoke([
-    new SystemMessage(SYSTEM_PROMPT),
-    new HumanMessage(buildHumanMessage(pageTitle, blocks, input)),
-  ]);
+  let response: Awaited<ReturnType<typeof llm.model.invoke>>;
+  try {
+    response = await llm.model.invoke([
+      new SystemMessage(SYSTEM_PROMPT),
+      new HumanMessage(buildHumanMessage(pageTitle, blocks, input)),
+    ]);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`LLM invocation failed: ${msg}`);
+  }
 
   const text =
     typeof response.content === "string"
@@ -81,7 +94,16 @@ export async function processShorthand(
     .replace(/\n?```\s*$/i, "")
     .trim();
 
-  const parsed = JSON.parse(cleaned) as ShorthandResult;
+  if (!cleaned) {
+    throw new Error("LLM returned an empty response");
+  }
+
+  let parsed: ShorthandResult;
+  try {
+    parsed = JSON.parse(cleaned) as ShorthandResult;
+  } catch {
+    throw new Error(`LLM returned invalid JSON: ${cleaned.slice(0, 200)}`);
+  }
 
   // Validate structure
   if (!Array.isArray(parsed.operations)) {

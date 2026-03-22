@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Tooltip } from "@/components/ui";
 import { type AgentDefinition, adminApi, type CreateAgentRequest } from "@/lib/api";
+import { aituberApi, type TtsVoice } from "@/lib/api/aituber";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useFormatters, useT } from "@/lib/i18n";
@@ -45,6 +47,20 @@ export default function AdminAgentsPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [testModal, setTestModal] = useState<TestModalState | null>(null);
+  const [voices, setVoices] = useState<TtsVoice[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    aituberApi
+      .listVoices()
+      .then(({ voices }) => {
+        if (!cancelled) setVoices(voices);
+      })
+      .catch((err) => console.warn("Failed to load TTS voices:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const displayError = error ?? saveError;
 
@@ -182,7 +198,10 @@ export default function AdminAgentsPage() {
 
           <div className="space-y-4">
             <label className="block text-sm text-gray-700">
-              {t("admin.agents.name")}
+              <span className="inline-flex items-center gap-1">
+                {t("admin.agents.name")}
+                <Tooltip text={t("admin.agents.tooltips.name")} />
+              </span>
               <input
                 value={form.name}
                 onChange={(event) =>
@@ -193,7 +212,10 @@ export default function AdminAgentsPage() {
             </label>
 
             <label className="block text-sm text-gray-700">
-              {t("admin.agents.descriptionLabel")}
+              <span className="inline-flex items-center gap-1">
+                {t("admin.agents.descriptionLabel")}
+                <Tooltip text={t("admin.agents.tooltips.description")} />
+              </span>
               <input
                 value={form.description ?? ""}
                 onChange={(event) =>
@@ -204,7 +226,10 @@ export default function AdminAgentsPage() {
             </label>
 
             <label className="block text-sm text-gray-700">
-              {t("admin.agents.interventionStyle")}
+              <span className="inline-flex items-center gap-1">
+                {t("admin.agents.interventionStyle")}
+                <Tooltip text={t("admin.agents.tooltips.interventionStyle")} />
+              </span>
               <select
                 value={form.interventionStyle}
                 onChange={(event) => {
@@ -228,18 +253,34 @@ export default function AdminAgentsPage() {
             </label>
 
             <label className="block text-sm text-gray-700">
-              {t("admin.agents.voiceProfile")}
-              <input
+              <span className="inline-flex items-center gap-1">
+                {t("admin.agents.voiceProfile")}
+                <Tooltip text={t("admin.agents.tooltips.voiceProfile")} />
+              </span>
+              <select
                 value={form.voiceProfile ?? ""}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, voiceProfile: event.target.value }))
+                  setForm((current) => ({
+                    ...current,
+                    voiceProfile: event.target.value || null,
+                  }))
                 }
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-              />
+              >
+                <option value="">{t("admin.agents.voiceDefault")}</option>
+                {voices.map((v) => (
+                  <option key={v.name} value={v.name}>
+                    {v.name} ({v.gender}, {v.languageCodes.join(", ")})
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="block text-sm text-gray-700">
-              {t("admin.agents.providerLabel")}
+              <span className="inline-flex items-center gap-1">
+                {t("admin.agents.providerLabel")}
+                <Tooltip text={t("admin.agents.tooltips.provider")} />
+              </span>
               <select
                 value={form.defaultProvider}
                 onChange={(event) => {
@@ -259,7 +300,10 @@ export default function AdminAgentsPage() {
             </label>
 
             <label className="block text-sm text-gray-700">
-              {t("admin.agents.systemPrompt")}
+              <span className="inline-flex items-center gap-1">
+                {t("admin.agents.systemPrompt")}
+                <Tooltip text={t("admin.agents.tooltips.systemPrompt")} />
+              </span>
               <textarea
                 value={form.systemPrompt}
                 onChange={(event) =>
@@ -279,6 +323,7 @@ export default function AdminAgentsPage() {
                 }
               />
               {t("admin.agents.activeLabel")}
+              <Tooltip text={t("admin.agents.tooltips.active")} />
             </label>
 
             <label className="flex items-center gap-2 text-sm text-gray-700">
@@ -290,11 +335,15 @@ export default function AdminAgentsPage() {
                 }
               />
               {t("admin.agents.autonomousEnabled")}
+              <Tooltip text={t("admin.agents.tooltips.autonomousEnabled")} />
             </label>
 
             {form.autonomousEnabled ? (
               <label className="block text-sm text-gray-700">
-                {t("admin.agents.autonomousCooldown")}
+                <span className="inline-flex items-center gap-1">
+                  {t("admin.agents.autonomousCooldown")}
+                  <Tooltip text={t("admin.agents.tooltips.autonomousCooldown")} />
+                </span>
                 <input
                   type="number"
                   min={10}

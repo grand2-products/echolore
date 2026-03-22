@@ -264,6 +264,7 @@ export interface UpdateEmailSettingsRequest {
 }
 
 export type LlmProvider = "google" | "vertex" | "zhipu";
+export type EmbeddingProvider = "google" | "vertex";
 
 export interface LlmSettings {
   provider: LlmProvider;
@@ -276,6 +277,7 @@ export interface LlmSettings {
   zhipuTextModel: string | null;
   zhipuUseCodingPlan: boolean;
   embeddingEnabled: boolean;
+  embeddingProvider: EmbeddingProvider;
   embeddingModel: string | null;
   embeddingDimensions: number | null;
 }
@@ -291,6 +293,7 @@ export interface UpdateLlmSettingsRequest {
   zhipuTextModel?: string | null;
   zhipuUseCodingPlan?: boolean;
   embeddingEnabled?: boolean;
+  embeddingProvider?: EmbeddingProvider;
   embeddingModel?: string | null;
   embeddingDimensions?: number | null;
 }

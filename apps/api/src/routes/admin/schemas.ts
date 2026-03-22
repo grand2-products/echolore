@@ -91,6 +91,7 @@ export const updateLlmSettingsSchema = z.object({
   zhipuTextModel: z.string().max(100).nullable().optional(),
   zhipuUseCodingPlan: z.boolean().optional(),
   embeddingEnabled: z.boolean().optional(),
+  embeddingProvider: z.enum(["google", "vertex"]).optional(),
   embeddingModel: z.string().max(100).nullable().optional(),
   embeddingDimensions: z
     .union([z.literal(768), z.literal(1536), z.literal(3072)])

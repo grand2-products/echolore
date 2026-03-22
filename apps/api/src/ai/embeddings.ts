@@ -1,3 +1,4 @@
+import { GoogleAuth } from "google-auth-library";
 import { getLlmSettings } from "../services/admin/llm-settings-service.js";
 
 export type EmbeddingTaskType =
@@ -19,6 +20,9 @@ export async function isEmbeddingEnabled() {
   try {
     const settings = await getLlmSettings();
     if (settings.embeddingEnabled === false) return false;
+    if (settings.embeddingProvider === "vertex") {
+      return Boolean(settings.vertexProject);
+    }
     return Boolean(settings.geminiApiKey);
   } catch {
     return false;
@@ -74,18 +78,38 @@ export async function embedText(
   text: string,
   options: EmbedTextOptions = {}
 ): Promise<number[] | null> {
-  let apiKey: string | null = null;
-  let model: string;
+  let settings: Awaited<ReturnType<typeof getLlmSettings>>;
   try {
-    const settings = await getLlmSettings();
-    if (settings.embeddingEnabled === false) return null;
-    apiKey = settings.geminiApiKey || null;
-    model = settings.embeddingModel || DEFAULT_EMBEDDING_MODEL;
+    settings = await getLlmSettings();
   } catch {
-    apiKey = null;
-    model = DEFAULT_EMBEDDING_MODEL;
+    return null;
   }
+  if (settings.embeddingEnabled === false) return null;
+
+  if (settings.embeddingProvider === "vertex") {
+    return embedTextVertex(text, options, settings);
+  }
+  return embedTextGemini(text, options, settings);
+}
+
+// ---------------------------------------------------------------------------
+// Gemini API (API key auth)
+// ---------------------------------------------------------------------------
+
+interface GeminiEmbedSettings {
+  geminiApiKey: string | null;
+  embeddingModel: string | null;
+}
+
+async function embedTextGemini(
+  text: string,
+  options: EmbedTextOptions,
+  settings: GeminiEmbedSettings
+): Promise<number[] | null> {
+  const apiKey = settings.geminiApiKey || null;
   if (!apiKey) return null;
+
+  const model = settings.embeddingModel || DEFAULT_EMBEDDING_MODEL;
   const body = {
     model,
     content: {
@@ -114,6 +138,84 @@ export async function embedText(
   };
 
   const values = data.embedding?.values;
+  if (!values || values.length === 0) return null;
+  return values;
+}
+
+// ---------------------------------------------------------------------------
+// Vertex AI (ADC / service account auth)
+// ---------------------------------------------------------------------------
+
+interface VertexEmbedSettings {
+  vertexProject: string | null;
+  vertexLocation: string | null;
+  embeddingModel: string | null;
+}
+
+let vertexAuth: GoogleAuth | undefined;
+
+function getVertexAuth(): GoogleAuth {
+  if (!vertexAuth) {
+    vertexAuth = new GoogleAuth({
+      scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+    });
+  }
+  return vertexAuth;
+}
+
+async function embedTextVertex(
+  text: string,
+  options: EmbedTextOptions,
+  settings: VertexEmbedSettings
+): Promise<number[] | null> {
+  const project = settings.vertexProject;
+  if (!project) return null;
+
+  const location = settings.vertexLocation || "asia-northeast1";
+  const model = settings.embeddingModel || DEFAULT_EMBEDDING_MODEL;
+
+  const auth = getVertexAuth();
+  const client = await auth.getClient();
+  const tokenResponse = await client.getAccessToken();
+  const accessToken = typeof tokenResponse === "string" ? tokenResponse : tokenResponse?.token;
+  if (!accessToken)
+    throw new Error("Failed to obtain Google Cloud access token for Vertex AI embedding");
+
+  const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${model}:predict`;
+
+  const body = {
+    instances: [
+      {
+        content: text,
+        ...(options.taskType ? { task_type: options.taskType } : {}),
+      },
+    ],
+    parameters: {
+      ...(options.outputDimensionality
+        ? { outputDimensionality: options.outputDimensionality }
+        : {}),
+    },
+  };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(`Vertex AI embedding request failed: ${response.status} ${message}`);
+  }
+
+  const data = (await response.json()) as {
+    predictions?: Array<{ embeddings?: { values?: number[] } }>;
+  };
+
+  const values = data.predictions?.[0]?.embeddings?.values;
   if (!values || values.length === 0) return null;
 
   return values;
