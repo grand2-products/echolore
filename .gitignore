@@ -1,3 +1,6 @@
+# Private / local test data
+private/
+
 # Dependencies
 node_modules/
 .pnpm-store/

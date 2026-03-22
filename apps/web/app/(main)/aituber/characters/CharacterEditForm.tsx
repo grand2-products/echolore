@@ -370,6 +370,47 @@ function VrmFileInput({
               ? (meta.authors as string[])
               : [],
           licenseUrl: (isVrm0 ? meta?.licenseName : meta?.licenseUrl) ?? "",
+          version: meta?.version ?? undefined,
+          copyrightInformation: isVrm0 ? undefined : (meta?.copyrightInformation ?? undefined),
+          contactInformation: meta?.contactInformation ?? undefined,
+          references: isVrm0
+            ? meta?.reference
+              ? [meta.reference]
+              : undefined
+            : Array.isArray(meta?.references)
+              ? (meta.references as string[])
+              : undefined,
+          thirdPartyLicenses: isVrm0 ? undefined : (meta?.thirdPartyLicenses ?? undefined),
+          avatarPermission: isVrm0
+            ? (meta?.allowedUserName ?? undefined)
+            : (meta?.avatarPermission ?? undefined),
+          allowExcessivelyViolentUsage: isVrm0
+            ? meta?.violentUssageName === "Allow"
+              ? true
+              : meta?.violentUssageName === "Disallow"
+                ? false
+                : undefined
+            : (meta?.allowExcessivelyViolentUsage ?? undefined),
+          allowExcessivelySexualUsage: isVrm0
+            ? meta?.sexualUssageName === "Allow"
+              ? true
+              : meta?.sexualUssageName === "Disallow"
+                ? false
+                : undefined
+            : (meta?.allowExcessivelySexualUsage ?? undefined),
+          commercialUsage: isVrm0
+            ? (meta?.commercialUssageName ?? undefined)
+            : (meta?.commercialUsage ?? undefined),
+          allowPoliticalOrReligiousUsage: isVrm0
+            ? undefined
+            : (meta?.allowPoliticalOrReligiousUsage ?? undefined),
+          allowAntisocialOrHateUsage: isVrm0
+            ? undefined
+            : (meta?.allowAntisocialOrHateUsage ?? undefined),
+          creditNotation: isVrm0 ? undefined : (meta?.creditNotation ?? undefined),
+          allowRedistribution: isVrm0 ? undefined : (meta?.allowRedistribution ?? undefined),
+          modification: isVrm0 ? undefined : (meta?.modification ?? undefined),
+          otherLicenseUrl: meta?.otherLicenseUrl ?? undefined,
         });
         // Clean up parsed scene to free memory
         VRMUtils.deepDispose(vrm.scene);
