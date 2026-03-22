@@ -358,6 +358,67 @@ export interface UpdateStorageSettingsRequest {
   gcsKeyJson?: string | null;
 }
 
+export type BackupProviderType = "gcs" | "s3";
+
+export interface BackupSettings {
+  provider: BackupProviderType | null;
+  retentionDays: number | null;
+  s3Endpoint: string | null;
+  s3Region: string | null;
+  s3Bucket: string | null;
+  s3AccessKey: string | null;
+  s3SecretKey: string | null;
+  s3ForcePathStyle: boolean;
+  gcsBucket: string | null;
+  gcsUseGcpDefaults: boolean;
+  gcsProjectId: string | null;
+  gcsKeyJson: string | null;
+  slackWebhookUrl: string | null;
+}
+
+export interface UpdateBackupSettingsRequest {
+  provider?: BackupProviderType | null;
+  retentionDays?: number | null;
+  s3Endpoint?: string | null;
+  s3Region?: string | null;
+  s3Bucket?: string | null;
+  s3AccessKey?: string | null;
+  s3SecretKey?: string | null;
+  s3ForcePathStyle?: boolean;
+  gcsBucket?: string | null;
+  gcsUseGcpDefaults?: boolean;
+  gcsProjectId?: string | null;
+  gcsKeyJson?: string | null;
+  slackWebhookUrl?: string | null;
+}
+
+export interface BackupEntry {
+  name: string;
+  size: number;
+  createdAt: string;
+}
+
+export type BackupHealthStatus = "healthy" | "warning" | "critical" | "unconfigured";
+
+export interface BackupListResponse {
+  backups: BackupEntry[];
+  latestAt: string | null;
+  healthStatus: BackupHealthStatus;
+}
+
+export type BackupJobState = "idle" | "backing-up" | "restoring";
+
+export interface BackupJobStatus {
+  state: BackupJobState;
+  operation: "backup" | "restore" | null;
+  startedAt: string | null;
+  targetFile: string | null;
+  progressMessage: string | null;
+  error: string | null;
+  completedAt: string | null;
+  lastResult: "success" | "error" | null;
+}
+
 export type CreateAdminGroupRequest = import("@echolore/shared/contracts").CreateAdminGroupRequest;
 export type UpdateAdminGroupRequest = import("@echolore/shared/contracts").UpdateAdminGroupRequest;
 

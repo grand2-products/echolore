@@ -7,6 +7,9 @@ import type {
   AdminUserRecord,
   AgentDefinition,
   AuthSettings,
+  BackupJobStatus,
+  BackupListResponse,
+  BackupSettings,
   CreateAdminGroupRequest,
   CreateAgentRequest,
   EmailSettings,
@@ -18,6 +21,7 @@ import type {
   UpdateAdminGroupRequest,
   UpdateAgentRequest,
   UpdateAuthSettingsRequest,
+  UpdateBackupSettingsRequest,
   UpdateEmailSettingsRequest,
   UpdateGcpCredentialsRequest,
   UpdateLlmSettingsRequest,
@@ -165,6 +169,37 @@ export const adminApi = {
   testStorageConnection: () =>
     fetchApi<{ ok: boolean; provider?: string; error?: string }>("/admin/storage-settings/test", {
       method: "POST",
+    }),
+
+  getBackupSettings: () => fetchApi<BackupSettings>("/admin/backup-settings"),
+
+  updateBackupSettings: (data: UpdateBackupSettingsRequest) =>
+    fetchApi<BackupSettings>("/admin/backup-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  testBackupConnection: () =>
+    fetchApi<{ ok: boolean; provider?: string; error?: string }>("/admin/backup-settings/test", {
+      method: "POST",
+    }),
+
+  listBackups: () => fetchApi<BackupListResponse>("/admin/backups"),
+
+  runBackup: () =>
+    fetchApi<{ success: boolean; message: string }>("/admin/backups/run", { method: "POST" }),
+
+  restoreBackup: (backupName: string) =>
+    fetchApi<{ success: boolean; message: string }>("/admin/backups/restore", {
+      method: "POST",
+      body: JSON.stringify({ backupName, confirm: true }),
+    }),
+
+  getBackupJobStatus: () => fetchApi<BackupJobStatus>("/admin/backups/status"),
+
+  deleteBackup: (name: string) =>
+    fetchApi<{ success: boolean }>(`/admin/backups/${encodeURIComponent(name)}`, {
+      method: "DELETE",
     }),
 
   uploadSiteIcon: async (file: File): Promise<{ success: boolean }> => {

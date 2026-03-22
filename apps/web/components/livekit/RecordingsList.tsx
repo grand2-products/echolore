@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { type MeetingRecording, meetingsApi } from "@/lib/api";
+import { formatBytes } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 
 export interface RecordingsListProps {
@@ -41,7 +42,7 @@ export default function RecordingsList({ meetingId }: RecordingsListProps) {
 
   const formatSize = (bytes: number | null) => {
     if (bytes == null) return "\u2014";
-    return (bytes / (1024 * 1024)).toFixed(1);
+    return formatBytes(bytes);
   };
 
   return (

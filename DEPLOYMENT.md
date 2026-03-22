@@ -166,77 +166,59 @@ docker compose up -d --remove-orphans
 
 ## 5. バックアップ
 
-### データベース
+PostgreSQL のダンプをクラウドオブジェクトストレージ（GCS または S3）に退避します。
+バックアップ・リストアは API エンドポイント経由で実行されるため、VPS・Fargate・Cloud Run のいずれでも動作します。
+
+ファイルストレージ（アップロードファイル・録画等）は S3/GCS に直接保存する前提のため、別途バックアップは不要です。
+
+### セットアップ
+
+1. バックアップ先バケットを作成
+
+   **GCS の場合:**
+   ```bash
+   gcloud storage buckets create gs://echolore-prod-backups --location=asia-northeast1
+   ```
+
+   **S3 の場合:**
+   ```bash
+   aws s3 mb s3://echolore-prod-backups --region ap-northeast-1
+   ```
+
+2. 管理画面 (`/admin/settings`) の「データベースバックアップ」セクションでプロバイダ・バケット・認証情報・保持日数を設定
+
+3. 「接続テスト」で疎通を確認
+
+### バックアップの実行
+
+**管理画面から:** 「今すぐバックアップ」ボタンをクリック
+
+**API から:** `POST /api/admin/backups/run`（管理者認証必要）
+
+**定期実行:** 外部スケジューラから API を呼び出す
 
 ```bash
-cd /opt/echolore
-docker compose exec -T db pg_dump -U wiki wiki > backup_$(date +%Y%m%d).sql
+# VPS: cron
+0 3 * * * root /opt/echolore/scripts/backup.sh >> /var/log/echolore-backup.log 2>&1
+
+# AWS: EventBridge → HTTP target
+# GCP: Cloud Scheduler → HTTP target
 ```
+
+`scripts/backup.sh` は `POST /api/admin/backups/run` を呼ぶ薄いラッパーです。
+環境変数 `BACKUP_API_URL` と `BACKUP_API_TOKEN`（管理者の Bearer トークン）を設定してください。
 
 ### リストア
 
-```bash
-cd /opt/echolore
-docker compose exec -T db psql -U wiki wiki < backup_20260315.sql
-```
+管理画面のバックアップ一覧から「リストア」をクリックし、確認ダイアログで承認します。
 
-### ファイルストレージ
+リストア中は DB 接続が一時的に切断されるため、API リクエストが数秒〜数十秒失敗します。
+完了後、接続プールが自動で再接続し、通常動作に復帰します。
 
-ローカルストレージの場合、`file_data` Docker ボリュームにファイルが保存されています:
+### ステータス確認
 
-```bash
-docker run --rm -v echolore_file_data:/data -v $(pwd):/backup alpine tar czf /backup/files_backup.tar.gz -C /data .
-```
-
-### 単一インスタンス向け: cron + GCS への日次ファイルバックアップ
-
-1. バックアップ先バケットを作成（例: `gs://echolore-prod-backups`）— GCS の初期設定は [付録 A-5](#a-5-google-cloud-storagegcs) 参照
-2. サーバーに `gcloud` CLI をインストールし、サービスアカウントで認証
-3. `roles/storage.objectAdmin`（最小化するなら bucket 単位の書き込み権限）を付与
-
-`/opt/echolore/scripts/backup-files-to-gcs.sh` を作成:
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-BACKUP_BUCKET="gs://echolore-prod-backups"
-TIMESTAMP="$(date -u +%Y%m%d-%H%M%S)"
-ARCHIVE_NAME="echolore-files-${TIMESTAMP}.tar.gz"
-ARCHIVE_PATH="/tmp/${ARCHIVE_NAME}"
-
-cd /opt/echolore
-
-# Docker volume(file_data) からアーカイブ作成
-docker run --rm \
-  -v echolore_file_data:/data \
-  -v /tmp:/backup \
-  alpine sh -c "tar czf /backup/${ARCHIVE_NAME} -C /data ."
-
-# GCS へアップロード
-gcloud storage cp "${ARCHIVE_PATH}" "${BACKUP_BUCKET}/files/${ARCHIVE_NAME}"
-
-# ローカル一時ファイルを削除
-rm -f "${ARCHIVE_PATH}"
-```
-
-実行権限を付与:
-
-```bash
-chmod +x /opt/echolore/scripts/backup-files-to-gcs.sh
-```
-
-cron 設定（毎日 03:30 実行）:
-
-```bash
-cat <<'CRON' | sudo tee /etc/cron.d/echolore-files-backup >/dev/null
-30 3 * * * root /opt/echolore/scripts/backup-files-to-gcs.sh >> /var/log/echolore-files-backup.log 2>&1
-CRON
-
-sudo chmod 644 /etc/cron.d/echolore-files-backup
-```
-
-> 推奨: GCS バケット側で Lifecycle Rule を設定し、古いバックアップを自動削除してください（例: 30 日保持）。
+管理画面にバックアップ一覧・ヘルスステータス・ジョブ進捗がリアルタイムで表示されます。
+API: `GET /api/admin/backups/status`
 
 ---
 

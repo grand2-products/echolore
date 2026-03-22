@@ -1,6 +1,6 @@
 import type { StorageProviderConfig, StorageProviderType } from "../../lib/file-storage.js";
 import { createTypedSettingsService, FieldCodecs, field } from "./create-settings-cache.js";
-import { getGcpCredentials } from "./gcp-credentials-service.js";
+import { resolveGcpCredentials } from "./resolve-gcp-config.js";
 
 export interface StorageSettings {
   provider: StorageProviderType;
@@ -41,18 +41,11 @@ export const updateStorageSettings = cache.update;
 export async function buildStorageConfig(
   settings: StorageSettings
 ): Promise<StorageProviderConfig> {
-  let gcsProjectId = settings.gcsProjectId ?? undefined;
-  let gcsKeyJson = settings.gcsKeyJson ?? undefined;
-
-  if (settings.provider === "gcs" && settings.gcsUseGcpDefaults) {
-    try {
-      const gcpCreds = await getGcpCredentials();
-      gcsProjectId = gcpCreds.gcpProjectId ?? undefined;
-      gcsKeyJson = gcpCreds.gcpServiceAccountKeyJson ?? undefined;
-    } catch {
-      /* fall through to ADC */
-    }
-  }
+  const { gcsProjectId, gcsKeyJson } = await resolveGcpCredentials(
+    settings.provider === "gcs" && settings.gcsUseGcpDefaults,
+    settings.gcsProjectId,
+    settings.gcsKeyJson
+  );
 
   return {
     provider: settings.provider,

@@ -4,12 +4,9 @@ import { useState } from "react";
 import { adminApi, type StorageProviderType } from "@/lib/api";
 import { useSettingsForm } from "@/lib/hooks/use-settings-form";
 import { useT } from "@/lib/i18n";
-import {
-  INPUT_CLASS,
-  SettingsCheckbox,
-  SettingsSaveButton,
-  SettingsSectionShell,
-} from "./SettingsSectionShell";
+import { GcsFieldGroup } from "./GcsFieldGroup";
+import { S3FieldGroup } from "./S3FieldGroup";
+import { INPUT_CLASS, SettingsSaveButton, SettingsSectionShell } from "./SettingsSectionShell";
 import type { TestModalState } from "./TestConnectionModal";
 import { useConnectionTest } from "./use-connection-test";
 
@@ -129,103 +126,33 @@ export function StorageSettingsSection({ onTestModal }: StorageSettingsSectionPr
         )}
 
         {storageProvider === "s3" && (
-          <>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.storageS3Endpoint")}
-              <input
-                value={storageS3Endpoint}
-                onChange={(e) => setStorageS3Endpoint(e.target.value)}
-                placeholder="https://s3.amazonaws.com"
-                className={INPUT_CLASS}
-              />
-            </label>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.storageS3Region")}
-              <input
-                value={storageS3Region}
-                onChange={(e) => setStorageS3Region(e.target.value)}
-                placeholder="us-east-1"
-                className={INPUT_CLASS}
-              />
-            </label>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.storageS3Bucket")}
-              <input
-                value={storageS3Bucket}
-                onChange={(e) => setStorageS3Bucket(e.target.value)}
-                placeholder="my-bucket"
-                className={INPUT_CLASS}
-              />
-            </label>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.storageS3AccessKey")}
-              <input
-                value={storageS3AccessKey}
-                onChange={(e) => setStorageS3AccessKey(e.target.value)}
-                placeholder="AKIA..."
-                className={INPUT_CLASS}
-              />
-            </label>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.storageS3SecretKey")}
-              <input
-                type="password"
-                value={storageS3SecretKey}
-                onChange={(e) => setStorageS3SecretKey(e.target.value)}
-                autoComplete="off"
-                className={INPUT_CLASS}
-              />
-            </label>
-            <SettingsCheckbox
-              checked={storageS3ForcePathStyle}
-              onChange={setStorageS3ForcePathStyle}
-              label={t("admin.settings.storageS3ForcePathStyle")}
-              hint={t("admin.settings.storageS3ForcePathStyleHint")}
-            />
-          </>
+          <S3FieldGroup
+            endpoint={storageS3Endpoint}
+            onEndpointChange={setStorageS3Endpoint}
+            region={storageS3Region}
+            onRegionChange={setStorageS3Region}
+            bucket={storageS3Bucket}
+            onBucketChange={setStorageS3Bucket}
+            accessKey={storageS3AccessKey}
+            onAccessKeyChange={setStorageS3AccessKey}
+            secretKey={storageS3SecretKey}
+            onSecretKeyChange={setStorageS3SecretKey}
+            forcePathStyle={storageS3ForcePathStyle}
+            onForcePathStyleChange={setStorageS3ForcePathStyle}
+          />
         )}
 
         {storageProvider === "gcs" && (
-          <>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.storageGcsBucket")}
-              <input
-                value={storageGcsBucket}
-                onChange={(e) => setStorageGcsBucket(e.target.value)}
-                placeholder="my-bucket"
-                className={INPUT_CLASS}
-              />
-            </label>
-            <SettingsCheckbox
-              checked={storageGcsUseGcpDefaults}
-              onChange={setStorageGcsUseGcpDefaults}
-              label={t("admin.settings.storageGcsUseDefaults")}
-              hint={t("admin.settings.storageGcsUseDefaultsHint")}
-            />
-            {!storageGcsUseGcpDefaults && (
-              <>
-                <label className="block text-sm text-gray-700">
-                  {t("admin.settings.storageGcsProjectId")}
-                  <input
-                    value={storageGcsProjectId}
-                    onChange={(e) => setStorageGcsProjectId(e.target.value)}
-                    placeholder="my-gcp-project"
-                    className={INPUT_CLASS}
-                  />
-                </label>
-                <label className="block text-sm text-gray-700">
-                  {t("admin.settings.storageGcsKeyJson")}
-                  <textarea
-                    value={storageGcsKeyJson}
-                    onChange={(e) => setStorageGcsKeyJson(e.target.value)}
-                    rows={4}
-                    placeholder='{"type":"service_account",...}'
-                    className={INPUT_CLASS}
-                  />
-                </label>
-              </>
-            )}
-          </>
+          <GcsFieldGroup
+            bucket={storageGcsBucket}
+            onBucketChange={setStorageGcsBucket}
+            useGcpDefaults={storageGcsUseGcpDefaults}
+            onUseGcpDefaultsChange={setStorageGcsUseGcpDefaults}
+            projectId={storageGcsProjectId}
+            onProjectIdChange={setStorageGcsProjectId}
+            keyJson={storageGcsKeyJson}
+            onKeyJsonChange={setStorageGcsKeyJson}
+          />
         )}
 
         <div className="flex gap-3">

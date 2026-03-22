@@ -114,6 +114,22 @@ export const updateStorageSettingsSchema = z.object({
   gcsKeyJson: z.string().max(10000).nullable().optional(),
 });
 
+export const updateBackupSettingsSchema = z.object({
+  provider: z.enum(["gcs", "s3"]).nullable().optional(),
+  retentionDays: z.number().int().min(1).max(365).nullable().optional(),
+  s3Endpoint: z.string().max(500).nullable().optional(),
+  s3Region: z.string().max(100).nullable().optional(),
+  s3Bucket: z.string().max(200).nullable().optional(),
+  s3AccessKey: z.string().max(500).nullable().optional(),
+  s3SecretKey: z.string().max(500).nullable().optional(),
+  s3ForcePathStyle: z.boolean().optional(),
+  gcsBucket: z.string().max(200).nullable().optional(),
+  gcsUseGcpDefaults: z.boolean().optional(),
+  gcsProjectId: z.string().max(200).nullable().optional(),
+  gcsKeyJson: z.string().max(10000).nullable().optional(),
+  slackWebhookUrl: z.string().url().max(500).nullable().optional(),
+});
+
 export const updateGcpCredentialsSchema = z.object({
   gcpProjectId: z.string().max(200).nullable().optional(),
   gcpServiceAccountKeyJson: z.string().max(10000).nullable().optional(),
