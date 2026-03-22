@@ -3,6 +3,7 @@
 import type { BlockNoteEditor } from "@blocknote/core";
 import { useCallback, useRef, useState } from "react";
 import { wikiApi } from "@/lib/api";
+import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 import { applyShorthandOperations, serializeEditorForLlm } from "@/lib/wiki-shorthand";
 
@@ -15,6 +16,7 @@ interface ShorthandBarProps {
 
 export function ShorthandBar({ pageId, pageTitle, editor }: ShorthandBarProps) {
   const t = useT();
+  const getApiErrorMessage = useApiErrorMessage();
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -54,7 +56,7 @@ export function ShorthandBar({ pageId, pageTitle, editor }: ShorthandBarProps) {
       }
 
       setStatus("error");
-      setErrorMsg(t("wiki.shorthand.error"));
+      setErrorMsg(getApiErrorMessage(err, t("wiki.shorthand.error")));
       setInput("");
 
       if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
@@ -63,7 +65,7 @@ export function ShorthandBar({ pageId, pageTitle, editor }: ShorthandBarProps) {
         setErrorMsg("");
       }, 3000);
     }
-  }, [input, pageId, pageTitle, editor, t]);
+  }, [input, pageId, pageTitle, editor, t, getApiErrorMessage]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

@@ -64,6 +64,8 @@ export async function tryCatchResponse(
   } catch (error) {
     if (error instanceof Response) return error;
     console.error(`${errorMessage}:`, error);
-    return jsonError(c, statusCode, errorCode, errorMessage);
+    const raw = error instanceof Error ? error.message : undefined;
+    const detail = raw && raw.length <= 300 ? raw : undefined;
+    return jsonError(c, statusCode, errorCode, errorMessage, detail);
   }
 }
