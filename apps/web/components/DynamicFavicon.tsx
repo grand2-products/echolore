@@ -1,35 +1,25 @@
 "use client";
 
 import { useEffect } from "react";
-import { getSiteIconUrl, siteSettingsApi } from "@/lib/api";
+import { getSiteIconUrl } from "@/lib/api";
+import { usePublicSiteSettings } from "@/lib/hooks/use-public-site-settings";
 
 export function DynamicFavicon() {
+  const { data: settings } = usePublicSiteSettings();
+
   useEffect(() => {
-    let cancelled = false;
+    if (!settings?.hasSiteIcon) return;
 
-    void siteSettingsApi
-      .get()
-      .then((settings) => {
-        if (cancelled || !settings.hasSiteIcon) return;
+    const url = `${getSiteIconUrl()}?v=${Date.now()}`;
 
-        const url = `${getSiteIconUrl()}?v=${Date.now()}`;
-
-        let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-        if (!link) {
-          link = document.createElement("link");
-          link.rel = "icon";
-          document.head.appendChild(link);
-        }
-        link.href = url;
-      })
-      .catch(() => {
-        // ignore — no favicon is fine
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.href = url;
+  }, [settings?.hasSiteIcon]);
 
   return null;
 }

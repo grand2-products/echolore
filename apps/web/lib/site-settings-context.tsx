@@ -28,6 +28,7 @@ const defaultSettings: SiteSettings = {
   livekitCoworkingFocusIdentity: null,
   hasSiteIcon: false,
   googleOAuthEnabled: false,
+  llmEnabled: false,
 };
 
 interface SiteSettingsContextValue {
@@ -57,6 +58,7 @@ function applyDefaults(data: SiteSettings): SiteSettings {
     livekitCoworkingFocusIdentity: data.livekitCoworkingFocusIdentity ?? null,
     hasSiteIcon: data.hasSiteIcon ?? false,
     googleOAuthEnabled: data.googleOAuthEnabled ?? false,
+    llmEnabled: data.llmEnabled ?? false,
   };
 }
 

@@ -10,6 +10,7 @@ import type { XmlFragment } from "yjs";
 import { type ConnectionStatus, useCollaboration } from "@/hooks/use-collaboration";
 import { filesApi, getWikiFileDownloadUrl, wikiApi } from "@/lib/api";
 import { useT } from "@/lib/i18n";
+import { useSiteSettings } from "@/lib/site-settings-context";
 import { blockDtosToBlocks } from "@/lib/wiki-serializer";
 import { CollaboratorAvatars } from "./CollaboratorAvatars";
 import { ShorthandBar } from "./ShorthandBar";
@@ -154,6 +155,7 @@ function CollabEditor({
   userName: string;
   userColor: string;
 }) {
+  const { settings } = useSiteSettings();
   const initialBlocksRef = useRef(initialBlocks);
   const pageIdRef = useRef(pageId);
   pageIdRef.current = pageId;
@@ -245,7 +247,9 @@ function CollabEditor({
         theme="light"
         onKeyDownCapture={handleKeyDown}
       />
-      {!readOnly && <ShorthandBar pageId={pageId} pageTitle={pageTitle} editor={editor} />}
+      {!readOnly && settings.llmEnabled && (
+        <ShorthandBar pageId={pageId} pageTitle={pageTitle} editor={editor} />
+      )}
     </>
   );
 }

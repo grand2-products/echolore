@@ -9,7 +9,6 @@ import { getYjsState, upsertYjsState } from "../../repositories/wiki/yjs-documen
 
 const MSG_SYNC = 0;
 const MSG_AWARENESS = 1;
-const MSG_PING = 9;
 const MSG_QUERY_AWARENESS = 3;
 
 const PING_INTERVAL_MS = 15_000;
@@ -51,12 +50,18 @@ function broadcast(entry: DocEntry, sender: WSContext | null, message: Uint8Arra
   }
 }
 
-/** Pre-encoded ping message (single-byte varUint for MSG_PING) */
-const PING_MESSAGE = (() => {
+/** Build an awareness broadcast message for keep-alive purposes. */
+function buildAwarenessMessage(awareness: awarenessProtocol.Awareness): Uint8Array | null {
+  const states = awareness.getStates();
+  if (states.size === 0) return null;
   const encoder = encoding.createEncoder();
-  encoding.writeVarUint(encoder, MSG_PING);
+  encoding.writeVarUint(encoder, MSG_AWARENESS);
+  encoding.writeVarUint8Array(
+    encoder,
+    awarenessProtocol.encodeAwarenessUpdate(awareness, Array.from(states.keys()))
+  );
   return encoding.toUint8Array(encoder);
-})();
+}
 
 async function getOrCreateDoc(pageId: string): Promise<DocEntry> {
   const existing = docs.get(pageId);
@@ -173,7 +178,8 @@ export async function addConnection(
   // Start ping timer when first client connects
   if (!entry.pingTimer) {
     entry.pingTimer = setInterval(() => {
-      broadcast(entry, null, PING_MESSAGE);
+      const msg = buildAwarenessMessage(entry.awareness);
+      if (msg) broadcast(entry, null, msg);
     }, PING_INTERVAL_MS);
   }
 

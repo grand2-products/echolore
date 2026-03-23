@@ -24,8 +24,6 @@ common:
   actions:
     retry: "重试"
     cancel: "取消"
-    signInAgain: "重新登录"
-    signInWithEmail: "邮箱登录"
   status:
     loading: "加载中..."
   userFallback: "用户"
@@ -39,10 +37,31 @@ common:
   eventLeft: "已离开"
   eventResponseGenerated: "已生成回应"
   eventResponseAutonomous: "自主响应"
+login:
+  titleSignin: "登录"
+  titleRegister: "创建账户"
+  intro: "Google SSO 与邮箱/密码登录会归并到同一个邮箱账户。"
+  tabSignin: "登录"
+  tabRegister: "注册"
+  continueGoogle: "使用 Google 继续"
+  verifyInProgress: "正在验证邮箱..."
+  verifySuccess: "邮箱验证完成。请使用密码登录。"
+  verifyError: "邮箱验证失败。"
+  signInError: "登录失败。"
+  registerError: "注册账户失败。"
+  registerStarted: "注册已开始。请打开 API 日志中的验证链接以完成设置。"
+  email: "邮箱"
+  password: "密码"
+  name: "姓名"
+  signInWithEmail: "使用邮箱登录"
+  signingIn: "登录中..."
+  createAccount: "创建账户"
+  creatingAccount: "正在创建账户..."
+  registrationClosed: "当前不接受新注册。请联系管理员。"
 layout:
-  sessionUnavailable:
-    title: "会话不可用"
-    description: "无法从 `/api/auth/me` 加载已认证用户。"
+  serverError:
+    title: "无法连接服务器"
+    description: "无法访问应用服务器，请稍后重试。"
 home:
   title: "EchoLore"
   tagline: "内部协作平台"

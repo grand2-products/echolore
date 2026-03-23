@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { isLlmAvailable } from "../ai/llm/index.js";
 import { jsonError } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import { loadFile } from "../lib/file-storage.js";
@@ -11,7 +12,10 @@ export const siteRoutes = new Hono<AppEnv>();
 
 siteRoutes.get("/site-settings", async (c) => {
   try {
-    const settings = await getSiteSettings();
+    const [settings, llmEnabled] = await Promise.all([
+      getSiteSettings(),
+      isLlmAvailable().catch(() => false),
+    ]);
     return c.json({
       siteTitle: settings.siteTitle ?? appTitle,
       siteTagline: settings.siteTagline ?? "Internal collaboration platform",
@@ -28,6 +32,7 @@ siteRoutes.get("/site-settings", async (c) => {
       livekitCoworkingFocusIdentity: settings.livekitCoworkingFocusIdentity,
       hasSiteIcon: settings.hasSiteIcon,
       googleOAuthEnabled: settings.googleOAuthEnabled,
+      llmEnabled,
     });
   } catch {
     return c.json({
@@ -46,6 +51,7 @@ siteRoutes.get("/site-settings", async (c) => {
       livekitCoworkingFocusIdentity: null,
       hasSiteIcon: false,
       googleOAuthEnabled: false,
+      llmEnabled: false,
     });
   }
 });

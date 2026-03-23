@@ -24,7 +24,13 @@ export class GoogleTextToSpeechGateway implements TextToSpeechGateway {
   readonly provider: SpeechProvider = "google";
 
   async listVoices(languageCode?: string): Promise<GoogleTtsVoice[]> {
-    const accessToken = await getGoogleCloudAccessToken();
+    let accessToken: string;
+    try {
+      accessToken = await getGoogleCloudAccessToken();
+    } catch {
+      return [];
+    }
+
     const url = languageCode
       ? `${GOOGLE_TTS_VOICES_URL}?languageCode=${encodeURIComponent(languageCode)}`
       : GOOGLE_TTS_VOICES_URL;
@@ -42,7 +48,15 @@ export class GoogleTextToSpeechGateway implements TextToSpeechGateway {
   }
 
   async synthesize(input: TextToSpeechRequest): Promise<TextToSpeechResult> {
-    const accessToken = await getGoogleCloudAccessToken();
+    let accessToken: string;
+    try {
+      accessToken = await getGoogleCloudAccessToken();
+    } catch (err) {
+      throw new Error(
+        "Google Cloud credentials are not configured. Set GOOGLE_TTS_ACCESS_TOKEN or GOOGLE_CLOUD_ACCESS_TOKEN environment variable.",
+        { cause: err }
+      );
+    }
     const response = await fetch(GOOGLE_TTS_API_URL, {
       method: "POST",
       headers: {

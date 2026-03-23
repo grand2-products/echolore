@@ -4,38 +4,37 @@
  */
 
 import type { ErrorResponse } from "@echolore/shared/contracts";
+import { getPublicApiUrl } from "../runtime-env";
 
 // ---------------------------------------------------------------------------
 // URL helpers
 // ---------------------------------------------------------------------------
 
-function normalizeApiBaseUrl(rawUrl: string | undefined) {
-  const fallback = "http://localhost:3001/api";
-  if (!rawUrl) {
-    return fallback;
-  }
-
+function resolveApiBase() {
+  const raw = getPublicApiUrl();
   try {
-    const url = new URL(rawUrl);
+    const url = new URL(raw);
     const pathname = url.pathname.replace(/\/+$/, "");
     url.pathname = pathname.endsWith("/api") ? pathname : `${pathname}/api`;
     return url.toString().replace(/\/$/, "");
   } catch {
-    return fallback;
+    return "http://localhost:3001/api";
   }
 }
 
-const API_BASE = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
+function getApiBase() {
+  return resolveApiBase();
+}
 let refreshSessionPromise: Promise<boolean> | null = null;
 
 export function buildApiUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${API_BASE}${normalizedPath}`;
+  return `${getApiBase()}${normalizedPath}`;
 }
 
 export function buildAuthJsUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${API_BASE.replace(/\/api$/, "")}${normalizedPath}`;
+  return `${getApiBase().replace(/\/api$/, "")}${normalizedPath}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -106,7 +105,7 @@ function shouldAttemptSilentRefresh(path: string) {
 
 async function refreshPasswordSession() {
   if (!refreshSessionPromise) {
-    refreshSessionPromise = fetch(`${API_BASE.replace(/\/api$/, "")}/api/auth/session`, {
+    refreshSessionPromise = fetch(`${getApiBase().replace(/\/api$/, "")}/api/auth/session`, {
       credentials: "include",
     })
       .then(async (response) => {

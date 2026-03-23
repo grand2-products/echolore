@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { IndexeddbPersistence } from "y-indexeddb";
 import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
+import { getPublicApiUrl } from "@/lib/runtime-env";
 
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
@@ -13,7 +14,7 @@ interface UseCollaborationOptions {
 }
 
 function getWsBaseUrl(): string {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? `http://${window.location.hostname}:3001`;
+  const apiUrl = getPublicApiUrl();
   const url = new URL(apiUrl);
   const protocol = url.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${url.host}/api/ws/wiki/collab`;

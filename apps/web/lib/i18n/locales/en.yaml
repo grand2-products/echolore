@@ -24,8 +24,6 @@ common:
   actions:
     retry: "Retry"
     cancel: "Cancel"
-    signInAgain: "Sign in again"
-    signInWithEmail: "Email sign in"
   status:
     loading: "Loading..."
   userFallback: "User"
@@ -39,10 +37,31 @@ common:
   eventLeft: "Left"
   eventResponseGenerated: "Response generated"
   eventResponseAutonomous: "Autonomous response"
+login:
+  titleSignin: "Sign in"
+  titleRegister: "Create account"
+  intro: "Google SSO and email/password both resolve to the same account email."
+  tabSignin: "Sign in"
+  tabRegister: "Register"
+  continueGoogle: "Continue with Google"
+  verifyInProgress: "Verifying your email..."
+  verifySuccess: "Email verified. Please sign in with your password."
+  verifyError: "Failed to verify email."
+  signInError: "Failed to sign in."
+  registerError: "Failed to register account."
+  registerStarted: "Registration started. Open the verification link from the API log to finish setup."
+  email: "Email"
+  password: "Password"
+  name: "Name"
+  signInWithEmail: "Sign in with email"
+  signingIn: "Signing in..."
+  createAccount: "Create account"
+  creatingAccount: "Creating account..."
+  registrationClosed: "Registration is currently closed. Please contact an administrator."
 layout:
-  sessionUnavailable:
-    title: "Session unavailable"
-    description: "Could not load the authenticated user from `/api/auth/me`."
+  serverError:
+    title: "Cannot connect to server"
+    description: "Failed to reach the application server. Please try again later."
 home:
   title: "EchoLore"
   tagline: "Internal collaboration platform"

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Sans_JP } from "next/font/google";
 import "@livekit/components-styles";
 import { DynamicFavicon } from "@/components/DynamicFavicon";
+import { RuntimeEnvMeta } from "@/components/RuntimeEnvScript";
 import { appTagline, appTitle } from "@/lib/app-config";
 import { AuthProvider } from "@/lib/auth-context";
 import { I18nProvider } from "@/lib/i18n";
@@ -25,9 +26,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
+      <head>
+        <RuntimeEnvMeta />
+      </head>
       <body className={`${notoSansJP.variable} font-sans antialiased`}>
-        <DynamicFavicon />
         <QueryProvider>
+          <DynamicFavicon />
           <AuthProvider>
             <I18nProvider>{children}</I18nProvider>
           </AuthProvider>

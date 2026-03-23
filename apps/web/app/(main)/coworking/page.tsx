@@ -31,6 +31,7 @@ import {
 import { STORAGE_KEYS } from "@/lib/constants/storage-keys";
 import { useCoworkingRoom } from "@/lib/coworking-room-context";
 import { useT } from "@/lib/i18n";
+import { getPublicApiUrl } from "@/lib/runtime-env";
 import { useCoworkingLivekitSettings } from "@/lib/site-settings-context";
 
 function ParticipantCard({ trackRef }: { trackRef: TrackReferenceOrPlaceholder }) {
@@ -187,10 +188,8 @@ async function waitForHls(signal: AbortSignal, maxAttempts = 45): Promise<boolea
 }
 
 function getHlsStreamUrl() {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL
-    ? new URL(process.env.NEXT_PUBLIC_API_URL).origin
-    : "";
-  return `${apiBase}/api/coworking-hls/live.m3u8`;
+  const origin = new URL(getPublicApiUrl()).origin;
+  return `${origin}/api/coworking-hls/live.m3u8`;
 }
 
 function CoworkingMcuBody() {

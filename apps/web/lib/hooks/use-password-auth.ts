@@ -4,22 +4,22 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { authService } from "../auth-service";
 import { normalizeReturnTo } from "../return-to";
+import { getPublicApiUrl } from "../runtime-env";
 import { invalidateAuthQueries } from "./use-auth-session";
 import { useStableEvent } from "./use-stable-event";
-
-const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
 
 async function signInWithCredentials(
   input: { email: string; password: string },
   callbackUrl: string
 ) {
   // 1. Fetch CSRF token from Auth.js
-  const csrfRes = await fetch(`${apiBase}/api/auth/csrf`, { credentials: "include" });
+  const base = getPublicApiUrl();
+  const csrfRes = await fetch(`${base}/api/auth/csrf`, { credentials: "include" });
   if (!csrfRes.ok) throw new Error("Failed to fetch CSRF token");
   const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
 
   // 2. POST to Auth.js Credentials callback
-  const res = await fetch(`${apiBase}/api/auth/callback/credentials`, {
+  const res = await fetch(`${base}/api/auth/callback/credentials`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
