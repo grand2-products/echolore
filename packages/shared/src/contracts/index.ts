@@ -562,6 +562,54 @@ export interface AdminUserRecordDto {
   groups: AdminUserGroupRefDto[];
 }
 
+// --- User Invitations ---
+
+export interface UserInvitationDto {
+  id: string;
+  email: string;
+  role: UserRole;
+  groupIds: string[];
+  invitedByUserId: string | null;
+  invitedByEmail?: string | null;
+  expiresAt: ISODateString;
+  usedAt: ISODateString | null;
+  revokedAt: ISODateString | null;
+  createdAt: ISODateString;
+}
+
+export interface CreateUserInvitationRequest {
+  email: string;
+  role?: UserRole;
+  groupIds?: string[];
+  expiresInDays?: number;
+}
+
+export interface CreateUserInvitationResponse {
+  invitation: UserInvitationDto;
+  inviteUrl: string;
+  emailSent: boolean;
+}
+
+export interface ListUserInvitationsResponse {
+  invitations: UserInvitationDto[];
+}
+
+export interface ValidateUserInviteResponse {
+  valid: boolean;
+  email?: string;
+  expiresAt?: ISODateString;
+}
+
+export interface AcceptUserInviteRequest {
+  name: string;
+  password: string;
+}
+
+export interface AcceptUserInviteResponse {
+  success: true;
+  user: SessionUserDto;
+}
+
 export interface AdminSpacePermissionRecordDto {
   id: string;
   spaceId: string;

@@ -96,6 +96,22 @@ export const authRefreshTokens = pgTable(
   })
 );
 
+// User invitations table
+export const userInvitations = pgTable("user_invitations", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  role: text("role").default("member").notNull(),
+  groupIds: jsonb("group_ids").notNull().$type<string[]>(),
+  invitedByUserId: text("invited_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // User groups table
 export const userGroups = pgTable("user_groups", {
   id: text("id").primaryKey(),

@@ -6,6 +6,7 @@ import { adminBackupSettingsRoutes } from "./admin-backup-settings.js";
 import { adminEmailSettingsRoutes } from "./admin-email-settings.js";
 import { adminGcpCredentialsRoutes } from "./admin-gcp-credentials.js";
 import { adminGroupRoutes } from "./admin-groups.js";
+import { adminInvitationRoutes } from "./admin-invitations.js";
 import { adminLlmSettingsRoutes } from "./admin-llm-settings.js";
 import { adminReindexRoutes } from "./admin-reindex.js";
 import { adminSiteSettingsRoutes } from "./admin-site-settings.js";
@@ -17,6 +18,7 @@ import { adminUserRoutes } from "./admin-users.js";
 export const adminRoutes = new Hono<AppEnv>();
 
 adminRoutes.route("/", adminGroupRoutes);
+adminRoutes.route("/", adminInvitationRoutes);
 adminRoutes.route("/", adminUserRoutes);
 adminRoutes.route("/", adminAgentRoutes);
 adminRoutes.route("/", adminSpacePermissionRoutes);

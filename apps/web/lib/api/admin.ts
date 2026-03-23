@@ -1,5 +1,7 @@
 import type {
   CheckUpdateResponse,
+  CreateUserInvitationResponse,
+  ListUserInvitationsResponse,
   StartUpdateRequest,
   StartUpdateResponse,
   SuccessResponse,
@@ -246,5 +248,24 @@ export const adminApi = {
   triggerRollback: () =>
     fetchApi<{ success: boolean; message: string }>("/admin/system/rollback", {
       method: "POST",
+    }),
+
+  // Invitations
+  createInvitation: (data: {
+    email: string;
+    role?: string;
+    groupIds?: string[];
+    expiresInDays?: number;
+  }) =>
+    fetchApi<CreateUserInvitationResponse>("/admin/invitations", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  listInvitations: () => fetchApi<ListUserInvitationsResponse>("/admin/invitations"),
+
+  revokeInvitation: (id: string) =>
+    fetchApi<SuccessResponse>(`/admin/invitations/${id}`, {
+      method: "DELETE",
     }),
 };
