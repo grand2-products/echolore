@@ -1,9 +1,12 @@
 import type {
+  AcceptUserInviteRequest,
+  AcceptUserInviteResponse,
   GoogleTokenExchangeRequest,
   PasswordRegistrationRequest,
   PasswordRegistrationResponse,
   SuccessResponse,
   TokenAuthResponse,
+  ValidateUserInviteResponse,
   VerifyEmailRequest,
   VerifyEmailResponse,
 } from "@echolore/shared/contracts";
@@ -32,5 +35,13 @@ export const authApi = {
     fetchApi<SuccessResponse>("/auth/logout", {
       method: "POST",
       body: JSON.stringify({}),
+    }),
+
+  validateInvite: (token: string) => fetchApi<ValidateUserInviteResponse>(`/auth/invite/${token}`),
+
+  acceptInvite: (token: string, data: AcceptUserInviteRequest) =>
+    fetchApi<AcceptUserInviteResponse>(`/auth/invite/${token}/accept`, {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
 };

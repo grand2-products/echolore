@@ -2,6 +2,7 @@ import {
   countAuditLogsByActionAndIdentity,
   countAuditLogsByActionAndIp,
 } from "../repositories/audit/audit-repository.js";
+import { normalizeEmail } from "../services/auth/auth-utils.js";
 
 /**
  * Global per-IP rate limit to prevent distributed email enumeration.
@@ -17,10 +18,6 @@ type RateLimitInput = {
   maxAttempts: number;
 };
 
-function normalizeEmail(email?: string | null) {
-  return email?.trim().toLowerCase() || null;
-}
-
 export async function isRateLimited(input: RateLimitInput) {
   const ipAddress = input.ipAddress?.trim() || null;
 
@@ -34,7 +31,7 @@ export async function isRateLimited(input: RateLimitInput) {
   }
 
   // Per-email+IP check
-  const email = normalizeEmail(input.email);
+  const email = input.email ? normalizeEmail(input.email) : null;
   if (!email && !ipAddress) {
     return false;
   }

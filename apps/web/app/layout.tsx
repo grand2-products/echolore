@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { Noto_Sans_JP } from "next/font/google";
+
+// Force dynamic rendering so RuntimeEnvMeta reads env vars at request time,
+// not at build time when ECHOLORE_PUBLIC_* vars are unavailable.
+export const dynamic = "force-dynamic";
 import "@livekit/components-styles";
 import { DynamicFavicon } from "@/components/DynamicFavicon";
 import { RuntimeEnvMeta } from "@/components/RuntimeEnvScript";

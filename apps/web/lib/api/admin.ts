@@ -1,4 +1,8 @@
-import type { SuccessResponse } from "@echolore/shared/contracts";
+import type {
+  CreateUserInvitationResponse,
+  ListUserInvitationsResponse,
+  SuccessResponse,
+} from "@echolore/shared/contracts";
 import { executeApiRequest, fetchApi, parseApiError } from "./fetch";
 import type {
   AdminGroup,
@@ -220,6 +224,24 @@ export const adminApi = {
 
   deleteSiteIcon: () =>
     fetchApi<{ success: boolean }>("/admin/site-icon", {
+      method: "DELETE",
+    }),
+
+  createInvitation: (data: {
+    email: string;
+    role?: string;
+    groupIds?: string[];
+    expiresInDays?: number;
+  }) =>
+    fetchApi<CreateUserInvitationResponse>("/admin/invitations", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  listInvitations: () => fetchApi<ListUserInvitationsResponse>("/admin/invitations"),
+
+  revokeInvitation: (id: string) =>
+    fetchApi<SuccessResponse>(`/admin/invitations/${id}`, {
       method: "DELETE",
     }),
 };

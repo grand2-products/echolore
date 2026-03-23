@@ -16,6 +16,7 @@ import {
 } from "../lib/local-auth.js";
 import { getRequestIp, isRateLimited } from "../lib/password-auth-guard.js";
 import { ONE_HOUR_MS } from "../lib/time.js";
+import { acceptInvitation, validateInviteToken } from "../services/admin/invitation-service.js";
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -315,4 +316,96 @@ authRoutes.post("/token/revoke", zValidator("json", tokenRevokeSchema), async (c
   const { refreshToken } = c.req.valid("json");
   await revokeRefreshToken(refreshToken);
   return c.json({ success: true });
+});
+
+// --- User invitation routes (public) ---
+
+authRoutes.get("/invite/:token", async (c) => {
+  const { token } = c.req.param();
+  const ipAddress = getRequestIp(c.req.raw.headers);
+  const rateLimited = await isRateLimited({
+    action: "auth.invite.validate",
+    ipAddress,
+    windowMs: 15 * 60 * 1000,
+    maxAttempts: 30,
+  });
+
+  if (rateLimited) {
+    return jsonError(c, 429, "RATE_LIMITED", "Too many attempts. Try again later.");
+  }
+
+  const invitation = await validateInviteToken(token);
+  if (!invitation) {
+    return c.json({ valid: false });
+  }
+
+  return c.json({
+    valid: true,
+    email: invitation.email,
+    expiresAt: invitation.expiresAt.toISOString(),
+  });
+});
+
+const acceptInviteSchema = z.object({
+  name: z.string().trim().min(1),
+  password: z
+    .string()
+    .min(8)
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
+      "Password must contain at least one lowercase letter, one uppercase letter, and one digit"
+    ),
+});
+
+authRoutes.post("/invite/:token/accept", zValidator("json", acceptInviteSchema), async (c) => {
+  const { token } = c.req.param();
+  const payload = c.req.valid("json");
+  const ipAddress = getRequestIp(c.req.raw.headers);
+
+  const rateLimited = await isRateLimited({
+    action: "auth.invite.accept",
+    ipAddress,
+    windowMs: ONE_HOUR_MS,
+    maxAttempts: 5,
+  });
+
+  if (rateLimited) {
+    return jsonError(c, 429, "RATE_LIMITED", "Too many attempts. Try again later.");
+  }
+
+  try {
+    const user = await acceptInvitation(token, payload);
+
+    await writeAuditLog({
+      actorUserId: user.id,
+      actorEmail: user.email,
+      action: "auth.invite.accepted",
+      resourceType: "auth",
+      resourceId: user.id,
+      metadata: { authMode: "password" },
+      ipAddress,
+      userAgent: c.req.header("user-agent") ?? null,
+    });
+
+    return c.json({ success: true as const, user }, 201);
+  } catch (error) {
+    const rawMessage = error instanceof Error ? error.message : "";
+    const KNOWN_MESSAGES: Record<string, { status: 400 | 409; message: string }> = {
+      "Invalid or expired invitation": { status: 400, message: "Invalid or expired invitation" },
+      "Name is required": { status: 400, message: "Name is required" },
+    };
+    const known = Object.entries(KNOWN_MESSAGES).find(([key]) => rawMessage.includes(key));
+    const status = known ? known[1].status : 400;
+    const clientMessage = known ? known[1].message : "Failed to accept invitation";
+
+    await writeAuditLog({
+      action: "auth.invite.accept_failed",
+      resourceType: "auth",
+      metadata: { reason: known ? known[1].message : "unknown-error" },
+      ipAddress,
+      userAgent: c.req.header("user-agent") ?? null,
+    });
+
+    return jsonError(c, status, "INVITE_ACCEPT_FAILED", clientMessage);
+  }
 });

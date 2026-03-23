@@ -24,6 +24,7 @@ import type {
   SummaryDto,
   TranscriptDto,
   UserDto,
+  UserInvitationDto,
 } from "@echolore/shared/contracts";
 
 // Re-exported DTO aliases
@@ -419,6 +420,8 @@ export interface BackupJobStatus {
   completedAt: string | null;
   lastResult: "success" | "error" | null;
 }
+
+export type UserInvitation = UserInvitationDto;
 
 export type CreateAdminGroupRequest = import("@echolore/shared/contracts").CreateAdminGroupRequest;
 export type UpdateAdminGroupRequest = import("@echolore/shared/contracts").UpdateAdminGroupRequest;
