@@ -1,14 +1,12 @@
 /**
  * Runtime environment variables for client-side code.
  *
- * `NEXT_PUBLIC_*` env vars are inlined at build time by Next.js. When the app
- * is deployed as a pre-built Docker image, the build-time values may not match
- * the target environment.
- *
- * To support single-image multi-environment deployments, the root layout (a
- * Server Component) injects `<meta>` tags with runtime values. Client code
- * reads from there, falling back to the build-time value (for local dev) and
- * finally to a sensible default.
+ * `NEXT_PUBLIC_*` env vars are inlined at build time by Next.js and cannot
+ * carry runtime values in pre-built Docker images. Instead we use
+ * `ECHOLORE_PUBLIC_*` env vars which the root layout (a Server Component)
+ * injects as `<meta>` tags. Client code reads from there, falling back to
+ * the build-time `NEXT_PUBLIC_*` value (for local dev) and finally to a
+ * sensible default.
  *
  * The server-side injection is in `components/RuntimeEnvScript.tsx`.
  */
@@ -39,7 +37,7 @@ function read(key: string): string | undefined {
  * Falls back to browser origin when unset (same-origin Traefik routing).
  */
 export function getPublicApiUrl(): string {
-  const runtime = read("NEXT_PUBLIC_API_URL");
+  const runtime = read("ECHOLORE_PUBLIC_API_URL");
   if (runtime) return runtime;
 
   // Build-time value (works in local dev where .env.local is present)
@@ -57,7 +55,7 @@ export function getPublicApiUrl(): string {
  * Resolved LiveKit WebSocket URL (e.g. `wss://example.com`).
  */
 export function getPublicLivekitUrl(): string {
-  const runtime = read("NEXT_PUBLIC_LIVEKIT_URL");
+  const runtime = read("ECHOLORE_PUBLIC_LIVEKIT_URL");
   if (runtime) return runtime;
 
   const buildTime = process.env.NEXT_PUBLIC_LIVEKIT_URL;

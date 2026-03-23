@@ -49,12 +49,15 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
+    const apiUrl = process.env.ECHOLORE_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL;
+    const livekitUrl =
+      process.env.ECHOLORE_PUBLIC_LIVEKIT_URL || process.env.NEXT_PUBLIC_LIVEKIT_URL;
     const extraConnectSrc = [
-      process.env.NEXT_PUBLIC_API_URL,
-      process.env.NEXT_PUBLIC_LIVEKIT_URL,
+      apiUrl,
+      livekitUrl,
       // Allow ws:// WebSocket connections to the API server (derived from http:// URL)
-      process.env.NEXT_PUBLIC_API_URL?.replace(/^http:/, "ws:"),
-      process.env.NEXT_PUBLIC_API_URL?.replace(/^https:/, "wss:"),
+      apiUrl?.replace(/^http:/, "ws:"),
+      apiUrl?.replace(/^https:/, "wss:"),
     ]
       .filter(Boolean)
       .join(" ");

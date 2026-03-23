@@ -10,9 +10,12 @@
  * rendering warning for inline scripts.
  */
 export function RuntimeEnvMeta() {
+  // ECHOLORE_PUBLIC_* are true runtime env vars — NOT inlined at build time
+  // like NEXT_PUBLIC_* would be. Server Components read them here and inject
+  // them as <meta> tags for client-side code (see lib/runtime-env.ts).
   const entries: [string, string][] = [
-    ["NEXT_PUBLIC_API_URL", process.env.NEXT_PUBLIC_API_URL ?? ""],
-    ["NEXT_PUBLIC_LIVEKIT_URL", process.env.NEXT_PUBLIC_LIVEKIT_URL ?? ""],
+    ["ECHOLORE_PUBLIC_API_URL", process.env.ECHOLORE_PUBLIC_API_URL ?? ""],
+    ["ECHOLORE_PUBLIC_LIVEKIT_URL", process.env.ECHOLORE_PUBLIC_LIVEKIT_URL ?? ""],
   ].filter(([, v]) => v !== "") as [string, string][];
 
   return (

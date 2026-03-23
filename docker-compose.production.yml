@@ -194,8 +194,8 @@ services:
           memory: 1G
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: https://${DOMAIN}
-      NEXT_PUBLIC_LIVEKIT_URL: wss://${DOMAIN}
+      ECHOLORE_PUBLIC_API_URL: https://${DOMAIN}
+      ECHOLORE_PUBLIC_LIVEKIT_URL: wss://${DOMAIN}
     labels:
       traefik.enable: "true"
       traefik.http.routers.web.rule: "Host(`${DOMAIN}`)"

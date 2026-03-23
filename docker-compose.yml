@@ -194,8 +194,8 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: ${WEB_NODE_ENV:-production}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
-      NEXT_PUBLIC_LIVEKIT_URL: ${NEXT_PUBLIC_LIVEKIT_URL:?NEXT_PUBLIC_LIVEKIT_URL must be set}
+      ECHOLORE_PUBLIC_API_URL: ${ECHOLORE_PUBLIC_API_URL:-http://localhost:3001}
+      ECHOLORE_PUBLIC_LIVEKIT_URL: ${ECHOLORE_PUBLIC_LIVEKIT_URL:?ECHOLORE_PUBLIC_LIVEKIT_URL must be set}
     labels:
       traefik.enable: "true"
       traefik.http.routers.web.rule: "Host(`${DOMAIN}`)"

@@ -94,8 +94,8 @@ services:
     image: ${WEB_IMAGE:-ghcr.io/grand2-products/echolore/web:latest}
     environment:
       NODE_ENV: ${WEB_NODE_ENV:-production}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001}
-      NEXT_PUBLIC_LIVEKIT_URL: ${NEXT_PUBLIC_LIVEKIT_URL:-ws://livekit:7880}
+      ECHOLORE_PUBLIC_API_URL: ${ECHOLORE_PUBLIC_API_URL:-http://api:3001}
+      ECHOLORE_PUBLIC_LIVEKIT_URL: ${ECHOLORE_PUBLIC_LIVEKIT_URL:-ws://livekit:7880}
     expose:
       - "3000"
     depends_on:
