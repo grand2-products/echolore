@@ -68,6 +68,14 @@ if [ -f "${INSTALL_DIR}/.env" ] && [ "$UNATTENDED" = false ]; then
   esac
 fi
 
+# ── load existing .env if present ─────────────────────────────────────────────
+
+if [ -f "${INSTALL_DIR}/.env" ]; then
+  # shellcheck disable=SC1091
+  set -a; . "${INSTALL_DIR}/.env"; set +a
+  info "Loaded existing configuration from ${INSTALL_DIR}/.env"
+fi
+
 # ── gather configuration ────────────────────────────────────────────────────
 
 info "Configuring EchoLore..."
@@ -81,7 +89,7 @@ AUTH_SECRET="${AUTH_SECRET:-$(rand_secret 48)}"
 LIVEKIT_API_KEY="${LIVEKIT_API_KEY:-$(rand_secret 16)}"
 LIVEKIT_API_SECRET="${LIVEKIT_API_SECRET:-$(rand_secret 32)}"
 ROOM_AI_WORKER_SECRET="${ROOM_AI_WORKER_SECRET:-$(rand_secret 32)}"
-ENCRYPTION_KEY="${ENCRYPTION_KEY:-$(rand_secret 32)}"
+ENCRYPTION_KEY="${ENCRYPTION_KEY:-$(openssl rand -hex 32)}"
 
 # derived values
 CORS_ORIGIN="https://${DOMAIN}"
