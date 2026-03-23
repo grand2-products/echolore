@@ -1,19 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# EchoLore install script
+# EchoLore install script — first-time setup only
 # Usage:
-#   Interactive:   curl -fsSL <release-url>/install.sh | bash
-#   Unattended:    DOMAIN=example.com ACME_EMAIL=admin@example.com ./install.sh --unattended
+#   Interactive:   curl -fsSL <release-url>/install.sh | sudo bash
+#   Unattended:    DOMAIN=example.com ACME_EMAIL=admin@example.com sudo -E ./install.sh --unattended
+#   Re-initialize: sudo ./install.sh --force
 
 INSTALL_DIR="${ECHOLORE_INSTALL_DIR:-/opt/echolore}"
 GITHUB_REPO="grand2-products/echolore"
 COMPOSE_URL_BASE="https://github.com/${GITHUB_REPO}/releases"
+LOCK_FILE="${INSTALL_DIR}/.echolore.lock"
 UNATTENDED=false
+FORCE=false
 
 for arg in "$@"; do
   case "$arg" in
     --unattended) UNATTENDED=true ;;
+    --force)      FORCE=true ;;
   esac
 done
 
@@ -47,6 +51,14 @@ prompt_value() {
   eval "$varname=\${input:-\$current}"
 }
 
+acquire_lock() {
+  mkdir -p "${INSTALL_DIR}"
+  exec 9>"${LOCK_FILE}"
+  if ! flock -n 9; then
+    fail "Another install/update is already running. If this is stale, remove ${LOCK_FILE}"
+  fi
+}
+
 # ── pre-flight checks ───────────────────────────────────────────────────────
 
 info "Checking prerequisites..."
@@ -56,26 +68,22 @@ docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is required. I
 
 info "Docker and Docker Compose v2 detected."
 
-# ── load existing .env if present ─────────────────────────────────────────────
+# ── existing installation guard ──────────────────────────────────────────────
 
 if [ -f "${INSTALL_DIR}/.env" ]; then
-  # Always load existing secrets first — prevents drift between .env and
-  # stateful resources (e.g. PostgreSQL volume retains the original password).
+  if [ "$FORCE" = false ]; then
+    fail "An existing installation was found at ${INSTALL_DIR}/.env. Use update.sh to update, or install.sh --force to re-initialize (secrets will be preserved)."
+  fi
+
+  # --force: load existing secrets to preserve them
   # shellcheck disable=SC1091
   set -a; . "${INSTALL_DIR}/.env"; set +a
-  info "Loaded existing configuration from ${INSTALL_DIR}/.env"
-
-  if [ "$UNATTENDED" = false ]; then
-    warn "An existing installation was found at ${INSTALL_DIR}."
-    info "Secrets (DB password, keys, etc.) will be preserved."
-    printf 'Update configuration and re-deploy? [y/N]: '
-    read -r confirm </dev/tty
-    case "$confirm" in
-      [yY]*) ;;
-      *) fail "Aborted." ;;
-    esac
-  fi
+  info "Loaded existing secrets from ${INSTALL_DIR}/.env (they will be preserved)."
 fi
+
+# ── lock ─────────────────────────────────────────────────────────────────────
+
+acquire_lock
 
 # ── gather configuration ────────────────────────────────────────────────────
 
@@ -84,7 +92,8 @@ info "Configuring EchoLore..."
 prompt_value DOMAIN       "Domain name (e.g. echolore.example.com)"
 prompt_value ACME_EMAIL   "Email for Let's Encrypt certificates"
 
-# auto-generate secrets (keep existing if set)
+# ── generate secrets (keep existing if loaded via --force) ───────────────────
+
 DB_PASSWORD="${DB_PASSWORD:-$(rand_secret 32)}"
 AUTH_SECRET="${AUTH_SECRET:-$(rand_secret 48)}"
 LIVEKIT_API_KEY="${LIVEKIT_API_KEY:-$(rand_secret 16)}"
@@ -92,16 +101,16 @@ LIVEKIT_API_SECRET="${LIVEKIT_API_SECRET:-$(rand_secret 32)}"
 ROOM_AI_WORKER_SECRET="${ROOM_AI_WORKER_SECRET:-$(rand_secret 32)}"
 ENCRYPTION_KEY="${ENCRYPTION_KEY:-$(openssl rand -hex 32)}"
 
-# derived values
+# ── derived values ──────────────────────────────────────────────────────────
+
 CORS_ORIGIN="https://${DOMAIN}"
 NEXT_PUBLIC_API_URL="https://${DOMAIN}"
 NEXT_PUBLIC_LIVEKIT_URL="wss://${DOMAIN}"
 LIVEKIT_TURN_DOMAIN="${LIVEKIT_TURN_DOMAIN:-${DOMAIN}}"
 
-# version
-ECHOLORE_VERSION="${ECHOLORE_VERSION:-latest}"
+# ── resolve version ─────────────────────────────────────────────────────────
 
-# ── resolve latest version if needed ─────────────────────────────────────────
+ECHOLORE_VERSION="${ECHOLORE_VERSION:-latest}"
 
 if [ "$ECHOLORE_VERSION" = "latest" ] && command -v curl >/dev/null 2>&1; then
   RESOLVED_VERSION=$(curl -fsSL "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null | grep -oP '"tag_name":\s*"\K[^"]+' || echo "latest")
@@ -110,11 +119,6 @@ if [ "$ECHOLORE_VERSION" = "latest" ] && command -v curl >/dev/null 2>&1; then
     info "Resolved latest version: ${ECHOLORE_VERSION}"
   fi
 fi
-
-# ── create install directory ─────────────────────────────────────────────────
-
-info "Setting up ${INSTALL_DIR}..."
-mkdir -p "${INSTALL_DIR}"
 
 # ── download compose file ────────────────────────────────────────────────────
 
@@ -125,12 +129,20 @@ else
   COMPOSE_DOWNLOAD_URL="${COMPOSE_URL_BASE}/latest/download/docker-compose.production.yml"
 fi
 
-curl -fsSL "${COMPOSE_DOWNLOAD_URL}" -o "${INSTALL_DIR}/docker-compose.yml" || {
+curl -fsSL "${COMPOSE_DOWNLOAD_URL}" -o "${INSTALL_DIR}/docker-compose.yml.new" || {
   warn "Failed to download from release. Trying main branch..."
-  curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPO}/main/docker-compose.production.yml" -o "${INSTALL_DIR}/docker-compose.yml"
+  curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPO}/main/docker-compose.production.yml" -o "${INSTALL_DIR}/docker-compose.yml.new"
 }
 
-# ── generate .env ────────────────────────────────────────────────────────────
+# validate compose file
+if ! docker compose -f "${INSTALL_DIR}/docker-compose.yml.new" config -q 2>/dev/null; then
+  rm -f "${INSTALL_DIR}/docker-compose.yml.new"
+  fail "Downloaded compose file is invalid. Aborting."
+fi
+
+mv "${INSTALL_DIR}/docker-compose.yml.new" "${INSTALL_DIR}/docker-compose.yml"
+
+# ── write .env ───────────────────────────────────────────────────────────────
 
 info "Writing .env..."
 cat > "${INSTALL_DIR}/.env" <<ENVEOF
@@ -190,6 +202,10 @@ else
   ok "EchoLore is running!"
 fi
 
+# ── server auto-recovery ────────────────────────────────────────────────────
+
+systemctl enable docker 2>/dev/null || true
+
 echo ""
 ok "Installation complete."
 echo ""
@@ -199,4 +215,6 @@ echo "  Logs:    cd ${INSTALL_DIR} && docker compose logs -f"
 echo ""
 echo "  Register the first user at https://${DOMAIN}/login"
 echo "  The first user will automatically become admin."
+echo ""
+echo "  To update later:  curl -fsSL https://github.com/${GITHUB_REPO}/releases/latest/download/update.sh | sudo bash"
 echo ""

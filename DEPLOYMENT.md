@@ -39,7 +39,7 @@ sudo ufw reload
 ## 1. インストール（ワンコマンド）
 
 ```bash
-curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | bash
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | sudo bash
 ```
 
 対話形式でドメイン名とメールアドレスを入力するだけで、以下が自動で行われます:
@@ -51,7 +51,7 @@ curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/
 - データベースマイグレーション
 - ヘルスチェック
 
-> **再実行について:** install.sh は安全に再実行できます。既に `.env` が存在する場合は上書き確認が表示され、既存のシークレットは保持されます。ただし `--unattended` モードでは確認なしで上書きされるため、本番環境での再実行時は注意してください。
+> **再実行について:** install.sh は初回セットアップ専用です。既に `.env` が存在する場合はエラーになり、`update.sh` の使用を案内します。`--force` フラグを付けると再初期化できますが、既存のシークレット（DB パスワード等）は自動的に保持されるため、データベースとの不整合は発生しません。
 
 ### サーバー再起動時の自動復旧
 
@@ -70,7 +70,7 @@ CI/CD やスクリプトから使う場合:
 
 ```bash
 DOMAIN=echolore.example.com ACME_EMAIL=admin@example.com \
-  curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | bash -s -- --unattended
+  curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | sudo -E bash -s -- --unattended
 ```
 
 ---
@@ -124,22 +124,24 @@ DOMAIN=echolore.example.com ACME_EMAIL=admin@example.com \
 ## 4. アップデート
 
 ```bash
-curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/update.sh | bash
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/update.sh | sudo bash
 ```
 
 特定バージョンに更新する場合:
 
 ```bash
-curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/update.sh | bash -s -- --version v0.2.0
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/update.sh | sudo bash -s -- --version v0.2.0
 ```
 
 アップデートは以下を自動で行います:
-- `.env` のバックアップ
-- compose ファイルの更新
+- バージョンチェック（既に最新なら何もせず終了。`--force` でバイパス可）
+- `.env` と `docker-compose.yml` のバックアップ
+- 新しい compose ファイルのダウンロードと検証
 - 新イメージの pull
 - データベースマイグレーション
 - サービスの再起動
 - ヘルスチェック
+- **失敗時の自動ロールバック**（マイグレーション失敗やヘルスチェックタイムアウト時、前バージョンに自動復旧）
 
 ### ロールバック
 
