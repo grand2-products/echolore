@@ -823,3 +823,50 @@ export interface ListKnowledgeSuggestionsResponse {
 export interface GetKnowledgeSuggestionResponse {
   suggestion: KnowledgeSuggestionDto;
 }
+
+// --- System Update ---
+
+export type UpdatePhase = "idle" | "self-updating" | "updating-services" | "complete" | "failed";
+
+export type UpdateStepStatus = "pending" | "running" | "done" | "failed";
+
+export interface SystemStatusResponse {
+  currentVersion: string;
+  updaterAvailable: boolean;
+  updateInProgress: boolean;
+}
+
+export interface CheckUpdateResponse {
+  currentVersion: string;
+  latestVersion: string;
+  updateAvailable: boolean;
+  releaseUrl: string;
+  releaseNotes?: string;
+  publishedAt?: string;
+}
+
+export interface StartUpdateRequest {
+  targetVersion?: string;
+}
+
+export interface StartUpdateResponse {
+  success: boolean;
+  message: string;
+  targetVersion: string;
+}
+
+export interface UpdateStepDto {
+  name: string;
+  status: UpdateStepStatus;
+  message?: string;
+}
+
+export interface UpdateProgressResponse {
+  phase: UpdatePhase;
+  targetVersion: string;
+  previousVersion: string;
+  startedAt: string | null;
+  steps: UpdateStepDto[];
+  currentStep: number;
+  error?: string;
+}

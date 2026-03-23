@@ -13,6 +13,7 @@ const adminTabs = [
   { key: "kpi", href: "/admin/kpi" },
   { key: "google", href: "/admin/google" },
   { key: "settings", href: "/admin/settings" },
+  { key: "system", href: "/admin/system" },
   { key: "knowledge", href: "/knowledge" },
 ] as const;
 

@@ -1,7 +1,12 @@
 import type {
+  CheckUpdateResponse,
   CreateUserInvitationResponse,
   ListUserInvitationsResponse,
+  StartUpdateRequest,
+  StartUpdateResponse,
   SuccessResponse,
+  SystemStatusResponse,
+  UpdateProgressResponse,
 } from "@echolore/shared/contracts";
 import { executeApiRequest, fetchApi, parseApiError } from "./fetch";
 import type {
@@ -227,6 +232,25 @@ export const adminApi = {
       method: "DELETE",
     }),
 
+  // System update
+  getSystemStatus: () => fetchApi<SystemStatusResponse>("/admin/system/status"),
+
+  checkUpdate: () => fetchApi<CheckUpdateResponse>("/admin/system/check-update"),
+
+  startUpdate: (data?: StartUpdateRequest) =>
+    fetchApi<StartUpdateResponse>("/admin/system/update", {
+      method: "POST",
+      body: JSON.stringify(data ?? {}),
+    }),
+
+  getUpdateProgress: () => fetchApi<UpdateProgressResponse>("/admin/system/update/progress"),
+
+  triggerRollback: () =>
+    fetchApi<{ success: boolean; message: string }>("/admin/system/rollback", {
+      method: "POST",
+    }),
+
+  // Invitations
   createInvitation: (data: {
     email: string;
     role?: string;

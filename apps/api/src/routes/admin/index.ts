@@ -12,6 +12,7 @@ import { adminReindexRoutes } from "./admin-reindex.js";
 import { adminSiteSettingsRoutes } from "./admin-site-settings.js";
 import { adminSpacePermissionRoutes } from "./admin-space-permissions.js";
 import { adminStorageSettingsRoutes } from "./admin-storage-settings.js";
+import { adminSystemUpdateRoutes } from "./admin-system-update.js";
 import { adminUserRoutes } from "./admin-users.js";
 
 export const adminRoutes = new Hono<AppEnv>();
@@ -29,3 +30,4 @@ adminRoutes.route("/", adminLlmSettingsRoutes);
 adminRoutes.route("/", adminStorageSettingsRoutes);
 adminRoutes.route("/", adminReindexRoutes);
 adminRoutes.route("/", adminBackupSettingsRoutes);
+adminRoutes.route("/", adminSystemUpdateRoutes);
