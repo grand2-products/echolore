@@ -33,6 +33,7 @@ export async function getAuthConfig(): Promise<AuthConfig> {
   const googleCreds = await resolveGoogleCredentials();
   return {
     secret: AUTH_SECRET,
+    trustHost: true,
     basePath: "/api/auth",
     pages: {
       signIn: "/login",
