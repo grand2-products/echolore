@@ -1,5 +1,6 @@
 "use client";
 
+import type { UserInvitationDto } from "@echolore/shared/contracts";
 import Image from "next/image";
 import { useState } from "react";
 import { type AdminUserRecord, adminApi } from "@/lib/api";
@@ -30,9 +31,23 @@ export default function AdminUsersPage() {
     const response = await adminApi.listUsers();
     return response.users;
   });
+  const { data: invitations, refetch: loadInvitations } = useAsyncData<UserInvitationDto[]>(
+    [],
+    async () => {
+      const response = await adminApi.listInvitations();
+      return response.invitations;
+    }
+  );
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [changingRoleId, setChangingRoleId] = useState<string | null>(null);
+
+  // Invite form state
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
+  const [isInviting, setIsInviting] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
 
   const displayError = error ?? actionError;
 
@@ -40,6 +55,7 @@ export default function AdminUsersPage() {
     setChangingRoleId(userId);
     setNotice(null);
     setActionError(null);
+    setInviteUrl(null);
     try {
       await adminApi.updateUserRole(userId, newRole);
       setNotice(t("admin.users.roleUpdated"));
@@ -51,6 +67,51 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleInvite = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsInviting(true);
+    setNotice(null);
+    setActionError(null);
+    setInviteUrl(null);
+    try {
+      const result = await adminApi.createInvitation({
+        email: inviteEmail,
+        role: inviteRole,
+      });
+      if (result.emailSent) {
+        setNotice(t("admin.users.inviteSent"));
+      } else {
+        setInviteUrl(result.inviteUrl);
+        setNotice(t("admin.users.inviteCreated"));
+      }
+      setInviteEmail("");
+      setShowInviteForm(false);
+      await loadInvitations();
+    } catch (inviteError) {
+      setActionError(getApiErrorMessage(inviteError, t("admin.users.inviteError")));
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  const handleRevoke = async (invitationId: string) => {
+    setNotice(null);
+    setActionError(null);
+    setInviteUrl(null);
+    try {
+      await adminApi.revokeInvitation(invitationId);
+      setNotice(t("admin.users.inviteRevoked"));
+      await loadInvitations();
+    } catch (revokeError) {
+      setActionError(getApiErrorMessage(revokeError, t("admin.users.inviteRevokeError")));
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    void navigator.clipboard.writeText(text);
+    setNotice(t("admin.users.inviteLinkCopied"));
+  };
+
   if (isLoading) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-500">
@@ -58,6 +119,10 @@ export default function AdminUsersPage() {
       </div>
     );
   }
+
+  const pendingInvitations = invitations.filter(
+    (inv) => !inv.usedAt && !inv.revokedAt && new Date(inv.expiresAt) > new Date()
+  );
 
   return (
     <div>
@@ -76,6 +141,137 @@ export default function AdminUsersPage() {
       {notice ? (
         <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
           {notice}
+        </div>
+      ) : null}
+      {inviteUrl ? (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
+          <p className="mb-2 text-sm font-medium text-blue-800">
+            {t("admin.users.inviteLinkLabel")}
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              readOnly
+              value={inviteUrl}
+              className="flex-1 rounded-md border border-blue-200 bg-white px-3 py-1.5 text-xs text-gray-700"
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+            />
+            <button
+              type="button"
+              onClick={() => copyToClipboard(inviteUrl)}
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+            >
+              {t("admin.users.copyLink")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Invite button + form */}
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-sm font-medium text-gray-700">{t("admin.users.title")}</h2>
+        <button
+          type="button"
+          onClick={() => setShowInviteForm(!showInviteForm)}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          {t("admin.users.inviteUser")}
+        </button>
+      </div>
+
+      {showInviteForm ? (
+        <form
+          onSubmit={handleInvite}
+          className="mb-4 rounded-xl border border-gray-200 bg-white p-4"
+        >
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1">
+              <label
+                htmlFor="invite-email"
+                className="mb-1 block text-xs font-medium text-gray-600"
+              >
+                {t("admin.users.email")}
+              </label>
+              <input
+                id="invite-email"
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="invite-role" className="mb-1 block text-xs font-medium text-gray-600">
+                {t("admin.users.role")}
+              </label>
+              <select
+                id="invite-role"
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value as "admin" | "member")}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="member">{t("admin.users.roleMember")}</option>
+                <option value="admin">{t("admin.users.roleAdmin")}</option>
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={isInviting}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              {isInviting ? t("admin.users.inviting") : t("admin.users.sendInvite")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowInviteForm(false)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              {t("common.actions.cancel")}
+            </button>
+          </div>
+        </form>
+      ) : null}
+
+      {/* Pending invitations */}
+      {pendingInvitations.length > 0 ? (
+        <div className="mb-4 overflow-hidden rounded-xl border border-amber-200 bg-amber-50">
+          <div className="px-4 py-2 text-xs font-medium uppercase tracking-wider text-amber-700">
+            {t("admin.users.pendingInvitations")} ({pendingInvitations.length})
+          </div>
+          <table className="min-w-full divide-y divide-amber-200">
+            <tbody className="divide-y divide-amber-100">
+              {pendingInvitations.map((inv) => (
+                <tr key={inv.id}>
+                  <td className="px-4 py-2 text-sm text-gray-700">{inv.email}</td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
+                        inv.role === "admin"
+                          ? "border-amber-200 bg-amber-50 text-amber-700"
+                          : "border-gray-200 bg-gray-50 text-gray-700"
+                      }`}
+                    >
+                      {inv.role === "admin"
+                        ? t("admin.users.roleAdmin")
+                        : t("admin.users.roleMember")}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-xs text-gray-500">
+                    {t("admin.users.expiresAt")} {date(inv.expiresAt)}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <button
+                      type="button"
+                      onClick={() => void handleRevoke(inv.id)}
+                      className="text-xs font-medium text-red-600 hover:text-red-700"
+                    >
+                      {t("admin.users.revoke")}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : null}
 

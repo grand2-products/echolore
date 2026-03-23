@@ -18,7 +18,7 @@ import {
 
 const scrypt = promisify(scryptCallback);
 
-async function hashPassword(password: string) {
+export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const derivedKey = (await scrypt(password, salt, 64)) as Buffer;
   return `${salt}:${derivedKey.toString("hex")}`;
