@@ -134,12 +134,9 @@ curl -fsSL "${COMPOSE_DOWNLOAD_URL}" -o "${INSTALL_DIR}/docker-compose.yml.new" 
   curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPO}/main/docker-compose.production.yml" -o "${INSTALL_DIR}/docker-compose.yml.new"
 }
 
-# validate compose file
-if ! docker compose -f "${INSTALL_DIR}/docker-compose.yml.new" config -q 2>/dev/null; then
-  rm -f "${INSTALL_DIR}/docker-compose.yml.new"
-  fail "Downloaded compose file is invalid. Aborting."
-fi
-
+# Skip compose validation here — .env does not exist yet, so required
+# variables (e.g. DB_PASSWORD) would cause docker compose config to fail.
+# The file is validated implicitly when docker compose up runs after .env is written.
 mv "${INSTALL_DIR}/docker-compose.yml.new" "${INSTALL_DIR}/docker-compose.yml"
 
 # ── write .env ───────────────────────────────────────────────────────────────
