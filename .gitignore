@@ -24,6 +24,9 @@ build/
 !.env.example
 !*.env.example
 
+# Claude Code
+.claude/settings.local.json
+
 # IDE
 .idea/
 .vscode/

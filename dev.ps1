@@ -227,8 +227,9 @@ function Assert-PortsFree {
     @{ Name = "VALKEY_PORT";         Label = "Valkey" }
   )
 
-  $dockerConflicts = @()
-  $otherConflicts  = @()
+  $dockerConflicts  = @()
+  $wslConflicts     = @()
+  $otherConflicts   = @()
 
   foreach ($pv in $portVars) {
     $port = [int][Environment]::GetEnvironmentVariable($pv.Name, "Process")
@@ -240,6 +241,8 @@ function Assert-PortsFree {
       $entry     = @{ Label = $pv.Label; Port = $port; Pid = $ownerPid; ProcName = $procName }
       if ($procName -like "com.docker*") {
         $dockerConflicts += $entry
+      } elseif ($procName -eq "wslrelay") {
+        $wslConflicts += $entry
       } else {
         $otherConflicts += $entry
       }
@@ -252,6 +255,15 @@ function Assert-PortsFree {
     Write-Host "Docker containers appear to be already running:" -ForegroundColor Green
     $dockerConflicts | ForEach-Object {
       Write-Host "  $($_.Label) port $($_.Port) (Docker)" -ForegroundColor DarkGreen
+    }
+  }
+
+  # Ports held by wslrelay are forwarded from WSL2 — not a conflict.
+  if ($wslConflicts.Count -gt 0) {
+    Write-Host ""
+    Write-Host "WSL2 services detected (via wslrelay):" -ForegroundColor Green
+    $wslConflicts | ForEach-Object {
+      Write-Host "  $($_.Label) port $($_.Port) (WSL2)" -ForegroundColor DarkGreen
     }
   }
 
