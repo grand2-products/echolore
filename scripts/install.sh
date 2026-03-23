@@ -56,24 +56,25 @@ docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is required. I
 
 info "Docker and Docker Compose v2 detected."
 
-# ── idempotency check ───────────────────────────────────────────────────────
-
-if [ -f "${INSTALL_DIR}/.env" ] && [ "$UNATTENDED" = false ]; then
-  warn "An existing installation was found at ${INSTALL_DIR}."
-  printf 'Overwrite? [y/N]: '
-  read -r confirm </dev/tty
-  case "$confirm" in
-    [yY]*) ;;
-    *) fail "Aborted." ;;
-  esac
-fi
-
 # ── load existing .env if present ─────────────────────────────────────────────
 
 if [ -f "${INSTALL_DIR}/.env" ]; then
+  # Always load existing secrets first — prevents drift between .env and
+  # stateful resources (e.g. PostgreSQL volume retains the original password).
   # shellcheck disable=SC1091
   set -a; . "${INSTALL_DIR}/.env"; set +a
   info "Loaded existing configuration from ${INSTALL_DIR}/.env"
+
+  if [ "$UNATTENDED" = false ]; then
+    warn "An existing installation was found at ${INSTALL_DIR}."
+    info "Secrets (DB password, keys, etc.) will be preserved."
+    printf 'Update configuration and re-deploy? [y/N]: '
+    read -r confirm </dev/tty
+    case "$confirm" in
+      [yY]*) ;;
+      *) fail "Aborted." ;;
+    esac
+  fi
 fi
 
 # ── gather configuration ────────────────────────────────────────────────────
