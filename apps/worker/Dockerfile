@@ -13,7 +13,7 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY apps/worker ./apps/worker
 
 RUN pnpm --filter @echolore/worker build
-RUN pnpm deploy --filter @echolore/worker --prod /prod/worker
+RUN pnpm deploy --filter @echolore/worker --prod --ignore-scripts /prod/worker
 
 FROM node:22-alpine AS runner
 

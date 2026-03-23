@@ -16,7 +16,7 @@ COPY packages/shared ./packages/shared
 
 RUN pnpm --filter @echolore/shared build
 RUN pnpm --filter @echolore/api build
-RUN pnpm deploy --filter @echolore/api --prod /prod/api
+RUN pnpm deploy --filter @echolore/api --prod --ignore-scripts /prod/api
 
 FROM node:22-alpine AS runner
 
