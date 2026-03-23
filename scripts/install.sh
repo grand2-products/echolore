@@ -178,12 +178,7 @@ docker compose pull
 info "Starting EchoLore..."
 docker compose up -d
 
-# ── run migrations ───────────────────────────────────────────────────────────
-
-info "Running database migrations..."
-docker compose run --rm api node dist/db/migrate.js || warn "Migration command failed — the API may handle this on first start."
-
-# ── health check ─────────────────────────────────────────────────────────────
+# ── health check (migrations run automatically on API startup) ─────────────────────────────────────────────────────────────
 
 info "Waiting for services to become healthy..."
 TIMEOUT=120

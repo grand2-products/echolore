@@ -142,12 +142,7 @@ fi
 info "Pulling images..."
 docker compose pull || rollback
 
-# ── run migrations ───────────────────────────────────────────────────────────
-
-info "Running database migrations..."
-docker compose run --rm api node dist/db/migrate.js || rollback
-
-# ── restart services ─────────────────────────────────────────────────────────
+# ── restart services (migrations run automatically on API startup) ────────────
 
 info "Restarting services..."
 docker compose up -d --remove-orphans
