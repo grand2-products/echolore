@@ -28,7 +28,7 @@ ok()    { printf '\033[1;32m[echolore]\033[0m %s\n' "$*"; }
 warn()  { printf '\033[1;33m[echolore]\033[0m %s\n' "$*" >&2; }
 fail()  { printf '\033[1;31m[echolore]\033[0m %s\n' "$*" >&2; exit 1; }
 
-rand_secret() { openssl rand -base64 "$1" | tr -d '\n'; }
+rand_secret() { openssl rand -hex "$1"; }
 
 prompt_value() {
   local varname="$1" prompt_text="$2" default="${3:-}"
