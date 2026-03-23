@@ -18,6 +18,7 @@
     "@blocknote/shadcn": "^0.47.1",
     "@echolore/shared": "workspace:*",
     "@echolore/ui": "workspace:*",
+    "@livekit/components-core": "^0.12.5",
     "@livekit/components-react": "^2.6.6",
     "@livekit/components-styles": "^1.1.4",
     "@livekit/track-processors": "^0.7.2",
