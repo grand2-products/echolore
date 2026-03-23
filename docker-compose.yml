@@ -99,17 +99,17 @@ services:
       - "3478:3478/udp"
     labels:
       traefik.enable: "true"
-      traefik.http.routers.livekit.rule: "Host(`${DOMAIN}`) && PathPrefix(`/rtc`)"
-      traefik.http.routers.livekit.entrypoints: websecure
-      traefik.http.routers.livekit.tls.certresolver: le
-      traefik.http.services.livekit.loadbalancer.server.port: "7880"
-      traefik.http.routers.livekit.priority: "300"
+      traefik.http.routers.echolore-livekit.rule: "Host(`${DOMAIN}`) && PathPrefix(`/rtc`)"
+      traefik.http.routers.echolore-livekit.entrypoints: websecure
+      traefik.http.routers.echolore-livekit.tls.certresolver: le
+      traefik.http.services.echolore-livekit.loadbalancer.server.port: "7880"
+      traefik.http.routers.echolore-livekit.priority: "300"
       # TURN TLS — Traefik terminates TLS, forwards TCP to LiveKit
-      traefik.tcp.routers.livekit-turn.rule: "HostSNI(`${LIVEKIT_TURN_DOMAIN:-localhost}`)"
-      traefik.tcp.routers.livekit-turn.entrypoints: turn
-      traefik.tcp.routers.livekit-turn.tls.certresolver: le
-      traefik.tcp.routers.livekit-turn.service: livekit-turn
-      traefik.tcp.services.livekit-turn.loadbalancer.server.port: "${LIVEKIT_TURN_TLS_PORT:-5349}"
+      traefik.tcp.routers.echolore-livekit-turn.rule: "HostSNI(`${LIVEKIT_TURN_DOMAIN:-localhost}`)"
+      traefik.tcp.routers.echolore-livekit-turn.entrypoints: turn
+      traefik.tcp.routers.echolore-livekit-turn.tls.certresolver: le
+      traefik.tcp.routers.echolore-livekit-turn.service: echolore-livekit-turn
+      traefik.tcp.services.echolore-livekit-turn.loadbalancer.server.port: "${LIVEKIT_TURN_TLS_PORT:-5349}"
     networks:
       - frontend
       - backend
@@ -164,11 +164,11 @@ services:
       - ./data/files:/data/files
     labels:
       traefik.enable: "true"
-      traefik.http.routers.api.rule: "Host(`${DOMAIN}`) && PathPrefix(`/api`)"
-      traefik.http.routers.api.entrypoints: websecure
-      traefik.http.routers.api.tls.certresolver: le
-      traefik.http.services.api.loadbalancer.server.port: "3001"
-      traefik.http.routers.api.priority: "200"
+      traefik.http.routers.echolore-api.rule: "Host(`${DOMAIN}`) && PathPrefix(`/api`)"
+      traefik.http.routers.echolore-api.entrypoints: websecure
+      traefik.http.routers.echolore-api.tls.certresolver: le
+      traefik.http.services.echolore-api.loadbalancer.server.port: "3001"
+      traefik.http.routers.echolore-api.priority: "200"
     ports:
       - "${API_PORT:-3001}:3001"
     depends_on:
@@ -198,11 +198,11 @@ services:
       ECHOLORE_PUBLIC_LIVEKIT_URL: ${ECHOLORE_PUBLIC_LIVEKIT_URL:?ECHOLORE_PUBLIC_LIVEKIT_URL must be set}
     labels:
       traefik.enable: "true"
-      traefik.http.routers.web.rule: "Host(`${DOMAIN}`)"
-      traefik.http.routers.web.entrypoints: websecure
-      traefik.http.routers.web.tls.certresolver: le
-      traefik.http.services.web.loadbalancer.server.port: "3000"
-      traefik.http.routers.web.priority: "100"
+      traefik.http.routers.echolore-web.rule: "Host(`${DOMAIN}`)"
+      traefik.http.routers.echolore-web.entrypoints: websecure
+      traefik.http.routers.echolore-web.tls.certresolver: le
+      traefik.http.services.echolore-web.loadbalancer.server.port: "3000"
+      traefik.http.routers.echolore-web.priority: "100"
     ports:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
