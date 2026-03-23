@@ -38,4 +38,4 @@ EXPOSE 3001
 
 USER apiuser
 
-CMD ["node", "dist/apps/api/src/index.js"]
+CMD ["node", "dist/index.js"]

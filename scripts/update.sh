@@ -69,7 +69,7 @@ docker compose pull
 # ── run migrations ───────────────────────────────────────────────────────────
 
 info "Running database migrations..."
-docker compose run --rm api node dist/apps/api/src/db/migrate.js || warn "Migration command failed — check logs."
+docker compose run --rm api node dist/db/migrate.js || warn "Migration command failed — check logs."
 
 # ── restart services ─────────────────────────────────────────────────────────
 

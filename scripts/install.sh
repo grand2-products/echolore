@@ -160,7 +160,7 @@ docker compose up -d
 # ── run migrations ───────────────────────────────────────────────────────────
 
 info "Running database migrations..."
-docker compose run --rm api node dist/apps/api/src/db/migrate.js || warn "Migration command failed — the API may handle this on first start."
+docker compose run --rm api node dist/db/migrate.js || warn "Migration command failed — the API may handle this on first start."
 
 # ── health check ─────────────────────────────────────────────────────────────
 
