@@ -79,7 +79,7 @@ describe("authRoutes", () => {
       body: JSON.stringify({
         email: "member@example.com",
         name: "Member",
-        password: "password123",
+        password: "Password123",
       }),
     });
 
