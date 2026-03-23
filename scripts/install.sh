@@ -43,7 +43,7 @@ prompt_value() {
   else
     printf '%s: ' "$prompt_text"
   fi
-  read -r input
+  read -r input </dev/tty
   eval "$varname=\${input:-\$current}"
 }
 
@@ -61,7 +61,7 @@ info "Docker and Docker Compose v2 detected."
 if [ -f "${INSTALL_DIR}/.env" ] && [ "$UNATTENDED" = false ]; then
   warn "An existing installation was found at ${INSTALL_DIR}."
   printf 'Overwrite? [y/N]: '
-  read -r confirm
+  read -r confirm </dev/tty
   case "$confirm" in
     [yY]*) ;;
     *) fail "Aborted." ;;
