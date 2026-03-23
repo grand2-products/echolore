@@ -175,6 +175,25 @@ app.onError((err, c) => {
   return jsonError(c, 500, "INTERNAL_SERVER_ERROR", "Internal Server Error", err.message);
 });
 
+// Run database migrations on startup (idempotent — skips already-applied)
+if (process.env.NODE_ENV !== "test") {
+  const { Pool: MigrationPool } = await import("pg");
+  const { drizzle: migrationDrizzle } = await import("drizzle-orm/node-postgres");
+  const { migrate } = await import("drizzle-orm/node-postgres/migrator");
+  const migrationPool = new MigrationPool({ connectionString: process.env.DATABASE_URL });
+  try {
+    await migrationPool.query("CREATE EXTENSION IF NOT EXISTS vector;");
+    const migrationDb = migrationDrizzle(migrationPool);
+    await migrate(migrationDb, { migrationsFolder: "./drizzle" });
+    console.log("Database migrations applied successfully");
+  } catch (err) {
+    console.error("Database migration failed:", err);
+    process.exit(1);
+  } finally {
+    await migrationPool.end();
+  }
+}
+
 // Restore storage provider from DB settings on startup
 (async () => {
   try {

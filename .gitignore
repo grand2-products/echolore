@@ -66,8 +66,8 @@ terraform/override.tf.json
 # LiveKit
 livekit/acme.json
 
-# Drizzle
-apps/api/drizzle/
+# Drizzle (migration files are tracked — they are source artifacts)
+apps/api/drizzle/meta/_journal.json.bak
 
 # Terraform nested env files
 terraform/**/*.tfvars

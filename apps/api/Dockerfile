@@ -30,6 +30,7 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 apiuser
 
 COPY --from=builder --chown=apiuser:nodejs /prod/api ./
+COPY --from=builder --chown=apiuser:nodejs /app/apps/api/drizzle ./drizzle
 
 ENV NODE_ENV=production
 ENV PORT=3001
