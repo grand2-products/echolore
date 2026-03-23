@@ -73,3 +73,14 @@ export async function initLlmWithSettings(options?: {
 
   return { model, provider, overrides };
 }
+
+/**
+ * Lightweight check: is text generation configured & enabled?
+ * Only reads DB settings — does not instantiate a model.
+ */
+export async function isLlmAvailable(): Promise<boolean> {
+  const dbSettings = await getLlmSettings();
+  const overrides = mapToOverrides(dbSettings);
+  const provider = resolveTextProvider(dbSettings.provider);
+  return isTextGenerationEnabled(provider, overrides);
+}

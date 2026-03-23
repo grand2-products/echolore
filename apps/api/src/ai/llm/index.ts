@@ -9,5 +9,6 @@ export {
 export {
   type InitLlmResult,
   initLlmWithSettings,
+  isLlmAvailable,
   mapToOverrides,
 } from "./init-llm-with-settings.js";

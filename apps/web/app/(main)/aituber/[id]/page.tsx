@@ -9,6 +9,7 @@ import { AituberStage } from "@/components/aituber/AituberStage";
 import { aituberApi } from "@/lib/api/aituber";
 import { useAuthContext } from "@/lib/auth-context";
 import { useT } from "@/lib/i18n";
+import { getPublicLivekitUrl } from "@/lib/runtime-env";
 
 export default function AituberSessionPage() {
   const t = useT();
@@ -20,7 +21,7 @@ export default function AituberSessionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const livekitUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || "ws://localhost:7880";
+  const livekitUrl = getPublicLivekitUrl();
 
   useEffect(() => {
     const load = async () => {

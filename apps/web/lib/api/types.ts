@@ -219,6 +219,7 @@ export interface SiteSettings {
   livekitCoworkingFocusIdentity: string | null;
   hasSiteIcon: boolean;
   googleOAuthEnabled: boolean;
+  llmEnabled: boolean;
 }
 
 export interface UpdateSiteSettingsRequest {

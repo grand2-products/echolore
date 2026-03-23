@@ -48,11 +48,17 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-    NEXT_PUBLIC_LIVEKIT_URL: process.env.NEXT_PUBLIC_LIVEKIT_URL,
-  },
   async headers() {
+    const extraConnectSrc = [
+      process.env.NEXT_PUBLIC_API_URL,
+      process.env.NEXT_PUBLIC_LIVEKIT_URL,
+      // Allow ws:// WebSocket connections to the API server (derived from http:// URL)
+      process.env.NEXT_PUBLIC_API_URL?.replace(/^http:/, "ws:"),
+      process.env.NEXT_PUBLIC_API_URL?.replace(/^https:/, "wss:"),
+    ]
+      .filter(Boolean)
+      .join(" ");
+
     return [
       {
         source: "/(.*)",
@@ -65,7 +71,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              "connect-src 'self' wss: https:",
+              `connect-src 'self' wss: https:${extraConnectSrc ? ` ${extraConnectSrc}` : ""}`,
               "media-src 'self' blob:",
               "frame-src 'self'",
             ].join("; "),

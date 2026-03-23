@@ -24,8 +24,6 @@ common:
   actions:
     retry: "再試行"
     cancel: "キャンセル"
-    signInAgain: "再ログイン"
-    signInWithEmail: "メールでログイン"
   status:
     loading: "読み込み中..."
   userFallback: "ユーザー"
@@ -39,10 +37,31 @@ common:
   eventLeft: "退出"
   eventResponseGenerated: "応答生成"
   eventResponseAutonomous: "自律応答"
+login:
+  titleSignin: "サインイン"
+  titleRegister: "アカウント登録"
+  intro: "Google SSO とメール/パスワードは同じメールアドレスのアカウントに統合されます。"
+  tabSignin: "サインイン"
+  tabRegister: "登録"
+  continueGoogle: "Google で続行"
+  verifyInProgress: "メールを確認しています..."
+  verifySuccess: "メール確認が完了しました。パスワードでサインインしてください。"
+  verifyError: "メール確認に失敗しました。"
+  signInError: "サインインに失敗しました。"
+  registerError: "アカウント登録に失敗しました。"
+  registerStarted: "登録を開始しました。セットアップを完了するには API ログに出力された確認リンクを開いてください。"
+  email: "メールアドレス"
+  password: "パスワード"
+  name: "名前"
+  signInWithEmail: "メールでサインイン"
+  signingIn: "サインイン中..."
+  createAccount: "アカウント登録"
+  creatingAccount: "アカウント登録中..."
+  registrationClosed: "新規登録は現在受け付けていません。管理者にお問い合わせください。"
 layout:
-  sessionUnavailable:
-    title: "セッションを取得できません"
-    description: "認証済みユーザーを `/api/auth/me` から取得できませんでした。"
+  serverError:
+    title: "サーバーに接続できません"
+    description: "アプリケーションサーバーに接続できませんでした。しばらくしてから再度お試しください。"
 home:
   title: "EchoLore"
   tagline: "社内コラボレーション基盤"

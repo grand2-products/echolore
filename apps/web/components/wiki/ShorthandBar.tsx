@@ -2,7 +2,7 @@
 
 import type { BlockNoteEditor } from "@blocknote/core";
 import { useCallback, useRef, useState } from "react";
-import { wikiApi } from "@/lib/api";
+import { ApiError, wikiApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 import { applyShorthandOperations, serializeEditorForLlm } from "@/lib/wiki-shorthand";
@@ -42,17 +42,19 @@ export function ShorthandBar({ pageId, pageTitle, editor }: ShorthandBarProps) {
       setInput("");
       setStatus("idle");
     } catch (err) {
-      console.error("Shorthand failed:", err);
-
-      // Fallback: insert raw text at the end
-      try {
-        const doc = editor.document;
-        const lastBlock = doc[doc.length - 1];
-        if (lastBlock) {
-          editor.insertBlocks([{ type: "paragraph", content: text }], lastBlock, "after");
+      // Fallback: insert raw text at the end (skip when LLM is simply not configured)
+      const isLlmUnavailable =
+        err instanceof ApiError && err.code === "WIKI_SHORTHAND_LLM_UNAVAILABLE";
+      if (!isLlmUnavailable) {
+        try {
+          const doc = editor.document;
+          const lastBlock = doc[doc.length - 1];
+          if (lastBlock) {
+            editor.insertBlocks([{ type: "paragraph", content: text }], lastBlock, "after");
+          }
+        } catch (_fallbackErr) {
+          // silently ignore — error is shown in UI
         }
-      } catch (fallbackErr) {
-        console.error("Fallback insert failed:", fallbackErr);
       }
 
       setStatus("error");

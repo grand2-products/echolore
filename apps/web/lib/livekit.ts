@@ -1,10 +1,11 @@
 import type { LivekitTokenResponse } from "@echolore/shared/contracts";
 import { apiFetch } from "./api";
+import { getPublicLivekitUrl } from "./runtime-env";
 
 export const COWORKING_ROOM_NAME = "everybody-coworking";
 
 export function getLiveKitUrl(): string {
-  return process.env.NEXT_PUBLIC_LIVEKIT_URL ?? "ws://localhost:7880";
+  return getPublicLivekitUrl();
 }
 
 export async function fetchLiveKitToken(params: {
