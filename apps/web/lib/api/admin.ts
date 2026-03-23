@@ -1,4 +1,11 @@
-import type { SuccessResponse } from "@echolore/shared/contracts";
+import type {
+  CheckUpdateResponse,
+  StartUpdateRequest,
+  StartUpdateResponse,
+  SuccessResponse,
+  SystemStatusResponse,
+  UpdateProgressResponse,
+} from "@echolore/shared/contracts";
 import { executeApiRequest, fetchApi, parseApiError } from "./fetch";
 import type {
   AdminGroup,
@@ -221,5 +228,23 @@ export const adminApi = {
   deleteSiteIcon: () =>
     fetchApi<{ success: boolean }>("/admin/site-icon", {
       method: "DELETE",
+    }),
+
+  // System update
+  getSystemStatus: () => fetchApi<SystemStatusResponse>("/admin/system/status"),
+
+  checkUpdate: () => fetchApi<CheckUpdateResponse>("/admin/system/check-update"),
+
+  startUpdate: (data?: StartUpdateRequest) =>
+    fetchApi<StartUpdateResponse>("/admin/system/update", {
+      method: "POST",
+      body: JSON.stringify(data ?? {}),
+    }),
+
+  getUpdateProgress: () => fetchApi<UpdateProgressResponse>("/admin/system/update/progress"),
+
+  triggerRollback: () =>
+    fetchApi<{ success: boolean; message: string }>("/admin/system/rollback", {
+      method: "POST",
     }),
 };

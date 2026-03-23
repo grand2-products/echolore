@@ -160,6 +160,8 @@ services:
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
       ROOM_AI_WORKER_SECRET: ${ROOM_AI_WORKER_SECRET:-}
       VALKEY_URL: redis://valkey:6379
+      UPDATER_URL: http://updater:8787
+      UPDATER_SECRET: ${UPDATER_SECRET:-}
     volumes:
       - ./data/files:/data/files
     labels:
@@ -242,6 +244,23 @@ services:
         condition: service_healthy
       livekit:
         condition: service_started
+    networks:
+      - backend
+
+  updater:
+    image: ${UPDATER_IMAGE:-ghcr.io/grand2-products/echolore/updater:latest}
+    container_name: echolore-updater
+    restart: unless-stopped
+    environment:
+      UPDATER_SECRET: ${UPDATER_SECRET:-}
+      GITHUB_REPO: grand2-products/echolore
+      INSTALL_DIR: /opt/echolore
+      PORT: 8787
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${ECHOLORE_INSTALL_DIR:-/opt/echolore}:/opt/echolore
+    ports:
+      - "${UPDATER_PORT:-8787}:8787"
     networks:
       - backend
 
