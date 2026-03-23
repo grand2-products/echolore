@@ -91,7 +91,7 @@ async function generateAgentTextResponse(input: {
         : "";
 
     const result = await executor.invoke({
-      messages: [new HumanMessage(`${input.prompt}${contextBlock}`)],
+      messages: [new HumanMessage(`${escapeXmlTags(input.prompt)}${contextBlock}`)],
     });
 
     const lastMessage = result.messages[result.messages.length - 1];

@@ -12,6 +12,19 @@ import type { BackupStorageConfig } from "./backup-settings-service.js";
 import { buildBackupStorageConfig, getBackupSettings } from "./backup-settings-service.js";
 
 const MAX_STDERR_LENGTH = 65_536;
+const SAFE_BACKUP_NAME = /^[\w\-.]+$/;
+
+const ALLOWED_WEBHOOK_PREFIXES = ["https://hooks.slack.com/", "https://discord.com/api/webhooks/"];
+
+function validateBackupName(name: string): void {
+  if (!SAFE_BACKUP_NAME.test(name)) {
+    throw new Error(`Invalid backup name: ${name}`);
+  }
+}
+
+function isAllowedWebhookUrl(url: string): boolean {
+  return ALLOWED_WEBHOOK_PREFIXES.some((prefix) => url.startsWith(prefix));
+}
 
 function timestamp(): string {
   return new Date()
@@ -80,6 +93,7 @@ export async function executeBackup(): Promise<void> {
 }
 
 export async function executeRestore(backupName: string): Promise<void> {
+  validateBackupName(backupName);
   const tmpPath = join("/tmp", backupName);
   let slackWebhookUrl: string | null = null;
 
@@ -136,27 +150,40 @@ async function sendSlackNotification(
 ): Promise<void> {
   if (!webhookUrl) return;
   try {
+    if (!isAllowedWebhookUrl(webhookUrl)) {
+      console.warn("Slack notification skipped: webhook URL is not an allowed provider");
+      return;
+    }
+
     const isSuccess = result === "success";
     const emoji = isSuccess ? "\u2705" : "\u274c";
     const status = isSuccess ? "completed" : "failed";
 
-    await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text: `${emoji} EchoLore ${operation} ${status}: ${filename}`,
-        attachments: [
-          {
-            color: isSuccess ? "#36a64f" : "#d32f2f",
-            fields: [
-              { title: "Operation", value: operation, short: true },
-              { title: "File", value: filename, short: true },
-              ...(errorMessage ? [{ title: "Error", value: errorMessage, short: false }] : []),
-            ],
-          },
-        ],
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          text: `${emoji} EchoLore ${operation} ${status}: ${filename}`,
+          attachments: [
+            {
+              color: isSuccess ? "#36a64f" : "#d32f2f",
+              fields: [
+                { title: "Operation", value: operation, short: true },
+                { title: "File", value: filename, short: true },
+                ...(errorMessage ? [{ title: "Error", value: errorMessage, short: false }] : []),
+              ],
+            },
+          ],
+        }),
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
   } catch (e) {
     console.warn("Slack notification failed (non-fatal):", (e as Error).message);
   }

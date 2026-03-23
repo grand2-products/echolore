@@ -24,9 +24,9 @@ export const updateUserGroupsSchema = z.object({ groupIds: z.array(z.string()) }
 export const createAgentSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().nullable().optional(),
-  systemPrompt: z.string().min(1),
+  systemPrompt: z.string().min(1).max(10000),
   voiceProfile: z.string().nullable().optional(),
-  interventionStyle: z.string().min(1),
+  interventionStyle: z.string().min(1).max(1000),
   defaultProvider: z.enum(["google", "vertex", "zhipu"]).default("google"),
   isActive: z.boolean().optional(),
   autonomousEnabled: z.boolean().optional(),

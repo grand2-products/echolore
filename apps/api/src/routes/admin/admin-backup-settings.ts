@@ -15,6 +15,7 @@ import { updateBackupSettingsSchema } from "./schemas.js";
 
 const HEALTH_WARNING_HOURS = 26;
 const HEALTH_CRITICAL_HOURS = 72;
+const SAFE_BACKUP_NAME = /^[\w\-.]+$/; // Must match backup-executor-service.ts
 
 const settingsRoutes = createAdminSettingsRoutes({
   path: "backup-settings",
@@ -127,6 +128,9 @@ adminBackupSettingsRoutes.post(
       return c.json({ error: "Backup provider is not configured" }, 400);
     }
     const { backupName } = c.req.valid("json");
+    if (!SAFE_BACKUP_NAME.test(backupName)) {
+      return c.json({ error: "Invalid backup name" }, 400);
+    }
     if (!acquireJob("restore", backupName)) {
       return c.json({ error: "A backup operation is already in progress" }, 409);
     }
@@ -144,6 +148,9 @@ adminBackupSettingsRoutes.post(
 adminBackupSettingsRoutes.delete("/backups/:name", async (c) => {
   try {
     const name = c.req.param("name");
+    if (!SAFE_BACKUP_NAME.test(name)) {
+      return c.json({ error: "Invalid backup name" }, 400);
+    }
     const settings = await getBackupSettings();
     if (!settings.provider) {
       return c.json({ error: "Backup provider is not configured" }, 400);

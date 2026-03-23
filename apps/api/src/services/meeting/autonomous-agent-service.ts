@@ -139,7 +139,7 @@ async function callDecisionLlm(
     const prompt = buildAutonomousDecisionPrompt({
       agentName: escapeXmlTags(agent.name),
       interventionStyle: escapeXmlTags(agent.interventionStyle),
-      systemPrompt: agent.systemPrompt,
+      systemPrompt: escapeXmlTags(agent.systemPrompt),
       recentTranscriptLines,
     });
 

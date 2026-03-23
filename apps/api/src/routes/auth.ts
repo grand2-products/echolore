@@ -20,7 +20,13 @@ import { ONE_HOUR_MS } from "../lib/time.js";
 const registerSchema = z.object({
   email: z.string().email(),
   name: z.string().trim().min(1),
-  password: z.string().min(8),
+  password: z
+    .string()
+    .min(8)
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
+      "Password must contain at least one lowercase letter, one uppercase letter, and one digit"
+    ),
 });
 
 const verifyEmailSchema = z.object({

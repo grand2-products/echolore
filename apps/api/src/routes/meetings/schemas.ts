@@ -49,6 +49,6 @@ export const realtimeTranscriptSchema = z.object({
 });
 
 export const agentRespondSchema = z.object({
-  prompt: z.string().min(1),
+  prompt: z.string().min(1).max(5000),
   languageCode: z.string().min(2).optional(),
 });
