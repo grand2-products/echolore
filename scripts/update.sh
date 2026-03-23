@@ -129,7 +129,7 @@ fi
 
 mv docker-compose.yml.new docker-compose.yml
 
-# ── update version in .env ───────────────────────────────────────────────────
+# ── update version in .env (must happen before pull so image tags resolve) ───
 
 if grep -q '^ECHOLORE_VERSION=' .env; then
   sed -i "s/^ECHOLORE_VERSION=.*/ECHOLORE_VERSION=${TARGET_VERSION}/" .env
@@ -139,13 +139,13 @@ fi
 
 # ── pull new images ──────────────────────────────────────────────────────────
 
-info "Pulling images..."
-docker compose pull || rollback
+info "Pulling images (${TARGET_VERSION})..."
+ECHOLORE_VERSION="${TARGET_VERSION}" docker compose pull || rollback
 
 # ── restart services (migrations run automatically on API startup) ────────────
 
 info "Restarting services..."
-docker compose up -d --remove-orphans
+ECHOLORE_VERSION="${TARGET_VERSION}" docker compose up -d --remove-orphans
 
 # ── health check ─────────────────────────────────────────────────────────────
 
