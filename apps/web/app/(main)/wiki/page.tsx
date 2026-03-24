@@ -6,6 +6,7 @@ import { ErrorBanner, LoadingState } from "@/components/ui";
 import { ImportFileModal, SpacePickerModal } from "@/components/wiki";
 import { useWikiPagesQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useWikiPageActions } from "@/lib/hooks/use-wiki-page-actions";
 import { useFormatters, useT } from "@/lib/i18n";
 
 function formatRelativeDate(iso: string): string {
@@ -26,6 +27,11 @@ export default function WikiListPage() {
   const getApiErrorMessage = useApiErrorMessage();
   const { number } = useFormatters();
   const { data, isLoading, error, refetch } = useWikiPagesQuery();
+  const { handleAddSubPage } = useWikiPageActions({
+    onMutate: () => {
+      refetch();
+    },
+  });
   const [showSpacePicker, setShowSpacePicker] = useState(false);
   const [showImport, setShowImport] = useState(false);
 
@@ -37,7 +43,11 @@ export default function WikiListPage() {
         <h1 className="mb-4 text-3xl font-bold text-gray-900">{t("wiki.list.title")}</h1>
         <p className="mb-8 text-gray-600">{t("wiki.list.description")}</p>
 
-        <SpacePickerModal open={showSpacePicker} onClose={() => setShowSpacePicker(false)} />
+        <SpacePickerModal
+          open={showSpacePicker}
+          onClose={() => setShowSpacePicker(false)}
+          onAddSubPage={handleAddSubPage}
+        />
         <ImportFileModal open={showImport} onClose={() => setShowImport(false)} />
 
         <div className="mb-8 grid gap-4 md:grid-cols-4">

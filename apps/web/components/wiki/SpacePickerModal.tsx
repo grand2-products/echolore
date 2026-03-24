@@ -1,9 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
-import { ErrorBanner } from "@/components/ui";
-import { useSpacesQuery, wikiApi } from "@/lib/api";
+import { useCallback } from "react";
+import { useSpacesQuery } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { ModalShell } from "./ModalShell";
 import { SpaceList } from "./SpaceList";
@@ -11,42 +9,26 @@ import { SpaceList } from "./SpaceList";
 interface SpacePickerModalProps {
   open: boolean;
   onClose: () => void;
+  onAddSubPage: (parentId?: string, spaceId?: string) => void;
 }
 
-export function SpacePickerModal({ open, onClose }: SpacePickerModalProps) {
+export function SpacePickerModal({ open, onClose, onAddSubPage }: SpacePickerModalProps) {
   const t = useT();
-  const router = useRouter();
-  const creatingRef = useRef(false);
-  const [error, setError] = useState<string | null>(null);
   const { data: spacesData, isLoading } = useSpacesQuery();
   const spaces = spacesData?.spaces ?? [];
 
   const handleSelect = useCallback(
     (spaceId: string) => {
-      if (creatingRef.current) return;
-      creatingRef.current = true;
-      setError(null);
-
-      wikiApi
-        .createPage({ title: t("wiki.newPage.defaultTitle"), spaceId })
-        .then((res) => {
-          onClose();
-          router.push(`/wiki/${res.page.id}`);
-        })
-        .catch(() => {
-          setError(t("wiki.newPage.createError"));
-          creatingRef.current = false;
-        });
+      onAddSubPage(undefined, spaceId);
+      onClose();
     },
-    [router, t, onClose]
+    [onAddSubPage, onClose]
   );
 
   return (
     <ModalShell open={open} onClose={onClose}>
       <h2 className="mb-1 text-lg font-bold text-gray-900">{t("wiki.newPage.pickSpaceTitle")}</h2>
       <p className="mb-5 text-sm text-gray-500">{t("wiki.newPage.pickSpaceDescription")}</p>
-
-      {error && <ErrorBanner message={error} className="mb-4" />}
 
       {isLoading ? (
         <p className="text-sm text-gray-500">{t("common.status.loading")}</p>
