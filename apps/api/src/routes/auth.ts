@@ -164,11 +164,6 @@ authRoutes.post("/verify-email", zValidator("json", verifyEmailSchema), async (c
 
 // Legacy browser login/google routes removed — Auth.js handles browser sign-in
 
-authRoutes.post("/logout", async (c) => {
-  // Browser logout is handled by Auth.js signout; this endpoint is a no-op.
-  return c.json({ success: true });
-});
-
 // Mobile token routes — unchanged
 
 authRoutes.post("/token", zValidator("json", tokenAuthSchema), async (c) => {

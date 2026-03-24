@@ -34,7 +34,7 @@ function LoginPageInner() {
   const t = useT();
   const { user, isLoading: authLoading } = useAuthContext();
   const returnTo = normalizeReturnTo(searchParams.get("returnTo"));
-  const { googleSignInUrl } = useAuthActions({ returnTo });
+  const { googleSignIn } = useAuthActions({ returnTo });
   const { signIn, register, verifyEmail } = usePasswordAuth();
   const getApiErrorMessage = useApiErrorMessage();
 
@@ -178,12 +178,13 @@ function LoginPageInner() {
 
         {googleOAuthEnabled ? (
           <div className="mt-6 space-y-3">
-            <a
-              href={googleSignInUrl}
-              className="block rounded-lg border border-slate-300 px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
+            <button
+              type="button"
+              onClick={() => void googleSignIn()}
+              className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               {t("login.continueGoogle")}
-            </a>
+            </button>
           </div>
         ) : null}
 
