@@ -5,9 +5,9 @@ RUN apk add --no-cache docker-cli docker-cli-compose bash curl
 
 WORKDIR /app
 
-# Copy source
-COPY deno.json .
-COPY src/ src/
+# Copy source (context is repo root)
+COPY apps/updater/deno.json .
+COPY apps/updater/src/ src/
 
 # Cache dependencies (Deno will resolve imports on first run)
 RUN deno cache src/main.ts
