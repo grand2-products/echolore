@@ -79,6 +79,18 @@ export const adminApi = {
       body: JSON.stringify({ groupIds }),
     }),
 
+  suspendUser: (id: string) =>
+    fetchApi<{ user: AdminUserRecord }>(`/admin/users/${id}/suspend`, { method: "POST" }),
+
+  unsuspendUser: (id: string) =>
+    fetchApi<{ user: AdminUserRecord }>(`/admin/users/${id}/unsuspend`, { method: "POST" }),
+
+  deleteUser: (id: string) =>
+    fetchApi<{ user: AdminUserRecord }>(`/admin/users/${id}`, { method: "DELETE" }),
+
+  restoreUser: (id: string) =>
+    fetchApi<{ user: AdminUserRecord }>(`/admin/users/${id}/restore`, { method: "POST" }),
+
   getSpacePermissions: (spaceId: string) =>
     fetchApi<AdminSpacePermissionsResponse>(`/admin/permissions/spaces/${spaceId}`),
 

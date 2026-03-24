@@ -28,6 +28,8 @@ type AdminUserRaw = {
   name: string;
   avatarUrl: string | null;
   role: string;
+  suspendedAt: Date | null;
+  deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   groups: Array<{ id: string; name: string }>;
@@ -81,6 +83,8 @@ export const toAdminUserRecordDto = (user: AdminUserRaw): AdminUserRecordDto => 
   name: user.name,
   avatarUrl: user.avatarUrl,
   role: user.role === "admin" ? "admin" : "member",
+  suspendedAt: user.suspendedAt?.toISOString() ?? null,
+  deletedAt: user.deletedAt?.toISOString() ?? null,
   createdAt: user.createdAt.toISOString(),
   updatedAt: user.updatedAt.toISOString(),
   groups: user.groups.map(toAdminUserGroupRefDto),

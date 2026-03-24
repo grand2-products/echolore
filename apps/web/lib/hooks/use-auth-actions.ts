@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { getGoogleSignInUrl, logoutCurrentUser } from "../auth-flow";
+import { buildCallbackUrl, logoutCurrentUser } from "../auth-flow";
 import { buildCurrentReturnTo, normalizeReturnTo } from "../return-to";
 import { invalidateAuthQueries } from "./use-auth-session";
 
@@ -23,7 +23,7 @@ export function useAuthActions(options?: { returnTo?: string | null }) {
   };
 
   return {
-    googleSignInUrl: getGoogleSignInUrl(normalizeReturnTo(currentReturnTo)),
+    googleCallbackUrl: buildCallbackUrl(normalizeReturnTo(currentReturnTo)),
     logout,
   };
 }

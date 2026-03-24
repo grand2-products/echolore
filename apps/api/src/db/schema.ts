@@ -32,6 +32,8 @@ export const users = pgTable("users", {
   emailVerifiedAt: timestamp("email_verified_at"),
   tokenVersion: integer("token_version").default(1).notNull(),
   role: text("role").default("member").notNull(), // admin, member
+  suspendedAt: timestamp("suspended_at"),
+  deletedAt: timestamp("deleted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

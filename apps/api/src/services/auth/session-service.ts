@@ -17,6 +17,7 @@ export async function resolveAccessTokenSession(input: {
 
   const user = await findUserById(payload.sub);
   if (!user || user.tokenVersion !== payload.ver) return null;
+  if (user.suspendedAt || user.deletedAt) return null;
 
   return { user: toSessionUser(user), authMode: payload.am };
 }
