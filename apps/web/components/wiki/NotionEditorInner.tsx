@@ -22,6 +22,7 @@ interface NotionEditorInnerProps {
   initialBlocks: BlockDto[];
   pageTitle: string;
   onTitleChange: (title: string) => void;
+  autoFocusTitle?: boolean;
   readOnly?: boolean;
   userName?: string;
   userColor?: string;
@@ -32,6 +33,7 @@ export default function NotionEditorInner({
   initialBlocks,
   pageTitle,
   onTitleChange,
+  autoFocusTitle = false,
   readOnly = false,
   userName = "User",
   userColor = "#3b82f6",
@@ -39,7 +41,16 @@ export default function NotionEditorInner({
   const t = useT();
   const queryClient = useQueryClient();
   const titleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const [titleSaveError, setTitleSaveError] = useState(false);
+
+  // Auto-focus and select title for newly created pages
+  useEffect(() => {
+    if (autoFocusTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [autoFocusTitle]);
 
   const { provider, fragment, connectionStatus } = useCollaboration({
     pageId,
@@ -85,6 +96,7 @@ export default function NotionEditorInner({
         </h1>
       ) : (
         <input
+          ref={titleInputRef}
           type="text"
           value={pageTitle}
           onChange={(e) => handleTitleChange(e.target.value)}

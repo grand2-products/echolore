@@ -35,12 +35,12 @@ export function useWikiPageActions({ onMutate, currentPageId }: UseWikiPageActio
   );
 
   const handleAddSubPage = useCallback(
-    (parentId: string, spaceId?: string) => {
+    (parentId?: string, spaceId?: string) => {
       wikiApi
         .createPage({ title: t("wiki.newPage.defaultTitle"), parentId, spaceId })
         .then(async (res) => {
           await onMutate();
-          router.push(`/wiki/${res.page.id}`);
+          router.push(`/wiki/${res.page.id}?new=1`);
         })
         .catch((err) => {
           setActionError(getApiErrorMessage(err, t("wiki.newPage.createError")));

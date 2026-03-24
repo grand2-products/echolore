@@ -10,6 +10,7 @@ interface NotionEditorProps {
   initialBlocks: BlockDto[];
   pageTitle: string;
   onTitleChange: (title: string) => void;
+  autoFocusTitle?: boolean;
   readOnly?: boolean;
   userName?: string;
   userColor?: string;

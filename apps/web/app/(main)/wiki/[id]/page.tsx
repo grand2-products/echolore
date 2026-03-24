@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NotionEditor } from "@/components/wiki/NotionEditor";
 import { PagePermissionsPanel } from "@/components/wiki/PagePermissionsPanel";
@@ -73,7 +73,9 @@ function ActionMenu({ items }: { items: ActionMenuItem[] }) {
 
 export default function WikiDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const pageId = params.id as string;
+  const isNewPage = searchParams.get("new") === "1";
   const t = useT();
   const { dateTime } = useFormatters();
 
@@ -218,6 +220,7 @@ export default function WikiDetailPage() {
             initialBlocks={blocks}
             pageTitle={resolvedTitle}
             onTitleChange={setPageTitle}
+            autoFocusTitle={isNewPage}
             userName={userName}
             userColor={userColor}
           />

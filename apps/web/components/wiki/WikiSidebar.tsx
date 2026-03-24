@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
-import { type Space, wikiApi } from "@/lib/api";
+import { useState } from "react";
+import type { Space } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { type PageNode, PageTree } from "./PageTree";
 import { SpacePickerModal } from "./SpacePickerModal";
@@ -14,7 +13,7 @@ interface WikiSidebarProps {
   pages?: PageNode[];
   activeId?: string;
   onReparent?: (pageId: string, parentId: string | null) => Promise<void> | void;
-  onAddSubPage?: (parentId: string, spaceId?: string) => void;
+  onAddSubPage?: (parentId?: string, spaceId?: string) => void;
   onRenamePage?: (pageId: string, newTitle: string) => Promise<void> | void;
   onDeletePage?: (pageId: string) => Promise<void> | void;
 }
@@ -45,21 +44,6 @@ function SpaceSection({
   t: (key: string) => string;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const router = useRouter();
-  const creatingRef = useRef(false);
-
-  const handleNewPage = useCallback(() => {
-    if (creatingRef.current) return;
-    creatingRef.current = true;
-    wikiApi
-      .createPage({ title: t("wiki.newPage.defaultTitle"), spaceId: space.id })
-      .then((res) => {
-        router.push(`/wiki/${res.page.id}`);
-      })
-      .catch(() => {
-        creatingRef.current = false;
-      });
-  }, [router, space.id, t]);
 
   return (
     <div className="mb-3">
@@ -73,7 +57,7 @@ function SpaceSection({
         </button>
         <button
           type="button"
-          onClick={handleNewPage}
+          onClick={() => onAddSubPage?.(undefined, space.id)}
           className="rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-50"
         >
           {t("wiki.spaces.newPage")}
@@ -144,7 +128,13 @@ export function WikiSidebar({
           {t("wiki.sidebar.new")}
         </button>
       </div>
-      <SpacePickerModal open={showSpacePicker} onClose={() => setShowSpacePicker(false)} />
+      {onAddSubPage && (
+        <SpacePickerModal
+          open={showSpacePicker}
+          onClose={() => setShowSpacePicker(false)}
+          onAddSubPage={onAddSubPage}
+        />
+      )}
       <PageTree
         pages={pages ?? []}
         activeId={activeId}

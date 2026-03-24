@@ -146,6 +146,10 @@ ECHOLORE_VERSION="${TARGET_VERSION}" docker compose pull || rollback
 
 info "Restarting services..."
 ECHOLORE_VERSION="${TARGET_VERSION}" docker compose up -d --remove-orphans
+# Force-recreate Traefik so it picks up any label/routing changes from other
+# containers. Traefik caches internal router state and may not fully refresh
+# when only downstream container labels change (especially reserved names).
+ECHOLORE_VERSION="${TARGET_VERSION}" docker compose up -d --force-recreate traefik
 
 # ── health check ─────────────────────────────────────────────────────────────
 
