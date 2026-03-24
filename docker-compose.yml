@@ -99,6 +99,7 @@ services:
       - "3478:3478/udp"
     labels:
       traefik.enable: "true"
+      traefik.docker.network: echolore_frontend
       traefik.http.routers.echolore-livekit.rule: "Host(`${DOMAIN}`) && PathPrefix(`/rtc`)"
       traefik.http.routers.echolore-livekit.entrypoints: websecure
       traefik.http.routers.echolore-livekit.tls.certresolver: le
@@ -166,6 +167,7 @@ services:
       - ./data/files:/data/files
     labels:
       traefik.enable: "true"
+      traefik.docker.network: echolore_frontend
       traefik.http.routers.echolore-api.rule: "Host(`${DOMAIN}`) && PathPrefix(`/api`)"
       traefik.http.routers.echolore-api.entrypoints: websecure
       traefik.http.routers.echolore-api.tls.certresolver: le
