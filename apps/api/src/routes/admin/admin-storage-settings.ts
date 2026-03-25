@@ -29,7 +29,19 @@ adminStorageSettingsRoutes.route("/", settingsRoutes);
 
 adminStorageSettingsRoutes.post("/storage-settings/test", async (c) => {
   try {
-    const settings = await getStorageSettings();
+    const body = await c.req.json().catch(() => null);
+    const parsed = body ? updateStorageSettingsSchema.safeParse(body) : null;
+
+    let settings: StorageSettings;
+    if (parsed?.success && parsed.data.provider) {
+      // Merge form values over saved settings so that omitted fields
+      // (e.g. masked secrets) fall back to the persisted value.
+      const saved = await getStorageSettings();
+      settings = { ...saved, ...parsed.data } as StorageSettings;
+    } else {
+      settings = await getStorageSettings();
+    }
+
     const config = await buildStorageConfig(settings);
     const testProvider = createStorageProvider(config);
 

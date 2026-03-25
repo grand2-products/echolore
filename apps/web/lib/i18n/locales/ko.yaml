@@ -156,7 +156,7 @@ wiki:
   spaces:
     general: "전체"
     team: "팀"
-    personal: "내 스페이스"
+    personal: "{name}의 스페이스"
     newPage: "+ 새로 만들기"
     noPages: "페이지 없음"
   sidebar:

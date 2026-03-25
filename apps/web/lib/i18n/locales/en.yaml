@@ -156,7 +156,7 @@ wiki:
   spaces:
     general: "General"
     team: "Team"
-    personal: "My Space"
+    personal: "{name}'s Space"
     newPage: "+ New"
     noPages: "No pages yet"
   sidebar:

@@ -15,8 +15,8 @@ export function useAuthActions(options?: { returnTo?: string | null }) {
 
   const logout = async () => {
     await logoutCurrentUser();
-    // logoutCurrentUser redirects via window.location.assign, so the following
-    // is only reached if the redirect is somehow blocked.
+    // logoutCurrentUser submits a form, so the following is only reached
+    // if the redirect is somehow blocked.
     await invalidateAuthQueries(queryClient);
     router.replace("/login");
     router.refresh();

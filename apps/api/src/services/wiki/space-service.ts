@@ -64,7 +64,7 @@ export async function listVisibleSpaces(user: SessionUser): Promise<Space[]> {
   const allSpaces = await listSpaces();
 
   if (user.role === UserRole.Admin) {
-    return allSpaces;
+    return allSpaces.filter((s) => s.type !== "personal" || s.ownerUserId === user.id);
   }
 
   const memberships = await listMembershipsByUser(user.id);
@@ -125,8 +125,8 @@ export async function canAccessSpace(
   space: Space,
   action: "read" | "write" | "delete" = "read"
 ): Promise<boolean> {
-  if (user.role === UserRole.Admin) return true;
   if (space.type === "personal") return space.ownerUserId === user.id;
+  if (user.role === UserRole.Admin) return true;
 
   const memberships = await listMembershipsByUser(user.id);
   const groupIds = memberships.map((m) => m.groupId);

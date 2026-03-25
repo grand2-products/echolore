@@ -287,20 +287,6 @@ describe("wikiRoutes", () => {
       updatedAt: new Date("2026-03-11T09:05:00.000Z"),
     });
     authorizePageResourceMock.mockResolvedValue({ allowed: true, reason: "group:engineering" });
-    getPageBlocksMock.mockResolvedValue([
-      {
-        id: "block_1",
-        pageId: "page_1",
-        type: "file",
-        content: "design.pdf",
-        properties: {
-          fileId: "file_1",
-        },
-        sortOrder: 0,
-        createdAt: new Date("2026-03-11T09:01:00.000Z"),
-        updatedAt: new Date("2026-03-11T09:01:00.000Z"),
-      },
-    ]);
     getFileByIdMock.mockResolvedValue({
       id: "file_1",
       filename: "design.pdf",
@@ -318,7 +304,7 @@ describe("wikiRoutes", () => {
     expect(response.headers.get("content-type")).toBe("application/pdf");
   });
 
-  it("rejects attachment download when the file is not attached to the page", async () => {
+  it("returns 404 when the file record does not exist", async () => {
     const app = createApp({
       id: "user_2",
       email: "member@example.com",
@@ -335,36 +321,14 @@ describe("wikiRoutes", () => {
       updatedAt: new Date("2026-03-11T09:05:00.000Z"),
     });
     authorizePageResourceMock.mockResolvedValue({ allowed: true, reason: "group:engineering" });
-    getPageBlocksMock.mockResolvedValue([
-      {
-        id: "block_1",
-        pageId: "page_1",
-        type: "file",
-        content: "other.pdf",
-        properties: {
-          fileId: "file_other",
-        },
-        sortOrder: 0,
-        createdAt: new Date("2026-03-11T09:01:00.000Z"),
-        updatedAt: new Date("2026-03-11T09:01:00.000Z"),
-      },
-    ]);
-    getFileByIdMock.mockResolvedValue({
-      id: "file_1",
-      filename: "design.pdf",
-      contentType: "application/pdf",
-      size: 1234,
-      storagePath: "uploads/file_1-design.pdf",
-      uploaderId: "user_1",
-      createdAt: new Date("2026-03-11T09:01:00.000Z"),
-    });
+    getFileByIdMock.mockResolvedValue(null);
 
     const response = await app.request("http://localhost/api/wiki/page_1/files/file_1/download");
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
-      code: "WIKI_FILE_NOT_ATTACHED",
-      error: "File not attached to page",
+      code: "WIKI_FILE_NOT_FOUND",
+      error: "File not found",
     });
   });
 });
