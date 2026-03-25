@@ -48,7 +48,6 @@ wikiShorthandRoutes.post("/:pageId/shorthand", zValidator("json", shorthandSchem
     return c.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("Shorthand failed:", message);
 
     if (error instanceof LlmNotConfiguredError) {
       return jsonError(c, 503, "WIKI_SHORTHAND_LLM_UNAVAILABLE", "LLM is not configured", message);

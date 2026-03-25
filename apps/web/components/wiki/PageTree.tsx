@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useT } from "@/lib/i18n";
 
 export interface PageNode {
@@ -399,6 +400,7 @@ export function PageTree({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const allIds = useMemo(() => flattenPageIds(pages), [pages]);
 
   useEffect(() => {
@@ -460,14 +462,14 @@ export function PageTree({
     [onReparent]
   );
 
-  const handleDelete = useCallback(
-    (pageId: string) => {
-      const confirmed = window.confirm(t("wiki.tree.deleteConfirm"));
-      if (!confirmed) return;
-      void onDeletePage?.(pageId);
-    },
-    [onDeletePage, t]
-  );
+  const handleDelete = useCallback((pageId: string) => {
+    setDeletingId(pageId);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    if (deletingId) void onDeletePage?.(deletingId);
+    setDeletingId(null);
+  }, [deletingId, onDeletePage]);
 
   return (
     <div
@@ -521,6 +523,13 @@ export function PageTree({
           onDelete={onDeletePage ? handleDelete : undefined}
         />
       ))}
+      <ConfirmDialog
+        open={!!deletingId}
+        title={t("wiki.tree.deleteConfirm")}
+        confirmLabel={t("wiki.tree.delete")}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeletingId(null)}
+      />
     </div>
   );
 }

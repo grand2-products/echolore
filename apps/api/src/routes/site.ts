@@ -75,8 +75,7 @@ siteRoutes.get("/site-icon", async (c) => {
         "Cache-Control": "public, max-age=86400, stale-while-revalidate=3600",
       },
     });
-  } catch (error) {
-    console.error("Error serving site icon:", error);
+  } catch {
     return jsonError(c, 404, "SITE_ICON_NOT_FOUND", "Site icon not available");
   }
 });

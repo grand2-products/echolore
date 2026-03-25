@@ -5,6 +5,7 @@ import {
   isTextGenerationEnabled,
   resolveTextProvider,
 } from "../../ai/llm/index.js";
+import { jsonError } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import type { LlmSettings } from "../../services/admin/admin-service.js";
 import { getLlmSettings, updateLlmSettings } from "../../services/admin/admin-service.js";
@@ -56,8 +57,7 @@ adminLlmSettingsRoutes.post("/llm-settings/test", async (c) => {
 
     return c.json({ ok: true, reply: text });
   } catch (error) {
-    console.error("LLM test failed:", error);
-    const detail = error instanceof Error ? error.message : "Unknown error";
-    return c.json({ ok: false, error: `LLM connection test failed: ${detail}` }, 502);
+    const detail = error instanceof Error ? error.message : undefined;
+    return jsonError(c, 502, "LLM_TEST_FAILED", "LLM connection test failed", detail);
   }
 });

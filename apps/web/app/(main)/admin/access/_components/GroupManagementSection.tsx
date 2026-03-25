@@ -2,6 +2,7 @@
 
 import { ALL_GROUP_PERMISSIONS, type GroupPermission } from "@echolore/shared/contracts";
 import { useEffect, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { adminApi, type CreateAdminGroupRequest } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
@@ -75,18 +76,11 @@ export function GroupManagementSection() {
     }
   };
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const removeGroup = async () => {
     if (!selectedGroup || selectedGroup.isSystem) return;
-    if (
-      !window.confirm(
-        t("admin.access.deleteConfirm", {
-          name: selectedGroup.name,
-        })
-      )
-    ) {
-      return;
-    }
-
+    setShowDeleteConfirm(false);
     setIsSavingGroup(true);
     setError(null);
     setNotice(null);
@@ -242,7 +236,7 @@ export function GroupManagementSection() {
             {selectedGroup && !selectedGroup.isSystem ? (
               <button
                 type="button"
-                onClick={removeGroup}
+                onClick={() => setShowDeleteConfirm(true)}
                 disabled={isSavingGroup}
                 className="rounded-md border border-red-300 px-4 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"
               >
@@ -252,6 +246,13 @@ export function GroupManagementSection() {
           </div>
         </div>
       ) : null}
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title={t("admin.access.deleteConfirm", { name: selectedGroup?.name ?? "" })}
+        confirmLabel={t("admin.access.delete")}
+        onConfirm={() => void removeGroup()}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </section>
   );
 }

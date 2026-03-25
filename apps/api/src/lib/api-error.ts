@@ -10,6 +10,15 @@ export function jsonError(
   error: string,
   message?: string
 ) {
+  if (status >= 500) {
+    console.error(
+      `[${code}] ${status} ${c.req.method} ${c.req.path} – ${error}${message ? `: ${message}` : ""}`
+    );
+  } else if (status >= 400 && status !== 404) {
+    console.warn(
+      `[${code}] ${status} ${c.req.method} ${c.req.path} – ${error}${message ? `: ${message}` : ""}`
+    );
+  }
   return c.json(
     {
       error,
@@ -41,8 +50,12 @@ export function withErrorHandler(
       await next();
     } catch (error) {
       if (error instanceof Response) throw error;
-      console.error(`${errorMessage}:`, error);
-      return jsonError(c, statusCode, errorCode, errorMessage);
+      console.error(error);
+      const detail =
+        statusCode < 500
+          ? (error instanceof Error ? error.message : String(error)).slice(0, 300) || undefined
+          : undefined;
+      return jsonError(c, statusCode, errorCode, errorMessage, detail);
     }
   });
 }
@@ -63,9 +76,11 @@ export async function tryCatchResponse(
     return await handler();
   } catch (error) {
     if (error instanceof Response) return error;
-    console.error(`${errorMessage}:`, error);
-    const raw = error instanceof Error ? error.message : undefined;
-    const detail = raw && raw.length <= 300 ? raw : undefined;
+    console.error(error);
+    const detail =
+      statusCode < 500
+        ? (error instanceof Error ? error.message : String(error)).slice(0, 300) || undefined
+        : undefined;
     return jsonError(c, statusCode, errorCode, errorMessage, detail);
   }
 }

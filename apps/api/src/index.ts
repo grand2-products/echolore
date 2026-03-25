@@ -189,8 +189,8 @@ app.route("/api/admin/metrics", metricsRoutes);
 
 app.notFound((c) => jsonError(c, 404, "NOT_FOUND", "Not Found"));
 app.onError((err, c) => {
-  console.error("Unhandled server error:", err);
-  return jsonError(c, 500, "INTERNAL_SERVER_ERROR", "Internal Server Error", err.message);
+  console.error(err.stack ?? err);
+  return jsonError(c, 500, "INTERNAL_SERVER_ERROR", "Internal Server Error");
 });
 
 // Run database migrations on startup (idempotent — skips already-applied)

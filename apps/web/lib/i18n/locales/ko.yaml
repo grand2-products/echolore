@@ -25,6 +25,7 @@ common:
     retry: "다시 시도"
     cancel: "취소"
     close: "닫기"
+    confirm: "확인"
   status:
     loading: "불러오는 중..."
   userFallback: "사용자"
@@ -41,9 +42,9 @@ common:
 login:
   titleSignin: "로그인"
   titleRegister: "계정 만들기"
+  welcomeTitle: "환영합니다"
+  welcomeMessage: "아직 계정이 생성되지 않았습니다. 첫 번째 관리자 계정을 등록해 주세요."
   intro: "Google SSO 와 이메일/비밀번호 로그인은 같은 이메일 계정으로 통합됩니다."
-  tabSignin: "로그인"
-  tabRegister: "등록"
   continueGoogle: "Google로 계속하기"
   verifyInProgress: "이메일을 확인하는 중..."
   verifySuccess: "이메일 확인이 완료되었습니다. 비밀번호로 로그인해 주세요."
@@ -578,6 +579,12 @@ admin:
     unsuspendError: "일시 중지 해제에 실패했습니다."
     deleteError: "사용자 삭제에 실패했습니다."
     restoreError: "사용자 복원에 실패했습니다."
+    groupMemberships: "그룹 소속"
+    saveGroups: "저장"
+    savingGroups: "저장 중..."
+    groupsUpdated: "그룹 소속을 업데이트했습니다."
+    groupsUpdateError: "그룹 소속 업데이트에 실패했습니다."
+    noGroups: "사용 가능한 그룹이 없습니다."
   access:
     title: "접근 관리"
     description: "한 곳에서 그룹, 사용자 소속, Wiki 페이지 권한을 관리합니다."
@@ -855,6 +862,10 @@ admin:
     critical: "심각"
     warning: "경고"
     normal: "정상"
+  systemInfo:
+    title: "시스템 정보"
+    description: "현재 시스템 버전 및 저장소 정보입니다."
+    repository: "GitHub 저장소"
   system:
     title: "시스템 업데이트"
     description: "애플리케이션 버전 관리 및 업데이트를 수행합니다."

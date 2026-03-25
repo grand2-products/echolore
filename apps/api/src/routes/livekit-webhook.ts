@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { WebhookReceiver } from "livekit-server-sdk";
+import { jsonError } from "../lib/api-error.js";
 import { livekitApiKey, livekitApiSecret } from "../lib/livekit-config.js";
 import {
   COWORKING_ROOM,
@@ -22,8 +23,14 @@ livekitWebhookRoutes.post("/", async (c) => {
     try {
       event = await webhookReceiver.receive(body, authHeader);
     } catch (verifyError) {
-      console.error("[livekit-webhook] Signature verification failed:", verifyError);
-      return c.json({ error: "Unauthorized" }, 401);
+      const detail = verifyError instanceof Error ? verifyError.message : undefined;
+      return jsonError(
+        c,
+        401,
+        "LIVEKIT_WEBHOOK_UNAUTHORIZED",
+        "Signature verification failed",
+        detail
+      );
     }
 
     eventType = event.event;
@@ -76,7 +83,13 @@ livekitWebhookRoutes.post("/", async (c) => {
 
     return c.json({ ok: true });
   } catch (error) {
-    console.error(`[livekit-webhook] Error processing ${eventType ?? "unknown"} webhook:`, error);
-    return c.json({ error: "Webhook processing failed" }, 500);
+    const detail = error instanceof Error ? error.message : undefined;
+    return jsonError(
+      c,
+      500,
+      "LIVEKIT_WEBHOOK_FAILED",
+      `Webhook processing failed (${eventType ?? "unknown"})`,
+      detail
+    );
   }
 });

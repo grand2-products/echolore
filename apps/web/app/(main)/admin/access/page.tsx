@@ -5,7 +5,6 @@ import { AdminAccessProvider, useAdminAccess } from "./_components/AdminAccessCo
 import { GroupManagementSection } from "./_components/GroupManagementSection";
 import { PagePermissionsSection } from "./_components/PagePermissionsSection";
 import { SpacePermissionsSection } from "./_components/SpacePermissionsSection";
-import { UserMembershipSection } from "./_components/UserMembershipSection";
 
 function AdminAccessContent() {
   const t = useT();
@@ -39,7 +38,6 @@ function AdminAccessContent() {
       ) : (
         <div className="grid gap-6 xl:grid-cols-2">
           <GroupManagementSection />
-          <UserMembershipSection />
           <PagePermissionsSection />
           <SpacePermissionsSection />
         </div>

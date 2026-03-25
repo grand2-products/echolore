@@ -6,9 +6,10 @@ interface ModalShellProps {
   open: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  maxWidth?: string;
 }
 
-export function ModalShell({ open, onClose, children }: ModalShellProps) {
+export function ModalShell({ open, onClose, children, maxWidth }: ModalShellProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,7 +41,9 @@ export function ModalShell({ open, onClose, children }: ModalShellProps) {
       onClick={handleBackdropClick}
       onKeyDown={handleKeyDown}
     >
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">{children}</div>
+      <div className={`w-full rounded-xl bg-white p-6 shadow-xl ${maxWidth ?? "max-w-md"}`}>
+        {children}
+      </div>
     </div>
   );
 }
