@@ -6,6 +6,7 @@ import type {
   AdminUserGroupRefDto,
   AdminUserRecordDto,
 } from "@echolore/shared/contracts";
+import { resolveUserAvatarUrl } from "../user-dto.js";
 
 type AdminGroupRaw = {
   id: string;
@@ -81,7 +82,7 @@ export const toAdminUserRecordDto = (user: AdminUserRaw): AdminUserRecordDto => 
   id: user.id,
   email: user.email,
   name: user.name,
-  avatarUrl: user.avatarUrl,
+  avatarUrl: resolveUserAvatarUrl(user),
   role: user.role === "admin" ? "admin" : "member",
   suspendedAt: user.suspendedAt?.toISOString() ?? null,
   deletedAt: user.deletedAt?.toISOString() ?? null,

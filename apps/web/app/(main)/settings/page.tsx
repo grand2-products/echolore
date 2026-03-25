@@ -1,9 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorBanner } from "@/components/ui";
 import { calendarApi, useCalendarStatusQuery } from "@/lib/api";
+import { buildApiUrl } from "@/lib/api/fetch";
+import { usersApi } from "@/lib/api/users";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAuthContext } from "@/lib/auth-context";
 import { useAuthActions } from "@/lib/hooks/use-auth-actions";
@@ -37,6 +40,14 @@ export default function SettingsPage() {
   const calendarStatus = useCalendarStatusQuery(Boolean(user));
   const [calendarDisconnecting, setCalendarDisconnecting] = useState(false);
   const [calendarMessage, setCalendarMessage] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarMessage, setAvatarMessage] = useState<string | null>(null);
+  const [avatarKey, setAvatarKey] = useState(0);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState("");
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameMessage, setNameMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -98,6 +109,80 @@ export default function SettingsPage() {
     await logout();
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    setAvatarMessage(null);
+    try {
+      await usersApi.uploadAvatar(file);
+      setAvatarMessage(t("settings.avatar.uploadSuccess"));
+      setAvatarKey((k) => k + 1);
+      void refetchAuth();
+    } catch (error) {
+      setAvatarMessage(getApiErrorMessage(error, t("settings.avatar.uploadError")));
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  };
+
+  const handleAvatarRemove = async () => {
+    setAvatarUploading(true);
+    setAvatarMessage(null);
+    try {
+      await usersApi.deleteAvatar();
+      setAvatarMessage(t("settings.avatar.removeSuccess"));
+      setAvatarKey((k) => k + 1);
+      void refetchAuth();
+    } catch (error) {
+      setAvatarMessage(getApiErrorMessage(error, t("settings.avatar.removeError")));
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleNameEdit = () => {
+    if (user) {
+      setNameValue(user.name);
+      setEditingName(true);
+      setNameMessage(null);
+    }
+  };
+
+  const handleNameSave = async () => {
+    if (!user || !nameValue.trim()) return;
+    setNameSaving(true);
+    setNameMessage(null);
+    try {
+      await usersApi.update(user.id, { name: nameValue.trim() });
+      setEditingName(false);
+      setNameMessage(t("settings.nameUpdateSuccess"));
+      void refetchAuth();
+    } catch (error) {
+      setNameMessage(getApiErrorMessage(error, t("settings.nameUpdateError")));
+    } finally {
+      setNameSaving(false);
+    }
+  };
+
+  const handleNameCancel = () => {
+    setEditingName(false);
+    setNameMessage(null);
+  };
+
+  const hasUploadedAvatar = user?.avatarUrl?.startsWith("/api/users/");
+  const hasExternalAvatar = (() => {
+    if (!user?.avatarUrl || hasUploadedAvatar) return false;
+    try {
+      const parsed = new URL(user.avatarUrl);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  })();
+  const hasAvatar = hasUploadedAvatar || hasExternalAvatar;
+
   const sessionDescriptionKey =
     authMode === "password"
       ? "settings.sessionDescriptionPassword"
@@ -129,11 +214,110 @@ export default function SettingsPage() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">{t("settings.account")}</h2>
-                <dl className="mt-4 space-y-3 text-sm text-gray-700">
+
+                <div className="mt-4">
+                  <h3 className="text-sm font-medium text-gray-500">
+                    {t("settings.avatar.title")}
+                  </h3>
+                  <p className="mt-1 text-xs text-gray-400">{t("settings.avatar.description")}</p>
+                  <div className="mt-3 flex items-center gap-4">
+                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-gray-200">
+                      {hasAvatar ? (
+                        <Image
+                          key={avatarKey}
+                          src={
+                            hasUploadedAvatar
+                              ? buildApiUrl(user.avatarUrl ?? "")
+                              : (user.avatarUrl ?? "")
+                          }
+                          alt=""
+                          width={64}
+                          height={64}
+                          className="h-full w-full object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-xl font-semibold text-gray-500">
+                          {user.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <label
+                        className={`rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 ${avatarUploading ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
+                      >
+                        {hasAvatar ? t("settings.avatar.change") : t("settings.avatar.upload")}
+                        <input
+                          ref={avatarInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/gif,image/webp"
+                          className="hidden"
+                          onChange={(e) => void handleAvatarUpload(e)}
+                          disabled={avatarUploading}
+                        />
+                      </label>
+                      {hasAvatar && (
+                        <button
+                          type="button"
+                          onClick={() => void handleAvatarRemove()}
+                          disabled={avatarUploading}
+                          className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+                        >
+                          {t("settings.avatar.remove")}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {avatarMessage && <p className="mt-2 text-sm text-blue-600">{avatarMessage}</p>}
+                </div>
+
+                <dl className="mt-6 space-y-3 text-sm text-gray-700">
                   <div className="flex items-center justify-between gap-4 border-b border-gray-100 pb-3">
                     <dt className="font-medium text-gray-500">{t("settings.name")}</dt>
-                    <dd>{user.name}</dd>
+                    <dd className="flex items-center gap-2">
+                      {editingName ? (
+                        <>
+                          <input
+                            type="text"
+                            value={nameValue}
+                            onChange={(e) => setNameValue(e.target.value)}
+                            className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") void handleNameSave();
+                              if (e.key === "Escape") handleNameCancel();
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void handleNameSave()}
+                            disabled={nameSaving || !nameValue.trim()}
+                            className="rounded-md bg-gray-900 px-2 py-1 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-60"
+                          >
+                            {t("settings.editNameSave")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleNameCancel}
+                            className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+                          >
+                            {t("settings.editNameCancel")}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span>{user.name}</span>
+                          <button
+                            type="button"
+                            onClick={handleNameEdit}
+                            className="rounded-md border border-gray-200 px-2 py-0.5 text-xs text-gray-500 hover:bg-gray-100"
+                          >
+                            {t("settings.editName")}
+                          </button>
+                        </>
+                      )}
+                    </dd>
                   </div>
+                  {nameMessage && <p className="text-sm text-blue-600">{nameMessage}</p>}
                   <div className="flex items-center justify-between gap-4 border-b border-gray-100 pb-3">
                     <dt className="font-medium text-gray-500">{t("settings.email")}</dt>
                     <dd>{user.email}</dd>

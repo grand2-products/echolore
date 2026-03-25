@@ -12,6 +12,7 @@ import { usePublicSiteSettings } from "@/lib/hooks/use-public-site-settings";
 import { useRegistrationStatus } from "@/lib/hooks/use-registration-status";
 import { useT } from "@/lib/i18n";
 import { normalizeReturnTo } from "@/lib/return-to";
+import { GenerativeBg } from "./generative-bg";
 
 type AuthView = "signin" | "register";
 
@@ -154,8 +155,9 @@ function LoginPageInner() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-6 py-16">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+    <main className="relative flex min-h-screen items-center justify-center bg-slate-100 px-6 py-16">
+      <GenerativeBg />
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-sm backdrop-blur-sm">
         <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">{siteTitle}</p>
         <h1 className="mt-3 text-2xl font-semibold text-slate-900">
           {view === "signin" ? t("login.titleSignin") : t("login.titleRegister")}

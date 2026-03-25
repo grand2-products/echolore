@@ -8,7 +8,7 @@ import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import { jsonError } from "./lib/api-error.js";
 import { auditAction } from "./lib/audit.js";
-import { type AppEnv, authGuard, requireRole } from "./lib/auth.js";
+import { type AppEnv, authGuard, requireRole, type SessionUser } from "./lib/auth.js";
 import { getAuthConfig } from "./lib/authjs-config.js";
 import { createStorageProvider, setStorageProvider } from "./lib/file-storage.js";
 import { csrfProtection, securityHeaders } from "./lib/security-middleware.js";
@@ -153,9 +153,27 @@ app.use("/api/admin/*", async (c, next) => {
   await next();
 });
 
-app.get("/api/auth/me", (c) =>
-  c.json({ user: c.get("user") ?? null, authMode: c.get("authMode") ?? null })
-);
+app.get("/api/auth/me", async (c) => {
+  const sessionUser = c.get("user") as SessionUser | undefined;
+  if (!sessionUser) {
+    return c.json({ user: null, authMode: null });
+  }
+  // Fetch fresh user data from DB so avatar changes are reflected immediately,
+  // even when the session (e.g. Auth.js JWT) holds a stale avatarUrl.
+  const { getUserById } = await import("./services/admin/user-service.js");
+  const { resolveUserAvatarUrl } = await import("./routes/user-dto.js");
+  const dbUser = await getUserById(sessionUser.id);
+  const user: SessionUser = dbUser
+    ? {
+        id: dbUser.id,
+        email: dbUser.email,
+        name: dbUser.name,
+        role: dbUser.role === UserRole.Admin ? UserRole.Admin : UserRole.Member,
+        avatarUrl: resolveUserAvatarUrl(dbUser),
+      }
+    : sessionUser;
+  return c.json({ user, authMode: c.get("authMode") ?? null });
+});
 
 app.route("/api/wiki", wikiRoutes);
 app.route("/api/ai-chat", aiChatRoutes);

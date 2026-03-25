@@ -6,7 +6,7 @@ import type {
   SuccessResponse,
   UpdateUserRequest,
 } from "@echolore/shared/contracts";
-import { fetchApi } from "./fetch";
+import { executeApiRequest, fetchApi, parseApiError } from "./fetch";
 
 export const usersApi = {
   list: () => fetchApi<ListUsersResponse>("/users"),
@@ -37,6 +37,27 @@ export const usersApi = {
 
   delete: (id: string) =>
     fetchApi<SuccessResponse>(`/users/${id}`, {
+      method: "DELETE",
+    }),
+
+  uploadAvatar: async (file: File): Promise<GetUserResponse> => {
+    const formData = new FormData();
+    formData.append("file", file, file.name);
+
+    const response = await executeApiRequest("/users/me/avatar", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw await parseApiError(response);
+    }
+
+    return response.json();
+  },
+
+  deleteAvatar: () =>
+    fetchApi<GetUserResponse>("/users/me/avatar", {
       method: "DELETE",
     }),
 };

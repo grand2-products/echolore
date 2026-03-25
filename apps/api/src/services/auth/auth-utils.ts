@@ -6,6 +6,7 @@ import {
   getUserById,
   getUserCount as getUserCountRepo,
 } from "../../repositories/user/user-repository.js";
+import { resolveUserAvatarUrl } from "../../routes/user-dto.js";
 
 export const ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 export const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
@@ -90,7 +91,7 @@ export function toSessionUser(user: {
     email: user.email,
     name: user.name,
     role: user.role === UserRole.Admin ? UserRole.Admin : UserRole.Member,
-    avatarUrl: user.avatarUrl ?? null,
+    avatarUrl: resolveUserAvatarUrl(user),
   };
 }
 

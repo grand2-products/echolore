@@ -66,6 +66,16 @@ Last updated: 2026-03-13
 - Verify `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are configured
 - Verify `/api/auth/me`
 
+### Google Calendar 連携で redirect_uri_mismatch
+- カレンダー連携はログインとは別の OAuth フローを使い、redirect_uri が異なる
+  - ログイン: `{APP_BASE_URL}/api/auth/callback/google`
+  - カレンダー: `{APP_BASE_URL}/api/calendar/callback`
+- Google Cloud Console の「承認済みのリダイレクト URI」に **両方** 登録が必要
+- 例 (`APP_BASE_URL=https://example.com`):
+  - `https://example.com/api/auth/callback/google`
+  - `https://example.com/api/calendar/callback`
+- ローカル開発の場合も同様に `http://localhost:17760/api/calendar/callback` を追加する
+
 ### Admin API forbidden (403)
 - Confirm session user role is `admin`
 - Validate `/api/auth/me`
