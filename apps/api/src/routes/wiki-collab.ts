@@ -3,6 +3,7 @@ import type { UpgradeWebSocket } from "hono/ws";
 import type { AppEnv } from "../lib/auth.js";
 import { resolveAuthjsSession } from "../lib/auth.js";
 import { evaluatePageWriteAccess } from "../policies/authorization-policy.js";
+import { getUserById } from "../repositories/user/user-repository.js";
 import { getPageById } from "../services/wiki/wiki-service.js";
 import {
   addConnection,
@@ -31,6 +32,16 @@ export function createWikiCollabRoutes(upgradeWebSocket: UpgradeWebSocket) {
         }
 
         const user = session.user;
+
+        // Check user is not suspended or deleted
+        const dbUser = await getUserById(user.id);
+        if (!dbUser || dbUser.suspendedAt || dbUser.deletedAt) {
+          return {
+            onOpen(_evt: unknown, ws: { close(code: number, reason: string): void }) {
+              ws.close(4001, "Unauthorized");
+            },
+          };
+        }
 
         // Check page exists and user has write access
         const page = await getPageById(pageId);

@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { appTitle } from "@/lib/app-config";
 import { useAuthContext } from "@/lib/auth-context";
+import { fetchCsrfToken, getGoogleSignInAction } from "@/lib/auth-flow";
 import { useAuthActions } from "@/lib/hooks/use-auth-actions";
 import { usePasswordAuth } from "@/lib/hooks/use-password-auth";
 import { usePublicSiteSettings } from "@/lib/hooks/use-public-site-settings";
@@ -34,7 +35,8 @@ function LoginPageInner() {
   const t = useT();
   const { user, isLoading: authLoading } = useAuthContext();
   const returnTo = normalizeReturnTo(searchParams.get("returnTo"));
-  const { googleSignIn } = useAuthActions({ returnTo });
+  const { googleCallbackUrl } = useAuthActions({ returnTo });
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const { signIn, register, verifyEmail } = usePasswordAuth();
   const getApiErrorMessage = useApiErrorMessage();
 
@@ -44,6 +46,15 @@ function LoginPageInner() {
   const registrationOpen = regStatus?.open ?? false;
   const googleOAuthEnabled = siteSettings?.googleOAuthEnabled ?? false;
   const siteTitle = siteSettings?.siteTitle || appTitle;
+
+  // Fetch CSRF token only when Google OAuth is enabled
+  useEffect(() => {
+    if (googleOAuthEnabled) {
+      void fetchCsrfToken()
+        .then(setCsrfToken)
+        .catch(() => {});
+    }
+  }, [googleOAuthEnabled]);
 
   const [view, setView] = useState<AuthView>("signin");
   const [signinEmail, setSigninEmail] = useState("");
@@ -176,16 +187,17 @@ function LoginPageInner() {
           </div>
         ) : null}
 
-        {googleOAuthEnabled ? (
-          <div className="mt-6 space-y-3">
+        {googleOAuthEnabled && csrfToken ? (
+          <form action={getGoogleSignInAction()} method="POST" className="mt-6 space-y-3">
+            <input type="hidden" name="csrfToken" value={csrfToken} />
+            <input type="hidden" name="callbackUrl" value={googleCallbackUrl} />
             <button
-              type="button"
-              onClick={() => void googleSignIn()}
+              type="submit"
               className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               {t("login.continueGoogle")}
             </button>
-          </div>
+          </form>
         ) : null}
 
         {message ? (

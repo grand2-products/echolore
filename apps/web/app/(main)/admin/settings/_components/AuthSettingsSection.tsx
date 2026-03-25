@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { adminApi } from "@/lib/api";
 import { useSettingsForm } from "@/lib/hooks/use-settings-form";
 import { useT } from "@/lib/i18n";
@@ -74,6 +74,8 @@ export function AuthSettingsSection() {
           />
         </label>
 
+        <RedirectUriHint />
+
         <label className="block text-sm text-gray-700">
           {t("admin.settings.authAllowedDomain")}
           <input
@@ -121,5 +123,23 @@ export function AuthSettingsSection() {
         <SettingsSaveButton saving={saving} onClick={() => void handleSave()} />
       </div>
     </SettingsSectionShell>
+  );
+}
+
+function RedirectUriHint() {
+  const t = useT();
+  const [uri, setUri] = useState("/api/auth/callback/google");
+
+  useEffect(() => {
+    setUri(`${window.location.origin}/api/auth/callback/google`);
+  }, []);
+
+  return (
+    <p className="text-xs text-gray-500">
+      {t("admin.settings.authGoogleRedirectUriHint")}
+      <code className="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono text-gray-800 select-all">
+        {uri}
+      </code>
+    </p>
   );
 }

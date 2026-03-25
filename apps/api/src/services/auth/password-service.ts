@@ -109,6 +109,10 @@ export async function authenticatePasswordUser(email: string, password: string) 
     return null;
   }
 
+  if (record.user.suspendedAt || record.user.deletedAt) {
+    return null;
+  }
+
   const isValid = await verifyPassword(password, record.identity.passwordHash);
   if (!isValid) {
     return null;

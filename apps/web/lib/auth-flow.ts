@@ -2,39 +2,30 @@ import { buildAuthJsUrl } from "./api/fetch";
 import { normalizeReturnTo } from "./return-to";
 
 /**
- * Initiate Google OAuth sign-in via POST (required by Auth.js v5).
- *
- * Auth.js v5 requires OAuth provider sign-in to be triggered via POST with a
- * CSRF token. A plain GET link results in an `UnknownAction` error.
+ * Returns the form action URL for Google OAuth sign-in (POST).
  */
-export async function initiateGoogleSignIn(returnTo?: string | null) {
-  const csrfRes = await fetch(buildAuthJsUrl("/api/auth/csrf"), {
-    credentials: "include",
-  });
-  const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
+export function getGoogleSignInAction() {
+  return buildAuthJsUrl("/api/auth/signin/google");
+}
 
-  const form = document.createElement("form");
-  form.method = "POST";
-  form.action = buildAuthJsUrl("/api/auth/signin/google");
-  form.style.display = "none";
+/**
+ * Fetches the Auth.js CSRF token needed for form-based sign-in.
+ */
+export async function fetchCsrfToken(): Promise<string> {
+  const res = await fetch(buildAuthJsUrl("/api/auth/csrf"));
+  const data = (await res.json()) as { csrfToken: string };
+  return data.csrfToken;
+}
 
-  const tokenInput = document.createElement("input");
-  tokenInput.type = "hidden";
-  tokenInput.name = "csrfToken";
-  tokenInput.value = csrfToken;
-  form.appendChild(tokenInput);
-
+/**
+ * Build the callbackUrl for the sign-in form.
+ */
+export function buildCallbackUrl(returnTo?: string | null): string {
   const safeReturnTo = normalizeReturnTo(returnTo);
-  if (safeReturnTo) {
-    const callbackInput = document.createElement("input");
-    callbackInput.type = "hidden";
-    callbackInput.name = "callbackUrl";
-    callbackInput.value = new URL(safeReturnTo, window.location.origin).toString();
-    form.appendChild(callbackInput);
+  if (safeReturnTo && typeof window !== "undefined") {
+    return new URL(safeReturnTo, window.location.origin).toString();
   }
-
-  document.body.appendChild(form);
-  form.submit();
+  return typeof window !== "undefined" ? window.location.origin : "/";
 }
 
 export async function logoutCurrentUser() {

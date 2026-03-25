@@ -5,40 +5,58 @@ describe("auth flow", () => {
     vi.restoreAllMocks();
   });
 
-  it("submits a POST form with CSRF token on logout", async () => {
-    // Track forms appended to the body
+  it("getGoogleSignInAction returns Auth.js signin URL", async () => {
+    vi.stubGlobal("window", {
+      location: { origin: "http://localhost:3000" },
+    });
+    vi.stubGlobal("document", { querySelector: () => null });
+
+    const { getGoogleSignInAction } = await import("./auth-flow");
+    const action = getGoogleSignInAction();
+
+    expect(action).toContain("/api/auth/signin/google");
+  });
+
+  it("fetchCsrfToken fetches from Auth.js csrf endpoint", async () => {
+    vi.stubGlobal("window", {
+      location: { origin: "http://localhost:3000" },
+    });
+    vi.stubGlobal("document", { querySelector: () => null });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        json: () => Promise.resolve({ csrfToken: "test-token" }),
+      })
+    );
+
+    const { fetchCsrfToken } = await import("./auth-flow");
+    const token = await fetchCsrfToken();
+
+    expect(token).toBe("test-token");
+  });
+
+  it("logoutCurrentUser submits a POST form with CSRF token", async () => {
     const submittedForms: HTMLFormElement[] = [];
 
     vi.stubGlobal("window", {
       location: { origin: "http://localhost:3000" },
     });
-
-    vi.stubGlobal(
-      "document",
-      (() => {
-        const doc = {
-          createElement: (tag: string) => {
-            const el: Record<string, unknown> = {
-              tagName: tag,
-              children: [] as unknown[],
-              style: {} as Record<string, string>,
-            };
-            el.appendChild = (child: unknown) => (el.children as unknown[]).push(child);
-            if (tag === "form") {
-              el.submit = () => submittedForms.push(el as unknown as HTMLFormElement);
-            }
-            return el;
-          },
-          body: {
-            appendChild: () => {},
-          },
-          querySelector: () => null,
+    vi.stubGlobal("document", {
+      createElement: (tag: string) => {
+        const el: Record<string, unknown> = {
+          tagName: tag,
+          children: [] as unknown[],
+          style: {} as Record<string, string>,
         };
-        return doc;
-      })()
-    );
-
-    // Mock fetch to return a CSRF token
+        el.appendChild = (child: unknown) => (el.children as unknown[]).push(child);
+        if (tag === "form") {
+          el.submit = () => submittedForms.push(el as unknown as HTMLFormElement);
+        }
+        return el;
+      },
+      body: { appendChild: () => {} },
+      querySelector: () => null,
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
