@@ -121,7 +121,7 @@ export async function refreshAccessToken(input: {
   }
 
   const user = await findUserById(refreshRecord.userId);
-  if (!user) {
+  if (!user || user.suspendedAt || user.deletedAt) {
     return null;
   }
 

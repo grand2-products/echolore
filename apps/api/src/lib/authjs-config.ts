@@ -81,9 +81,10 @@ export async function getAuthConfig(): Promise<AuthConfig> {
           if (allowedDomain && domain !== allowedDomain) return false;
           // Block new Google users when registration is closed
           const [existing] = await db
-            .select({ id: users.id })
+            .select({ id: users.id, suspendedAt: users.suspendedAt, deletedAt: users.deletedAt })
             .from(users)
             .where(eq(users.email, email.trim().toLowerCase()));
+          if (existing?.suspendedAt || existing?.deletedAt) return false;
           if (!existing && !(await isRegistrationOpen())) return false;
           // Reconciliation happens in the jwt callback only to avoid
           // a race condition with duplicate user creation.

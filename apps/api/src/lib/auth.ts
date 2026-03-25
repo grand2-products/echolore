@@ -10,6 +10,11 @@ import { resolveAccessTokenSession } from "./local-auth.js";
 // Cache of user IDs confirmed to exist in DB. Avoids a DB query on every request.
 const verifiedUserIds = new Set<string>();
 
+/** Remove a user from the verified-user cache so the next request re-checks the DB. */
+export function invalidateVerifiedUser(userId: string) {
+  verifiedUserIds.delete(userId);
+}
+
 const AUTH_SECRET = process.env.AUTH_SECRET || process.env.AUTH_SESSION_SECRET;
 if (!AUTH_SECRET) {
   throw new Error("AUTH_SECRET (or AUTH_SESSION_SECRET) must be set");
@@ -124,6 +129,9 @@ export const authGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
       const dbUser = await getUserById(authjsResult.user.id);
       if (!dbUser) {
         return jsonError(c, 401, "SESSION_INVALID", "User no longer exists");
+      }
+      if (dbUser.suspendedAt || dbUser.deletedAt) {
+        return jsonError(c, 403, "ACCOUNT_SUSPENDED", "Account is suspended or deleted");
       }
       verifiedUserIds.add(authjsResult.user.id);
     }

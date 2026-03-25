@@ -557,6 +557,8 @@ export interface AdminUserRecordDto {
   name: string;
   avatarUrl?: string | null;
   role: UserRole;
+  suspendedAt: ISODateString | null;
+  deletedAt: ISODateString | null;
   createdAt: ISODateString;
   updatedAt: ISODateString;
   groups: AdminUserGroupRefDto[];
