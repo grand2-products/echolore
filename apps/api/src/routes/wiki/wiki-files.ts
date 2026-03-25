@@ -4,7 +4,7 @@ import type { AppEnv } from "../../lib/auth.js";
 import { loadFile } from "../../lib/file-storage.js";
 import { authorizePageResource } from "../../policies/authorization-policy.js";
 import { getFileById } from "../../services/file/file-service.js";
-import { getPageBlocks, getPageById } from "../../services/wiki/wiki-service.js";
+import { getPageById } from "../../services/wiki/wiki-service.js";
 
 export const wikiFileRoutes = new Hono<AppEnv>();
 
@@ -22,15 +22,6 @@ wikiFileRoutes.get(
     const authz = await authorizePageResource(c, id, page.authorId, "read");
     if (!authz.allowed) {
       return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
-    }
-
-    // Verify the file is actually attached to this page via a file block
-    const blocks = await getPageBlocks(id);
-    const isAttached = blocks.some(
-      (b) => b.type === "file" && (b.properties as Record<string, unknown>)?.fileId === fileId
-    );
-    if (!isAttached) {
-      return jsonError(c, 404, "WIKI_FILE_NOT_ATTACHED", "File not attached to page");
     }
 
     const fileRecord = await getFileById(fileId);

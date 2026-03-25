@@ -29,12 +29,6 @@ variable "gcs_bucket_name" {
   default     = ""
 }
 
-variable "gcs_storage_class" {
-  description = "GCS ストレージクラス"
-  type        = string
-  default     = "STANDARD"
-}
-
 # ---------------------------------------------------------------------------
 # Vertex AI
 # ---------------------------------------------------------------------------

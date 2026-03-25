@@ -71,10 +71,34 @@ export function StorageSettingsSection({ onTestModal }: StorageSettingsSectionPr
       },
     });
 
+  const buildTestPayload = (): Record<string, unknown> => {
+    const payload: Record<string, unknown> = { provider: storageProvider };
+    if (storageProvider === "local") {
+      payload.localPath = storageLocalPath || null;
+    } else if (storageProvider === "s3") {
+      payload.s3Endpoint = storageS3Endpoint || null;
+      payload.s3Region = storageS3Region || null;
+      payload.s3Bucket = storageS3Bucket || null;
+      payload.s3AccessKey = storageS3AccessKey || null;
+      if (storageS3SecretKey && storageS3SecretKey !== "••••••••")
+        payload.s3SecretKey = storageS3SecretKey;
+      payload.s3ForcePathStyle = storageS3ForcePathStyle;
+    } else if (storageProvider === "gcs") {
+      payload.gcsBucket = storageGcsBucket || null;
+      payload.gcsUseGcpDefaults = storageGcsUseGcpDefaults;
+      if (!storageGcsUseGcpDefaults) {
+        payload.gcsProjectId = storageGcsProjectId || null;
+        if (storageGcsKeyJson && storageGcsKeyJson !== "••••••••")
+          payload.gcsKeyJson = storageGcsKeyJson;
+      }
+    }
+    return payload;
+  };
+
   const { testing: storageTesting, handleTest: handleStorageTest } = useConnectionTest({
     title: t("admin.settings.storageTestTitle"),
     test: async () => {
-      const result = await adminApi.testStorageConnection();
+      const result = await adminApi.testStorageConnection(buildTestPayload());
       return {
         ok: result.ok,
         message: result.provider
