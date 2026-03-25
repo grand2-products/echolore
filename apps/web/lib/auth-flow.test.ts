@@ -35,46 +35,28 @@ describe("auth flow", () => {
     expect(token).toBe("test-token");
   });
 
-  it("logoutCurrentUser submits a POST form with CSRF token", async () => {
-    const submittedForms: HTMLFormElement[] = [];
+  it("logoutCurrentUser POSTs signout and redirects to /login", async () => {
+    const assignMock = vi.fn();
 
     vi.stubGlobal("window", {
-      location: { origin: "http://localhost:3000" },
+      location: { origin: "http://localhost:3000", assign: assignMock },
     });
-    vi.stubGlobal("document", {
-      createElement: (tag: string) => {
-        const el: Record<string, unknown> = {
-          tagName: tag,
-          children: [] as unknown[],
-          style: {} as Record<string, string>,
-        };
-        el.appendChild = (child: unknown) => (el.children as unknown[]).push(child);
-        if (tag === "form") {
-          el.submit = () => submittedForms.push(el as unknown as HTMLFormElement);
-        }
-        return el;
-      },
-      body: { appendChild: () => {} },
-      querySelector: () => null,
+    vi.stubGlobal("document", { querySelector: () => null });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ csrfToken: "test-token" }),
     });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        json: () => Promise.resolve({ csrfToken: "test-token" }),
-      })
-    );
+    vi.stubGlobal("fetch", fetchMock);
 
     const { logoutCurrentUser } = await import("./auth-flow");
     await logoutCurrentUser();
 
-    expect(submittedForms).toHaveLength(1);
-    const form = submittedForms[0] as unknown as Record<string, unknown>;
-    expect(form.method).toBe("POST");
-    expect(form.action).toEqual(expect.stringContaining("/api/auth/signout"));
-
-    const children = form.children as Array<Record<string, unknown>>;
-    const csrfInput = children.find((c) => c.name === "csrfToken");
-    expect(csrfInput).toBeDefined();
-    expect(csrfInput?.value).toBe("test-token");
+    // First call is fetchCsrfToken, second is the signout POST
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [signoutUrl, signoutInit] = fetchMock.mock.calls[1]!;
+    expect(signoutUrl).toEqual(expect.stringContaining("/api/auth/signout"));
+    expect(signoutInit.method).toBe("POST");
+    expect(signoutInit.body).toContain("csrfToken=test-token");
+    expect(assignMock).toHaveBeenCalledWith("/login");
   });
 });
