@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { jsonError } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { createStorageProvider, setStorageProvider } from "../../lib/file-storage.js";
 import type { StorageSettings } from "../../services/admin/admin-service.js";
@@ -58,7 +59,7 @@ adminStorageSettingsRoutes.post("/storage-settings/test", async (c) => {
 
     return c.json({ ok: true, provider: settings.provider });
   } catch (error) {
-    console.error("Storage test failed:", error);
-    return c.json({ ok: false, error: "Storage connection test failed" }, 502);
+    const detail = error instanceof Error ? error.message : undefined;
+    return jsonError(c, 502, "STORAGE_TEST_FAILED", "Storage connection test failed", detail);
   }
 });

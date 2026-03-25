@@ -25,6 +25,7 @@ common:
     retry: "重试"
     cancel: "取消"
     close: "关闭"
+    confirm: "确认"
   status:
     loading: "加载中..."
   userFallback: "用户"
@@ -41,9 +42,9 @@ common:
 login:
   titleSignin: "登录"
   titleRegister: "创建账户"
+  welcomeTitle: "欢迎"
+  welcomeMessage: "尚未创建任何账户。请注册第一个管理员账户以开始使用。"
   intro: "Google SSO 与邮箱/密码登录会归并到同一个邮箱账户。"
-  tabSignin: "登录"
-  tabRegister: "注册"
   continueGoogle: "使用 Google 继续"
   verifyInProgress: "正在验证邮箱..."
   verifySuccess: "邮箱验证完成。请使用密码登录。"
@@ -578,6 +579,12 @@ admin:
     unsuspendError: "取消暂停失败。"
     deleteError: "删除用户失败。"
     restoreError: "恢复用户失败。"
+    groupMemberships: "所属群组"
+    saveGroups: "保存"
+    savingGroups: "保存中..."
+    groupsUpdated: "群组所属已更新。"
+    groupsUpdateError: "群组所属更新失败。"
+    noGroups: "没有可用的群组。"
   access:
     title: "访问管理"
     description: "在一个页面中管理分组、用户归属和 Wiki 页面权限。"
@@ -855,6 +862,10 @@ admin:
     critical: "严重"
     warning: "警告"
     normal: "正常"
+  systemInfo:
+    title: "系统信息"
+    description: "当前系统版本和仓库信息。"
+    repository: "GitHub 仓库"
   system:
     title: "系统更新"
     description: "管理应用程序版本和更新。"

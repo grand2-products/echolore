@@ -14,8 +14,6 @@ import { useT } from "@/lib/i18n";
 import { normalizeReturnTo } from "@/lib/return-to";
 import { GenerativeBg } from "./generative-bg";
 
-type AuthView = "signin" | "register";
-
 export default function LoginPage() {
   return (
     <Suspense
@@ -57,7 +55,6 @@ function LoginPageInner() {
     }
   }, [googleOAuthEnabled]);
 
-  const [view, setView] = useState<AuthView>("signin");
   const [signinEmail, setSigninEmail] = useState("");
   const [signinPassword, setSigninPassword] = useState("");
   const [registerName, setRegisterName] = useState("");
@@ -132,18 +129,11 @@ function LoginPageInner() {
       );
       if (result.immediate) return;
       setMessage(t("login.registerStarted"));
-      setView("signin");
     } catch (submitError) {
       setError(getApiErrorMessage(submitError, t("login.registerError")));
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const switchView = (next: AuthView) => {
-    setView(next);
-    setError(null);
-    setMessage(null);
   };
 
   if (authLoading) {
@@ -154,110 +144,28 @@ function LoginPageInner() {
     );
   }
 
-  return (
-    <main className="relative flex min-h-screen items-center justify-center bg-slate-100 px-6 py-16">
-      <GenerativeBg />
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-sm backdrop-blur-sm">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">{siteTitle}</p>
-        <h1 className="mt-3 text-2xl font-semibold text-slate-900">
-          {view === "signin" ? t("login.titleSignin") : t("login.titleRegister")}
-        </h1>
-        {googleOAuthEnabled ? (
-          <p className="mt-2 text-sm text-slate-600">{t("login.intro")}</p>
-        ) : null}
+  if (registrationOpen) {
+    return (
+      <main className="relative flex min-h-screen items-center justify-center bg-slate-100 px-6 py-16">
+        <GenerativeBg />
+        <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-sm backdrop-blur-sm">
+          <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">
+            {siteTitle}
+          </p>
+          <h1 className="mt-3 text-2xl font-semibold text-slate-900">{t("login.welcomeTitle")}</h1>
+          <p className="mt-2 text-sm text-slate-600">{t("login.welcomeMessage")}</p>
 
-        {registrationOpen ? (
-          <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
-            <button
-              type="button"
-              onClick={() => switchView("signin")}
-              className={`rounded-lg px-4 py-2 text-sm font-medium ${
-                view === "signin" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
-              }`}
-            >
-              {t("login.tabSignin")}
-            </button>
-            <button
-              type="button"
-              onClick={() => switchView("register")}
-              className={`rounded-lg px-4 py-2 text-sm font-medium ${
-                view === "register" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"
-              }`}
-            >
-              {t("login.tabRegister")}
-            </button>
-          </div>
-        ) : null}
-
-        {googleOAuthEnabled && csrfToken ? (
-          <form action={getGoogleSignInAction()} method="POST" className="mt-6 space-y-3">
-            <input type="hidden" name="csrfToken" value={csrfToken} />
-            <input type="hidden" name="callbackUrl" value={googleCallbackUrl} />
-            <button
-              type="submit"
-              className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              {t("login.continueGoogle")}
-            </button>
-          </form>
-        ) : null}
-
-        {message ? (
-          <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-            {message}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
-
-        {view === "signin" || !registrationOpen ? (
-          <form onSubmit={handleSignIn} className="mt-6 space-y-4 border-t border-slate-200 pt-6">
-            <div>
-              <label
-                htmlFor="signin-email"
-                className="mb-1 block text-sm font-medium text-slate-700"
-              >
-                {t("login.email")}
-              </label>
-              <input
-                id="signin-email"
-                type="email"
-                value={signinEmail}
-                onChange={(event) => setSigninEmail(event.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                autoComplete="username"
-                required
-              />
+          {message ? (
+            <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+              {message}
             </div>
-            <div>
-              <label
-                htmlFor="signin-password"
-                className="mb-1 block text-sm font-medium text-slate-700"
-              >
-                {t("login.password")}
-              </label>
-              <input
-                id="signin-password"
-                type="password"
-                value={signinPassword}
-                onChange={(event) => setSigninPassword(event.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                autoComplete="current-password"
-                required
-              />
+          ) : null}
+          {error ? (
+            <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
             </div>
-            <button
-              type="submit"
-              disabled={isSubmitting || isVerifying}
-              className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              {isSubmitting ? t("login.signingIn") : t("login.signInWithEmail")}
-            </button>
-          </form>
-        ) : (
+          ) : null}
+
           <form onSubmit={handleRegister} className="mt-6 space-y-4 border-t border-slate-200 pt-6">
             <div>
               <label
@@ -319,7 +227,85 @@ function LoginPageInner() {
               {isSubmitting ? t("login.creatingAccount") : t("login.createAccount")}
             </button>
           </form>
-        )}
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="relative flex min-h-screen items-center justify-center bg-slate-100 px-6 py-16">
+      <GenerativeBg />
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-sm backdrop-blur-sm">
+        <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">{siteTitle}</p>
+        <h1 className="mt-3 text-2xl font-semibold text-slate-900">{t("login.titleSignin")}</h1>
+        {googleOAuthEnabled ? (
+          <p className="mt-2 text-sm text-slate-600">{t("login.intro")}</p>
+        ) : null}
+
+        {googleOAuthEnabled && csrfToken ? (
+          <form action={getGoogleSignInAction()} method="POST" className="mt-6 space-y-3">
+            <input type="hidden" name="csrfToken" value={csrfToken} />
+            <input type="hidden" name="callbackUrl" value={googleCallbackUrl} />
+            <button
+              type="submit"
+              className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {t("login.continueGoogle")}
+            </button>
+          </form>
+        ) : null}
+
+        {message ? (
+          <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+            {message}
+          </div>
+        ) : null}
+        {error ? (
+          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
+
+        <form onSubmit={handleSignIn} className="mt-6 space-y-4 border-t border-slate-200 pt-6">
+          <div>
+            <label htmlFor="signin-email" className="mb-1 block text-sm font-medium text-slate-700">
+              {t("login.email")}
+            </label>
+            <input
+              id="signin-email"
+              type="email"
+              value={signinEmail}
+              onChange={(event) => setSigninEmail(event.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              autoComplete="username"
+              required
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="signin-password"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              {t("login.password")}
+            </label>
+            <input
+              id="signin-password"
+              type="password"
+              value={signinPassword}
+              onChange={(event) => setSigninPassword(event.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              autoComplete="current-password"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting || isVerifying}
+            className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+          >
+            {isSubmitting ? t("login.signingIn") : t("login.signInWithEmail")}
+          </button>
+        </form>
       </div>
     </main>
   );

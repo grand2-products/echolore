@@ -83,8 +83,6 @@ wikiImportRoutes.post("/import", async (c) => {
 
     return c.json({ page: result.page, blocks: result.blocks }, 201);
   } catch (error) {
-    console.error("Error importing file:", error);
-
     if (error instanceof ImportValidationError) {
       return jsonError(c, 400, "WIKI_IMPORT_VALIDATION", error.message);
     }

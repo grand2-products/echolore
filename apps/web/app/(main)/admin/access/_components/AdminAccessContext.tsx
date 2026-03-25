@@ -1,21 +1,13 @@
 "use client";
 
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
-import {
-  type AdminGroup,
-  type AdminUserRecord,
-  adminApi,
-  type Page,
-  type Space,
-  wikiApi,
-} from "@/lib/api";
+import { type AdminGroup, adminApi, type Page, type Space, wikiApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useT } from "@/lib/i18n";
 
 type AdminAccessContextValue = {
   groups: AdminGroup[];
-  users: AdminUserRecord[];
   pages: Page[];
   spaces: Space[];
   error: string | null;
@@ -41,7 +33,6 @@ export function AdminAccessProvider({ children }: { children: ReactNode }) {
   const t = useT();
   const getApiErrorMessage = useApiErrorMessage();
   const [groups, setGroups] = useState<AdminGroup[]>([]);
-  const [users, setUsers] = useState<AdminUserRecord[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,15 +43,13 @@ export function AdminAccessProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      const [groupResult, userResult, pageResult, spaceResult] = await Promise.all([
+      const [groupResult, pageResult, spaceResult] = await Promise.all([
         adminApi.listGroups(),
-        adminApi.listUsers(),
         wikiApi.listPages(),
         wikiApi.listSpaces(),
       ]);
 
       setGroups(groupResult.groups);
-      setUsers(userResult.users);
       setPages(pageResult.pages);
       setSpaces(spaceResult.spaces);
     } catch (loadError) {
@@ -75,19 +64,14 @@ export function AdminAccessProvider({ children }: { children: ReactNode }) {
   }, [loadAdminData]);
 
   const onRefresh = async () => {
-    const [groupResult, userResult] = await Promise.all([
-      adminApi.listGroups(),
-      adminApi.listUsers(),
-    ]);
+    const groupResult = await adminApi.listGroups();
     setGroups(groupResult.groups);
-    setUsers(userResult.users);
   };
 
   return (
     <AdminAccessContext.Provider
       value={{
         groups,
-        users,
         pages,
         spaces,
         error,

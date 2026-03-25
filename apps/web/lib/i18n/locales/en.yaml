@@ -25,6 +25,7 @@ common:
     retry: "Retry"
     cancel: "Cancel"
     close: "Close"
+    confirm: "Confirm"
   status:
     loading: "Loading..."
   userFallback: "User"
@@ -41,9 +42,9 @@ common:
 login:
   titleSignin: "Sign in"
   titleRegister: "Create account"
+  welcomeTitle: "Welcome"
+  welcomeMessage: "No accounts have been created yet. Register your first admin account to get started."
   intro: "Google SSO and email/password both resolve to the same account email."
-  tabSignin: "Sign in"
-  tabRegister: "Register"
   continueGoogle: "Continue with Google"
   verifyInProgress: "Verifying your email..."
   verifySuccess: "Email verified. Please sign in with your password."
@@ -581,6 +582,12 @@ admin:
     unsuspendError: "Failed to unsuspend user."
     deleteError: "Failed to delete user."
     restoreError: "Failed to restore user."
+    groupMemberships: "Group Memberships"
+    saveGroups: "Save"
+    savingGroups: "Saving..."
+    groupsUpdated: "Group memberships updated."
+    groupsUpdateError: "Failed to update group memberships."
+    noGroups: "No groups available."
   access:
     title: "Admin Access"
     description: "Manage groups, user memberships, and wiki page permissions from one place."
@@ -872,6 +879,10 @@ admin:
     critical: "Critical"
     warning: "Warning"
     normal: "Normal"
+  systemInfo:
+    title: "System Information"
+    description: "Current system version and repository information."
+    repository: "GitHub Repository"
   system:
     title: "System Update"
     description: "Manage application versions and updates."

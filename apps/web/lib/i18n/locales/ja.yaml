@@ -25,6 +25,7 @@ common:
     retry: "再試行"
     cancel: "キャンセル"
     close: "閉じる"
+    confirm: "確認"
   status:
     loading: "読み込み中..."
   userFallback: "ユーザー"
@@ -41,9 +42,9 @@ common:
 login:
   titleSignin: "サインイン"
   titleRegister: "アカウント登録"
+  welcomeTitle: "ようこそ"
+  welcomeMessage: "まだアカウントが作成されていません。最初の管理者アカウントを登録してください。"
   intro: "Google SSO とメール/パスワードは同じメールアドレスのアカウントに統合されます。"
-  tabSignin: "サインイン"
-  tabRegister: "登録"
   continueGoogle: "Google で続行"
   verifyInProgress: "メールを確認しています..."
   verifySuccess: "メール確認が完了しました。パスワードでサインインしてください。"
@@ -580,6 +581,12 @@ admin:
     unsuspendError: "一時停止の解除に失敗しました。"
     deleteError: "ユーザーの削除に失敗しました。"
     restoreError: "ユーザーの復元に失敗しました。"
+    groupMemberships: "グループ所属"
+    saveGroups: "所属を保存"
+    savingGroups: "保存中..."
+    groupsUpdated: "グループ所属を更新しました。"
+    groupsUpdateError: "グループ所属の更新に失敗しました。"
+    noGroups: "グループがありません。"
   access:
     title: "アクセス管理"
     description: "グループ、ユーザー所属、Wiki ページ権限を一箇所で管理します。"
@@ -871,6 +878,10 @@ admin:
     critical: "重大"
     warning: "警告"
     normal: "正常"
+  systemInfo:
+    title: "システム情報"
+    description: "現在のシステムバージョンとリポジトリ情報です。"
+    repository: "GitHub リポジトリ"
   system:
     title: "システムアップデート"
     description: "アプリケーションのバージョン管理とアップデートを行います。"

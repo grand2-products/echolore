@@ -1,6 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
+import { jsonError } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { deleteBackup, listBackups, testBackupConnection } from "../../lib/backup-storage.js";
 import { executeBackup, executeRestore } from "../../services/admin/backup-executor-service.js";
@@ -44,8 +45,8 @@ adminBackupSettingsRoutes.post("/backup-settings/test", async (c) => {
     await testBackupConnection(config);
     return c.json({ ok: true, provider: settings.provider });
   } catch (error) {
-    console.error("Backup connection test failed:", error);
-    return c.json({ ok: false, error: "Backup connection test failed" }, 502);
+    const detail = error instanceof Error ? error.message : undefined;
+    return jsonError(c, 502, "BACKUP_TEST_FAILED", "Backup connection test failed", detail);
   }
 });
 
@@ -78,7 +79,7 @@ adminBackupSettingsRoutes.get("/backups", async (c) => {
 
     return c.json({ backups, latestAt, healthStatus });
   } catch (error) {
-    console.error("Failed to list backups:", error);
+    console.error(`[BACKUP_LIST_FAILED] GET ${c.req.path}`, error);
     return c.json({ backups: [], latestAt: null, healthStatus: "critical" });
   }
 });
@@ -159,7 +160,7 @@ adminBackupSettingsRoutes.delete("/backups/:name", async (c) => {
     await deleteBackup(config, `db/${name}`);
     return c.json({ success: true });
   } catch (error) {
-    console.error("Failed to delete backup:", error);
-    return c.json({ error: "Failed to delete backup" }, 500);
+    const detail = error instanceof Error ? error.message : undefined;
+    return jsonError(c, 500, "BACKUP_DELETE_FAILED", "Failed to delete backup", detail);
   }
 });
