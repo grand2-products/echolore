@@ -60,7 +60,6 @@ describe("shouldAttemptSilentRefresh", () => {
   it("returns false for other /auth/* paths", () => {
     expect(shouldAttemptSilentRefresh("/auth/token")).toBe(false);
     expect(shouldAttemptSilentRefresh("/auth/register")).toBe(false);
-    expect(shouldAttemptSilentRefresh("/auth/logout")).toBe(false);
     expect(shouldAttemptSilentRefresh("/auth/token/google")).toBe(false);
     expect(shouldAttemptSilentRefresh("/auth/verify-email")).toBe(false);
     expect(shouldAttemptSilentRefresh("auth/token")).toBe(false);

@@ -4,7 +4,6 @@ import type {
   GoogleTokenExchangeRequest,
   PasswordRegistrationRequest,
   PasswordRegistrationResponse,
-  SuccessResponse,
   TokenAuthResponse,
   ValidateUserInviteResponse,
   VerifyEmailRequest,
@@ -31,12 +30,6 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  logout: () =>
-    fetchApi<SuccessResponse>("/auth/logout", {
-      method: "POST",
-      body: JSON.stringify({}),
-    }),
-
   validateInvite: (token: string) => fetchApi<ValidateUserInviteResponse>(`/auth/invite/${token}`),
 
   acceptInvite: (token: string, data: AcceptUserInviteRequest) =>

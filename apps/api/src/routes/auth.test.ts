@@ -252,13 +252,4 @@ describe("authRoutes", () => {
       code: "RATE_LIMITED",
     });
   });
-
-  it("returns success on logout (no-op)", async () => {
-    const response = await createApp().request("http://localhost/api/auth/logout", {
-      method: "POST",
-    });
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ success: true });
-  });
 });

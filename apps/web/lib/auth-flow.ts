@@ -29,5 +29,22 @@ export function buildCallbackUrl(returnTo?: string | null): string {
 }
 
 export async function logoutCurrentUser() {
-  window.location.assign(buildAuthJsUrl("/api/auth/signout"));
+  const csrfRes = await fetch(buildAuthJsUrl("/api/auth/csrf"), {
+    credentials: "include",
+  });
+  const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
+
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = buildAuthJsUrl("/api/auth/signout");
+  form.style.display = "none";
+
+  const tokenInput = document.createElement("input");
+  tokenInput.type = "hidden";
+  tokenInput.name = "csrfToken";
+  tokenInput.value = csrfToken;
+  form.appendChild(tokenInput);
+
+  document.body.appendChild(form);
+  form.submit();
 }
