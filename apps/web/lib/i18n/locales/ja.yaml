@@ -141,7 +141,7 @@ wiki:
   spaces:
     general: "全体"
     team: "チーム"
-    personal: "マイスペース"
+    personal: "{name}のスペース"
     newPage: "+ 新規"
     noPages: "ページなし"
   sidebar:

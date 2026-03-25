@@ -157,25 +157,27 @@ describe("space-service", () => {
   });
 
   describe("listVisibleSpaces", () => {
-    it("returns all spaces for admin users", async () => {
-      const admin = makeUser({ role: UserRole.Admin });
+    it("returns all non-personal spaces plus own personal space for admin users", async () => {
+      const admin = makeUser({ id: "admin_1", role: UserRole.Admin });
+      const ownPersonal = makeSpace({ id: "s_own", type: "personal", ownerUserId: "admin_1" });
+      const otherPersonal = makeSpace({ id: "s_other", type: "personal", ownerUserId: "other" });
       const spaces = [
         makeSpace({ id: "s1", type: "general" }),
-        makeSpace({ id: "s2", type: "personal", ownerUserId: "other" }),
+        ownPersonal,
+        otherPersonal,
         makeSpace({ id: "s3", type: "team", groupId: "g1" }),
       ];
 
       mockFindGeneralSpace.mockResolvedValue(spaces[0]);
-      mockFindPersonalSpaceByUserId.mockResolvedValue(
-        makeSpace({ type: "personal", ownerUserId: admin.id })
-      );
+      mockFindPersonalSpaceByUserId.mockResolvedValue(ownPersonal);
       mockListSpaces.mockResolvedValue(spaces);
-      // ensureTeamSpacesForAllGroups: db.select().from(userGroups) returns [] (no groups)
-      // This is a thenable without .where(), already handled by beforeEach
 
       const result = await listVisibleSpaces(admin);
 
-      expect(result).toEqual(spaces);
+      expect(result).toContainEqual(expect.objectContaining({ id: "s1" }));
+      expect(result).toContainEqual(expect.objectContaining({ id: "s_own" }));
+      expect(result).not.toContainEqual(expect.objectContaining({ id: "s_other" }));
+      expect(result).toContainEqual(expect.objectContaining({ id: "s3" }));
     });
 
     it("filters spaces for non-admin users based on permissions", async () => {
@@ -282,6 +284,13 @@ describe("space-service", () => {
 
       expect(await canAccessSpace(owner, space as never)).toBe(true);
       expect(await canAccessSpace(otherUser, space as never)).toBe(false);
+    });
+
+    it("denies admin access to other users personal space", async () => {
+      const admin = makeUser({ id: "admin_1", role: UserRole.Admin });
+      const space = makeSpace({ type: "personal", ownerUserId: "other_user" });
+
+      expect(await canAccessSpace(admin, space as never)).toBe(false);
     });
 
     it("grants general space access via fallback when no explicit permissions", async () => {

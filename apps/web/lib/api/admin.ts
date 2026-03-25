@@ -187,9 +187,10 @@ export const adminApi = {
       body: JSON.stringify(data),
     }),
 
-  testStorageConnection: () =>
+  testStorageConnection: (data?: Record<string, unknown>) =>
     fetchApi<{ ok: boolean; provider?: string; error?: string }>("/admin/storage-settings/test", {
       method: "POST",
+      body: data ? JSON.stringify(data) : undefined,
     }),
 
   getBackupSettings: () => fetchApi<BackupSettings>("/admin/backup-settings"),

@@ -18,9 +18,13 @@ interface WikiSidebarProps {
   onDeletePage?: (pageId: string) => Promise<void> | void;
 }
 
-function spaceLabel(type: string, name: string, t: (key: string) => string): string {
+function spaceLabel(
+  type: string,
+  name: string,
+  t: (key: string, values?: Record<string, string | number>) => string
+): string {
   if (type === "general") return t("wiki.spaces.general");
-  if (type === "personal") return t("wiki.spaces.personal");
+  if (type === "personal") return t("wiki.spaces.personal", { name });
   return name;
 }
 

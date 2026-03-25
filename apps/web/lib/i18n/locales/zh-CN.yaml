@@ -141,7 +141,7 @@ wiki:
   spaces:
     general: "全体"
     team: "团队"
-    personal: "我的空间"
+    personal: "{name}的空间"
     newPage: "+ 新建"
     noPages: "暂无页面"
   sidebar:
