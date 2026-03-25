@@ -36,7 +36,7 @@ export async function updateUser(
   id: string,
   input: {
     name?: string;
-    avatarUrl?: string;
+    avatarUrl?: string | null;
     updatedAt: Date;
   }
 ) {

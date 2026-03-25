@@ -5,12 +5,14 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import { ModalShell } from "@/components/wiki/ModalShell";
 import { type AdminUserRecord, adminApi } from "@/lib/api";
+import { buildApiUrl } from "@/lib/api/fetch";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useFormatters, useT } from "@/lib/i18n";
 
 const isValidImageUrl = (url: string | null | undefined): url is string => {
   if (!url) return false;
+  if (url.startsWith("/api/users/")) return true;
   try {
     const parsed = new URL(url);
     return parsed.protocol === "http:" || parsed.protocol === "https:";
@@ -406,7 +408,11 @@ export default function AdminUsersPage() {
                     <div className="flex items-center gap-2">
                       {isValidImageUrl(user.avatarUrl) ? (
                         <Image
-                          src={user.avatarUrl}
+                          src={
+                            user.avatarUrl.startsWith("/api/")
+                              ? buildApiUrl(user.avatarUrl)
+                              : user.avatarUrl
+                          }
                           alt=""
                           width={28}
                           height={28}

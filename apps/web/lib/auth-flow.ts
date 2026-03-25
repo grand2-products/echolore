@@ -12,7 +12,9 @@ export function getGoogleSignInAction() {
  * Fetches the Auth.js CSRF token needed for form-based sign-in.
  */
 export async function fetchCsrfToken(): Promise<string> {
-  const res = await fetch(buildAuthJsUrl("/api/auth/csrf"));
+  const res = await fetch(buildAuthJsUrl("/api/auth/csrf"), {
+    credentials: "include",
+  });
   const data = (await res.json()) as { csrfToken: string };
   return data.csrfToken;
 }
@@ -29,5 +31,16 @@ export function buildCallbackUrl(returnTo?: string | null): string {
 }
 
 export async function logoutCurrentUser() {
-  window.location.assign(buildAuthJsUrl("/api/auth/signout"));
+  const csrfToken = await fetchCsrfToken();
+
+  // POST to destroy the session, then redirect client-side.
+  await fetch(buildAuthJsUrl("/api/auth/signout"), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `csrfToken=${encodeURIComponent(csrfToken)}`,
+    redirect: "manual",
+  });
+
+  window.location.assign("/login");
 }
