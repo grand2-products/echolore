@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { type NewSpace, spaces } from "../../db/schema.js";
 import { firstOrNull } from "../../lib/db-utils.js";
@@ -30,7 +30,13 @@ export async function findTeamSpaceByGroupId(groupId: string) {
 }
 
 export async function listSpaces() {
-  return db.select().from(spaces);
+  return db
+    .select()
+    .from(spaces)
+    .orderBy(
+      sql`CASE ${spaces.type} WHEN 'general' THEN 0 WHEN 'team' THEN 1 WHEN 'personal' THEN 2 ELSE 3 END`,
+      asc(spaces.name)
+    );
 }
 
 export async function createSpace(space: NewSpace) {

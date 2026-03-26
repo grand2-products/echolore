@@ -79,6 +79,17 @@ export function useCreateAiChatConversationMutation() {
   });
 }
 
+export function useImportWikiFileMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ file, spaceId }: { file: File; spaceId: string }) =>
+      wikiApi.importFile(file, spaceId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.wikiPages });
+    },
+  });
+}
+
 export function useCalendarStatusQuery(enabled = true) {
   return useQuery({
     queryKey: ["calendar", "status"] as const,
@@ -92,6 +103,15 @@ export function useCalendarEventsQuery(days?: number, enabled = true) {
     queryKey: ["calendar", "events", days] as const,
     queryFn: () => calendarApi.listEvents(days),
     enabled,
+  });
+}
+
+export function useCalendarContactsQuery(enabled = true) {
+  return useQuery({
+    queryKey: ["calendar", "contacts"] as const,
+    queryFn: () => calendarApi.listContacts(),
+    enabled,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

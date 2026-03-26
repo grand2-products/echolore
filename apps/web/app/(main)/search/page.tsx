@@ -16,6 +16,7 @@ export default function SearchPage() {
   const getApiErrorMessage = useApiErrorMessage();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Page[]>([]);
+  const [snippets, setSnippets] = useState<Record<string, string>>({});
   const [searchMeta, setSearchMeta] = useState<WikiSearchMeta | null>(null);
   const [semanticSearch, setSemanticSearch] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +39,7 @@ export default function SearchPage() {
     const normalizedQuery = rawQuery.trim();
     if (!normalizedQuery) {
       setResults([]);
+      setSnippets({});
       setSearchMeta(null);
       setError(null);
       return;
@@ -48,10 +50,12 @@ export default function SearchPage() {
       setError(null);
       const searchResults = await wikiApi.searchPages(normalizedQuery, { semantic });
       setResults(searchResults.pages);
+      setSnippets(searchResults.snippets ?? {});
       setSearchMeta(searchResults.searchMeta ?? null);
     } catch (searchError) {
       setError(getApiErrorMessage(searchError, t("search.error")));
       setResults([]);
+      setSnippets({});
       setSearchMeta(null);
     } finally {
       setIsLoading(false);
@@ -70,6 +74,7 @@ export default function SearchPage() {
     }
 
     setResults([]);
+    setSnippets({});
     setSearchMeta(null);
     setError(null);
   }, [searchParams, runSearch]);
@@ -162,13 +167,14 @@ export default function SearchPage() {
                 <Link
                   key={page.id}
                   href={`/wiki/${page.id}`}
-                  className="flex items-center gap-3 p-4 transition hover:bg-gray-50"
+                  className="block p-4 transition hover:bg-gray-50"
                 >
-                  <span className="text-gray-400">-</span>
-                  <div>
-                    <h3 className="font-medium text-gray-900">{page.title}</h3>
-                    <p className="text-sm text-gray-500">{t("search.pageType")}</p>
-                  </div>
+                  <h3 className="font-medium text-gray-900">{page.title}</h3>
+                  {snippets[page.id] ? (
+                    <p className="mt-1 line-clamp-2 text-sm text-gray-500">{snippets[page.id]}</p>
+                  ) : (
+                    <p className="mt-1 text-sm text-gray-400">{t("search.pageType")}</p>
+                  )}
                 </Link>
               ))}
             </div>

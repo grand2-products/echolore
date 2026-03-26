@@ -10,6 +10,7 @@ import {
 } from "../services/calendar/google-calendar-auth-service.js";
 import {
   importEventAsMeeting,
+  listCalendarContacts,
   listUpcomingEvents,
 } from "../services/calendar/google-calendar-sync-service.js";
 
@@ -95,6 +96,17 @@ calendarRoutes.get(
     const days = Math.min(Number(c.req.query("days")) || 7, 30);
     const events = await listUpcomingEvents(user.id, days);
     return c.json({ events });
+  }
+);
+
+// GET /api/calendar/contacts
+calendarRoutes.get(
+  "/contacts",
+  withErrorHandler("CALENDAR_CONTACTS_FAILED", "Failed to list calendar contacts"),
+  async (c) => {
+    const user = c.get("user");
+    const contacts = await listCalendarContacts(user.id);
+    return c.json({ contacts });
   }
 );
 

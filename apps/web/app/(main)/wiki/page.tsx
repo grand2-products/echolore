@@ -27,15 +27,16 @@ export default function WikiListPage() {
   const getApiErrorMessage = useApiErrorMessage();
   const { number } = useFormatters();
   const { data, isLoading, error, refetch } = useWikiPagesQuery();
-  const { handleAddSubPage } = useWikiPageActions({
-    onMutate: () => {
-      refetch();
-    },
-  });
+  const { handleAddSubPage } = useWikiPageActions();
   const [showSpacePicker, setShowSpacePicker] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [filter, setFilter] = useState("");
 
   const pages = data?.pages ?? [];
+  const filterLower = filter.trim().toLowerCase();
+  const filteredPages = filterLower
+    ? pages.filter((p) => (p.title || "").toLowerCase().includes(filterLower))
+    : pages;
 
   return (
     <div className="flex-1 overflow-auto p-8">
@@ -90,7 +91,18 @@ export default function WikiListPage() {
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">{t("wiki.list.recentTitle")}</h2>
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h2 className="shrink-0 text-lg font-semibold text-gray-900">
+              {t("wiki.list.recentTitle")}
+            </h2>
+            <input
+              type="text"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder={t("wiki.list.filterPlaceholder")}
+              className="w-full max-w-xs rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
           {isLoading ? (
             <LoadingState />
           ) : error ? (
@@ -100,7 +112,7 @@ export default function WikiListPage() {
             />
           ) : (
             <div className="space-y-1">
-              {pages.slice(0, 10).map((page) => (
+              {(filterLower ? filteredPages : filteredPages.slice(0, 10)).map((page) => (
                 <Link
                   key={page.id}
                   href={`/wiki/${page.id}`}
@@ -136,8 +148,14 @@ export default function WikiListPage() {
                   </span>
                 </Link>
               ))}
-              {pages.length === 0 ? (
-                <p className="text-sm text-gray-500">{t("wiki.list.noPages")}</p>
+              {filteredPages.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  {filterLower ? t("wiki.list.noFilterResults") : t("wiki.list.noPages")}
+                </p>
+              ) : !filterLower && pages.length > 10 ? (
+                <p className="mt-2 text-center text-xs text-gray-400">
+                  {t("wiki.list.morePages", { count: number(pages.length - 10) })}
+                </p>
               ) : null}
             </div>
           )}

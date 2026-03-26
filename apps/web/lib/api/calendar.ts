@@ -1,5 +1,5 @@
 import { buildApiUrl, fetchApi } from "./fetch";
-import type { CalendarEvent, Meeting } from "./types";
+import type { CalendarContact, CalendarEvent, Meeting } from "./types";
 
 export const calendarApi = {
   status: () => fetchApi<{ connected: boolean }>("/calendar/status"),
@@ -14,6 +14,8 @@ export const calendarApi = {
 
   listEvents: (days?: number) =>
     fetchApi<{ events: CalendarEvent[] }>(`/calendar/events${days ? `?days=${days}` : ""}`),
+
+  listContacts: () => fetchApi<{ contacts: CalendarContact[] }>("/calendar/contacts"),
 
   importEvent: (eventId: string) =>
     fetchApi<{ meeting: Meeting }>(`/calendar/events/${encodeURIComponent(eventId)}/import`, {

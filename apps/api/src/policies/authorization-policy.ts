@@ -9,7 +9,7 @@ import {
   listPagePermissions,
   listSpacePermissionsForSpace,
 } from "../repositories/admin/admin-repository.js";
-import { getPageParentId, getPageSpaceId } from "../repositories/wiki/wiki-repository.js";
+import { getPageParentId, getPageSpaceType } from "../repositories/wiki/wiki-repository.js";
 
 export type AuthorizationAction = "read" | "write" | "delete";
 export type AuthorizationResourceType = "wiki-page" | "meeting" | "file" | "user" | "admin";
@@ -97,12 +97,22 @@ async function evaluatePageAccess(
     return ownerResult;
   }
 
-  const [memberships, permissions, spaceId] = await Promise.all([
+  const [memberships, permissions, spaceInfo] = await Promise.all([
     listMembershipsByUser(user.id),
     getEffectivePagePermissions(pageId),
-    getPageSpaceId(pageId),
+    getPageSpaceType(pageId),
   ]);
 
+  // Personal space: anyone can read, space owner can write/delete
+  if (spaceInfo?.spaceType === "personal") {
+    if (action === "read") return { allowed: true, reason: "personal-space-public-read" };
+    if (spaceInfo.ownerUserId && spaceInfo.ownerUserId === user.id) {
+      return { allowed: true, reason: "personal-space-owner" };
+    }
+    return { allowed: false, reason: "personal-space-owner-only" };
+  }
+
+  const spaceId = spaceInfo?.spaceId ?? null;
   const groupIds = memberships.map((membership) => membership.groupId);
   const groupIdSet = new Set(groupIds);
 

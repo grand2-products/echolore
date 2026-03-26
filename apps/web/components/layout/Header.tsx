@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getVisibleNavigationItems } from "@/components/layout/navigation";
 import type { AuthMeResponse, Page, SessionUser, Space } from "@/lib/api";
 import { useSpacesQuery, wikiApi } from "@/lib/api";
+import { resolveAvatarSrc } from "@/lib/api/fetch";
 import { useAuthActions } from "@/lib/hooks/use-auth-actions";
 import { useT } from "@/lib/i18n";
 import { useSiteTitle } from "@/lib/site-settings-context";
@@ -31,12 +32,14 @@ function formatRelativeDate(iso: string): string {
 
 function SearchSuggestions({
   results,
+  snippets,
   isLoading,
   query,
   onSelect,
   spaceMap,
 }: {
   results: Page[];
+  snippets: Record<string, string>;
   isLoading: boolean;
   query: string;
   onSelect: () => void;
@@ -77,9 +80,14 @@ function SearchSuggestions({
                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
-            <span className="min-w-0 flex-1 truncate text-gray-700">
-              {page.title || t("wiki.newPage.defaultTitle")}
-            </span>
+            <div className="min-w-0 flex-1">
+              <span className="block truncate text-gray-700">
+                {page.title || t("wiki.newPage.defaultTitle")}
+              </span>
+              {snippets[page.id] && (
+                <span className="block truncate text-xs text-gray-400">{snippets[page.id]}</span>
+              )}
+            </div>
             <span className="shrink-0 text-xs text-gray-400">
               {space ? space.name : ""}
               {space ? " · " : ""}
@@ -106,6 +114,7 @@ export function Header({ user }: HeaderProps) {
   const t = useT();
   const siteTitle = useSiteTitle();
   const { logout } = useAuthActions();
+  const avatarSrc = resolveAvatarSrc(user?.avatarUrl);
   const [query, setQuery] = useState("");
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -121,6 +130,7 @@ export function Header({ user }: HeaderProps) {
 
   // Search suggestions state
   const [suggestions, setSuggestions] = useState<Page[]>([]);
+  const [suggestionSnippets, setSuggestionSnippets] = useState<Record<string, string>>({});
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -186,6 +196,7 @@ export function Header({ user }: HeaderProps) {
       const res = await wikiApi.searchPages(normalized, { semantic: false });
       if (!controller.signal.aborted) {
         setSuggestions(res.pages);
+        setSuggestionSnippets(res.snippets ?? {});
         setSuggestionsLoading(false);
       }
     } catch {
@@ -234,6 +245,7 @@ export function Header({ user }: HeaderProps) {
     <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
       <SearchSuggestions
         results={suggestions}
+        snippets={suggestionSnippets}
         isLoading={suggestionsLoading}
         query={query.trim()}
         spaceMap={spaceMap}
@@ -313,10 +325,10 @@ export function Header({ user }: HeaderProps) {
               onClick={() => setIsUserMenuOpen((open) => !open)}
               className="flex items-center gap-2 rounded-full p-1 transition hover:bg-gray-100"
             >
-              {user?.avatarUrl ? (
+              {avatarSrc ? (
                 <Image
-                  src={user.avatarUrl}
-                  alt={user.name}
+                  src={avatarSrc}
+                  alt={user?.name ?? ""}
                   width={32}
                   height={32}
                   unoptimized

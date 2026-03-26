@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import { defaultEmbeddingProvider, type EmbeddingProvider } from "../../ai/providers/index.js";
 import type { Page } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
+import { stripHtml } from "../../lib/html-utils.js";
 import { canReadPage } from "../../policies/authorization-policy.js";
 import {
   createRevision,
@@ -49,6 +50,26 @@ export function _setEmbeddingProvider(p: EmbeddingProvider) {
 }
 
 const SEMANTIC_RERANK_LIMIT = 20;
+const SNIPPET_MAX_LENGTH = 120;
+
+function extractSnippet(text: string, queryLower: string): string {
+  if (!text) return "";
+
+  const idx = text.toLowerCase().indexOf(queryLower);
+  if (idx === -1) {
+    // No match in content — return beginning of text
+    return text.length > SNIPPET_MAX_LENGTH ? `${text.slice(0, SNIPPET_MAX_LENGTH)}...` : text;
+  }
+
+  // Show context around the match
+  const contextBefore = 30;
+  const start = Math.max(0, idx - contextBefore);
+  const end = Math.min(text.length, start + SNIPPET_MAX_LENGTH);
+  let snippet = text.slice(start, end);
+  if (start > 0) snippet = `...${snippet}`;
+  if (end < text.length) snippet = `${snippet}...`;
+  return snippet;
+}
 
 function buildPageSearchText(title: string, blockContents: string[]) {
   const joinedBlocks = blockContents.filter(Boolean).join("\n");
@@ -95,14 +116,35 @@ export async function searchVisiblePages(
   semantic: boolean
 ): Promise<{
   pages: Page[];
+  snippets: Record<string, string>;
   searchMeta: { mode: "lexical" | "hybrid"; semanticApplied: boolean; model?: string };
 }> {
   const matchedPages = await searchPagesLexically(query);
   const visiblePages = await filterReadablePages(user, matchedPages);
 
+  // Fetch block content once — shared by snippet generation and semantic reranking
+  const allPageIds = visiblePages.map((p) => p.id);
+  const allBlocks = allPageIds.length > 0 ? await listBlockContentsByPageIds(allPageIds) : [];
+
+  const blockMap = new Map<string, string[]>();
+  for (const block of allBlocks) {
+    const items = blockMap.get(block.pageId) ?? [];
+    if (block.content) items.push(stripHtml(block.content));
+    blockMap.set(block.pageId, items);
+  }
+
+  // Build snippets from the shared block map
+  const queryLower = query.toLowerCase();
+  const snippets: Record<string, string> = {};
+  for (const page of visiblePages) {
+    const fullText = (blockMap.get(page.id) ?? []).join(" ");
+    snippets[page.id] = extractSnippet(fullText, queryLower);
+  }
+
   if (!semantic || !(await embedding.isAvailable()) || visiblePages.length === 0) {
     return {
       pages: visiblePages,
+      snippets,
       searchMeta: { mode: "lexical", semanticApplied: false },
     };
   }
@@ -112,20 +154,12 @@ export async function searchVisiblePages(
     if (!queryEmbedding) {
       return {
         pages: visiblePages,
+        snippets,
         searchMeta: { mode: "lexical", semanticApplied: false },
       };
     }
 
     const rerankCandidates = visiblePages.slice(0, SEMANTIC_RERANK_LIMIT);
-    const pageIds = rerankCandidates.map((page) => page.id);
-    const pageBlocks = await listBlockContentsByPageIds(pageIds);
-
-    const blockMap = new Map<string, string[]>();
-    for (const block of pageBlocks) {
-      const items = blockMap.get(block.pageId) ?? [];
-      if (block.content) items.push(block.content);
-      blockMap.set(block.pageId, items);
-    }
 
     const lexicalRank = new Map<string, number>();
     rerankCandidates.forEach((page, index) => {
@@ -148,6 +182,7 @@ export async function searchVisiblePages(
 
     return {
       pages: [...scored.map((entry) => entry.page), ...visiblePages.slice(SEMANTIC_RERANK_LIMIT)],
+      snippets,
       searchMeta: {
         mode: "hybrid",
         semanticApplied: true,
@@ -158,6 +193,7 @@ export async function searchVisiblePages(
     console.error("Semantic rerank failed; fallback to lexical", error);
     return {
       pages: visiblePages,
+      snippets,
       searchMeta: { mode: "lexical", semanticApplied: false },
     };
   }

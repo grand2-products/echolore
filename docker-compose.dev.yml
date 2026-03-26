@@ -66,6 +66,9 @@ services:
         file_output:
           local: true
           base_directory: /data/files/recordings
+        segment_output:
+          local: true
+          base_directory: /data/files
         log_level: debug
     volumes:
       - ./data/files:/data/files
