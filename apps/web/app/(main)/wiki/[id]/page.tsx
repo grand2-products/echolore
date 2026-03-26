@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { NotionEditor } from "@/components/wiki/NotionEditor";
+import { BlockEditor, type EditorHandle } from "@/components/wiki/BlockEditor";
 import { PagePermissionsPanel } from "@/components/wiki/PagePermissionsPanel";
 import { VersionHistoryPanel } from "@/components/wiki/VersionHistoryPanel";
 import { useAuthMeQuery, useWikiPageQuery, wikiApi } from "@/lib/api";
@@ -82,6 +82,10 @@ export default function WikiDetailPage() {
   const { data: authData } = useAuthMeQuery();
   const { data: pageData, isLoading, error, refetch } = useWikiPageQuery(pageId);
 
+  const editorHandleRef = useRef<EditorHandle | null>(null);
+  const setEditorHandle = useCallback((handle: EditorHandle) => {
+    editorHandleRef.current = handle;
+  }, []);
   const [showHistory, setShowHistory] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
   const [snapshotStatus, setSnapshotStatus] = useState<"idle" | "saving" | "saved" | "error">(
@@ -132,6 +136,19 @@ export default function WikiDetailPage() {
   }
   // Use user-edited title if set (even if empty), otherwise fall back to server data
   const resolvedTitle = pageTitle !== null ? pageTitle : (currentPage?.title ?? "");
+
+  const exportMarkdown = useCallback(() => {
+    const handle = editorHandleRef.current;
+    if (!handle) return;
+    const md = `# ${resolvedTitle}\n\n${handle.exportMarkdown()}`;
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${resolvedTitle || "untitled"}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [resolvedTitle]);
 
   const userName = authData?.user?.name ?? "User";
   const userColor = useMemo(
@@ -203,6 +220,10 @@ export default function WikiDetailPage() {
                   label: t("wiki.actions.history"),
                   onClick: () => setShowHistory(true),
                 },
+                {
+                  label: t("wiki.actions.exportMarkdown"),
+                  onClick: exportMarkdown,
+                },
                 ...(authData?.user?.role === "admin" || authData?.user?.id === currentPage.authorId
                   ? [
                       {
@@ -215,7 +236,7 @@ export default function WikiDetailPage() {
             />
           </div>
 
-          <NotionEditor
+          <BlockEditor
             pageId={pageId}
             initialBlocks={blocks}
             pageTitle={resolvedTitle}
@@ -223,6 +244,7 @@ export default function WikiDetailPage() {
             autoFocusTitle={isNewPage}
             userName={userName}
             userColor={userColor}
+            onEditorReady={setEditorHandle}
           />
         </div>
       </div>

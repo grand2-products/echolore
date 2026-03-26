@@ -268,6 +268,7 @@ wiki:
     snapshot: "スナップショットを保存"
     history: "バージョン履歴"
     permissions: "閲覧設定"
+    exportMarkdown: "Markdown形式でエクスポート"
   permissions:
     title: "ページ権限"
     inherit: "親ページから権限を継承"

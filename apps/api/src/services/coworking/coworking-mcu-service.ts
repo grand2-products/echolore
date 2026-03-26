@@ -96,6 +96,11 @@ async function doStartComposite(): Promise<CompositeStatus> {
   // clients won't pick up an old playlist with #EXT-X-ENDLIST
   await cleanupHlsFiles();
 
+  // Ensure the HLS output directory exists inside the shared volume so that
+  // the Egress container can write segments without "permission denied".
+  const { mkdir } = await import("node:fs/promises");
+  await mkdir(LOCAL_HLS_DIR, { recursive: true });
+
   const settings = await getMcuSettings();
 
   const segmentOutput = new SegmentedFileOutput({

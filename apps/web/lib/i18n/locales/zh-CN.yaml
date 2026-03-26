@@ -265,6 +265,7 @@ wiki:
     snapshot: "保存快照"
     history: "版本历史"
     permissions: "访问设置"
+    exportMarkdown: "导出为 Markdown"
   permissions:
     title: "页面权限"
     inherit: "从父页面继承权限"

@@ -265,6 +265,7 @@ wiki:
     snapshot: "스냅샷 저장"
     history: "버전 기록"
     permissions: "접근 설정"
+    exportMarkdown: "Markdown으로 내보내기"
   permissions:
     title: "페이지 권한"
     inherit: "상위 페이지에서 권한 상속"
