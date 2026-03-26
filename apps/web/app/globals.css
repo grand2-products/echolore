@@ -41,15 +41,15 @@ body {
 
 /* BlockNote Editor Adjustments */
 
-.notion-editor .bn-editor {
+.block-editor .bn-editor {
   font-family: var(--font-noto-sans-jp), system-ui, sans-serif;
 }
 
-.notion-editor .bn-block-group > .bn-block-outer:first-child {
+.block-editor .bn-block-group > .bn-block-outer:first-child {
   margin-top: 0;
 }
 
-.notion-editor .bn-side-menu .bn-button {
+.block-editor .bn-side-menu .bn-button {
   background-color: #ffffff;
 }
 

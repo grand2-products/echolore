@@ -17,7 +17,11 @@ import { ShorthandBar } from "./ShorthandBar";
 
 import "@blocknote/shadcn/style.css";
 
-interface NotionEditorInnerProps {
+export interface EditorHandle {
+  exportMarkdown: () => string;
+}
+
+interface BlockEditorInnerProps {
   pageId: string;
   initialBlocks: BlockDto[];
   pageTitle: string;
@@ -26,9 +30,10 @@ interface NotionEditorInnerProps {
   readOnly?: boolean;
   userName?: string;
   userColor?: string;
+  onEditorReady?: (handle: EditorHandle) => void;
 }
 
-export default function NotionEditorInner({
+export default function BlockEditorInner({
   pageId,
   initialBlocks,
   pageTitle,
@@ -37,7 +42,8 @@ export default function NotionEditorInner({
   readOnly = false,
   userName = "User",
   userColor = "#3b82f6",
-}: NotionEditorInnerProps) {
+  onEditorReady,
+}: BlockEditorInnerProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const titleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -88,7 +94,7 @@ export default function NotionEditorInner({
   const statusConfig = getStatusConfig(connectionStatus, t);
 
   return (
-    <div className="notion-editor">
+    <div className="block-editor">
       {/* Title */}
       {readOnly ? (
         <h1 className="mb-2 border-none text-4xl font-bold text-gray-900 outline-none">
@@ -137,6 +143,7 @@ export default function NotionEditorInner({
           readOnly={readOnly}
           userName={userName}
           userColor={userColor}
+          onEditorReady={onEditorReady}
         />
       ) : (
         <div className="flex h-32 items-center justify-center text-sm text-gray-400">
@@ -157,6 +164,7 @@ function CollabEditor({
   readOnly,
   userName,
   userColor,
+  onEditorReady,
 }: {
   pageId: string;
   pageTitle: string;
@@ -166,6 +174,7 @@ function CollabEditor({
   readOnly: boolean;
   userName: string;
   userColor: string;
+  onEditorReady?: (handle: EditorHandle) => void;
 }) {
   const { settings } = useSiteSettings();
   const initialBlocksRef = useRef(initialBlocks);
@@ -188,6 +197,16 @@ function CollabEditor({
     },
     uploadFile,
   });
+
+  // Expose editor handle to parent for export functionality
+  useEffect(() => {
+    onEditorReady?.({
+      exportMarkdown: () => editor.blocksToMarkdownLossy(editor.document),
+    });
+    // editor is stable (from useCreateBlockNote); onEditorReady is intentionally
+    // excluded to avoid re-firing on every parent render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, onEditorReady]);
 
   // Legacy migration: populate Y.Doc from blocks table on first sync
   useEffect(() => {

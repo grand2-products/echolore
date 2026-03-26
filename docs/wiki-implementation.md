@@ -17,8 +17,8 @@ This document describes the currently implemented Wiki behavior.
 - Wiki list: `apps/web/app/(main)/wiki/page.tsx`
 - Wiki detail: `apps/web/app/(main)/wiki/[id]/page.tsx`
 - Wiki create: `apps/web/app/(main)/wiki/new/page.tsx`
-- Editor: `apps/web/components/wiki/NotionEditor.tsx` (Notion-style BlockNote editor, dynamically imported)
-- Editor inner: `apps/web/components/wiki/NotionEditorInner.tsx`
+- Editor: `apps/web/components/wiki/BlockEditor.tsx` (BlockNote editor, dynamically imported)
+- Editor inner: `apps/web/components/wiki/BlockEditorInner.tsx`
 - Serializer: `apps/web/lib/wiki-serializer.ts` (BlockNote ↔ BlockDto conversion)
 - API client: `apps/web/lib/api.ts`
 
