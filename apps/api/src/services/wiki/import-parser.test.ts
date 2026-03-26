@@ -129,6 +129,52 @@ describe("parseMarkdown", () => {
     expect(blocks[0]?.content).toContain("&lt;script&gt;");
     expect(blocks[0]?.content).toContain("&amp;");
   });
+
+  it("parses GFM tables", () => {
+    const md = "| Name | Age |\n| --- | --- |\n| Alice | 30 |\n| Bob | 25 |";
+    const blocks = parseMarkdown(md);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]?.type).toBe("text");
+    expect(blocks[0]?.properties).toEqual({ blockNoteType: "table" });
+    const parsed = JSON.parse(blocks[0]?.content ?? "");
+    expect(parsed.type).toBe("table");
+    expect(parsed.content.type).toBe("tableContent");
+    expect(parsed.content.rows).toHaveLength(3);
+    // Header row
+    expect(parsed.content.rows[0].cells[0][0].text).toBe("Name");
+    expect(parsed.content.rows[0].cells[1][0].text).toBe("Age");
+    // Data rows
+    expect(parsed.content.rows[1].cells[0][0].text).toBe("Alice");
+    expect(parsed.content.rows[2].cells[1][0].text).toBe("25");
+  });
+
+  it("preserves bold inside links in table cells", () => {
+    const md = "| Col |\n| --- |\n| [**bold link**](https://example.com) |";
+    const blocks = parseMarkdown(md);
+    const parsed = JSON.parse(blocks[0]?.content ?? "");
+    const cell = parsed.content.rows[1].cells[0];
+    const linkItem = cell.find((i: Record<string, unknown>) => i.type === "link");
+    expect(linkItem?.href).toBe("https://example.com");
+    const boldInLink = linkItem?.content?.find(
+      (i: Record<string, unknown>) => (i.styles as Record<string, unknown>)?.bold
+    );
+    expect(boldInLink?.text).toBe("bold link");
+  });
+
+  it("preserves inline formatting in table cells", () => {
+    const md = "| Header |\n| --- |\n| **bold** and *italic* |";
+    const blocks = parseMarkdown(md);
+    const parsed = JSON.parse(blocks[0]?.content ?? "");
+    const cellContent = parsed.content.rows[1].cells[0];
+    const boldItem = cellContent.find(
+      (i: Record<string, unknown>) => (i.styles as Record<string, unknown>)?.bold
+    );
+    const italicItem = cellContent.find(
+      (i: Record<string, unknown>) => (i.styles as Record<string, unknown>)?.italic
+    );
+    expect(boldItem?.text).toBe("bold");
+    expect(italicItem?.text).toBe("italic");
+  });
 });
 
 // ---------------------------------------------------------------------------

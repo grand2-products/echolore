@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { AttendeeSelect } from "@/components/meetings/AttendeeSelect";
 import { ErrorBanner } from "@/components/ui";
-import { useCreateMeetingMutation } from "@/lib/api";
+import { useAuthMeQuery, useCreateMeetingMutation } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 
@@ -20,21 +21,24 @@ export function CreateMeetingModal({
   const t = useT();
   const getApiErrorMessage = useApiErrorMessage();
   const createMeetingMutation = useCreateMeetingMutation();
+  const { data: meData } = useAuthMeQuery();
+  const userName = meData?.user?.name ?? "";
 
-  const [newMeetingTitle, setNewMeetingTitle] = useState("");
+  const defaultTitle = userName ? t("meetings.create.defaultTitle", { name: userName }) : "";
+
+  const [newMeetingTitle, setNewMeetingTitle] = useState(defaultTitle);
+  const [titleTouched, setTitleTouched] = useState(false);
   const [newScheduledAt, setNewScheduledAt] = useState("");
   const [useSchedule, setUseSchedule] = useState(false);
-  const [attendeeInput, setAttendeeInput] = useState("");
   const [attendeeEmails, setAttendeeEmails] = useState<string[]>([]);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const addAttendeeEmail = () => {
-    const email = attendeeInput.trim();
-    if (email?.includes("@") && !attendeeEmails.includes(email)) {
-      setAttendeeEmails((prev) => [...prev, email]);
-      setAttendeeInput("");
+  // Update default title once user data loads (if not yet touched by user)
+  useEffect(() => {
+    if (defaultTitle && !titleTouched && !newMeetingTitle) {
+      setNewMeetingTitle(defaultTitle);
     }
-  };
+  }, [defaultTitle, titleTouched, newMeetingTitle]);
 
   const handleCreateMeeting = async () => {
     if (!newMeetingTitle.trim()) return;
@@ -63,7 +67,10 @@ export function CreateMeetingModal({
             <input
               type="text"
               value={newMeetingTitle}
-              onChange={(e) => setNewMeetingTitle(e.target.value)}
+              onChange={(e) => {
+                setNewMeetingTitle(e.target.value);
+                setTitleTouched(true);
+              }}
               placeholder={t("meetings.create.placeholder")}
               disabled={createMeetingMutation.isPending}
               className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 font-normal focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -104,57 +111,11 @@ export function CreateMeetingModal({
         </div>
         {isCalendarConnected && (
           <div className="mb-4">
-            <label
-              htmlFor="attendee-email-input"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              {t("meetings.create.attendees")}
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="attendee-email-input"
-                type="email"
-                value={attendeeInput}
-                onChange={(e) => setAttendeeInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addAttendeeEmail();
-                  }
-                }}
-                placeholder={t("meetings.create.attendeePlaceholder")}
-                disabled={createMeetingMutation.isPending}
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-              <button
-                type="button"
-                onClick={addAttendeeEmail}
-                disabled={createMeetingMutation.isPending || !attendeeInput.trim()}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-              >
-                {t("meetings.create.addAttendee")}
-              </button>
-            </div>
-            {attendeeEmails.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {attendeeEmails.map((email) => (
-                  <span
-                    key={email}
-                    className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
-                  >
-                    {email}
-                    <button
-                      type="button"
-                      onClick={() => setAttendeeEmails((prev) => prev.filter((e) => e !== email))}
-                      className="ml-0.5 text-blue-600 hover:text-blue-900"
-                    >
-                      &times;
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-            <p className="mt-1 text-xs text-gray-500">{t("meetings.create.attendeeHint")}</p>
+            <AttendeeSelect
+              selectedEmails={attendeeEmails}
+              onChange={setAttendeeEmails}
+              disabled={createMeetingMutation.isPending}
+            />
           </div>
         )}
         <div className="flex justify-end gap-2">

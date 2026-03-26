@@ -6,6 +6,8 @@ import * as syncProtocol from "y-protocols/sync";
 import * as Y from "yjs";
 import type { SessionUser } from "../../lib/auth.js";
 import { getYjsState, upsertYjsState } from "../../repositories/wiki/yjs-document-repository.js";
+import { indexPage } from "./embedding-service.js";
+import { syncBlocksFromYDoc } from "./yjs-block-sync.js";
 
 const MSG_SYNC = 0;
 const MSG_AWARENESS = 1;
@@ -149,6 +151,13 @@ async function persistDoc(pageId: string, retries = PERSIST_MAX_RETRIES): Promis
     try {
       const state = Y.encodeStateAsUpdate(entry.doc);
       await upsertYjsState(pageId, Buffer.from(state));
+
+      // Sync blocks table for search indexing (best-effort, awaited so
+      // downstream indexPage reads fresh blocks)
+      await syncBlocksFromYDoc(pageId, entry.doc).catch((err) =>
+        console.warn(`[yjs-collab] Block sync failed for ${pageId}:`, err)
+      );
+
       return;
     } catch (err) {
       if (attempt < retries) {
@@ -327,8 +336,13 @@ export function removeConnection(pageId: string, ws: WSContext): void {
       entry.pingTimer = null;
     }
 
-    // Persist immediately on last disconnect, then schedule GC
-    void persistDoc(pageId);
+    // Persist immediately on last disconnect, then re-index embeddings
+    void persistDoc(pageId).then(() => {
+      // Re-index embeddings after blocks are synced (best-effort)
+      indexPage(pageId).catch((err) =>
+        console.warn(`[yjs-collab] Embedding re-index failed for ${pageId}:`, err)
+      );
+    });
 
     entry.gcTimer = setTimeout(() => {
       const e = docs.get(pageId);

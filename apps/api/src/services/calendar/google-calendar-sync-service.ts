@@ -126,6 +126,44 @@ export async function listUpcomingEvents(userId: string, days = 7): Promise<Cale
   }));
 }
 
+export interface CalendarContactDto {
+  email: string;
+  displayName: string | null;
+}
+
+export async function listCalendarContacts(
+  userId: string,
+  days = 30
+): Promise<CalendarContactDto[]> {
+  const { client, calendarId } = await getAuthedClient(userId);
+  const calendar = google.calendar({ version: "v3", auth: client });
+
+  const now = new Date();
+  const since = new Date(now.getTime() - days * ONE_DAY_MS);
+
+  const res = await calendar.events.list({
+    calendarId,
+    timeMin: since.toISOString(),
+    timeMax: now.toISOString(),
+    singleEvents: true,
+    maxResults: 250,
+    fields: "items(attendees(email,displayName,self))",
+  });
+
+  const seen = new Map<string, string | null>();
+  for (const event of res.data.items || []) {
+    for (const a of event.attendees || []) {
+      if (a.email && !a.self && !seen.has(a.email)) {
+        seen.set(a.email, a.displayName || null);
+      }
+    }
+  }
+
+  return Array.from(seen.entries())
+    .map(([email, displayName]) => ({ email, displayName }))
+    .sort((a, b) => (a.displayName || a.email).localeCompare(b.displayName || b.email));
+}
+
 export async function importEventAsMeeting(userId: string, eventId: string) {
   const { client, calendarId } = await getAuthedClient(userId);
   const calendar = google.calendar({ version: "v3", auth: client });

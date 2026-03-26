@@ -1,6 +1,6 @@
 # Wiki Implementation
 
-Last updated: 2026-03-13
+Last updated: 2026-03-26
 
 This document describes the currently implemented Wiki behavior.
 
@@ -68,6 +68,14 @@ This document describes the currently implemented Wiki behavior.
 - Room AI generated wiki pages use the same page access-default mapping path
 - authorization decisions logged to audit log
 - page HTML rendering applies escaping in detail view
+
+### Personal Space
+- each user has one personal space (type=`personal`, `ownerUserId` set)
+- personal space pages are always public — all authenticated users can read them
+- private (non-public) pages cannot be created in personal spaces
+- only the space owner can create pages in their personal space
+- admin can edit or delete existing pages in any personal space (moderation)
+- all personal spaces are visible in the space list to every user
 
 ## Related Files
 - `../docs/release-workflows.md`

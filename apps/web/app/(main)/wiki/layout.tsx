@@ -1,8 +1,7 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { WikiSidebar } from "@/components/wiki";
 import { useSpacesQuery, useWikiPagesQuery } from "@/lib/api";
 import { useWikiPageActions } from "@/lib/hooks/use-wiki-page-actions";
@@ -15,8 +14,6 @@ interface WikiLayoutProps {
 export default function WikiLayout({ children }: WikiLayoutProps) {
   const params = useParams();
   const currentPageId = typeof params.id === "string" ? params.id : undefined;
-  const queryClient = useQueryClient();
-
   const { data: pagesData } = useWikiPagesQuery();
   const { data: spacesData } = useSpacesQuery();
 
@@ -24,13 +21,8 @@ export default function WikiLayout({ children }: WikiLayoutProps) {
   const spaces = spacesData?.spaces ?? [];
   const pagesBySpace = useMemo(() => groupPagesBySpace(pages, spaces), [pages, spaces]);
 
-  const invalidate = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: ["wiki", "pages"] }),
-    [queryClient]
-  );
-
   const { handleReparent, handleAddSubPage, handleRenamePage, handleDeletePage } =
-    useWikiPageActions({ onMutate: invalidate, currentPageId });
+    useWikiPageActions({ currentPageId });
 
   return (
     <div className="flex h-full flex-col md:flex-row">

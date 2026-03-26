@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorBanner } from "@/components/ui";
 import { calendarApi, useCalendarStatusQuery } from "@/lib/api";
-import { buildApiUrl } from "@/lib/api/fetch";
+import { resolveAvatarSrc } from "@/lib/api/fetch";
 import { usersApi } from "@/lib/api/users";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAuthContext } from "@/lib/auth-context";
@@ -171,17 +171,8 @@ export default function SettingsPage() {
     setNameMessage(null);
   };
 
-  const hasUploadedAvatar = user?.avatarUrl?.startsWith("/api/users/");
-  const hasExternalAvatar = (() => {
-    if (!user?.avatarUrl || hasUploadedAvatar) return false;
-    try {
-      const parsed = new URL(user.avatarUrl);
-      return parsed.protocol === "http:" || parsed.protocol === "https:";
-    } catch {
-      return false;
-    }
-  })();
-  const hasAvatar = hasUploadedAvatar || hasExternalAvatar;
+  const avatarSrc = resolveAvatarSrc(user?.avatarUrl);
+  const hasAvatar = avatarSrc !== null;
 
   const sessionDescriptionKey =
     authMode === "password"
@@ -225,11 +216,7 @@ export default function SettingsPage() {
                       {hasAvatar ? (
                         <Image
                           key={avatarKey}
-                          src={
-                            hasUploadedAvatar
-                              ? buildApiUrl(user.avatarUrl ?? "")
-                              : (user.avatarUrl ?? "")
-                          }
+                          src={avatarSrc ?? ""}
                           alt=""
                           width={64}
                           height={64}

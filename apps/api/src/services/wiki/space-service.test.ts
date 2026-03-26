@@ -157,7 +157,7 @@ describe("space-service", () => {
   });
 
   describe("listVisibleSpaces", () => {
-    it("returns all non-personal spaces plus own personal space for admin users", async () => {
+    it("returns all spaces including other users personal spaces for admin", async () => {
       const admin = makeUser({ id: "admin_1", role: UserRole.Admin });
       const ownPersonal = makeSpace({ id: "s_own", type: "personal", ownerUserId: "admin_1" });
       const otherPersonal = makeSpace({ id: "s_other", type: "personal", ownerUserId: "other" });
@@ -176,7 +176,7 @@ describe("space-service", () => {
 
       expect(result).toContainEqual(expect.objectContaining({ id: "s1" }));
       expect(result).toContainEqual(expect.objectContaining({ id: "s_own" }));
-      expect(result).not.toContainEqual(expect.objectContaining({ id: "s_other" }));
+      expect(result).toContainEqual(expect.objectContaining({ id: "s_other" }));
       expect(result).toContainEqual(expect.objectContaining({ id: "s3" }));
     });
 
@@ -215,11 +215,10 @@ describe("space-service", () => {
 
       const result = await listVisibleSpaces(user);
 
-      // Should see general, own personal, and team space (member of g1)
-      // Should NOT see other's personal space
+      // Should see all spaces including other's personal space (public read)
       expect(result).toContainEqual(expect.objectContaining({ id: "s1" }));
       expect(result).toContainEqual(expect.objectContaining({ id: "s2" }));
-      expect(result).not.toContainEqual(expect.objectContaining({ id: "s3" }));
+      expect(result).toContainEqual(expect.objectContaining({ id: "s3" }));
       expect(result).toContainEqual(expect.objectContaining({ id: "s4" }));
     });
   });
@@ -277,20 +276,25 @@ describe("space-service", () => {
       expect(result).toBe(true);
     });
 
-    it("grants personal space access to owner only", async () => {
+    it("grants personal space read access to everyone", async () => {
       const owner = makeUser({ id: "user_owner" });
       const otherUser = makeUser({ id: "user_other" });
       const space = makeSpace({ type: "personal", ownerUserId: "user_owner" });
 
-      expect(await canAccessSpace(owner, space as never)).toBe(true);
-      expect(await canAccessSpace(otherUser, space as never)).toBe(false);
+      expect(await canAccessSpace(owner, space as never, "read")).toBe(true);
+      expect(await canAccessSpace(otherUser, space as never, "read")).toBe(true);
     });
 
-    it("denies admin access to other users personal space", async () => {
+    it("grants personal space write/delete only to owner", async () => {
+      const owner = makeUser({ id: "user_owner" });
+      const otherUser = makeUser({ id: "user_other" });
       const admin = makeUser({ id: "admin_1", role: UserRole.Admin });
-      const space = makeSpace({ type: "personal", ownerUserId: "other_user" });
+      const space = makeSpace({ type: "personal", ownerUserId: "user_owner" });
 
-      expect(await canAccessSpace(admin, space as never)).toBe(false);
+      expect(await canAccessSpace(owner, space as never, "write")).toBe(true);
+      expect(await canAccessSpace(owner, space as never, "delete")).toBe(true);
+      expect(await canAccessSpace(otherUser, space as never, "write")).toBe(false);
+      expect(await canAccessSpace(admin, space as never, "write")).toBe(false);
     });
 
     it("grants general space access via fallback when no explicit permissions", async () => {

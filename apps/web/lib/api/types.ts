@@ -53,6 +53,7 @@ export interface WikiSearchMeta {
 
 export interface WikiSearchResponse {
   pages: Page[];
+  snippets?: Record<string, string>;
   searchMeta?: WikiSearchMeta;
 }
 
@@ -433,6 +434,11 @@ export interface CalendarEvent {
   end: string;
   description: string | null;
   htmlLink: string | null;
+}
+
+export interface CalendarContact {
+  email: string;
+  displayName: string | null;
 }
 
 export interface LivekitParticipantInfo {

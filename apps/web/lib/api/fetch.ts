@@ -32,6 +32,25 @@ export function buildApiUrl(path: string) {
   return `${getApiBase()}${normalizedPath}`;
 }
 
+/**
+ * Resolve an avatar URL for display in `<Image src>`.
+ * - External URLs (http/https) are returned as-is.
+ * - Internal API paths (e.g. `/api/users/{id}/avatar`) are returned as
+ *   relative paths so the browser resolves them against the current origin.
+ * - Falsy values return `null`.
+ */
+export function resolveAvatarSrc(avatarUrl: string | null | undefined): string | null {
+  if (!avatarUrl) return null;
+  if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://")) {
+    return avatarUrl;
+  }
+  // Internal path – return as-is (relative to origin)
+  if (avatarUrl.startsWith("/")) {
+    return avatarUrl;
+  }
+  return null;
+}
+
 export function buildAuthJsUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${getApiBase().replace(/\/api$/, "")}${normalizedPath}`;

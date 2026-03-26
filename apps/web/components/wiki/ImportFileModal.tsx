@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { ErrorBanner } from "@/components/ui";
-import { useSpacesQuery, wikiApi } from "@/lib/api";
+import { useImportWikiFileMutation, useSpacesQuery } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { ModalShell } from "./ModalShell";
 import { SpaceList } from "./SpaceList";
@@ -33,6 +33,7 @@ export function ImportFileModal({ open, onClose }: ImportFileModalProps) {
   const [dragging, setDragging] = useState(false);
   const { data: spacesData, isLoading } = useSpacesQuery();
   const spaces = spacesData?.spaces ?? [];
+  const importMutation = useImportWikiFileMutation();
 
   const reset = useCallback(() => {
     setSelectedFile(null);
@@ -87,18 +88,21 @@ export function ImportFileModal({ open, onClose }: ImportFileModalProps) {
     setImporting(true);
     setError(null);
 
-    wikiApi
-      .importFile(selectedFile, selectedSpaceId)
-      .then((res) => {
-        onClose();
-        router.push(`/wiki/${res.page.id}`);
-      })
-      .catch(() => {
-        setError(t("wiki.import.error"));
-        importingRef.current = false;
-        setImporting(false);
-      });
-  }, [selectedFile, selectedSpaceId, router, t, onClose]);
+    importMutation.mutate(
+      { file: selectedFile, spaceId: selectedSpaceId },
+      {
+        onSuccess: (res) => {
+          onClose();
+          router.push(`/wiki/${res.page.id}`);
+        },
+        onError: () => {
+          setError(t("wiki.import.error"));
+          importingRef.current = false;
+          setImporting(false);
+        },
+      }
+    );
+  }, [selectedFile, selectedSpaceId, router, t, onClose, importMutation]);
 
   return (
     <ModalShell open={open} onClose={handleClose}>

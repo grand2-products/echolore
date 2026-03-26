@@ -1,4 +1,4 @@
-import type { Content, ListItem, PhrasingContent, Root } from "mdast";
+import type { Content, ListItem, PhrasingContent, Root, Table, TableCell } from "mdast";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 /**
@@ -69,6 +69,24 @@ class BlockCollector {
   image(src: string, filename: string | null) {
     this.push({ type: "image", content: null, properties: { src, filename } });
   }
+
+  table(tableNode: Table) {
+    const rows = tableNode.children.map((row) => ({
+      cells: row.children.map((cell: TableCell) =>
+        phrasingToInlineContent(cell.children as PhrasingContent[])
+      ),
+    }));
+    const blockNote = {
+      type: "table",
+      content: { type: "tableContent", rows },
+      children: [],
+    };
+    this.push({
+      type: "text",
+      content: JSON.stringify(blockNote),
+      properties: { blockNoteType: "table" },
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +128,75 @@ function phrasingNodeToHtml(node: PhrasingContent): string {
       if (Array.isArray(n.children)) return phrasingToHtml(n.children as PhrasingContent[]);
       if (typeof n.value === "string") return escapeHtml(n.value);
       return "";
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// BlockNote inline content helpers (for table cells)
+// ---------------------------------------------------------------------------
+
+type InlineItem = {
+  type: string;
+  text?: string;
+  href?: string;
+  styles?: Record<string, boolean>;
+  content?: InlineItem[];
+};
+
+function phrasingToInlineContent(nodes: PhrasingContent[]): InlineItem[] {
+  const result: InlineItem[] = [];
+  for (const node of nodes) {
+    collectInline(node, {}, result);
+  }
+  return result.length > 0 ? result : [{ type: "text", text: "", styles: {} }];
+}
+
+function collectInline(
+  node: PhrasingContent,
+  inherited: Record<string, boolean>,
+  out: InlineItem[]
+): void {
+  switch (node.type) {
+    case "text":
+      out.push({ type: "text", text: node.value, styles: { ...inherited } });
+      break;
+    case "strong":
+      for (const child of node.children) collectInline(child, { ...inherited, bold: true }, out);
+      break;
+    case "emphasis":
+      for (const child of node.children) collectInline(child, { ...inherited, italic: true }, out);
+      break;
+    case "delete":
+      for (const child of node.children) collectInline(child, { ...inherited, strike: true }, out);
+      break;
+    case "inlineCode":
+      out.push({ type: "text", text: node.value, styles: { ...inherited, code: true } });
+      break;
+    case "link": {
+      const linkContent: InlineItem[] = [];
+      for (const child of node.children) {
+        collectInline(child, {}, linkContent);
+      }
+      out.push({
+        type: "link",
+        href: node.url,
+        content:
+          linkContent.length > 0 ? linkContent : [{ type: "text", text: node.url, styles: {} }],
+      });
+      break;
+    }
+    case "break":
+      out.push({ type: "text", text: "\n", styles: {} });
+      break;
+    default: {
+      const n = node as unknown as Record<string, unknown>;
+      if (typeof n.value === "string") {
+        out.push({ type: "text", text: n.value, styles: { ...inherited } });
+      } else if (Array.isArray(n.children)) {
+        for (const c of n.children as PhrasingContent[]) collectInline(c, inherited, out);
+      }
+      break;
     }
   }
 }
@@ -166,6 +253,9 @@ export function parseMarkdown(source: string): BlockDraft[] {
         }
         case "thematicBreak":
           c.divider();
+          break;
+        case "table":
+          c.table(node);
           break;
         case "image":
           c.image(node.url, node.alt || null);

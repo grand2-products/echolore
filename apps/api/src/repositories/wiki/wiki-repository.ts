@@ -58,19 +58,17 @@ export async function getPageBlocks(pageId: string) {
   return db.select().from(blocks).where(eq(blocks.pageId, pageId)).orderBy(blocks.sortOrder);
 }
 
-export async function searchPagesLexically(query: string) {
-  const titleMatch = sql<boolean>`to_tsvector('simple', coalesce(${pages.title}, '')) @@ plainto_tsquery('simple', ${query})`;
-  const blockMatch = exists(
+function blockContentExists(condition: ReturnType<typeof sql<boolean>>) {
+  return exists(
     db
       .select({ id: blocks.id })
       .from(blocks)
-      .where(
-        and(
-          eq(blocks.pageId, pages.id),
-          sql<boolean>`to_tsvector('simple', coalesce(${blocks.content}, '')) @@ plainto_tsquery('simple', ${query})`
-        )
-      )
+      .where(and(eq(blocks.pageId, pages.id), condition))
   );
+}
+
+export async function searchPagesLexically(query: string) {
+  const escaped = `%${escapeLikePattern(query)}%`;
 
   return db
     .select()
@@ -79,9 +77,12 @@ export async function searchPagesLexically(query: string) {
       and(
         isNull(pages.deletedAt),
         or(
-          titleMatch,
-          blockMatch,
-          sql<boolean>`coalesce(${pages.title}, '') ilike ${`%${escapeLikePattern(query)}%`}`
+          sql<boolean>`to_tsvector('simple', coalesce(${pages.title}, '')) @@ plainto_tsquery('simple', ${query})`,
+          blockContentExists(
+            sql<boolean>`to_tsvector('simple', coalesce(${blocks.content}, '')) @@ plainto_tsquery('simple', ${query})`
+          ),
+          sql<boolean>`coalesce(${pages.title}, '') ilike ${escaped}`,
+          blockContentExists(sql<boolean>`coalesce(${blocks.content}, '') ilike ${escaped}`)
         )
       )
     )
@@ -564,6 +565,17 @@ export async function updatePageTitleAndReplaceBlocks(input: {
 export async function getPageSpaceId(id: string) {
   const [page] = await db.select({ spaceId: pages.spaceId }).from(pages).where(eq(pages.id, id));
   return page?.spaceId ?? null;
+}
+
+export async function getPageSpaceType(
+  pageId: string
+): Promise<{ spaceId: string; spaceType: string } | null> {
+  const [row] = await db
+    .select({ spaceId: pages.spaceId, spaceType: spaces.type })
+    .from(pages)
+    .innerJoin(spaces, eq(pages.spaceId, spaces.id))
+    .where(eq(pages.id, pageId));
+  return row ?? null;
 }
 
 export async function searchPagesByIlike(
