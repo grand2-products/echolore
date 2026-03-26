@@ -103,9 +103,12 @@ async function evaluatePageAccess(
     getPageSpaceType(pageId),
   ]);
 
-  // Personal space: anyone can read, only owner can write/delete
+  // Personal space: anyone can read, space owner can write/delete
   if (spaceInfo?.spaceType === "personal") {
     if (action === "read") return { allowed: true, reason: "personal-space-public-read" };
+    if (spaceInfo.ownerUserId && spaceInfo.ownerUserId === user.id) {
+      return { allowed: true, reason: "personal-space-owner" };
+    }
     return { allowed: false, reason: "personal-space-owner-only" };
   }
 

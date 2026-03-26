@@ -569,9 +569,9 @@ export async function getPageSpaceId(id: string) {
 
 export async function getPageSpaceType(
   pageId: string
-): Promise<{ spaceId: string; spaceType: string } | null> {
+): Promise<{ spaceId: string; spaceType: string; ownerUserId: string | null } | null> {
   const [row] = await db
-    .select({ spaceId: pages.spaceId, spaceType: spaces.type })
+    .select({ spaceId: pages.spaceId, spaceType: spaces.type, ownerUserId: spaces.ownerUserId })
     .from(pages)
     .innerJoin(spaces, eq(pages.spaceId, spaces.id))
     .where(eq(pages.id, pageId));

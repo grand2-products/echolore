@@ -114,6 +114,7 @@ export function Header({ user }: HeaderProps) {
   const t = useT();
   const siteTitle = useSiteTitle();
   const { logout } = useAuthActions();
+  const avatarSrc = resolveAvatarSrc(user?.avatarUrl);
   const [query, setQuery] = useState("");
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -324,23 +325,20 @@ export function Header({ user }: HeaderProps) {
               onClick={() => setIsUserMenuOpen((open) => !open)}
               className="flex items-center gap-2 rounded-full p-1 transition hover:bg-gray-100"
             >
-              {(() => {
-                const src = resolveAvatarSrc(user?.avatarUrl);
-                return src ? (
-                  <Image
-                    src={src}
-                    alt={user?.name ?? ""}
-                    width={32}
-                    height={32}
-                    unoptimized
-                    className="h-8 w-8 rounded-full"
-                  />
-                ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-medium text-white">
-                    {user?.name?.charAt(0) || "U"}
-                  </div>
-                );
-              })()}
+              {avatarSrc ? (
+                <Image
+                  src={avatarSrc}
+                  alt={user?.name ?? ""}
+                  width={32}
+                  height={32}
+                  unoptimized
+                  className="h-8 w-8 rounded-full"
+                />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-medium text-white">
+                  {user?.name?.charAt(0) || "U"}
+                </div>
+              )}
               <span className="hidden text-sm font-medium text-gray-700 md:block">
                 {user?.name || t("common.userFallback")}
               </span>

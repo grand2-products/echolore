@@ -46,10 +46,15 @@ export function AttendeeSelect({ selectedEmails, onChange, disabled }: AttendeeS
     onChange(selectedEmails.filter((e) => e !== email));
   };
 
-  const getDisplayLabel = (email: string) => {
-    const contact = contacts.find((c) => c.email === email);
-    return contact?.displayName ?? email;
-  };
+  const contactDisplayMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of contacts) {
+      if (c.displayName) map.set(c.email, c.displayName);
+    }
+    return map;
+  }, [contacts]);
+
+  const getDisplayLabel = (email: string) => contactDisplayMap.get(email) ?? email;
 
   return (
     <div ref={containerRef} className="relative">
