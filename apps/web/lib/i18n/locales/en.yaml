@@ -891,12 +891,12 @@ admin:
   systemInfo:
     title: "System Information"
     description: "Current system version and repository information."
+    version: "Version"
     repository: "GitHub Repository"
   system:
     title: "System Update"
     description: "Manage application versions and updates."
     updaterUnavailable: "Updater is not available. Please update manually."
-    currentVersion: "Current Version"
     reconnecting: "Reconnecting to server..."
     updating: "Updating from {from} to {to}..."
     updateError: "Update Error"

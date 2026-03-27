@@ -47,6 +47,7 @@ jobs:
             ghcr.io/grand2-products/echolore/${{ matrix.app }}:${{ steps.tags.outputs.version }}
             ghcr.io/grand2-products/echolore/${{ matrix.app }}:${{ steps.tags.outputs.minor }}
             ghcr.io/grand2-products/echolore/${{ matrix.app }}:latest
+          build-args: ${{ matrix.app == 'web' && format('APP_VERSION={0}', steps.tags.outputs.version) || '' }}
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
 

@@ -874,12 +874,12 @@ admin:
   systemInfo:
     title: "시스템 정보"
     description: "현재 시스템 버전 및 저장소 정보입니다."
+    version: "버전"
     repository: "GitHub 저장소"
   system:
     title: "시스템 업데이트"
     description: "애플리케이션 버전 관리 및 업데이트를 수행합니다."
     updaterUnavailable: "업데이터를 사용할 수 없습니다. 수동으로 업데이트하세요."
-    currentVersion: "현재 버전"
     reconnecting: "서버에 재연결 중..."
     updating: "{from}에서 {to}(으)로 업데이트 중..."
     updateError: "업데이트 오류"

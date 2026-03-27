@@ -890,12 +890,12 @@ admin:
   systemInfo:
     title: "システム情報"
     description: "現在のシステムバージョンとリポジトリ情報です。"
+    version: "バージョン"
     repository: "GitHub リポジトリ"
   system:
     title: "システムアップデート"
     description: "アプリケーションのバージョン管理とアップデートを行います。"
     updaterUnavailable: "アップデーターが利用できません。手動でアップデートしてください。"
-    currentVersion: "現在のバージョン"
     reconnecting: "サーバーに再接続中..."
     updating: "{from} → {to} にアップデート中..."
     updateError: "アップデートエラー"
