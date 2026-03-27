@@ -16,8 +16,9 @@ import RecordingsList from "@/components/livekit/RecordingsList";
 import ScreenShareView from "@/components/livekit/ScreenShareView";
 import TranscriptPanel from "@/components/livekit/TranscriptPanel";
 import InviteDialog from "@/components/meetings/InviteDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { AgentDefinition, MeetingAgentEvent, RealtimeTranscriptSegment } from "@/lib/api";
-import { livekitApi } from "@/lib/api";
+import { livekitApi, meetingsApi } from "@/lib/api";
 import { useReactions } from "@/lib/hooks/use-reactions";
 import { useFormatters, useT } from "@/lib/i18n";
 
@@ -48,6 +49,8 @@ export default function RoomBody(props: RoomBodyProps) {
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }]);
   const screenTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
+  const [endingMeeting, setEndingMeeting] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
   const closePanel = useCallback(() => setOpenPanel(null), []);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const canManageInvites = props.userRole === "admin" || props.userId === props.creatorId;
@@ -134,6 +137,17 @@ export default function RoomBody(props: RoomBodyProps) {
       setRecordingPending(false);
     }
   }, [isRecording, recordingEgressId, recordingPending, props.roomName, props.meetingId, t]);
+
+  const handleEndMeeting = useCallback(async () => {
+    setShowEndConfirm(false);
+    setEndingMeeting(true);
+    try {
+      await meetingsApi.endForAll(props.meetingId);
+      router.push("/meetings");
+    } catch {
+      setEndingMeeting(false);
+    }
+  }, [props.meetingId, router]);
 
   const formatElapsed = (secs: number) => {
     const m = Math.floor(secs / 60)
@@ -404,6 +418,34 @@ export default function RoomBody(props: RoomBodyProps) {
           {/* Divider */}
           <div className="mx-1 h-7 w-px bg-gray-700" />
 
+          {/* End Meeting for All button (host only) */}
+          {props.userId === props.creatorId && (
+            <div className="group relative">
+              <button
+                type="button"
+                disabled={endingMeeting}
+                onClick={() => setShowEndConfirm(true)}
+                className="inline-flex h-11 items-center gap-1.5 rounded-full bg-red-700 px-4 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:opacity-50"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5.636 5.636a9 9 0 1 0 12.728 0M12 3v9"
+                  />
+                </svg>
+                {endingMeeting ? t("meetings.room.ending") : t("meetings.room.endMeeting")}
+              </button>
+            </div>
+          )}
+
           {/* Leave button */}
           <div className="group relative">
             <button
@@ -459,6 +501,13 @@ export default function RoomBody(props: RoomBodyProps) {
         meetingId={props.meetingId}
         open={inviteDialogOpen}
         onClose={() => setInviteDialogOpen(false)}
+      />
+      <ConfirmDialog
+        open={showEndConfirm}
+        title={t("meetings.room.endMeetingConfirm")}
+        variant="danger"
+        onConfirm={() => void handleEndMeeting()}
+        onCancel={() => setShowEndConfirm(false)}
       />
     </div>
   );

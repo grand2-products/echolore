@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { type PageRevision, wikiApi } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
 
@@ -18,6 +19,7 @@ export function VersionHistoryPanel({ pageId, onClose, onRestored }: VersionHist
   const [error, setError] = useState<string | null>(null);
   const [selectedRevision, setSelectedRevision] = useState<PageRevision | null>(null);
   const [restoring, setRestoring] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
@@ -29,11 +31,11 @@ export function VersionHistoryPanel({ pageId, onClose, onRestored }: VersionHist
       .finally(() => setIsLoading(false));
   }, [pageId, t]);
 
-  const handleRestore = useCallback(
+  const handleRestoreConfirmed = useCallback(
     async (revisionId: string) => {
       if (restoring) return;
-      if (!confirm(t("wiki.history.restoreConfirm"))) return;
       setRestoring(true);
+      setRestoreTarget(null);
       try {
         await wikiApi.restoreRevision(pageId, revisionId);
         onRestored();
@@ -126,7 +128,7 @@ export function VersionHistoryPanel({ pageId, onClose, onRestored }: VersionHist
             <button
               type="button"
               disabled={restoring}
-              onClick={() => handleRestore(selectedRevision.id)}
+              onClick={() => setRestoreTarget(selectedRevision.id)}
               className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {restoring ? t("common.status.loading") : t("wiki.history.restore")}
@@ -153,6 +155,15 @@ export function VersionHistoryPanel({ pageId, onClose, onRestored }: VersionHist
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={restoreTarget !== null}
+        title={t("wiki.history.restoreConfirm")}
+        variant="warning"
+        onConfirm={() => {
+          if (restoreTarget) void handleRestoreConfirmed(restoreTarget);
+        }}
+        onCancel={() => setRestoreTarget(null)}
+      />
     </div>
   );
 }

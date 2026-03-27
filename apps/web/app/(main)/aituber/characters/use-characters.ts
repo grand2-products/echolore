@@ -11,6 +11,7 @@ export function useCharacters() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   useEffect(() => {
     if (!message) return;
@@ -38,19 +39,29 @@ export function useCharacters() {
     void load();
   }, [t]);
 
-  const handleDelete = useCallback(
-    async (id: string) => {
-      if (!confirm(t("aituber.characters.deleteConfirm"))) return;
-      try {
-        await aituberApi.deleteCharacter(id);
-        setCharacters((prev) => prev.filter((c) => c.id !== id));
-        setMessage(t("aituber.characters.deleted"));
-      } catch {
-        setError(t("aituber.characters.deleteError"));
-      }
-    },
-    [t]
-  );
+  const confirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget;
+    setDeleteTarget(null);
+    try {
+      await aituberApi.deleteCharacter(id);
+      setCharacters((prev) => prev.filter((c) => c.id !== id));
+      setMessage(t("aituber.characters.deleted"));
+    } catch {
+      setError(t("aituber.characters.deleteError"));
+    }
+  }, [deleteTarget, t]);
 
-  return { characters, loading, error, message, handleDelete };
+  const cancelDelete = useCallback(() => setDeleteTarget(null), []);
+
+  return {
+    characters,
+    loading,
+    error,
+    message,
+    deleteTarget,
+    setDeleteTarget,
+    confirmDelete,
+    cancelDelete,
+  };
 }
