@@ -79,6 +79,22 @@ export type SyncMeetingStatusInput = {
   endedAt?: string | null;
 };
 
+export type TrackParticipantJoinInput = {
+  apiBaseUrl: string;
+  workerSecret: string;
+  meetingId: string;
+  participantIdentity: string;
+  displayName: string;
+  isGuest: boolean;
+};
+
+export type TrackParticipantLeaveInput = {
+  apiBaseUrl: string;
+  workerSecret: string;
+  meetingId: string;
+  participantIdentity: string;
+};
+
 export type ListMeetingsByStatusInput = {
   apiBaseUrl: string;
   workerSecret: string;
@@ -187,6 +203,44 @@ export async function submitTranscriptSegment(input: SubmitTranscriptSegmentInpu
         confidence: input.confidence ?? null,
         startedAt: input.startedAt ?? new Date().toISOString(),
         finalizedAt: input.finalizedAt ?? new Date().toISOString(),
+      }),
+    }
+  );
+
+  return parseJsonOrThrow(response);
+}
+
+export async function trackParticipantJoin(input: TrackParticipantJoinInput) {
+  const response = await fetchWithRetry(
+    `${input.apiBaseUrl}/internal/room-ai/meetings/${input.meetingId}/participants/join`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-room-ai-worker-secret": input.workerSecret,
+      },
+      body: JSON.stringify({
+        participantIdentity: input.participantIdentity,
+        displayName: input.displayName,
+        isGuest: input.isGuest,
+      }),
+    }
+  );
+
+  return parseJsonOrThrow(response);
+}
+
+export async function trackParticipantLeave(input: TrackParticipantLeaveInput) {
+  const response = await fetchWithRetry(
+    `${input.apiBaseUrl}/internal/room-ai/meetings/${input.meetingId}/participants/leave`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-room-ai-worker-secret": input.workerSecret,
+      },
+      body: JSON.stringify({
+        participantIdentity: input.participantIdentity,
       }),
     }
   );

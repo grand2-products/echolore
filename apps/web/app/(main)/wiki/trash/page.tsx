@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { ErrorBanner, LoadingState } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { type Page, wikiApi } from "@/lib/api";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useFormatters, useT } from "@/lib/i18n";
@@ -21,6 +22,7 @@ export default function WikiTrashPage() {
   });
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const error = loadError ?? actionError;
 
@@ -41,10 +43,10 @@ export default function WikiTrashPage() {
     [actionInProgress, loadTrash, t]
   );
 
-  const handlePermanentDelete = useCallback(
+  const handlePermanentDeleteConfirmed = useCallback(
     async (pageId: string) => {
       if (actionInProgress) return;
-      if (!confirm(t("wiki.trash.permanentDeleteConfirm"))) return;
+      setDeleteTarget(null);
       setActionInProgress(pageId);
       setActionError(null);
       try {
@@ -101,7 +103,7 @@ export default function WikiTrashPage() {
                 <button
                   type="button"
                   disabled={actionInProgress === page.id}
-                  onClick={() => handlePermanentDelete(page.id)}
+                  onClick={() => setDeleteTarget(page.id)}
                   className="rounded border border-red-300 bg-red-50 px-3 py-1 text-xs text-red-700 hover:bg-red-100 disabled:opacity-50"
                 >
                   {t("wiki.trash.permanentDelete")}
@@ -111,6 +113,15 @@ export default function WikiTrashPage() {
           ))}
         </div>
       )}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t("wiki.trash.permanentDeleteConfirm")}
+        variant="danger"
+        onConfirm={() => {
+          if (deleteTarget) void handlePermanentDeleteConfirmed(deleteTarget);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

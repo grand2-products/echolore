@@ -98,6 +98,8 @@ export interface BlockDto {
   updatedAt: ISODateString;
 }
 
+export type MeetingParticipantRole = "host" | "member" | "guest";
+
 export interface MeetingDto {
   id: string;
   title: string;
@@ -109,6 +111,18 @@ export interface MeetingDto {
   scheduledAt: ISODateString | null;
   googleCalendarEventId: string | null;
   createdAt: ISODateString;
+  activeParticipantCount?: number;
+}
+
+export interface MeetingParticipantDto {
+  id: string;
+  meetingId: string;
+  userId: string | null;
+  guestIdentity: string | null;
+  displayName: string;
+  role: MeetingParticipantRole;
+  joinedAt: ISODateString;
+  leftAt: ISODateString | null;
 }
 
 export interface TranscriptDto {
@@ -345,6 +359,10 @@ export interface UpdateMeetingRequest {
 
 export interface CreateMeetingResponse {
   meeting: MeetingDto;
+}
+
+export interface ListMeetingParticipantsResponse {
+  participants: MeetingParticipantDto[];
 }
 
 export interface CreateTranscriptRequest {

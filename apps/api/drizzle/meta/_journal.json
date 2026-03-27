@@ -22,6 +22,27 @@
       "when": 1774343120109,
       "tag": "0002_amusing_gamora",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1774599364794,
+      "tag": "0003_young_northstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1774600036902,
+      "tag": "0004_glamorous_rhodey",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774600473940,
+      "tag": "0005_daily_slayback",
+      "breakpoints": true
     }
   ]
 }

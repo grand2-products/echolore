@@ -3,8 +3,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { ChatInput, ChatMessageBubble, TypingIndicator } from "@/components/ai-chat";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   type AiChatMessage,
   aiChatApi,
@@ -26,6 +27,7 @@ export default function AiChatPage() {
   const { data, isLoading, error } = useAiChatConversationQuery(id);
   const sendMutation = useSendAiChatMessageMutation(id);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const conversation = data?.conversation;
   const messages: AiChatMessage[] = data?.messages ?? [];
@@ -36,8 +38,8 @@ export default function AiChatPage() {
     sendMutation.mutate(content);
   };
 
-  const handleDelete = async () => {
-    if (!confirm(t("aiChat.deleteConfirm"))) return;
+  const handleDeleteConfirmed = async () => {
+    setShowDeleteConfirm(false);
     try {
       await aiChatApi.deleteConversation(id);
       void queryClient.invalidateQueries({ queryKey: ["ai-chat", "conversations"] });
@@ -108,7 +110,7 @@ export default function AiChatPage() {
         </span>
         <button
           type="button"
-          onClick={handleDelete}
+          onClick={() => setShowDeleteConfirm(true)}
           className="rounded-lg p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
           title="Delete"
         >
@@ -150,6 +152,13 @@ export default function AiChatPage() {
             ? getApiErrorMessage(sendMutation.error, "Failed to send message")
             : undefined
         }
+      />
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title={t("aiChat.deleteConfirm")}
+        variant="danger"
+        onConfirm={() => void handleDeleteConfirmed()}
+        onCancel={() => setShowDeleteConfirm(false)}
       />
     </div>
   );

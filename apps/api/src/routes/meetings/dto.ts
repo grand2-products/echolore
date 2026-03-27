@@ -1,10 +1,12 @@
 import type {
   MeetingDto,
+  MeetingParticipantDto,
   RealtimeTranscriptSegmentDto,
   SummaryDto,
   TranscriptDto,
 } from "@echolore/shared/contracts";
 import type {
+  meetingParticipants,
   meetings,
   meetingTranscriptSegments,
   summaries,
@@ -40,6 +42,19 @@ export const toSummaryDto = (summary: typeof summaries.$inferSelect): SummaryDto
   meetingId: summary.meetingId,
   content: summary.content,
   createdAt: summary.createdAt.toISOString(),
+});
+
+export const toMeetingParticipantDto = (
+  participant: typeof meetingParticipants.$inferSelect
+): MeetingParticipantDto => ({
+  id: participant.id,
+  meetingId: participant.meetingId,
+  userId: participant.userId,
+  guestIdentity: participant.guestIdentity,
+  displayName: participant.displayName,
+  role: participant.role as MeetingParticipantDto["role"],
+  joinedAt: participant.joinedAt.toISOString(),
+  leftAt: toIso(participant.leftAt),
 });
 
 export const toRealtimeTranscriptSegmentDto = (
