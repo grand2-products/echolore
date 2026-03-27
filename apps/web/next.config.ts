@@ -74,7 +74,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              `connect-src 'self' wss: https:${extraConnectSrc ? ` ${extraConnectSrc}` : ""}`,
+              `connect-src 'self' blob: wss: https:${extraConnectSrc ? ` ${extraConnectSrc}` : ""}`,
               "media-src 'self' blob:",
               "frame-src 'self'",
             ].join("; "),

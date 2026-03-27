@@ -567,11 +567,19 @@ export async function getPageSpaceId(id: string) {
   return page?.spaceId ?? null;
 }
 
-export async function getPageSpaceType(
-  pageId: string
-): Promise<{ spaceId: string; spaceType: string; ownerUserId: string | null } | null> {
+export async function getPageSpaceType(pageId: string): Promise<{
+  spaceId: string;
+  spaceType: string;
+  ownerUserId: string | null;
+  groupId: string | null;
+} | null> {
   const [row] = await db
-    .select({ spaceId: pages.spaceId, spaceType: spaces.type, ownerUserId: spaces.ownerUserId })
+    .select({
+      spaceId: pages.spaceId,
+      spaceType: spaces.type,
+      ownerUserId: spaces.ownerUserId,
+      groupId: spaces.groupId,
+    })
     .from(pages)
     .innerJoin(spaces, eq(pages.spaceId, spaces.id))
     .where(eq(pages.id, pageId));

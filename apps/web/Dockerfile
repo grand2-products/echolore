@@ -1,5 +1,7 @@
 FROM node:22-alpine AS builder
 
+ARG APP_VERSION=dev
+
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
@@ -17,6 +19,8 @@ COPY packages/shared ./packages/shared
 COPY packages/ui ./packages/ui
 
 RUN mkdir -p /app/apps/web/public
+
+ENV NEXT_PUBLIC_APP_VERSION=$APP_VERSION
 
 RUN pnpm --filter @echolore/shared build
 RUN pnpm --filter @echolore/ui build
