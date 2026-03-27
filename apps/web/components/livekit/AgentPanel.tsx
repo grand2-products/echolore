@@ -152,12 +152,12 @@ export default function AgentPanel(props: AgentPanelProps) {
       <DialogBackdrop open={props.open} onClose={props.onClose} />
 
       {/* Drawer */}
-      <dialog
-        open={props.open}
+      <div
+        role="dialog"
         aria-modal="true"
         aria-label={t("meetings.room.aiEmployee")}
-        className={`fixed right-0 top-0 z-50 m-0 flex h-full w-full max-w-md flex-col border-l border-gray-700/50 bg-gray-900 shadow-2xl transition-transform duration-300 ${
-          props.open ? "translate-x-0" : "translate-x-full"
+        className={`fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col border-l border-gray-700/50 bg-gray-900 shadow-2xl transition-transform duration-300 ${
+          props.open ? "translate-x-0" : "pointer-events-none translate-x-full"
         }`}
       >
         {/* Drawer header */}
@@ -350,7 +350,7 @@ export default function AgentPanel(props: AgentPanelProps) {
             </div>
           </div>
         </div>
-      </dialog>
+      </div>
     </>
   );
 }

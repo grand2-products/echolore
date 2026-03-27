@@ -24,12 +24,12 @@ export default function TranscriptPanel({ segments, open, onClose }: TranscriptP
   return (
     <>
       <DialogBackdrop open={open} onClose={onClose} />
-      <dialog
-        open={open}
+      <div
+        role="dialog"
         aria-modal="true"
         aria-label={t("meetings.room.realtimeTranscript")}
-        className={`fixed left-0 top-0 z-50 m-0 flex h-full w-full max-w-sm flex-col border-r border-gray-700/50 bg-gray-900 shadow-2xl transition-transform duration-300 ${
-          open ? "translate-x-0" : "-translate-x-full"
+        className={`fixed left-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-r border-gray-700/50 bg-gray-900 shadow-2xl transition-transform duration-300 ${
+          open ? "translate-x-0" : "pointer-events-none -translate-x-full"
         }`}
       >
         <div className="flex items-center justify-between border-b border-gray-700/50 px-5 py-4">
@@ -93,7 +93,7 @@ export default function TranscriptPanel({ segments, open, onClose }: TranscriptP
             ))
           )}
         </div>
-      </dialog>
+      </div>
     </>
   );
 }
