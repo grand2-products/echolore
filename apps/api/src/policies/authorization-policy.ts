@@ -152,6 +152,18 @@ async function evaluatePageAccess(
     }
   }
 
+  // Layer 4: Implicit space access (general = public, team = group members)
+  if (spaceInfo) {
+    if (spaceInfo.spaceType === "general") {
+      if (action === "read") return { allowed: true, reason: "general-space-public-read" };
+    }
+    if (spaceInfo.spaceType === "team" && spaceInfo.groupId) {
+      if (groupIdSet.has(spaceInfo.groupId)) {
+        return { allowed: true, reason: `team-space-member:${spaceInfo.groupId}` };
+      }
+    }
+  }
+
   return { allowed: false, reason: "missing-permission" };
 }
 

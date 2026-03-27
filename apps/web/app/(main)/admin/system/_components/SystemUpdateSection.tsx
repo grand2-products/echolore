@@ -36,7 +36,7 @@ export function SystemUpdateSection() {
   const [notice, setNotice] = useState<string | null>(null);
 
   // Status
-  const [currentVersion, setCurrentVersion] = useState<string>("");
+  const currentVersion = process.env.NEXT_PUBLIC_APP_VERSION || "unknown";
   const [updaterAvailable, setUpdaterAvailable] = useState(false);
 
   // Check update
@@ -53,7 +53,6 @@ export function SystemUpdateSection() {
   const fetchStatus = useCallback(async () => {
     try {
       const status = await adminApi.getSystemStatus();
-      setCurrentVersion(status.currentVersion);
       setUpdaterAvailable(status.updaterAvailable);
 
       if (status.updateInProgress) {
@@ -175,16 +174,6 @@ export function SystemUpdateSection() {
         {!updaterAvailable && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
             {t("admin.system.updaterUnavailable")}
-          </div>
-        )}
-
-        {/* Current version */}
-        {currentVersion && (
-          <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
-            <span className="text-sm text-gray-600">{t("admin.system.currentVersion")}</span>
-            <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-mono font-medium text-gray-800">
-              {currentVersion}
-            </span>
           </div>
         )}
 
