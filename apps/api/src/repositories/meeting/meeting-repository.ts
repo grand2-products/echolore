@@ -1,20 +1,49 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import type { Page, Summary } from "../../db/schema.js";
-import { blocks, meetings, pages, summaries, transcripts } from "../../db/schema.js";
+import {
+  blocks,
+  meetingParticipants,
+  meetings,
+  pages,
+  summaries,
+  transcripts,
+} from "../../db/schema.js";
 import { firstOrNull, getRecordById } from "../../lib/db-utils.js";
 import { createPageWithAccessDefaultsTx, type WikiWriteTx } from "../wiki/wiki-repository.js";
 
-export async function listMeetingsByUser(userId: string) {
-  return db
+export async function listMeetingsByUser(
+  userId: string,
+  opts?: { limit?: number; offset?: number }
+) {
+  const query = db
     .select()
     .from(meetings)
     .where(eq(meetings.creatorId, userId))
     .orderBy(desc(meetings.createdAt));
+  if (opts?.limit) query.limit(opts.limit);
+  if (opts?.offset) query.offset(opts.offset);
+  return query;
 }
 
-export async function listAllMeetings() {
-  return db.select().from(meetings).orderBy(desc(meetings.createdAt));
+export async function countMeetingsByUser(userId: string): Promise<number> {
+  const result = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(meetings)
+    .where(eq(meetings.creatorId, userId));
+  return result[0]?.count ?? 0;
+}
+
+export async function listAllMeetings(opts?: { limit?: number; offset?: number }) {
+  const query = db.select().from(meetings).orderBy(desc(meetings.createdAt));
+  if (opts?.limit) query.limit(opts.limit);
+  if (opts?.offset) query.offset(opts.offset);
+  return query;
+}
+
+export async function countAllMeetings(): Promise<number> {
+  const result = await db.select({ count: sql<number>`count(*)::int` }).from(meetings);
+  return result[0]?.count ?? 0;
 }
 
 export async function listMeetingsByStatus(status: string) {
@@ -221,6 +250,92 @@ export async function createMeetingSummaryArtifactsTx(input: {
 
     return { createdSummary: summary, createdPage: page };
   });
+}
+
+// --- Meeting Participants ---
+
+export async function recordParticipantJoin(input: {
+  id: string;
+  meetingId: string;
+  userId: string | null;
+  guestIdentity: string | null;
+  displayName: string;
+  role: string;
+  joinedAt: Date;
+}) {
+  // Upsert: if participant already has an active session (no leftAt), skip insert
+  const existing = await db
+    .select()
+    .from(meetingParticipants)
+    .where(
+      and(
+        eq(meetingParticipants.meetingId, input.meetingId),
+        input.userId
+          ? eq(meetingParticipants.userId, input.userId)
+          : eq(meetingParticipants.guestIdentity, input.guestIdentity ?? ""),
+        isNull(meetingParticipants.leftAt)
+      )
+    )
+    .limit(1);
+
+  if (existing.length > 0) return existing[0] ?? null;
+
+  return firstOrNull(await db.insert(meetingParticipants).values(input).returning());
+}
+
+export async function recordParticipantLeave(
+  meetingId: string,
+  participantIdentity: string,
+  leftAt: Date
+) {
+  // Try userId first, then guestIdentity
+  const result = await db
+    .update(meetingParticipants)
+    .set({ leftAt })
+    .where(
+      and(
+        eq(meetingParticipants.meetingId, meetingId),
+        isNull(meetingParticipants.leftAt),
+        sql`(${meetingParticipants.userId} = ${participantIdentity} OR ${meetingParticipants.guestIdentity} = ${participantIdentity})`
+      )
+    )
+    .returning();
+
+  return result[0] ?? null;
+}
+
+export async function getActiveParticipantCounts(
+  meetingIds: string[]
+): Promise<Map<string, number>> {
+  if (meetingIds.length === 0) return new Map();
+
+  const rows = await db
+    .select({
+      meetingId: meetingParticipants.meetingId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(meetingParticipants)
+    .where(
+      and(inArray(meetingParticipants.meetingId, meetingIds), isNull(meetingParticipants.leftAt))
+    )
+    .groupBy(meetingParticipants.meetingId);
+
+  return new Map(rows.map((r) => [r.meetingId, r.count]));
+}
+
+export async function listMeetingParticipants(meetingId: string) {
+  return db
+    .select()
+    .from(meetingParticipants)
+    .where(eq(meetingParticipants.meetingId, meetingId))
+    .orderBy(meetingParticipants.joinedAt);
+}
+
+export async function closeAllParticipantSessions(meetingId: string, leftAt: Date) {
+  return db
+    .update(meetingParticipants)
+    .set({ leftAt })
+    .where(and(eq(meetingParticipants.meetingId, meetingId), isNull(meetingParticipants.leftAt)));
 }
 
 export async function getMeetingRoomName(meetingId: string) {

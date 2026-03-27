@@ -1,12 +1,13 @@
 import { UserRole } from "@echolore/shared/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
+import { AccessToken } from "livekit-server-sdk";
 import { z } from "zod";
 import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import { requireRole } from "../lib/auth.js";
-import { livekitApiKey, livekitApiSecret, livekitHost } from "../lib/livekit-config.js";
+import { roomService } from "../lib/livekit-client.js";
+import { livekitApiKey, livekitApiSecret } from "../lib/livekit-config.js";
 import { isOwnerOrAdmin } from "../lib/route-helpers.js";
 import * as coworkingMcu from "../services/coworking/coworking-mcu-service.js";
 import { getMeetingById } from "../services/meeting/meeting-service.js";
@@ -34,8 +35,6 @@ if (!livekitApiKey || !livekitApiSecret) {
     "[livekit] LIVEKIT_API_KEY / LIVEKIT_API_SECRET not set — LiveKit routes will fail at runtime"
   );
 }
-
-const roomService = new RoomServiceClient(livekitHost, livekitApiKey, livekitApiSecret);
 
 // POST /api/livekit/token - Generate access token for a room
 livekitRoutes.post(

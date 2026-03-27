@@ -1,9 +1,10 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { AccessToken, DataPacket_Kind, RoomServiceClient } from "livekit-server-sdk";
+import { AccessToken, DataPacket_Kind } from "livekit-server-sdk";
 import { z } from "zod";
 import { jsonError, withErrorHandler } from "../lib/api-error.js";
-import { livekitApiKey, livekitApiSecret, livekitHost } from "../lib/livekit-config.js";
+import { roomService } from "../lib/livekit-client.js";
+import { livekitApiKey, livekitApiSecret } from "../lib/livekit-config.js";
 import { getRequestIp } from "../lib/password-auth-guard.js";
 import { getValkey } from "../lib/valkey.js";
 import {
@@ -15,7 +16,6 @@ import {
 } from "../services/meeting/meeting-invite-service.js";
 import { getMeetingById } from "../services/meeting/meeting-service.js";
 
-const roomService = new RoomServiceClient(livekitHost, livekitApiKey, livekitApiSecret);
 const encoder = new TextEncoder();
 
 export const meetingGuestRoutes = new Hono();

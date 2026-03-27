@@ -1,6 +1,11 @@
 import { createServer, type IncomingMessage } from "node:http";
 import { WebhookReceiver } from "livekit-server-sdk";
-import { resolveMeetingByRoomName, syncMeetingStatus } from "./internal-api-client.js";
+import {
+  resolveMeetingByRoomName,
+  syncMeetingStatus,
+  trackParticipantJoin,
+  trackParticipantLeave,
+} from "./internal-api-client.js";
 
 export type LiveKitWebhookServerConfig = {
   port: number;
@@ -54,7 +59,7 @@ export async function startLiveKitWebhookServer(config: LiveKitWebhookServerConf
 
           // Also re-activates ended meetings when participants rejoin
           // (e.g. after a brief network outage that caused room_finished).
-          if (event.event === "room_started" || event.event === "participant_joined") {
+          if (event.event === "room_started") {
             await syncMeetingStatus({
               apiBaseUrl: config.apiBaseUrl,
               workerSecret: config.roomAiWorkerSecret,
@@ -62,6 +67,52 @@ export async function startLiveKitWebhookServer(config: LiveKitWebhookServerConf
               status: "active",
               startedAt: now,
             });
+          }
+
+          // Track participant join and sync status concurrently
+          if (event.event === "participant_joined") {
+            const statusSync = syncMeetingStatus({
+              apiBaseUrl: config.apiBaseUrl,
+              workerSecret: config.roomAiWorkerSecret,
+              meetingId: meeting.id,
+              status: "active",
+              startedAt: now,
+            });
+
+            const participantSync = event.participant
+              ? trackParticipantJoin({
+                  apiBaseUrl: config.apiBaseUrl,
+                  workerSecret: config.roomAiWorkerSecret,
+                  meetingId: meeting.id,
+                  participantIdentity: event.participant.identity,
+                  displayName: event.participant.name || event.participant.identity,
+                  isGuest: event.participant.identity.startsWith("guest-"),
+                }).catch((err) => {
+                  console.error(
+                    `[room-ai-worker] participant join tracking failed identity=${event.participant?.identity}`,
+                    err
+                  );
+                })
+              : undefined;
+
+            await Promise.all([statusSync, participantSync]);
+          }
+
+          if (event.event === "participant_left" && event.participant) {
+            const identity = event.participant.identity;
+            try {
+              await trackParticipantLeave({
+                apiBaseUrl: config.apiBaseUrl,
+                workerSecret: config.roomAiWorkerSecret,
+                meetingId: meeting.id,
+                participantIdentity: identity,
+              });
+            } catch (err) {
+              console.error(
+                `[room-ai-worker] participant leave tracking failed identity=${identity}`,
+                err
+              );
+            }
           }
 
           if (event.event === "room_finished") {

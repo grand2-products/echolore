@@ -8,9 +8,12 @@ import {
   upsertTranscriptSegment,
 } from "../services/meeting/meeting-realtime-service.js";
 import {
+  closeAllParticipantSessions,
   getMeetingById,
   getMeetingByRoomName,
   listMeetingsByStatus,
+  recordParticipantJoin,
+  recordParticipantLeave,
   updateMeeting,
 } from "../services/meeting/meeting-service.js";
 
@@ -56,6 +59,16 @@ const transcriptSegmentSchema = z.object({
     })
     .nullable()
     .optional(),
+});
+
+const participantJoinSchema = z.object({
+  participantIdentity: z.string().min(1),
+  displayName: z.string().min(1),
+  isGuest: z.boolean().default(false),
+});
+
+const participantLeaveSchema = z.object({
+  participantIdentity: z.string().min(1),
 });
 
 const meetingStatusSyncSchema = z.object({
@@ -190,13 +203,68 @@ internalRoomAiRoutes.patch(
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
+    const now = new Date();
+    const nextStatus = data.status;
+
     const nextMeeting = await updateMeeting(id, {
-      status: data.status,
+      status: nextStatus,
       startedAt:
         meeting.startedAt ?? (data.startedAt ? new Date(data.startedAt) : meeting.startedAt),
-      endedAt: data.endedAt ? new Date(data.endedAt) : data.status === "ended" ? new Date() : null,
+      endedAt: data.endedAt ? new Date(data.endedAt) : nextStatus === "ended" ? now : null,
     });
 
+    // When meeting ends, close all open participant sessions
+    if (nextStatus === "ended") {
+      await closeAllParticipantSessions(id, data.endedAt ? new Date(data.endedAt) : now);
+    }
+
     return c.json({ meeting: nextMeeting });
+  }
+);
+
+// POST /internal/room-ai/meetings/:id/participants/join
+internalRoomAiRoutes.post(
+  "/meetings/:id/participants/join",
+  zValidator("json", participantJoinSchema),
+  withErrorHandler("ROOM_AI_PARTICIPANT_JOIN_FAILED", "Failed to record participant join"),
+  async (c) => {
+    const { id } = c.req.param();
+    const data = c.req.valid("json");
+
+    const meeting = await getMeetingById(id);
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+    }
+
+    const participant = await recordParticipantJoin({
+      id: crypto.randomUUID(),
+      meetingId: id,
+      userId: data.isGuest ? null : data.participantIdentity,
+      guestIdentity: data.isGuest ? data.participantIdentity : null,
+      displayName: data.displayName,
+      role: data.isGuest
+        ? "guest"
+        : meeting.creatorId === data.participantIdentity
+          ? "host"
+          : "member",
+      joinedAt: new Date(),
+    });
+
+    return c.json({ participant }, 201);
+  }
+);
+
+// POST /internal/room-ai/meetings/:id/participants/leave
+internalRoomAiRoutes.post(
+  "/meetings/:id/participants/leave",
+  zValidator("json", participantLeaveSchema),
+  withErrorHandler("ROOM_AI_PARTICIPANT_LEAVE_FAILED", "Failed to record participant leave"),
+  async (c) => {
+    const { id } = c.req.param();
+    const data = c.req.valid("json");
+
+    const participant = await recordParticipantLeave(id, data.participantIdentity, new Date());
+
+    return c.json({ participant });
   }
 );

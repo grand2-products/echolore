@@ -9,17 +9,24 @@ import { GENERAL_SPACE_ID } from "../wiki/space-service.js";
 
 // Re-export repository CRUD for route layer access
 export {
+  closeAllParticipantSessions,
+  countAllMeetings,
+  countMeetingsByUser,
   createMeeting,
   createSummary,
   createTranscript,
   deleteMeeting,
+  getActiveParticipantCounts,
   getMeetingById,
   getMeetingByRoomName,
   getMeetingSummaries,
   getMeetingTranscripts,
   listAllMeetings,
+  listMeetingParticipants,
   listMeetingsByStatus,
   listMeetingsByUser,
+  recordParticipantJoin,
+  recordParticipantLeave,
   updateMeeting,
 } from "../../repositories/meeting/meeting-repository.js";
 
