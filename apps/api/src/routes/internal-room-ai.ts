@@ -206,6 +206,11 @@ internalRoomAiRoutes.patch(
     const now = new Date();
     const nextStatus = data.status;
 
+    // Skip redundant ended→ended transitions (e.g. from room_finished after endForAll)
+    if (meeting.status === "ended" && nextStatus === "ended") {
+      return c.json({ meeting });
+    }
+
     const nextMeeting = await updateMeeting(id, {
       status: nextStatus,
       startedAt:

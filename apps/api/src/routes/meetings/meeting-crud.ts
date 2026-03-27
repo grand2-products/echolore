@@ -274,20 +274,24 @@ meetingCrudRoutes.post(
 
     const now = new Date();
 
-    // 1. Update meeting status to ended
-    const updatedMeeting = await updateMeeting(id, {
-      status: "ended",
-      endedAt: now,
-    });
+    // Update meeting + close participant sessions concurrently
+    const [updatedMeeting] = await Promise.all([
+      updateMeeting(id, { status: "ended", endedAt: now }),
+      closeAllParticipantSessions(id, now),
+    ]);
 
-    // 2. Close all participant sessions
-    await closeAllParticipantSessions(id, now);
-
-    // 3. Delete LiveKit room to force-disconnect all participants
+    // Delete LiveKit room to force-disconnect all participants
     try {
       await roomService.deleteRoom(meeting.roomName);
     } catch {
       // Room may already be empty — best-effort
+    }
+
+    // Best-effort calendar sync
+    try {
+      await updateCalendarEvent(id, c.get("user").id);
+    } catch {
+      // Calendar sync is optional
     }
 
     await auditAction(c, "meeting.end_for_all", "meeting", id);

@@ -21,8 +21,8 @@ export async function listMeetingsByUser(
     .from(meetings)
     .where(eq(meetings.creatorId, userId))
     .orderBy(desc(meetings.createdAt));
-  if (opts?.limit) query.limit(opts.limit);
-  if (opts?.offset) query.offset(opts.offset);
+  if (opts?.limit != null) query.limit(opts.limit);
+  if (opts?.offset != null) query.offset(opts.offset);
   return query;
 }
 
@@ -36,8 +36,8 @@ export async function countMeetingsByUser(userId: string): Promise<number> {
 
 export async function listAllMeetings(opts?: { limit?: number; offset?: number }) {
   const query = db.select().from(meetings).orderBy(desc(meetings.createdAt));
-  if (opts?.limit) query.limit(opts.limit);
-  if (opts?.offset) query.offset(opts.offset);
+  if (opts?.limit != null) query.limit(opts.limit);
+  if (opts?.offset != null) query.offset(opts.offset);
   return query;
 }
 
@@ -265,7 +265,7 @@ export async function recordParticipantJoin(input: {
 }) {
   // Upsert: if participant already has an active session (no leftAt), skip insert
   const existing = await db
-    .select()
+    .select({ id: meetingParticipants.id })
     .from(meetingParticipants)
     .where(
       and(
@@ -278,7 +278,7 @@ export async function recordParticipantJoin(input: {
     )
     .limit(1);
 
-  if (existing.length > 0) return existing[0] ?? null;
+  if (existing.length > 0) return null; // Already has active session
 
   return firstOrNull(await db.insert(meetingParticipants).values(input).returning());
 }
