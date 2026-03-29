@@ -71,13 +71,13 @@ describe("ai-chat-ai-service", () => {
     createMessageMock
       .mockResolvedValueOnce({
         id: "msg-user",
-        conversationId: "conv-1",
+        conversation_id: "conv-1",
         role: "user",
         content: "Hello",
       })
       .mockResolvedValueOnce({
         id: "msg-assistant",
-        conversationId: "conv-1",
+        conversation_id: "conv-1",
         role: "assistant",
         content: "Hi there!",
       });
@@ -110,14 +110,14 @@ describe("ai-chat-ai-service", () => {
       expect(createMessageMock).toHaveBeenCalledTimes(2);
       expect(createMessageMock).toHaveBeenNthCalledWith(
         1,
-        expect.objectContaining({ role: "user", content: "Hello", conversationId: "conv-1" })
+        expect.objectContaining({ role: "user", content: "Hello", conversation_id: "conv-1" })
       );
       expect(createMessageMock).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
           role: "assistant",
           content: "Hi there!",
-          conversationId: "conv-1",
+          conversation_id: "conv-1",
         })
       );
       expect(result.userMessage).toEqual(expect.objectContaining({ role: "user" }));
@@ -149,13 +149,13 @@ describe("ai-chat-ai-service", () => {
       createMessageMock
         .mockResolvedValueOnce({
           id: "msg-user",
-          conversationId: "conv-1",
+          conversation_id: "conv-1",
           role: "user",
           content: "Hello",
         })
         .mockResolvedValueOnce({
           id: "msg-assistant",
-          conversationId: "conv-1",
+          conversation_id: "conv-1",
           role: "assistant",
           content: "unavailable",
         });
@@ -179,13 +179,13 @@ describe("ai-chat-ai-service", () => {
       createMessageMock
         .mockResolvedValueOnce({
           id: "msg-user",
-          conversationId: "conv-1",
+          conversation_id: "conv-1",
           role: "user",
           content: "How to deploy?",
         })
         .mockResolvedValueOnce({
           id: "msg-assistant",
-          conversationId: "conv-1",
+          conversation_id: "conv-1",
           role: "assistant",
           content: "Answer",
         });
@@ -225,13 +225,13 @@ describe("ai-chat-ai-service", () => {
       createMessageMock
         .mockResolvedValueOnce({
           id: "msg-user",
-          conversationId: "conv-1",
+          conversation_id: "conv-1",
           role: "user",
           content: "Hello",
         })
         .mockResolvedValueOnce({
           id: "msg-assistant",
-          conversationId: "conv-1",
+          conversation_id: "conv-1",
           role: "assistant",
           content: "error",
         });

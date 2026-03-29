@@ -192,7 +192,7 @@ describe("recording-service", () => {
       expect(setMock).toHaveBeenCalledWith(
         expect.objectContaining({
           status: "recording",
-          started_at: expect.any(Date),
+          startedAt: expect.any(Date),
         })
       );
     });
@@ -232,10 +232,10 @@ describe("recording-service", () => {
       expect(setMock).toHaveBeenCalledWith(
         expect.objectContaining({
           status: "completed",
-          ended_at: expect.any(Date),
-          storage_path: "recordings/room-a/12345",
-          file_size: 1024,
-          duration_ms: 60000,
+          endedAt: expect.any(Date),
+          storagePath: "recordings/room-a/12345",
+          fileSize: 1024,
+          durationMs: 60000,
         })
       );
     });
@@ -262,8 +262,8 @@ describe("recording-service", () => {
       expect(setMock).toHaveBeenCalledWith(
         expect.objectContaining({
           status: "failed",
-          ended_at: expect.any(Date),
-          error_message: "Disk full",
+          endedAt: expect.any(Date),
+          errorMessage: "Disk full",
         })
       );
     });

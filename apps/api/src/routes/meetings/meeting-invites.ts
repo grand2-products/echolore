@@ -32,7 +32,7 @@ async function requireMeetingAccess(
   if (!meeting) {
     return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
   }
-  const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, action);
+  const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, action);
   if (!authz.allowed) {
     return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
   }

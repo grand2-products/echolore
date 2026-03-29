@@ -3,14 +3,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppEnv } from "../lib/auth.js";
 import { metricsRoutes } from "./metrics.js";
 
-const { dbMock } = vi.hoisted(() => ({
-  dbMock: {
-    select: vi.fn(),
-  },
-}));
+const { countActiveUsersMock, getSearchStatsMock, getMeetingStatsMock, getSecurityStatsMock } =
+  vi.hoisted(() => ({
+    countActiveUsersMock: vi.fn(),
+    getSearchStatsMock: vi.fn(),
+    getMeetingStatsMock: vi.fn(),
+    getSecurityStatsMock: vi.fn(),
+  }));
 
-vi.mock("../db/index.js", () => ({
-  db: dbMock,
+vi.mock("../services/metrics/metrics-service.js", () => ({
+  countActiveUsers: countActiveUsersMock,
+  getSearchStats: getSearchStatsMock,
+  getMeetingStats: getMeetingStatsMock,
+  getSecurityStats: getSecurityStatsMock,
 }));
 
 function createApp() {
@@ -21,28 +26,19 @@ function createApp() {
 
 describe("metricsRoutes", () => {
   beforeEach(() => {
-    dbMock.select.mockReset();
+    countActiveUsersMock.mockReset();
+    getSearchStatsMock.mockReset();
+    getMeetingStatsMock.mockReset();
+    getSecurityStatsMock.mockReset();
   });
 
   it("returns security KPI totals and threshold states in overview", async () => {
     const app = createApp();
-    const selectResults = [
-      [{ value: 8 }],
-      [{ total: 10, success: 7 }],
-      [],
-      [],
-      [{ total: 4, withMinutes: 3 }],
-      [{ authRejectedTotal: 6, authzDeniedTotal: 11 }],
-    ];
 
-    dbMock.select.mockImplementation(() => {
-      const nextResult = selectResults.shift() ?? [];
-      return {
-        from: vi.fn(() => ({
-          where: vi.fn(async () => nextResult),
-        })),
-      };
-    });
+    countActiveUsersMock.mockResolvedValue({ value: 8 });
+    getSearchStatsMock.mockResolvedValue({ total: 10, success: 7 });
+    getMeetingStatsMock.mockResolvedValue({ total: 4, withMinutes: 3 });
+    getSecurityStatsMock.mockResolvedValue({ authRejectedTotal: 6, authzDeniedTotal: 11 });
 
     const response = await app.request("http://localhost/api/admin/metrics/overview?windowDays=30");
 

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
-    select: vi.fn(),
+    selectFrom: vi.fn(),
     transaction: vi.fn(),
   },
 }));
@@ -18,14 +18,6 @@ vi.mock("./email.js", () => ({
 
 const { reconcileGoogleIdentity, verifyEmailRegistrationToken } = await import("./local-auth.js");
 
-function createSelectQueue<T>(items: T[]) {
-  return vi.fn(() => ({
-    from: vi.fn(() => ({
-      where: vi.fn(async () => items.shift() ?? []),
-    })),
-  }));
-}
-
 function createTx(options: { selectQueue?: unknown[]; updateQueue?: unknown[] }) {
   const selectQueue = [...(options.selectQueue ?? [])];
   const updateQueue = [...(options.updateQueue ?? [])];
@@ -34,14 +26,16 @@ function createTx(options: { selectQueue?: unknown[]; updateQueue?: unknown[] })
   return {
     tx: {
       selectFrom: vi.fn(() => ({
-        selectAll: vi.fn(() => ({
-          where: vi.fn(() => ({
+        selectAll: vi.fn(() => {
+          const makeWhereChain = (): Record<string, unknown> => ({
+            where: vi.fn(() => makeWhereChain()),
             executeTakeFirst: vi.fn(async () => {
               const item = selectQueue.shift();
               return Array.isArray(item) ? (item[0] ?? null) : (item ?? null);
             }),
-          })),
-        })),
+          });
+          return makeWhereChain();
+        }),
       })),
       updateTable: vi.fn(() => ({
         set: vi.fn(() => ({
@@ -52,6 +46,7 @@ function createTx(options: { selectQueue?: unknown[]; updateQueue?: unknown[] })
                 return Array.isArray(item) ? (item[0] ?? null) : (item ?? null);
               }),
             })),
+            execute: vi.fn(async () => undefined),
           })),
         })),
       })),
@@ -73,7 +68,7 @@ function createTx(options: { selectQueue?: unknown[]; updateQueue?: unknown[] })
 
 describe("local-auth identity linking", () => {
   beforeEach(() => {
-    dbMock.select.mockReset();
+    dbMock.selectFrom.mockReset();
     dbMock.transaction.mockReset();
   });
 
@@ -93,9 +88,9 @@ describe("local-auth identity linking", () => {
       updateQueue: [[existingUser]],
     });
 
-    dbMock.transaction.mockImplementation(async (callback: (client: typeof tx) => unknown) =>
-      callback(tx)
-    );
+    dbMock.transaction.mockReturnValue({
+      execute: async (callback: (client: typeof tx) => unknown) => callback(tx),
+    });
 
     const user = await reconcileGoogleIdentity({
       email: "member@example.com",
@@ -141,10 +136,24 @@ describe("local-auth identity linking", () => {
       updateQueue: [[existingUser]],
     });
 
-    dbMock.select.mockImplementation(createSelectQueue([[verification]]));
-    dbMock.transaction.mockImplementation(async (callback: (client: typeof tx) => unknown) =>
-      callback(tx)
-    );
+    // Mock db.selectFrom for findValidEmailVerificationToken
+    dbMock.selectFrom.mockReturnValue({
+      selectAll: vi.fn(() => ({
+        where: vi.fn(() => ({
+          where: vi.fn(() => ({
+            where: vi.fn(() => ({
+              where: vi.fn(() => ({
+                executeTakeFirst: vi.fn(async () => verification),
+              })),
+            })),
+          })),
+        })),
+      })),
+    });
+
+    dbMock.transaction.mockReturnValue({
+      execute: async (callback: (client: typeof tx) => unknown) => callback(tx),
+    });
 
     const user = await verifyEmailRegistrationToken("raw-token");
 

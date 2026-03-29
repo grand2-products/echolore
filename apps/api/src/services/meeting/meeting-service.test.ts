@@ -3,19 +3,22 @@ import type { Meeting } from "../../db/schema.js";
 import { createMeetingSummaryWikiArtifacts, MEETING_NOTES_PAGE_ID } from "./meeting-service.js";
 
 const { dbMock, createPageWithAccessDefaultsTxMock } = vi.hoisted(() => {
-  const selectFromWhereMock = vi.fn();
+  const selectExecuteTakeFirstMock = vi.fn();
+  const transactionExecuteMock = vi.fn();
   return {
     dbMock: {
-      transaction: vi.fn(),
-      select: vi.fn(() => ({
-        from: vi.fn(() => ({
-          where: selectFromWhereMock,
+      transaction: vi.fn(() => ({
+        execute: transactionExecuteMock,
+      })),
+      selectFrom: vi.fn(() => ({
+        select: vi.fn(() => ({
+          where: vi.fn(() => ({
+            executeTakeFirst: selectExecuteTakeFirstMock,
+          })),
         })),
       })),
-      insert: vi.fn(() => ({
-        values: vi.fn(async () => undefined),
-      })),
-      _selectFromWhereMock: selectFromWhereMock,
+      _selectExecuteTakeFirstMock: selectExecuteTakeFirstMock,
+      _transactionExecuteMock: transactionExecuteMock,
     },
     createPageWithAccessDefaultsTxMock: vi.fn(),
   };
@@ -35,14 +38,13 @@ vi.mock("../wiki/space-service.js", () => ({
 
 describe("meeting-service", () => {
   beforeEach(() => {
-    dbMock.transaction.mockReset();
-    dbMock.select.mockClear();
-    dbMock.insert.mockClear();
-    dbMock._selectFromWhereMock.mockReset();
+    dbMock._transactionExecuteMock.mockReset();
+    dbMock._selectExecuteTakeFirstMock.mockReset();
+    dbMock.selectFrom.mockClear();
     createPageWithAccessDefaultsTxMock.mockReset();
     vi.restoreAllMocks();
     // Default: Meeting Notes page already exists
-    dbMock._selectFromWhereMock.mockResolvedValue([{ id: MEETING_NOTES_PAGE_ID }]);
+    dbMock._selectExecuteTakeFirstMock.mockResolvedValue({ id: MEETING_NOTES_PAGE_ID });
   });
 
   it("creates summary, wiki page, and blocks in a single transaction", async () => {
@@ -85,7 +87,7 @@ describe("meeting-service", () => {
       throw new Error("Unexpected table");
     });
 
-    dbMock.transaction.mockImplementation(
+    dbMock._transactionExecuteMock.mockImplementation(
       async (callback: (tx: { insertInto: typeof insertMock }) => unknown) =>
         callback({ insertInto: insertMock })
     );
@@ -113,7 +115,7 @@ describe("meeting-service", () => {
 
     const result = await createMeetingSummaryWikiArtifacts(meeting, "Summary body");
 
-    expect(dbMock.transaction).toHaveBeenCalledTimes(1);
+    expect(dbMock._transactionExecuteMock).toHaveBeenCalledTimes(1);
     expect(insertedTables[0]).toBe("summaries");
     expect(createPageWithAccessDefaultsTxMock).toHaveBeenCalledTimes(1);
     expect(insertedTables[1]).toBe("blocks");
@@ -149,7 +151,7 @@ describe("meeting-service", () => {
       };
     });
 
-    dbMock.transaction.mockImplementation(
+    dbMock._transactionExecuteMock.mockImplementation(
       async (callback: (tx: { insertInto: typeof insertMock }) => unknown) =>
         callback({ insertInto: insertMock })
     );

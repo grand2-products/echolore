@@ -60,9 +60,9 @@ describe("group-service", () => {
         { id: "g2", name: "Design" },
       ]);
       listMembershipsMock.mockResolvedValue([
-        { groupId: "g1", userId: "u1" },
-        { groupId: "g1", userId: "u2" },
-        { groupId: "g2", userId: "u3" },
+        { group_id: "g1", user_id: "u1" },
+        { group_id: "g1", user_id: "u2" },
+        { group_id: "g2", user_id: "u3" },
       ]);
 
       const result = await listGroupsWithMemberCounts();
@@ -87,8 +87,8 @@ describe("group-service", () => {
     it("returns group with member user IDs", async () => {
       getGroupByIdMock.mockResolvedValue({ id: "g1", name: "Engineering" });
       listMembershipsByGroupMock.mockResolvedValue([
-        { userId: "u1", groupId: "g1" },
-        { userId: "u2", groupId: "g1" },
+        { user_id: "u1", group_id: "g1" },
+        { user_id: "u2", group_id: "g1" },
       ]);
 
       const result = await getGroupDetail("g1");
@@ -113,8 +113,8 @@ describe("group-service", () => {
   describe("listGroupMembers", () => {
     it("returns members with their membership info", async () => {
       listMembershipsByGroupMock.mockResolvedValue([
-        { userId: "u1", groupId: "g1", id: "m1" },
-        { userId: "u2", groupId: "g1", id: "m2" },
+        { user_id: "u1", group_id: "g1", id: "m1" },
+        { user_id: "u2", group_id: "g1", id: "m2" },
       ]);
       listUsersWithIdsMock.mockResolvedValue([
         { id: "u1", name: "Alice" },
@@ -124,8 +124,8 @@ describe("group-service", () => {
       const result = await listGroupMembers("g1");
 
       expect(result).toEqual([
-        { id: "u1", name: "Alice", membership: { userId: "u1", groupId: "g1", id: "m1" } },
-        { id: "u2", name: "Bob", membership: { userId: "u2", groupId: "g1", id: "m2" } },
+        { id: "u1", name: "Alice", membership: { user_id: "u1", group_id: "g1", id: "m1" } },
+        { id: "u2", name: "Bob", membership: { user_id: "u2", group_id: "g1", id: "m2" } },
       ]);
     });
 
@@ -150,9 +150,9 @@ describe("group-service", () => {
         { id: "g2", name: "Design" },
       ]);
       listMembershipsMock.mockResolvedValue([
-        { userId: "u1", groupId: "g1" },
-        { userId: "u1", groupId: "g2" },
-        { userId: "u2", groupId: "g2" },
+        { user_id: "u1", group_id: "g1" },
+        { user_id: "u1", group_id: "g2" },
+        { user_id: "u2", group_id: "g2" },
       ]);
 
       const result = await listUsersWithGroups();

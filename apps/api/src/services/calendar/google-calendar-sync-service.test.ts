@@ -103,7 +103,7 @@ describe("google-calendar-sync-service", () => {
         })
       );
       expect(updateMeetingMock).toHaveBeenCalledWith("meeting-1", {
-        googleCalendarEventId: "gcal-event-123",
+        google_calendar_event_id: "gcal-event-123",
       });
     });
 
