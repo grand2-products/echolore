@@ -112,17 +112,7 @@ aiChatRoutes.get(
       return jsonError(c, 403, "AI_CHAT_FORBIDDEN", "Forbidden");
     }
 
-    const messages = (await listMessagesByConversationId(id)).map((m) => ({
-      ...m,
-      // Normalize citations: handle legacy snake_case keys from pre-CamelCasePlugin era
-      citations: m.citations
-        ? (m.citations as unknown as Array<Record<string, unknown>>).map((c) => ({
-            pageId: (c.pageId ?? c.page_id) as string,
-            pageTitle: (c.pageTitle ?? c.page_title) as string,
-            snippet: (c.snippet as string) || undefined,
-          }))
-        : null,
-    }));
+    const messages = await listMessagesByConversationId(id);
     return c.json({ conversation, messages });
   }
 );

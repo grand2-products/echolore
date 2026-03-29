@@ -1,7 +1,22 @@
 import { sql } from "kysely";
 import { db } from "../../db/index.js";
-import type { NewAiChatConversation, NewAiChatMessage } from "../../db/schema.js";
+import type { CitationJson, NewAiChatConversation, NewAiChatMessage } from "../../db/schema.js";
 import { escapeLikePattern, firstOrNull } from "../../lib/db-utils.js";
+
+/** Normalize legacy snake_case citation keys to camelCase. */
+function normalizeCitations(raw: CitationJson[] | null): CitationJson[] | null {
+  if (!raw) return null;
+  return raw.map((c) => {
+    if (c.pageId) return c; // already camelCase
+    // Legacy snake_case data from pre-CamelCasePlugin era
+    const legacy = c as unknown as { page_id?: string; page_title?: string; snippet?: string };
+    return {
+      pageId: legacy.page_id ?? "",
+      pageTitle: legacy.page_title ?? "",
+      ...(legacy.snippet ? { snippet: legacy.snippet } : {}),
+    };
+  });
+}
 
 export async function createConversation(conversation: NewAiChatConversation) {
   return firstOrNull(
@@ -85,12 +100,13 @@ export async function createMessage(message: NewAiChatMessage) {
 }
 
 export async function listMessagesByConversationId(conversationId: string) {
-  return db
+  const rows = await db
     .selectFrom("ai_chat_messages")
     .selectAll()
     .where("conversationId", "=", conversationId)
     .orderBy("createdAt")
     .execute();
+  return rows.map((m) => ({ ...m, citations: normalizeCitations(m.citations) }));
 }
 
 export async function listRecentMessages(conversationId: string, limit = 20) {
@@ -101,7 +117,7 @@ export async function listRecentMessages(conversationId: string, limit = 20) {
     .orderBy("createdAt", "desc")
     .limit(limit)
     .execute();
-  return rows.reverse();
+  return rows.reverse().map((m) => ({ ...m, citations: normalizeCitations(m.citations) }));
 }
 
 /** Batch: get message counts and last messages for multiple conversations in 2 queries */
