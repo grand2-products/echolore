@@ -18,6 +18,20 @@ await pool.query(`
   );
 `);
 
+// Migrate history from Drizzle's __drizzle_migrations if it exists
+const { rows: drizzleTable } = await pool.query(
+  "SELECT 1 FROM information_schema.tables WHERE table_name = '__drizzle_migrations'"
+);
+if (drizzleTable.length > 0) {
+  await pool.query(`
+    INSERT INTO _migrations (name, applied_at)
+    SELECT tag, to_timestamp(created_at / 1000.0) FROM __drizzle_migrations
+    ON CONFLICT (name) DO NOTHING
+  `);
+  await pool.query("DROP TABLE __drizzle_migrations");
+  console.log("Migrated history from __drizzle_migrations");
+}
+
 // Read migration files
 const migrationsDir = path.resolve(import.meta.dirname, "migrations");
 const files = (await fs.readdir(migrationsDir)).filter((f) => f.endsWith(".sql")).sort();
