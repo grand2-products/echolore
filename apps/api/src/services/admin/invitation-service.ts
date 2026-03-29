@@ -55,7 +55,7 @@ export async function createInvitation(input: {
       email,
       tokenHash: tokenHash,
       role,
-      groupIds: JSON.stringify(groupIds) as any,
+      groupIds: groupIds,
       invitedByUserId: input.invitedByUserId,
       expiresAt: expiresAt,
       createdAt: now,

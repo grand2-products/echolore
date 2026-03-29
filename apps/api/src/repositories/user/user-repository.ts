@@ -1,6 +1,5 @@
 import { sql } from "kysely";
 import { db } from "../../db/index.js";
-import { getRecordById } from "../../lib/db-utils.js";
 
 export async function getUserCount() {
   const row = await db
@@ -16,7 +15,7 @@ export async function listUsers() {
 }
 
 export async function getUserById(id: string) {
-  return getRecordById("users", id);
+  return (await db.selectFrom("users").selectAll().where("id", "=", id).executeTakeFirst()) ?? null;
 }
 
 export async function getUserByEmail(email: string) {

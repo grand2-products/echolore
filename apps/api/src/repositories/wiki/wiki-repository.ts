@@ -2,7 +2,7 @@ import { sql } from "kysely";
 import { nanoid } from "nanoid";
 import { type DbTransaction, db } from "../../db/index.js";
 import type { NewBlock, NewPage } from "../../db/schema.js";
-import { escapeLikePattern, firstOrNull, getRecordById } from "../../lib/db-utils.js";
+import { escapeLikePattern, firstOrNull } from "../../lib/db-utils.js";
 
 export async function listPagesOrderedByUpdatedAt() {
   const rows = await db
@@ -33,7 +33,7 @@ export async function listPagesOrderedByUpdatedAt() {
 }
 
 export async function getPageById(id: string) {
-  return getRecordById("pages", id);
+  return (await db.selectFrom("pages").selectAll().where("id", "=", id).executeTakeFirst()) ?? null;
 }
 
 export async function getPageParentId(id: string) {
@@ -123,7 +123,9 @@ export async function deletePage(id: string) {
 }
 
 export async function getBlockById(id: string) {
-  return getRecordById("blocks", id);
+  return (
+    (await db.selectFrom("blocks").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
+  );
 }
 
 export async function createBlock(newBlock: NewBlock) {
@@ -132,7 +134,7 @@ export async function createBlock(newBlock: NewBlock) {
       .insertInto("blocks")
       .values({
         ...newBlock,
-        properties: (newBlock.properties ? JSON.stringify(newBlock.properties) : null) as any,
+        properties: newBlock.properties ?? null,
       })
       .returningAll()
       .execute()
@@ -149,16 +151,7 @@ export async function updateBlock(
     updatedAt: Date;
   }
 ) {
-  const setPayload = {
-    ...updatePayload,
-    ...(updatePayload.properties !== undefined
-      ? {
-          properties: (updatePayload.properties
-            ? JSON.stringify(updatePayload.properties)
-            : null) as any,
-        }
-      : {}),
-  };
+  const setPayload = { ...updatePayload };
   return firstOrNull(
     await db.updateTable("blocks").set(setPayload).where("id", "=", id).returningAll().execute()
   );
@@ -385,14 +378,12 @@ export async function restorePageRevision(input: {
         pageId: input.pageId,
         revisionNumber: input.revisionNumber,
         title: input.currentTitle,
-        blocks: JSON.stringify(
-          input.currentBlocks.map((b) => ({
-            type: b.type,
-            content: b.content,
-            properties: b.properties as Record<string, unknown> | null,
-            sortOrder: b.sortOrder,
-          }))
-        ) as any,
+        blocks: input.currentBlocks.map((b) => ({
+          type: b.type,
+          content: b.content,
+          properties: b.properties as Record<string, unknown> | null,
+          sortOrder: b.sortOrder,
+        })),
         authorId: input.actorUserId,
         createdAt: now,
       })
@@ -416,7 +407,7 @@ export async function restorePageRevision(input: {
             pageId: input.pageId,
             type: block.type,
             content: block.content,
-            properties: (block.properties ? JSON.stringify(block.properties) : null) as any,
+            properties: block.properties ?? null,
             sortOrder: block.sortOrder,
             createdAt: now,
             updatedAt: now,
@@ -494,7 +485,7 @@ export async function importPageWithBlocks(input: {
       .values(
         blockValues.map((b) => ({
           ...b,
-          properties: (b.properties ? JSON.stringify(b.properties) : null) as any,
+          properties: b.properties ?? null,
         }))
       )
       .execute();
@@ -621,7 +612,7 @@ export async function insertBlocks(
         pageId: b.pageId,
         type: b.type,
         content: b.content,
-        properties: (b.properties ? JSON.stringify(b.properties) : null) as any,
+        properties: b.properties ?? null,
         sortOrder: b.sortOrder,
         createdAt: b.createdAt,
         updatedAt: b.updatedAt,
@@ -662,7 +653,7 @@ export async function updatePageTitleAndReplaceBlocks(input: {
             pageId: input.pageId,
             type: block.type,
             content: block.content,
-            properties: (block.properties ? JSON.stringify(block.properties) : null) as any,
+            properties: block.properties ?? null,
             sortOrder: block.sortOrder,
             createdAt: block.createdAt,
             updatedAt: block.updatedAt,

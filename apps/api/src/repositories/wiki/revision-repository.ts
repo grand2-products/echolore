@@ -8,7 +8,7 @@ export async function createRevision(data: NewPageRevision) {
       .insertInto("page_revisions")
       .values({
         ...data,
-        blocks: JSON.stringify(data.blocks) as any,
+        blocks: data.blocks,
       })
       .returningAll()
       .executeTakeFirst()) ?? null

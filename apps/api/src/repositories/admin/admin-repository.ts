@@ -1,12 +1,14 @@
 import { db } from "../../db/index.js";
-import { firstOrNull, getRecordById } from "../../lib/db-utils.js";
+import { firstOrNull } from "../../lib/db-utils.js";
 
 export async function listGroups() {
   return db.selectFrom("user_groups").selectAll().execute();
 }
 
 export async function getGroupById(id: string) {
-  return getRecordById("user_groups", id);
+  return (
+    (await db.selectFrom("user_groups").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
+  );
 }
 
 export async function getGroupByName(name: string) {
@@ -32,7 +34,7 @@ export async function createGroup(input: {
         name: input.name,
         description: input.description,
         isSystem: input.isSystem,
-        permissions: JSON.stringify(input.permissions) as any,
+        permissions: input.permissions,
         createdAt: input.createdAt,
         updatedAt: input.updatedAt,
       })
@@ -56,7 +58,7 @@ export async function updateGroup(
       .set({
         name: input.name,
         description: input.description,
-        permissions: JSON.stringify(input.permissions) as any,
+        permissions: input.permissions,
         updatedAt: input.updatedAt,
       })
       .where("id", "=", id)

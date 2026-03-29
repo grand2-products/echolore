@@ -158,7 +158,7 @@ export async function createMeetingAgentEvent(input: NewMeetingAgentEvent) {
       .insertInto("meeting_agent_events")
       .values({
         ...input,
-        payload: JSON.stringify(input.payload) as any,
+        payload: input.payload,
       })
       .returningAll()
       .executeTakeFirst()) ?? null

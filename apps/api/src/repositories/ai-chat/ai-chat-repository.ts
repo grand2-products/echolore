@@ -1,22 +1,7 @@
 import { sql } from "kysely";
 import { db } from "../../db/index.js";
-import type { CitationJson, NewAiChatConversation, NewAiChatMessage } from "../../db/schema.js";
+import type { NewAiChatConversation, NewAiChatMessage } from "../../db/schema.js";
 import { escapeLikePattern, firstOrNull } from "../../lib/db-utils.js";
-
-/** Normalize legacy snake_case citation keys to camelCase. */
-function normalizeCitations(raw: CitationJson[] | null): CitationJson[] | null {
-  if (!raw) return null;
-  return raw.map((c) => {
-    if (c.pageId) return c; // already camelCase
-    // Legacy snake_case data from pre-CamelCasePlugin era
-    const legacy = c as unknown as { page_id?: string; page_title?: string; snippet?: string };
-    return {
-      pageId: legacy.page_id ?? "",
-      pageTitle: legacy.page_title ?? "",
-      ...(legacy.snippet ? { snippet: legacy.snippet } : {}),
-    };
-  });
-}
 
 export async function createConversation(conversation: NewAiChatConversation) {
   return firstOrNull(
@@ -88,25 +73,17 @@ export async function deleteConversation(id: string) {
 
 export async function createMessage(message: NewAiChatMessage) {
   return firstOrNull(
-    await db
-      .insertInto("ai_chat_messages")
-      .values({
-        ...message,
-        citations: message.citations ? JSON.stringify(message.citations) : null,
-      } as NewAiChatMessage)
-      .returningAll()
-      .execute()
+    await db.insertInto("ai_chat_messages").values(message).returningAll().execute()
   );
 }
 
 export async function listMessagesByConversationId(conversationId: string) {
-  const rows = await db
+  return db
     .selectFrom("ai_chat_messages")
     .selectAll()
     .where("conversationId", "=", conversationId)
     .orderBy("createdAt")
     .execute();
-  return rows.map((m) => ({ ...m, citations: normalizeCitations(m.citations) }));
 }
 
 export async function listRecentMessages(conversationId: string, limit = 20) {
@@ -117,7 +94,7 @@ export async function listRecentMessages(conversationId: string, limit = 20) {
     .orderBy("createdAt", "desc")
     .limit(limit)
     .execute();
-  return rows.reverse().map((m) => ({ ...m, citations: normalizeCitations(m.citations) }));
+  return rows.reverse();
 }
 
 /** Batch: get message counts and last messages for multiple conversations in 2 queries */

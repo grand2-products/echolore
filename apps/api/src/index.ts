@@ -207,7 +207,10 @@ if (process.env.NODE_ENV !== "test") {
         applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
     `);
-    // Migrate history from Drizzle's __drizzle_migrations if it exists
+    // Migrate history from Drizzle's __drizzle_migrations if it exists.
+    // This is one-time bootstrap code that is harmless to keep — it handles
+    // the transition from Drizzle to Kysely migrations and no-ops once the
+    // table has been dropped.
     try {
       const { rows: drizzleTable } = await migrationPool.query(
         "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '__drizzle_migrations'"
@@ -225,7 +228,10 @@ if (process.env.NODE_ENV !== "test") {
       // __drizzle_migrations does not exist — fresh install or already migrated
     }
     // For existing DBs upgraded from Drizzle without migration tracking:
-    // detect which migrations are already applied by checking landmark tables
+    // detect which migrations are already applied by checking landmark tables.
+    // TODO(cleanup): This landmark-based seeding can be removed after all
+    // environments have been upgraded past v0.1.24 (i.e. _migrations is
+    // already populated). It is harmless to keep but adds startup complexity.
     const { rows: tracked } = await migrationPool.query(
       "SELECT count(*)::int as cnt FROM _migrations"
     );

@@ -1,6 +1,5 @@
 import { db } from "../../db/index.js";
 import type { NewAituberCharacter, NewAituberMessage, NewAituberSession } from "../../db/schema.js";
-import { getRecordById } from "../../lib/db-utils.js";
 
 // --- Characters ---
 
@@ -15,7 +14,13 @@ export async function createCharacter(character: NewAituberCharacter) {
 }
 
 export async function getCharacterById(id: string) {
-  return getRecordById("aituber_characters", id);
+  return (
+    (await db
+      .selectFrom("aituber_characters")
+      .selectAll()
+      .where("id", "=", id)
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function listCharacters(opts?: { createdBy?: string }) {
@@ -77,7 +82,10 @@ export async function createSession(session: NewAituberSession) {
 }
 
 export async function getSessionById(id: string) {
-  return getRecordById("aituber_sessions", id);
+  return (
+    (await db.selectFrom("aituber_sessions").selectAll().where("id", "=", id).executeTakeFirst()) ??
+    null
+  );
 }
 
 export async function listSessions(opts?: { status?: string; creatorId?: string }) {

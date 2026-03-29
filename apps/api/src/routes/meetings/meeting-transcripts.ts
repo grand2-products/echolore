@@ -37,7 +37,7 @@ meetingTranscriptRoutes.post(
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "write");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
     if (!authz.allowed) {
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
@@ -77,7 +77,7 @@ meetingTranscriptRoutes.get(
     const meeting = await getMeetingById(id);
     if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "read");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
     if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     const segments = await listRealtimeTranscriptSegments(id);
@@ -102,7 +102,7 @@ meetingTranscriptRoutes.post(
     const meeting = await getMeetingById(id);
     if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "write");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
     if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     const segment = await upsertTranscriptSegment({

@@ -1,5 +1,6 @@
 import { CamelCasePlugin, Kysely, PostgresDialect, type Transaction } from "kysely";
 import { Pool } from "pg";
+import { JsonbStringifyPlugin } from "./plugins/jsonb-stringify-plugin.js";
 import type { Database } from "./schema/database.js";
 
 const connectionString = process.env.DATABASE_URL;
@@ -13,7 +14,7 @@ const pool = new Pool({
 
 export const db = new Kysely<Database>({
   dialect: new PostgresDialect({ pool }),
-  plugins: [new CamelCasePlugin()],
+  plugins: [new CamelCasePlugin(), new JsonbStringifyPlugin()],
 });
 
 export type DbTransaction = Transaction<Database>;

@@ -22,7 +22,7 @@ export async function insertAuditLog(payload: {
       action: payload.action,
       resourceType: payload.resourceType,
       resourceId: payload.resourceId,
-      metadata: (payload.metadata ? JSON.stringify(payload.metadata) : null) as any,
+      metadata: payload.metadata ?? null,
       ipAddress: payload.ipAddress,
       userAgent: payload.userAgent,
       createdAt: payload.createdAt,

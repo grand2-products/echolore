@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 import { type DbTransaction, db } from "../../db/index.js";
 import type { NewMeeting, Page, Summary } from "../../db/schema.js";
-import { firstOrNull, getRecordById } from "../../lib/db-utils.js";
+import { firstOrNull } from "../../lib/db-utils.js";
 import { createPageWithAccessDefaultsTx } from "../wiki/wiki-repository.js";
 
 export async function listMeetingsByUser(
@@ -52,7 +52,9 @@ export async function listMeetingsByStatus(status: string) {
 }
 
 export async function getMeetingById(id: string) {
-  return getRecordById("meetings", id);
+  return (
+    (await db.selectFrom("meetings").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
+  );
 }
 
 export async function getMeetingByRoomName(roomName: string) {
@@ -292,10 +294,10 @@ export async function createMeetingSummaryArtifactsTx(input: {
           pageId: input.pageId,
           type: "text",
           content: input.summaryContent,
-          properties: JSON.stringify({
+          properties: {
             sourceMeetingId: input.meetingId,
             source: "room-ai-mvp",
-          }) as any,
+          },
           sortOrder: 1,
           createdAt: input.now,
           updatedAt: input.now,

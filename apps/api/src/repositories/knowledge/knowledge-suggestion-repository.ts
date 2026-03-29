@@ -47,7 +47,7 @@ export async function createSuggestion(
     .insertInto("knowledge_suggestions")
     .values({
       ...input,
-      proposedBlocks: JSON.stringify(input.proposedBlocks) as any,
+      proposedBlocks: input.proposedBlocks,
     })
     .returningAll()
     .executeTakeFirst();
