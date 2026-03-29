@@ -2,9 +2,7 @@ import type { AuthConfig } from "@auth/core";
 import Credentials from "@auth/core/providers/credentials";
 import Google from "@auth/core/providers/google";
 import { UserRole } from "@echolore/shared/contracts";
-import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { users } from "../db/schema.js";
 import { getAuthSettings, resolveAllowedDomain } from "../services/admin/auth-settings-service.js";
 import {
   authenticatePasswordUser,
@@ -80,11 +78,12 @@ export async function getAuthConfig(): Promise<AuthConfig> {
           const allowedDomain = await resolveAllowedDomain();
           if (allowedDomain && domain !== allowedDomain) return false;
           // Block new Google users when registration is closed
-          const [existing] = await db
-            .select({ id: users.id, suspendedAt: users.suspendedAt, deletedAt: users.deletedAt })
-            .from(users)
-            .where(eq(users.email, email.trim().toLowerCase()));
-          if (existing?.suspendedAt || existing?.deletedAt) return false;
+          const existing = await db
+            .selectFrom("users")
+            .select(["id", "suspended_at", "deleted_at"])
+            .where("email", "=", email.trim().toLowerCase())
+            .executeTakeFirst();
+          if (existing?.suspended_at || existing?.deleted_at) return false;
           if (!existing && !(await isRegistrationOpen())) return false;
           // Reconciliation happens in the jwt callback only to avoid
           // a race condition with duplicate user creation.

@@ -12,10 +12,10 @@ type AdminGroupRaw = {
   id: string;
   name: string;
   description: string | null;
-  isSystem: boolean;
+  is_system: boolean;
   permissions: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
   memberCount?: number;
 };
 
@@ -27,25 +27,25 @@ type AdminUserRaw = {
   id: string;
   email: string;
   name: string;
-  avatarUrl: string | null;
+  avatar_url: string | null;
   role: string;
-  suspendedAt: Date | null;
-  deletedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  suspended_at: Date | null;
+  deleted_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
   groups: Array<{ id: string; name: string }>;
 };
 
 type AdminSpacePermissionRaw = {
   id: string;
-  spaceId: string;
-  groupId: string;
+  space_id: string;
+  group_id: string;
   groupName?: string;
-  canRead: boolean;
-  canWrite: boolean;
-  canDelete: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  can_read: boolean;
+  can_write: boolean;
+  can_delete: boolean;
+  created_at: Date;
+  updated_at: Date;
 };
 
 export const toAdminUserGroupRefDto = (group: {
@@ -60,10 +60,10 @@ export const toAdminGroupDto = (group: AdminGroupRaw): AdminGroupDto => ({
   id: group.id,
   name: group.name,
   description: group.description,
-  isSystem: group.isSystem,
+  isSystem: group.is_system,
   permissions: group.permissions,
-  createdAt: group.createdAt.toISOString(),
-  updatedAt: group.updatedAt.toISOString(),
+  createdAt: group.created_at.toISOString(),
+  updatedAt: group.updated_at.toISOString(),
   memberCount: group.memberCount ?? 0,
 });
 
@@ -71,10 +71,10 @@ export const toAdminGroupDetailDto = (group: AdminGroupDetailRaw): AdminGroupDet
   id: group.id,
   name: group.name,
   description: group.description,
-  isSystem: group.isSystem,
+  isSystem: group.is_system,
   permissions: group.permissions,
-  createdAt: group.createdAt.toISOString(),
-  updatedAt: group.updatedAt.toISOString(),
+  createdAt: group.created_at.toISOString(),
+  updatedAt: group.updated_at.toISOString(),
   members: group.members,
 });
 
@@ -84,10 +84,10 @@ export const toAdminUserRecordDto = (user: AdminUserRaw): AdminUserRecordDto => 
   name: user.name,
   avatarUrl: resolveUserAvatarUrl(user),
   role: user.role === "admin" ? "admin" : "member",
-  suspendedAt: user.suspendedAt?.toISOString() ?? null,
-  deletedAt: user.deletedAt?.toISOString() ?? null,
-  createdAt: user.createdAt.toISOString(),
-  updatedAt: user.updatedAt.toISOString(),
+  suspendedAt: user.suspended_at?.toISOString() ?? null,
+  deletedAt: user.deleted_at?.toISOString() ?? null,
+  createdAt: user.created_at.toISOString(),
+  updatedAt: user.updated_at.toISOString(),
   groups: user.groups.map(toAdminUserGroupRefDto),
 });
 
@@ -95,14 +95,14 @@ export const toAdminSpacePermissionRecordDto = (
   permission: AdminSpacePermissionRaw
 ): AdminSpacePermissionRecordDto => ({
   id: permission.id,
-  spaceId: permission.spaceId,
-  groupId: permission.groupId,
+  spaceId: permission.space_id,
+  groupId: permission.group_id,
   groupName: permission.groupName,
-  canRead: permission.canRead,
-  canWrite: permission.canWrite,
-  canDelete: permission.canDelete,
-  createdAt: permission.createdAt.toISOString(),
-  updatedAt: permission.updatedAt.toISOString(),
+  canRead: permission.can_read,
+  canWrite: permission.can_write,
+  canDelete: permission.can_delete,
+  createdAt: permission.created_at.toISOString(),
+  updatedAt: permission.updated_at.toISOString(),
 });
 
 export const toAdminSpacePermissionsResponseDto = (input: {

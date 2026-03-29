@@ -1,18 +1,15 @@
-import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { files } from "../../db/schema.js";
-import { firstOrNull } from "../../lib/db-utils.js";
 
 export async function listFiles() {
-  return db.select().from(files);
+  return db.selectFrom("files").selectAll().execute();
 }
 
 export async function listFilesByUploader(uploaderId: string) {
-  return db.select().from(files).where(eq(files.uploaderId, uploaderId));
+  return db.selectFrom("files").selectAll().where("uploader_id", "=", uploaderId).execute();
 }
 
 export async function getFileById(id: string) {
-  return firstOrNull(await db.select().from(files).where(eq(files.id, id)));
+  return (await db.selectFrom("files").selectAll().where("id", "=", id).executeTakeFirst()) ?? null;
 }
 
 export async function createFile(input: {
@@ -24,9 +21,23 @@ export async function createFile(input: {
   uploaderId: string;
   createdAt: Date;
 }) {
-  return firstOrNull(await db.insert(files).values(input).returning());
+  return (
+    (await db
+      .insertInto("files")
+      .values({
+        id: input.id,
+        filename: input.filename,
+        content_type: input.contentType,
+        size: input.size,
+        storage_path: input.storagePath,
+        uploader_id: input.uploaderId,
+        created_at: input.createdAt,
+      })
+      .returningAll()
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function deleteFile(id: string) {
-  await db.delete(files).where(eq(files.id, id));
+  await db.deleteFrom("files").where("id", "=", id).execute();
 }

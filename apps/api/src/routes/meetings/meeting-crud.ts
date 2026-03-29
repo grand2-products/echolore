@@ -276,7 +276,7 @@ meetingCrudRoutes.post(
 
     // Update meeting + close participant sessions concurrently
     const [updatedMeeting] = await Promise.all([
-      updateMeeting(id, { status: "ended", endedAt: now }),
+      updateMeeting(id, { status: "ended", ended_at: now }),
       closeAllParticipantSessions(id, now),
     ]);
 

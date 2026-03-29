@@ -35,30 +35,8 @@ vi.mock("../../db/index.js", () => ({
   },
 }));
 
-vi.mock("drizzle-orm", () => ({
-  and: vi.fn((...args: unknown[]) => ({ _tag: "and", args })),
-  eq: vi.fn((a: unknown, b: unknown) => ({ _tag: "eq", a, b })),
-  inArray: vi.fn((a: unknown, b: unknown) => ({ _tag: "inArray", a, b })),
-}));
-
 vi.mock("nanoid", () => ({
   nanoid: vi.fn(() => "mock12nanoid"),
-}));
-
-vi.mock("../../db/schema.js", () => ({
-  spacePermissions: {
-    spaceId: "spacePermissions.spaceId",
-    groupId: "spacePermissions.groupId",
-    canRead: "spacePermissions.canRead",
-  },
-  userGroupMemberships: {
-    userId: "userGroupMemberships.userId",
-    groupId: "userGroupMemberships.groupId",
-  },
-  userGroups: {
-    id: "userGroups.id",
-    name: "userGroups.name",
-  },
 }));
 
 import type { SessionUser } from "../../lib/auth.js";

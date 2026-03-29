@@ -68,7 +68,7 @@ export async function createMeetingSummaryWikiArtifacts(
   const meetingNotesPageId = await ensureMeetingNotesPage(
     MEETING_NOTES_PAGE_ID,
     GENERAL_SPACE_ID,
-    meeting.creatorId
+    meeting.creator_id
   );
 
   const now = new Date();
@@ -84,7 +84,7 @@ export async function createMeetingSummaryWikiArtifacts(
     pageTitle,
     spaceId: GENERAL_SPACE_ID,
     parentPageId: meetingNotesPageId,
-    authorId: meeting.creatorId,
+    authorId: meeting.creator_id,
     now,
   });
 

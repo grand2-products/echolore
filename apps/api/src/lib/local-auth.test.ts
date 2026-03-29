@@ -1,6 +1,5 @@
 import { UserRole } from "@echolore/shared/contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { authIdentities, users } from "../db/schema.js";
 
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
@@ -30,23 +29,40 @@ function createSelectQueue<T>(items: T[]) {
 function createTx(options: { selectQueue?: unknown[]; updateQueue?: unknown[] }) {
   const selectQueue = [...(options.selectQueue ?? [])];
   const updateQueue = [...(options.updateQueue ?? [])];
-  const inserts: Array<{ table: unknown; values: unknown }> = [];
+  const inserts: Array<{ table: string; values: unknown }> = [];
 
   return {
     tx: {
-      select: createSelectQueue(selectQueue),
-      update: vi.fn(() => ({
-        set: vi.fn(() => ({
+      selectFrom: vi.fn(() => ({
+        selectAll: vi.fn(() => ({
           where: vi.fn(() => ({
-            returning: vi.fn(async () => updateQueue.shift() ?? []),
+            executeTakeFirst: vi.fn(async () => {
+              const item = selectQueue.shift();
+              return Array.isArray(item) ? (item[0] ?? null) : (item ?? null);
+            }),
           })),
         })),
       })),
-      insert: vi.fn((table: unknown) => ({
+      updateTable: vi.fn(() => ({
+        set: vi.fn(() => ({
+          where: vi.fn(() => ({
+            returningAll: vi.fn(() => ({
+              executeTakeFirst: vi.fn(async () => {
+                const item = updateQueue.shift();
+                return Array.isArray(item) ? (item[0] ?? null) : (item ?? null);
+              }),
+            })),
+          })),
+        })),
+      })),
+      insertInto: vi.fn((table: string) => ({
         values: vi.fn((values: unknown) => {
           inserts.push({ table, values });
           return {
-            returning: vi.fn(async () => []),
+            returningAll: vi.fn(() => ({
+              executeTakeFirst: vi.fn(async () => null),
+            })),
+            execute: vi.fn(async () => undefined),
           };
         }),
       })),
@@ -66,11 +82,11 @@ describe("local-auth identity linking", () => {
       id: "user_existing",
       email: "member@example.com",
       name: "Member",
-      avatarUrl: null,
-      emailVerifiedAt: new Date("2026-03-12T00:00:00.000Z"),
+      avatar_url: null,
+      email_verified_at: new Date("2026-03-12T00:00:00.000Z"),
       role: UserRole.Member,
-      createdAt: new Date("2026-03-12T00:00:00.000Z"),
-      updatedAt: new Date("2026-03-12T00:00:00.000Z"),
+      created_at: new Date("2026-03-12T00:00:00.000Z"),
+      updated_at: new Date("2026-03-12T00:00:00.000Z"),
     };
     const { tx, inserts } = createTx({
       selectQueue: [[existingUser], []],
@@ -88,13 +104,13 @@ describe("local-auth identity linking", () => {
 
     expect(user.id).toBe(existingUser.id);
     expect(inserts).toHaveLength(1);
-    expect(inserts[0]?.table).toBe(authIdentities);
+    expect(inserts[0]?.table).toBe("auth_identities");
     expect(inserts[0]?.values).toMatchObject({
-      userId: existingUser.id,
+      user_id: existingUser.id,
       provider: "google",
-      providerUserId: existingUser.email,
+      provider_user_id: existingUser.email,
     });
-    expect(tx.insert).not.toHaveBeenCalledWith(users);
+    expect(tx.insertInto).not.toHaveBeenCalledWith("users");
   });
 
   it("verifies password registration against an existing email without creating another user", async () => {
@@ -102,23 +118,23 @@ describe("local-auth identity linking", () => {
       id: "user_existing",
       email: "member@example.com",
       name: "Member",
-      avatarUrl: null,
-      emailVerifiedAt: new Date("2026-03-12T00:00:00.000Z"),
+      avatar_url: null,
+      email_verified_at: new Date("2026-03-12T00:00:00.000Z"),
       role: UserRole.Member,
-      createdAt: new Date("2026-03-12T00:00:00.000Z"),
-      updatedAt: new Date("2026-03-12T00:00:00.000Z"),
+      created_at: new Date("2026-03-12T00:00:00.000Z"),
+      updated_at: new Date("2026-03-12T00:00:00.000Z"),
     };
     const verification = {
       id: "evt_1",
-      userId: null,
+      user_id: null,
       email: existingUser.email,
-      tokenHash: "hashed",
+      token_hash: "hashed",
       purpose: "password-registration",
-      pendingName: null,
-      pendingPasswordHash: "salt:hash",
-      expiresAt: new Date("2099-03-12T00:30:00.000Z"),
-      usedAt: null,
-      createdAt: new Date("2026-03-12T00:00:00.000Z"),
+      pending_name: null,
+      pending_password_hash: "salt:hash",
+      expires_at: new Date("2099-03-12T00:30:00.000Z"),
+      used_at: null,
+      created_at: new Date("2026-03-12T00:00:00.000Z"),
     };
     const { tx, inserts } = createTx({
       selectQueue: [[existingUser], []],
@@ -134,13 +150,13 @@ describe("local-auth identity linking", () => {
 
     expect(user?.id).toBe(existingUser.id);
     expect(inserts).toHaveLength(1);
-    expect(inserts[0]?.table).toBe(authIdentities);
+    expect(inserts[0]?.table).toBe("auth_identities");
     expect(inserts[0]?.values).toMatchObject({
-      userId: existingUser.id,
+      user_id: existingUser.id,
       provider: "password",
-      providerUserId: existingUser.email,
-      passwordHash: verification.pendingPasswordHash,
+      provider_user_id: existingUser.email,
+      password_hash: verification.pending_password_hash,
     });
-    expect(tx.insert).not.toHaveBeenCalledWith(users);
+    expect(tx.insertInto).not.toHaveBeenCalledWith("users");
   });
 });

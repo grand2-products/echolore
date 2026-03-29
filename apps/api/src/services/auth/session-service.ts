@@ -16,8 +16,8 @@ export async function resolveAccessTokenSession(input: {
   if (!payload) return null;
 
   const user = await findUserById(payload.sub);
-  if (!user || user.tokenVersion !== payload.ver) return null;
-  if (user.suspendedAt || user.deletedAt) return null;
+  if (!user || user.token_version !== payload.ver) return null;
+  if (user.suspended_at || user.deleted_at) return null;
 
   return { user: toSessionUser(user), authMode: payload.am };
 }
@@ -32,13 +32,13 @@ export async function listAuthSessionsForUser(input: {
   return sessions.map(
     (session): AuthSessionRecord => ({
       id: session.id,
-      clientType: session.clientType === "mobile" ? "mobile" : "web",
-      authMode: session.authMode === "sso" ? "sso" : "password",
-      deviceName: session.deviceName ?? null,
-      createdAt: session.createdAt,
-      lastSeenAt: session.lastSeenAt ?? null,
-      expiresAt: session.expiresAt,
-      current: currentHash ? session.tokenHash === currentHash : false,
+      clientType: session.client_type === "mobile" ? "mobile" : "web",
+      authMode: session.auth_mode === "sso" ? "sso" : "password",
+      deviceName: session.device_name ?? null,
+      createdAt: session.created_at,
+      lastSeenAt: session.last_seen_at ?? null,
+      expiresAt: session.expires_at,
+      current: currentHash ? session.token_hash === currentHash : false,
     })
   );
 }
@@ -46,7 +46,7 @@ export async function listAuthSessionsForUser(input: {
 export async function revokeAuthSessionById(input: { userId: string; sessionId: string }) {
   const session = await getAuthRefreshTokenById(input.sessionId);
 
-  if (!session || session.userId !== input.userId || session.revokedAt) {
+  if (!session || session.user_id !== input.userId || session.revoked_at) {
     return false;
   }
 

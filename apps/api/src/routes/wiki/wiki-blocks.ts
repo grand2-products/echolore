@@ -28,7 +28,7 @@ wikiBlockRoutes.post(
       return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
     }
 
-    const authz = await authorizePageResource(c, page.id, page.authorId, "write");
+    const authz = await authorizePageResource(c, page.id, page.author_id, "write");
     if (!authz.allowed) {
       return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
     }
@@ -36,13 +36,13 @@ wikiBlockRoutes.post(
     const now = new Date();
     const newBlock: NewBlock = {
       id: crypto.randomUUID(),
-      pageId: data.pageId,
+      page_id: data.pageId,
       type: data.type,
       content: data.content || null,
       properties: data.properties || null,
-      sortOrder: data.sortOrder,
-      createdAt: now,
-      updatedAt: now,
+      sort_order: data.sortOrder,
+      created_at: now,
+      updated_at: now,
     };
 
     const createdBlock = await createBlock(newBlock);
@@ -65,17 +65,17 @@ wikiBlockRoutes.delete(
       return jsonError(c, 404, "WIKI_BLOCK_NOT_FOUND", "Block not found");
     }
 
-    const page = await getPageById(block.pageId);
+    const page = await getPageById(block.page_id);
     if (!page) {
       return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
     }
 
-    const authz = await authorizePageResource(c, page.id, page.authorId, "write");
+    const authz = await authorizePageResource(c, page.id, page.author_id, "write");
     if (!authz.allowed) {
       return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
     }
 
-    const deletedPageId = block.pageId;
+    const deletedPageId = block.page_id;
     await deleteBlock(id);
     void indexPage(deletedPageId).catch((e) => console.error("indexPage error:", e));
 
@@ -96,12 +96,12 @@ wikiBlockRoutes.put(
       return jsonError(c, 404, "WIKI_BLOCK_NOT_FOUND", "Block not found");
     }
 
-    const page = await getPageById(block.pageId);
+    const page = await getPageById(block.page_id);
     if (!page) {
       return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
     }
 
-    const authz = await authorizePageResource(c, page.id, page.authorId, "write");
+    const authz = await authorizePageResource(c, page.id, page.author_id, "write");
     if (!authz.allowed) {
       return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
     }
@@ -110,16 +110,16 @@ wikiBlockRoutes.put(
       type?: string;
       content?: string | null;
       properties?: Record<string, unknown> | null;
-      sortOrder?: number;
-      updatedAt: Date;
+      sort_order?: number;
+      updated_at: Date;
     } = {
-      updatedAt: new Date(),
+      updated_at: new Date(),
     };
 
     if (data.type !== undefined) updatePayload.type = data.type;
     if (data.content !== undefined) updatePayload.content = data.content;
     if (data.properties !== undefined) updatePayload.properties = data.properties;
-    if (data.sortOrder !== undefined) updatePayload.sortOrder = data.sortOrder;
+    if (data.sortOrder !== undefined) updatePayload.sort_order = data.sortOrder;
 
     const updatedBlock = await updateBlock(id, updatePayload);
 
@@ -127,7 +127,7 @@ wikiBlockRoutes.put(
       return jsonError(c, 404, "WIKI_BLOCK_NOT_FOUND", "Block not found");
     }
 
-    void indexPage(block.pageId).catch((e) => console.error("indexPage error:", e));
+    void indexPage(block.page_id).catch((e) => console.error("indexPage error:", e));
     return c.json({ block: updatedBlock });
   }
 );

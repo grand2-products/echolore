@@ -3,7 +3,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { DataPacket_Kind } from "livekit-server-sdk";
 import { z } from "zod";
-import type { meetingGuestRequests, meetingInvites } from "../../db/schema.js";
+import type { MeetingGuestRequest, MeetingInvite } from "../../db/schema.js";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { roomService } from "../../lib/livekit-client.js";
@@ -206,31 +206,31 @@ meetingInviteRoutes.post(
 );
 
 // DTO helpers
-function toInviteDto(invite: typeof meetingInvites.$inferSelect) {
+function toInviteDto(invite: MeetingInvite) {
   return {
     id: invite.id,
-    meetingId: invite.meetingId,
+    meetingId: invite.meeting_id,
     token: invite.token,
-    createdByUserId: invite.createdByUserId,
+    createdByUserId: invite.created_by_user_id,
     label: invite.label,
-    maxUses: invite.maxUses,
-    useCount: invite.useCount,
-    expiresAt: invite.expiresAt.toISOString(),
-    revokedAt: invite.revokedAt?.toISOString() ?? null,
-    createdAt: invite.createdAt.toISOString(),
+    maxUses: invite.max_uses,
+    useCount: invite.use_count,
+    expiresAt: invite.expires_at.toISOString(),
+    revokedAt: invite.revoked_at?.toISOString() ?? null,
+    createdAt: invite.created_at.toISOString(),
   };
 }
 
-function toGuestRequestDto(request: typeof meetingGuestRequests.$inferSelect) {
+function toGuestRequestDto(request: MeetingGuestRequest) {
   return {
     id: request.id,
-    inviteId: request.inviteId,
-    meetingId: request.meetingId,
-    guestName: request.guestName,
-    guestIdentity: request.guestIdentity,
+    inviteId: request.invite_id,
+    meetingId: request.meeting_id,
+    guestName: request.guest_name,
+    guestIdentity: request.guest_identity,
     status: request.status,
-    approvedByUserId: request.approvedByUserId,
-    createdAt: request.createdAt.toISOString(),
-    resolvedAt: request.resolvedAt?.toISOString() ?? null,
+    approvedByUserId: request.approved_by_user_id,
+    createdAt: request.created_at.toISOString(),
+    resolvedAt: request.resolved_at?.toISOString() ?? null,
   };
 }

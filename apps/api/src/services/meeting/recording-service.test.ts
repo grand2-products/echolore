@@ -1,31 +1,36 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { meetingRecordings } from "../../db/schema.js";
 
 const { dbMock, egressClientMock, getStorageSettingsMock } = vi.hoisted(() => {
-  const updateSetWhereMock = vi.fn();
-  const queryFindFirstMock = vi.fn();
-  const queryFindManyMock = vi.fn();
+  const updateSetWhereExecuteMock = vi.fn();
+  const selectWhereExecuteTakeFirstMock = vi.fn();
+  const selectExecuteMock = vi.fn();
   return {
     dbMock: {
-      insert: vi.fn(() => ({
+      insertInto: vi.fn(() => ({
         values: vi.fn(() => ({
-          returning: vi.fn(async () => []),
+          returningAll: vi.fn(() => ({
+            executeTakeFirst: vi.fn(async () => undefined),
+          })),
         })),
       })),
-      update: vi.fn(() => ({
+      updateTable: vi.fn(() => ({
         set: vi.fn(() => ({
-          where: updateSetWhereMock,
+          where: vi.fn(() => ({
+            execute: updateSetWhereExecuteMock,
+          })),
         })),
       })),
-      query: {
-        meetingRecordings: {
-          findFirst: queryFindFirstMock,
-          findMany: queryFindManyMock,
-        },
-      },
-      _updateSetWhereMock: updateSetWhereMock,
-      _queryFindFirstMock: queryFindFirstMock,
-      _queryFindManyMock: queryFindManyMock,
+      selectFrom: vi.fn(() => ({
+        selectAll: vi.fn(() => ({
+          where: vi.fn(() => ({
+            executeTakeFirst: selectWhereExecuteTakeFirstMock,
+            execute: selectExecuteMock,
+          })),
+        })),
+      })),
+      _updateSetWhereExecuteMock: updateSetWhereExecuteMock,
+      _selectWhereExecuteTakeFirstMock: selectWhereExecuteTakeFirstMock,
+      _selectExecuteMock: selectExecuteMock,
     },
     egressClientMock: {
       startTrackCompositeEgress: vi.fn(),
@@ -74,11 +79,12 @@ vi.mock("../notification/notification-service.js", () => ({
 describe("recording-service", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    dbMock.insert.mockClear();
-    dbMock.update.mockClear();
-    dbMock._updateSetWhereMock.mockReset();
-    dbMock._queryFindFirstMock.mockReset();
-    dbMock._queryFindManyMock.mockReset();
+    dbMock.insertInto.mockClear();
+    dbMock.updateTable.mockClear();
+    dbMock.selectFrom.mockClear();
+    dbMock._updateSetWhereExecuteMock.mockReset();
+    dbMock._selectWhereExecuteTakeFirstMock.mockReset();
+    dbMock._selectExecuteMock.mockReset();
     egressClientMock.startTrackCompositeEgress.mockReset();
     egressClientMock.stopEgress.mockReset();
     getStorageSettingsMock.mockReset();
@@ -103,18 +109,21 @@ describe("recording-service", () => {
 
       const recordingRow = {
         id: "rec_1",
-        meetingId: "meeting_1",
-        egressId: "egress_123",
+        meeting_id: "meeting_1",
+        egress_id: "egress_123",
         status: "starting",
-        initiatedBy: "user_1",
-        contentType: "video/mp4",
+        initiated_by: "user_1",
+        content_type: "video/mp4",
       };
 
-      dbMock.insert.mockReturnValue({
+      const executeTakeFirstMock = vi.fn(async () => recordingRow);
+      dbMock.insertInto.mockReturnValue({
         values: vi.fn(() => ({
-          returning: vi.fn(async () => [recordingRow]),
+          returningAll: vi.fn(() => ({
+            executeTakeFirst: executeTakeFirstMock,
+          })),
         })),
-      } as ReturnType<typeof dbMock.insert>);
+      } as unknown as ReturnType<typeof dbMock.insertInto>);
 
       vi.spyOn(crypto, "randomUUID").mockReturnValueOnce(
         "11111111-1111-1111-1111-111111111111" as `${string}-${string}-${string}-${string}-${string}`
@@ -127,7 +136,7 @@ describe("recording-service", () => {
         "room-a",
         expect.objectContaining({ fileType: 0, filepath: expect.any(String) })
       );
-      expect(dbMock.insert).toHaveBeenCalledWith(meetingRecordings);
+      expect(dbMock.insertInto).toHaveBeenCalledWith("meeting_recordings");
       expect(result.egressInfo).toEqual(egressInfo);
       expect(result.recording).toEqual(recordingRow);
     });
@@ -136,22 +145,26 @@ describe("recording-service", () => {
   describe("stopRecording", () => {
     it("calls EgressClient.stopEgress and updates DB status to stopping", async () => {
       egressClientMock.stopEgress.mockResolvedValue(undefined);
-      dbMock._updateSetWhereMock.mockResolvedValue(undefined);
+      dbMock._updateSetWhereExecuteMock.mockResolvedValue(undefined);
 
       const { stopRecording } = await import("./recording-service.js");
       await stopRecording("egress_123");
 
       expect(egressClientMock.stopEgress).toHaveBeenCalledWith("egress_123");
-      expect(dbMock.update).toHaveBeenCalledWith(meetingRecordings);
+      expect(dbMock.updateTable).toHaveBeenCalledWith("meeting_recordings");
     });
   });
 
   describe("handleEgressWebhook", () => {
     it("maps status 0 to 'starting'", async () => {
-      dbMock._updateSetWhereMock.mockResolvedValue(undefined);
+      dbMock._updateSetWhereExecuteMock.mockResolvedValue(undefined);
 
-      const setMock = vi.fn(() => ({ where: dbMock._updateSetWhereMock }));
-      dbMock.update.mockReturnValue({ set: setMock });
+      const setMock = vi.fn(() => ({
+        where: vi.fn(() => ({
+          execute: dbMock._updateSetWhereExecuteMock,
+        })),
+      }));
+      dbMock.updateTable.mockReturnValue({ set: setMock });
 
       const { handleEgressWebhook } = await import("./recording-service.js");
       await handleEgressWebhook({
@@ -161,11 +174,15 @@ describe("recording-service", () => {
       expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "starting" }));
     });
 
-    it("maps status 1 to 'recording' and sets startedAt", async () => {
-      dbMock._updateSetWhereMock.mockResolvedValue(undefined);
+    it("maps status 1 to 'recording' and sets started_at", async () => {
+      dbMock._updateSetWhereExecuteMock.mockResolvedValue(undefined);
 
-      const setMock = vi.fn(() => ({ where: dbMock._updateSetWhereMock }));
-      dbMock.update.mockReturnValue({ set: setMock });
+      const setMock = vi.fn(() => ({
+        where: vi.fn(() => ({
+          execute: dbMock._updateSetWhereExecuteMock,
+        })),
+      }));
+      dbMock.updateTable.mockReturnValue({ set: setMock });
 
       const { handleEgressWebhook } = await import("./recording-service.js");
       await handleEgressWebhook({
@@ -175,21 +192,25 @@ describe("recording-service", () => {
       expect(setMock).toHaveBeenCalledWith(
         expect.objectContaining({
           status: "recording",
-          startedAt: expect.any(Date),
+          started_at: expect.any(Date),
         })
       );
     });
 
     it("maps status 3 to 'completed' with file results and triggers transcription", async () => {
-      dbMock._updateSetWhereMock.mockResolvedValue(undefined);
+      dbMock._updateSetWhereExecuteMock.mockResolvedValue(undefined);
 
-      const setMock = vi.fn(() => ({ where: dbMock._updateSetWhereMock }));
-      dbMock.update.mockReturnValue({ set: setMock });
+      const setMock = vi.fn(() => ({
+        where: vi.fn(() => ({
+          execute: dbMock._updateSetWhereExecuteMock,
+        })),
+      }));
+      dbMock.updateTable.mockReturnValue({ set: setMock });
 
-      dbMock._queryFindFirstMock.mockResolvedValue({
-        meetingId: "meeting_1",
-        storagePath: "recordings/room-a/12345",
-        egressId: "egress_1",
+      dbMock._selectWhereExecuteTakeFirstMock.mockResolvedValue({
+        meeting_id: "meeting_1",
+        storage_path: "recordings/room-a/12345",
+        egress_id: "egress_1",
         status: "completed",
       });
 
@@ -211,19 +232,23 @@ describe("recording-service", () => {
       expect(setMock).toHaveBeenCalledWith(
         expect.objectContaining({
           status: "completed",
-          endedAt: expect.any(Date),
-          storagePath: "recordings/room-a/12345",
-          fileSize: 1024,
-          durationMs: 60000,
+          ended_at: expect.any(Date),
+          storage_path: "recordings/room-a/12345",
+          file_size: 1024,
+          duration_ms: 60000,
         })
       );
     });
 
     it("maps status 4 to 'failed' with error message", async () => {
-      dbMock._updateSetWhereMock.mockResolvedValue(undefined);
+      dbMock._updateSetWhereExecuteMock.mockResolvedValue(undefined);
 
-      const setMock = vi.fn(() => ({ where: dbMock._updateSetWhereMock }));
-      dbMock.update.mockReturnValue({ set: setMock });
+      const setMock = vi.fn(() => ({
+        where: vi.fn(() => ({
+          execute: dbMock._updateSetWhereExecuteMock,
+        })),
+      }));
+      dbMock.updateTable.mockReturnValue({ set: setMock });
 
       const { handleEgressWebhook } = await import("./recording-service.js");
       await handleEgressWebhook({
@@ -237,8 +262,8 @@ describe("recording-service", () => {
       expect(setMock).toHaveBeenCalledWith(
         expect.objectContaining({
           status: "failed",
-          endedAt: expect.any(Date),
-          errorMessage: "Disk full",
+          ended_at: expect.any(Date),
+          error_message: "Disk full",
         })
       );
     });
@@ -249,14 +274,14 @@ describe("recording-service", () => {
         egressInfo: { egressId: "egress_1", status: 99 },
       });
 
-      expect(dbMock.update).not.toHaveBeenCalled();
+      expect(dbMock.updateTable).not.toHaveBeenCalled();
     });
 
     it("does nothing when egressInfo is undefined", async () => {
       const { handleEgressWebhook } = await import("./recording-service.js");
       await handleEgressWebhook({});
 
-      expect(dbMock.update).not.toHaveBeenCalled();
+      expect(dbMock.updateTable).not.toHaveBeenCalled();
     });
   });
 });

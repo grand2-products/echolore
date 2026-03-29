@@ -69,17 +69,6 @@ vi.mock("../../db/index.js", () => ({
   db: dbMock,
 }));
 
-vi.mock("../../db/schema.js", () => ({
-  blocks: { pageId: "pageId", content: "content", sortOrder: "sortOrder" },
-  pages: {
-    id: "id",
-    title: "title",
-    spaceId: "spaceId",
-    deletedAt: "deletedAt",
-    updatedAt: "updatedAt",
-  },
-}));
-
 vi.mock("../../repositories/knowledge/knowledge-suggestion-repository.js", () => ({
   createSuggestion: createSuggestionMock,
   getSuggestionById: getSuggestionByIdMock,

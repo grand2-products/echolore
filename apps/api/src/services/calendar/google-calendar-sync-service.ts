@@ -43,7 +43,7 @@ export async function syncMeetingToCalendar(
 
   const eventId = res.data.id;
   if (eventId) {
-    await updateMeeting(meetingId, { googleCalendarEventId: eventId });
+    await updateMeeting(meetingId, { google_calendar_event_id: eventId });
   }
 
   return eventId || null;

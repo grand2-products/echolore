@@ -1,33 +1,76 @@
 import { UserRole } from "@echolore/shared/contracts";
-import { and, count, eq, gt, isNull } from "drizzle-orm";
+import { sql } from "kysely";
 import { db } from "../../db/index.js";
-import {
-  authIdentities,
-  authRefreshTokens,
-  emailVerificationTokens,
-  users,
-} from "../../db/schema.js";
+import type { User } from "../../db/schema.js";
 
 export async function findUserByEmailWithPasswordIdentity(email: string) {
   const normalizedEmail = email.trim().toLowerCase();
   const rows = await db
-    .select({
-      user: users,
-      identity: authIdentities,
-    })
-    .from(authIdentities)
-    .innerJoin(users, eq(authIdentities.userId, users.id))
-    .where(and(eq(users.email, normalizedEmail), eq(authIdentities.provider, "password")));
+    .selectFrom("auth_identities")
+    .innerJoin("users", "auth_identities.user_id", "users.id")
+    .select([
+      "users.id as user_id",
+      "users.email",
+      "users.name",
+      "users.avatar_url",
+      "users.email_verified_at",
+      "users.token_version",
+      "users.role",
+      "users.suspended_at",
+      "users.deleted_at as user_deleted_at",
+      "users.created_at as user_created_at",
+      "users.updated_at as user_updated_at",
+      "auth_identities.id as identity_id",
+      "auth_identities.user_id as identity_user_id",
+      "auth_identities.provider",
+      "auth_identities.provider_user_id",
+      "auth_identities.password_hash",
+      "auth_identities.created_at as identity_created_at",
+      "auth_identities.updated_at as identity_updated_at",
+    ])
+    .where("users.email", "=", normalizedEmail)
+    .where("auth_identities.provider", "=", "password")
+    .execute();
 
-  return rows[0] ?? null;
+  if (rows.length === 0) return null;
+
+  // biome-ignore lint/style/noNonNullAssertion: guaranteed by length check above
+  const row = rows[0]!;
+  return {
+    user: {
+      id: row.user_id,
+      email: row.email,
+      name: row.name,
+      avatar_url: row.avatar_url,
+      email_verified_at: row.email_verified_at,
+      token_version: row.token_version,
+      role: row.role,
+      suspended_at: row.suspended_at,
+      deleted_at: row.user_deleted_at,
+      created_at: row.user_created_at,
+      updated_at: row.user_updated_at,
+    },
+    identity: {
+      id: row.identity_id,
+      user_id: row.identity_user_id,
+      provider: row.provider,
+      provider_user_id: row.provider_user_id,
+      password_hash: row.password_hash,
+      created_at: row.identity_created_at,
+      updated_at: row.identity_updated_at,
+    },
+  };
 }
 
 export async function findPasswordIdentityByUserId(userId: string) {
-  const [identity] = await db
-    .select()
-    .from(authIdentities)
-    .where(and(eq(authIdentities.userId, userId), eq(authIdentities.provider, "password")));
-  return identity ?? null;
+  return (
+    (await db
+      .selectFrom("auth_identities")
+      .selectAll()
+      .where("user_id", "=", userId)
+      .where("provider", "=", "password")
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function createUserWithPasswordIdentity(input: {
@@ -36,34 +79,38 @@ export async function createUserWithPasswordIdentity(input: {
   name: string;
   passwordHash: string;
   createdAt: Date;
-}): Promise<typeof users.$inferSelect> {
-  return db.transaction(async (tx) => {
-    const [created] = await tx
-      .insert(users)
+}): Promise<User> {
+  return db.transaction().execute(async (trx) => {
+    const created = await trx
+      .insertInto("users")
       .values({
         id: input.id,
         email: input.email,
         name: input.name,
-        avatarUrl: null,
-        emailVerifiedAt: input.createdAt,
-        tokenVersion: 1,
+        avatar_url: null,
+        email_verified_at: input.createdAt,
+        token_version: 1,
         role: "admin",
-        createdAt: input.createdAt,
-        updatedAt: input.createdAt,
+        created_at: input.createdAt,
+        updated_at: input.createdAt,
       })
-      .returning();
+      .returningAll()
+      .executeTakeFirst();
 
     if (!created) throw new Error("Failed to create user");
 
-    await tx.insert(authIdentities).values({
-      id: `auth_${crypto.randomUUID()}`,
-      userId: created.id,
-      provider: "password",
-      providerUserId: input.email,
-      passwordHash: input.passwordHash,
-      createdAt: input.createdAt,
-      updatedAt: input.createdAt,
-    });
+    await trx
+      .insertInto("auth_identities")
+      .values({
+        id: `auth_${crypto.randomUUID()}`,
+        user_id: created.id,
+        provider: "password",
+        provider_user_id: input.email,
+        password_hash: input.passwordHash,
+        created_at: input.createdAt,
+        updated_at: input.createdAt,
+      })
+      .execute();
 
     return created;
   });
@@ -75,22 +122,24 @@ export async function verifyEmailAndUpdatePassword(input: {
   emailVerifiedAt: Date;
   updatedAt: Date;
 }): Promise<void> {
-  return db.transaction(async (tx) => {
-    await tx
-      .update(users)
+  await db.transaction().execute(async (trx) => {
+    await trx
+      .updateTable("users")
       .set({
-        emailVerifiedAt: input.emailVerifiedAt,
-        updatedAt: input.updatedAt,
+        email_verified_at: input.emailVerifiedAt,
+        updated_at: input.updatedAt,
       })
-      .where(eq(users.id, input.userId));
+      .where("id", "=", input.userId)
+      .execute();
 
-    await tx
-      .update(authIdentities)
+    await trx
+      .updateTable("auth_identities")
       .set({
-        passwordHash: input.passwordHash,
-        updatedAt: input.updatedAt,
+        password_hash: input.passwordHash,
+        updated_at: input.updatedAt,
       })
-      .where(eq(authIdentities.userId, input.userId));
+      .where("user_id", "=", input.userId)
+      .execute();
   });
 }
 
@@ -104,47 +153,45 @@ export async function createEmailVerificationToken(input: {
   expiresAt: Date;
   createdAt: Date;
 }): Promise<void> {
-  await db.insert(emailVerificationTokens).values({
-    id: input.id,
-    userId: input.userId,
-    email: input.email,
-    tokenHash: input.tokenHash,
-    purpose: input.purpose,
-    pendingPasswordHash: input.pendingPasswordHash,
-    expiresAt: input.expiresAt,
-    usedAt: null,
-    createdAt: input.createdAt,
-  });
+  await db
+    .insertInto("email_verification_tokens")
+    .values({
+      id: input.id,
+      user_id: input.userId,
+      email: input.email,
+      token_hash: input.tokenHash,
+      purpose: input.purpose,
+      pending_password_hash: input.pendingPasswordHash,
+      expires_at: input.expiresAt,
+      used_at: null,
+      created_at: input.createdAt,
+    })
+    .execute();
 }
 
 export async function listAuthRefreshTokens(userId: string) {
   const now = new Date();
   return db
-    .select()
-    .from(authRefreshTokens)
-    .where(
-      and(
-        eq(authRefreshTokens.userId, userId),
-        isNull(authRefreshTokens.revokedAt),
-        gt(authRefreshTokens.expiresAt, now)
-      )
-    )
-    .orderBy(authRefreshTokens.createdAt);
+    .selectFrom("auth_refresh_tokens")
+    .selectAll()
+    .where("user_id", "=", userId)
+    .where("revoked_at", "is", null)
+    .where("expires_at", ">", now)
+    .orderBy("created_at")
+    .execute();
 }
 
 export async function findAuthRefreshToken(tokenHash: string) {
   const now = new Date();
-  const [token] = await db
-    .select()
-    .from(authRefreshTokens)
-    .where(
-      and(
-        eq(authRefreshTokens.tokenHash, tokenHash),
-        isNull(authRefreshTokens.revokedAt),
-        gt(authRefreshTokens.expiresAt, now)
-      )
-    );
-  return token ?? null;
+  return (
+    (await db
+      .selectFrom("auth_refresh_tokens")
+      .selectAll()
+      .where("token_hash", "=", tokenHash)
+      .where("revoked_at", "is", null)
+      .where("expires_at", ">", now)
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function createAuthRefreshToken(input: {
@@ -159,44 +206,51 @@ export async function createAuthRefreshToken(input: {
   lastSeenAt: Date;
   createdAt: Date;
 }): Promise<void> {
-  await db.insert(authRefreshTokens).values({
-    id: input.id,
-    userId: input.userId,
-    clientType: input.clientType,
-    authMode: input.authMode,
-    deviceName: input.deviceName,
-    tokenHash: input.tokenHash,
-    expiresAt: input.expiresAt,
-    rotatedFromId: input.rotatedFromId,
-    revokedAt: null,
-    lastSeenAt: input.lastSeenAt,
-    createdAt: input.createdAt,
-  });
+  await db
+    .insertInto("auth_refresh_tokens")
+    .values({
+      id: input.id,
+      user_id: input.userId,
+      client_type: input.clientType,
+      auth_mode: input.authMode,
+      device_name: input.deviceName,
+      token_hash: input.tokenHash,
+      expires_at: input.expiresAt,
+      rotated_from_id: input.rotatedFromId,
+      revoked_at: null,
+      last_seen_at: input.lastSeenAt,
+      created_at: input.createdAt,
+    })
+    .execute();
 }
 
 export async function revokeAuthRefreshToken(tokenId: string, revokedAt: Date): Promise<void> {
   await db
-    .update(authRefreshTokens)
-    .set({ revokedAt, lastSeenAt: revokedAt })
-    .where(eq(authRefreshTokens.id, tokenId));
+    .updateTable("auth_refresh_tokens")
+    .set({ revoked_at: revokedAt, last_seen_at: revokedAt })
+    .where("id", "=", tokenId)
+    .execute();
 }
 
 export async function findSuccessorRefreshToken(rotatedFromId: string) {
-  const [token] = await db
-    .select()
-    .from(authRefreshTokens)
-    .where(
-      and(eq(authRefreshTokens.rotatedFromId, rotatedFromId), isNull(authRefreshTokens.revokedAt))
-    );
-  return token ?? null;
+  return (
+    (await db
+      .selectFrom("auth_refresh_tokens")
+      .selectAll()
+      .where("rotated_from_id", "=", rotatedFromId)
+      .where("revoked_at", "is", null)
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function getAuthRefreshTokenById(tokenId: string) {
-  const [token] = await db
-    .select()
-    .from(authRefreshTokens)
-    .where(eq(authRefreshTokens.id, tokenId));
-  return token ?? null;
+  return (
+    (await db
+      .selectFrom("auth_refresh_tokens")
+      .selectAll()
+      .where("id", "=", tokenId)
+      .executeTakeFirst()) ?? null
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -205,17 +259,15 @@ export async function getAuthRefreshTokenById(tokenId: string) {
 
 export async function findGracedRefreshToken(tokenHash: string, graceThreshold: Date) {
   const now = new Date();
-  const [graced] = await db
-    .select()
-    .from(authRefreshTokens)
-    .where(
-      and(
-        eq(authRefreshTokens.tokenHash, tokenHash),
-        gt(authRefreshTokens.revokedAt, graceThreshold),
-        gt(authRefreshTokens.expiresAt, now)
-      )
-    );
-  return graced ?? null;
+  return (
+    (await db
+      .selectFrom("auth_refresh_tokens")
+      .selectAll()
+      .where("token_hash", "=", tokenHash)
+      .where("revoked_at", ">", graceThreshold)
+      .where("expires_at", ">", now)
+      .executeTakeFirst()) ?? null
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -226,42 +278,51 @@ export async function reconcileOAuthIdentity(input: {
   email: string;
   name: string;
   provider: string;
-}): Promise<typeof users.$inferSelect> {
+}): Promise<User> {
   const now = new Date();
 
-  return db.transaction(async (tx) => {
-    let [user] = await tx.select().from(users).where(eq(users.email, input.email));
+  return db.transaction().execute(async (trx) => {
+    let user = await trx
+      .selectFrom("users")
+      .selectAll()
+      .where("email", "=", input.email)
+      .executeTakeFirst();
 
     if (!user) {
-      const [countRow] = await tx.select({ value: count() }).from(users);
+      const countRow = await trx
+        .selectFrom("users")
+        .select(sql<number>`count(*)`.as("value"))
+        .executeTakeFirst();
       if ((countRow?.value ?? 0) !== 0) {
         throw new Error("Registration is closed");
       }
-      [user] = await tx
-        .insert(users)
+      user = await trx
+        .insertInto("users")
         .values({
           id: `user_${crypto.randomUUID()}`,
           email: input.email,
           name: input.name,
-          avatarUrl: null,
-          emailVerifiedAt: now,
-          tokenVersion: 1,
+          avatar_url: null,
+          email_verified_at: now,
+          token_version: 1,
           role: UserRole.Admin,
-          createdAt: now,
-          updatedAt: now,
+          created_at: now,
+          updated_at: now,
         })
-        .returning();
+        .returningAll()
+        .executeTakeFirst();
     } else {
       const nextName = user.name?.trim() ? user.name : input.name;
-      const [updatedUser] = await tx
-        .update(users)
+      const updatedUser = await trx
+        .updateTable("users")
         .set({
           name: nextName,
-          emailVerifiedAt: user.emailVerifiedAt ?? now,
-          updatedAt: now,
+          email_verified_at: user.email_verified_at ?? now,
+          updated_at: now,
         })
-        .where(eq(users.id, user.id))
-        .returning();
+        .where("id", "=", user.id)
+        .returningAll()
+        .executeTakeFirst();
       user = updatedUser ?? user;
     }
 
@@ -269,26 +330,26 @@ export async function reconcileOAuthIdentity(input: {
       throw new Error("Failed to reconcile OAuth identity");
     }
 
-    const [existingIdentity] = await tx
-      .select()
-      .from(authIdentities)
-      .where(
-        and(
-          eq(authIdentities.provider, input.provider),
-          eq(authIdentities.providerUserId, input.email)
-        )
-      );
+    const existingIdentity = await trx
+      .selectFrom("auth_identities")
+      .selectAll()
+      .where("provider", "=", input.provider)
+      .where("provider_user_id", "=", input.email)
+      .executeTakeFirst();
 
     if (!existingIdentity) {
-      await tx.insert(authIdentities).values({
-        id: `auth_${crypto.randomUUID()}`,
-        userId: user.id,
-        provider: input.provider,
-        providerUserId: input.email,
-        passwordHash: null,
-        createdAt: now,
-        updatedAt: now,
-      });
+      await trx
+        .insertInto("auth_identities")
+        .values({
+          id: `auth_${crypto.randomUUID()}`,
+          user_id: user.id,
+          provider: input.provider,
+          provider_user_id: input.email,
+          password_hash: null,
+          created_at: now,
+          updated_at: now,
+        })
+        .execute();
     }
 
     return user;
@@ -301,18 +362,16 @@ export async function reconcileOAuthIdentity(input: {
 
 export async function findValidEmailVerificationToken(tokenHash: string) {
   const now = new Date();
-  const [verification] = await db
-    .select()
-    .from(emailVerificationTokens)
-    .where(
-      and(
-        eq(emailVerificationTokens.tokenHash, tokenHash),
-        eq(emailVerificationTokens.purpose, "password-registration"),
-        isNull(emailVerificationTokens.usedAt),
-        gt(emailVerificationTokens.expiresAt, now)
-      )
-    );
-  return verification ?? null;
+  return (
+    (await db
+      .selectFrom("email_verification_tokens")
+      .selectAll()
+      .where("token_hash", "=", tokenHash)
+      .where("purpose", "=", "password-registration")
+      .where("used_at", "is", null)
+      .where("expires_at", ">", now)
+      .executeTakeFirst()) ?? null
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -325,48 +384,62 @@ export async function processEmailVerification(verification: {
   userId: string | null;
   pendingPasswordHash: string;
   pendingName: string | null;
-}): Promise<typeof users.$inferSelect | null> {
+}): Promise<User | null> {
   const now = new Date();
 
-  return db.transaction(async (tx) => {
+  return db.transaction().execute(async (trx) => {
     let user = verification.userId
-      ? ((await tx.select().from(users).where(eq(users.id, verification.userId)))[0] ?? null)
+      ? ((await trx
+          .selectFrom("users")
+          .selectAll()
+          .where("id", "=", verification.userId)
+          .executeTakeFirst()) ?? null)
       : null;
 
     if (!user) {
-      user = (await tx.select().from(users).where(eq(users.email, verification.email)))[0] ?? null;
+      user =
+        (await trx
+          .selectFrom("users")
+          .selectAll()
+          .where("email", "=", verification.email)
+          .executeTakeFirst()) ?? null;
     }
 
     if (!user) {
-      const [countRow] = await tx.select({ value: count() }).from(users);
+      const countRow = await trx
+        .selectFrom("users")
+        .select(sql<number>`count(*)`.as("value"))
+        .executeTakeFirst();
       const isFirstUser = (countRow?.value ?? 0) === 0;
       if (!isFirstUser) {
         return null;
       }
-      const [createdUser] = await tx
-        .insert(users)
+      const createdUser = await trx
+        .insertInto("users")
         .values({
           id: `user_${crypto.randomUUID()}`,
           email: verification.email,
           name: verification.pendingName || verification.email.split("@")[0] || "User",
-          avatarUrl: null,
-          emailVerifiedAt: now,
-          tokenVersion: 1,
+          avatar_url: null,
+          email_verified_at: now,
+          token_version: 1,
           role: UserRole.Admin,
-          createdAt: now,
-          updatedAt: now,
+          created_at: now,
+          updated_at: now,
         })
-        .returning();
+        .returningAll()
+        .executeTakeFirst();
       user = createdUser ?? null;
     } else {
-      const [updatedUser] = await tx
-        .update(users)
+      const updatedUser = await trx
+        .updateTable("users")
         .set({
-          emailVerifiedAt: user.emailVerifiedAt ?? now,
-          updatedAt: now,
+          email_verified_at: user.email_verified_at ?? now,
+          updated_at: now,
         })
-        .where(eq(users.id, user.id))
-        .returning();
+        .where("id", "=", user.id)
+        .returningAll()
+        .executeTakeFirst();
       user = updatedUser ?? user;
     }
 
@@ -374,35 +447,42 @@ export async function processEmailVerification(verification: {
       throw new Error("Failed to create user during verification");
     }
 
-    const [passwordIdentity] = await tx
-      .select()
-      .from(authIdentities)
-      .where(and(eq(authIdentities.userId, user.id), eq(authIdentities.provider, "password")));
+    const passwordIdentity = await trx
+      .selectFrom("auth_identities")
+      .selectAll()
+      .where("user_id", "=", user.id)
+      .where("provider", "=", "password")
+      .executeTakeFirst();
 
     if (passwordIdentity) {
-      await tx
-        .update(authIdentities)
+      await trx
+        .updateTable("auth_identities")
         .set({
-          passwordHash: verification.pendingPasswordHash,
-          updatedAt: now,
+          password_hash: verification.pendingPasswordHash,
+          updated_at: now,
         })
-        .where(eq(authIdentities.id, passwordIdentity.id));
+        .where("id", "=", passwordIdentity.id)
+        .execute();
     } else {
-      await tx.insert(authIdentities).values({
-        id: `auth_${crypto.randomUUID()}`,
-        userId: user.id,
-        provider: "password",
-        providerUserId: user.email,
-        passwordHash: verification.pendingPasswordHash,
-        createdAt: now,
-        updatedAt: now,
-      });
+      await trx
+        .insertInto("auth_identities")
+        .values({
+          id: `auth_${crypto.randomUUID()}`,
+          user_id: user.id,
+          provider: "password",
+          provider_user_id: user.email,
+          password_hash: verification.pendingPasswordHash,
+          created_at: now,
+          updated_at: now,
+        })
+        .execute();
     }
 
-    await tx
-      .update(emailVerificationTokens)
-      .set({ usedAt: now })
-      .where(eq(emailVerificationTokens.id, verification.id));
+    await trx
+      .updateTable("email_verification_tokens")
+      .set({ used_at: now })
+      .where("id", "=", verification.id)
+      .execute();
 
     return user;
   });

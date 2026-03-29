@@ -1,35 +1,29 @@
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import {
-  aituberCharacters,
-  aituberMessages,
-  aituberSessions,
-  type NewAituberCharacter,
-  type NewAituberMessage,
-  type NewAituberSession,
-} from "../../db/schema.js";
-import { firstOrNull, getRecordById } from "../../lib/db-utils.js";
+import type { NewAituberCharacter, NewAituberMessage, NewAituberSession } from "../../db/schema.js";
+import { getRecordById } from "../../lib/db-utils.js";
 
 // --- Characters ---
 
 export async function createCharacter(character: NewAituberCharacter) {
-  return firstOrNull(await db.insert(aituberCharacters).values(character).returning());
+  return (
+    (await db
+      .insertInto("aituber_characters")
+      .values(character)
+      .returningAll()
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function getCharacterById(id: string) {
-  return getRecordById(aituberCharacters, id);
+  return getRecordById("aituber_characters", id);
 }
 
 export async function listCharacters(opts?: { createdBy?: string }) {
-  const conditions = [];
+  let query = db.selectFrom("aituber_characters").selectAll();
   if (opts?.createdBy) {
-    conditions.push(eq(aituberCharacters.createdBy, opts.createdBy));
+    query = query.where("created_by", "=", opts.createdBy);
   }
-  return db
-    .select()
-    .from(aituberCharacters)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(aituberCharacters.createdAt));
+  return query.orderBy("created_at", "desc").execute();
 }
 
 export async function updateCharacter(
@@ -47,38 +41,54 @@ export async function updateCharacter(
     updatedAt: Date;
   }>
 ) {
-  return firstOrNull(
-    await db.update(aituberCharacters).set(payload).where(eq(aituberCharacters.id, id)).returning()
+  const mapped: Record<string, unknown> = {};
+  if (payload.name !== undefined) mapped.name = payload.name;
+  if (payload.personality !== undefined) mapped.personality = payload.personality;
+  if (payload.systemPrompt !== undefined) mapped.system_prompt = payload.systemPrompt;
+  if (payload.speakingStyle !== undefined) mapped.speaking_style = payload.speakingStyle;
+  if (payload.languageCode !== undefined) mapped.language_code = payload.languageCode;
+  if (payload.voiceName !== undefined) mapped.voice_name = payload.voiceName;
+  if (payload.avatarUrl !== undefined) mapped.avatar_url = payload.avatarUrl;
+  if (payload.avatarFileId !== undefined) mapped.avatar_file_id = payload.avatarFileId;
+  if (payload.isPublic !== undefined) mapped.is_public = payload.isPublic;
+  if (payload.updatedAt !== undefined) mapped.updated_at = payload.updatedAt;
+
+  return (
+    (await db
+      .updateTable("aituber_characters")
+      .set(mapped)
+      .where("id", "=", id)
+      .returningAll()
+      .executeTakeFirst()) ?? null
   );
 }
 
 export async function deleteCharacter(id: string) {
-  await db.delete(aituberCharacters).where(eq(aituberCharacters.id, id));
+  await db.deleteFrom("aituber_characters").where("id", "=", id).execute();
 }
 
 // --- Sessions ---
 
 export async function createSession(session: NewAituberSession) {
-  return firstOrNull(await db.insert(aituberSessions).values(session).returning());
+  return (
+    (await db.insertInto("aituber_sessions").values(session).returningAll().executeTakeFirst()) ??
+    null
+  );
 }
 
 export async function getSessionById(id: string) {
-  return getRecordById(aituberSessions, id);
+  return getRecordById("aituber_sessions", id);
 }
 
 export async function listSessions(opts?: { status?: string; creatorId?: string }) {
-  const conditions = [];
+  let query = db.selectFrom("aituber_sessions").selectAll();
   if (opts?.status) {
-    conditions.push(eq(aituberSessions.status, opts.status));
+    query = query.where("status", "=", opts.status);
   }
   if (opts?.creatorId) {
-    conditions.push(eq(aituberSessions.creatorId, opts.creatorId));
+    query = query.where("creator_id", "=", opts.creatorId);
   }
-  return db
-    .select()
-    .from(aituberSessions)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(aituberSessions.createdAt));
+  return query.orderBy("created_at", "desc").execute();
 }
 
 export async function updateSession(
@@ -89,8 +99,18 @@ export async function updateSession(
     endedAt: Date;
   }>
 ) {
-  return firstOrNull(
-    await db.update(aituberSessions).set(payload).where(eq(aituberSessions.id, id)).returning()
+  const mapped: Record<string, unknown> = {};
+  if (payload.status !== undefined) mapped.status = payload.status;
+  if (payload.startedAt !== undefined) mapped.started_at = payload.startedAt;
+  if (payload.endedAt !== undefined) mapped.ended_at = payload.endedAt;
+
+  return (
+    (await db
+      .updateTable("aituber_sessions")
+      .set(mapped)
+      .where("id", "=", id)
+      .returningAll()
+      .executeTakeFirst()) ?? null
   );
 }
 
@@ -104,61 +124,71 @@ export async function updateSessionWithStatus(
     endedAt: Date;
   }>
 ) {
-  return firstOrNull(
-    await db
-      .update(aituberSessions)
-      .set(payload)
-      .where(and(eq(aituberSessions.id, id), eq(aituberSessions.status, expectedStatus)))
-      .returning()
+  const mapped: Record<string, unknown> = {};
+  if (payload.status !== undefined) mapped.status = payload.status;
+  if (payload.startedAt !== undefined) mapped.started_at = payload.startedAt;
+  if (payload.endedAt !== undefined) mapped.ended_at = payload.endedAt;
+
+  return (
+    (await db
+      .updateTable("aituber_sessions")
+      .set(mapped)
+      .where("id", "=", id)
+      .where("status", "=", expectedStatus)
+      .returningAll()
+      .executeTakeFirst()) ?? null
   );
 }
 
 // --- Messages ---
 
 export async function createMessage(message: NewAituberMessage) {
-  return firstOrNull(await db.insert(aituberMessages).values(message).returning());
+  return (
+    (await db.insertInto("aituber_messages").values(message).returningAll().executeTakeFirst()) ??
+    null
+  );
 }
 
 export async function listUnprocessedMessages(sessionId: string, limit = 10) {
   return db
-    .select()
-    .from(aituberMessages)
-    .where(
-      and(
-        eq(aituberMessages.sessionId, sessionId),
-        eq(aituberMessages.role, "viewer"),
-        isNull(aituberMessages.processedAt)
-      )
-    )
-    .orderBy(asc(aituberMessages.createdAt))
-    .limit(limit);
+    .selectFrom("aituber_messages")
+    .selectAll()
+    .where("session_id", "=", sessionId)
+    .where("role", "=", "viewer")
+    .where("processed_at", "is", null)
+    .orderBy("created_at", "asc")
+    .limit(limit)
+    .execute();
 }
 
 export async function markMessageProcessed(id: string) {
-  return firstOrNull(
-    await db
-      .update(aituberMessages)
-      .set({ processedAt: new Date() })
-      .where(eq(aituberMessages.id, id))
-      .returning()
+  return (
+    (await db
+      .updateTable("aituber_messages")
+      .set({ processed_at: new Date() })
+      .where("id", "=", id)
+      .returningAll()
+      .executeTakeFirst()) ?? null
   );
 }
 
 export async function listMessagesBySession(sessionId: string, limit = 50) {
   return db
-    .select()
-    .from(aituberMessages)
-    .where(eq(aituberMessages.sessionId, sessionId))
-    .orderBy(desc(aituberMessages.createdAt))
-    .limit(limit);
+    .selectFrom("aituber_messages")
+    .selectAll()
+    .where("session_id", "=", sessionId)
+    .orderBy("created_at", "desc")
+    .limit(limit)
+    .execute();
 }
 
 export async function listRecentMessages(sessionId: string, limit = 20) {
   const rows = await db
-    .select()
-    .from(aituberMessages)
-    .where(eq(aituberMessages.sessionId, sessionId))
-    .orderBy(desc(aituberMessages.createdAt))
-    .limit(limit);
+    .selectFrom("aituber_messages")
+    .selectAll()
+    .where("session_id", "=", sessionId)
+    .orderBy("created_at", "desc")
+    .limit(limit)
+    .execute();
   return rows.reverse();
 }

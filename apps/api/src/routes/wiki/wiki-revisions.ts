@@ -45,7 +45,7 @@ wikiRevisionRoutes.get(
       return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
     }
     const revision = await getRevisionById(revisionId);
-    if (!revision || revision.pageId !== id) {
+    if (!revision || revision.page_id !== id) {
       return jsonError(c, 404, "WIKI_REVISION_NOT_FOUND", "Revision not found");
     }
     return c.json({ revision });

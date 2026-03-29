@@ -1,14 +1,13 @@
-import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { googleCalendarTokens } from "../../db/schema.js";
 
 export async function getCalendarToken(userId: string) {
-  const [row] = await db
-    .select()
-    .from(googleCalendarTokens)
-    .where(eq(googleCalendarTokens.userId, userId))
-    .limit(1);
-  return row ?? null;
+  return (
+    (await db
+      .selectFrom("google_calendar_tokens")
+      .selectAll()
+      .where("user_id", "=", userId)
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function upsertCalendarToken(
@@ -26,37 +25,52 @@ export async function upsertCalendarToken(
 
   if (existing) {
     await db
-      .update(googleCalendarTokens)
-      .set({ ...values, updatedAt: now })
-      .where(eq(googleCalendarTokens.userId, userId));
+      .updateTable("google_calendar_tokens")
+      .set({
+        access_token_enc: values.accessTokenEnc,
+        refresh_token_enc: values.refreshTokenEnc,
+        expires_at: values.expiresAt,
+        scope: values.scope,
+        ...(values.calendarId !== undefined ? { calendar_id: values.calendarId } : {}),
+        updated_at: now,
+      })
+      .where("user_id", "=", userId)
+      .execute();
   } else {
-    await db.insert(googleCalendarTokens).values({
-      id: crypto.randomUUID(),
-      userId,
-      ...values,
-      calendarId: values.calendarId ?? "primary",
-      updatedAt: now,
-      createdAt: now,
-    });
+    await db
+      .insertInto("google_calendar_tokens")
+      .values({
+        id: crypto.randomUUID(),
+        user_id: userId,
+        access_token_enc: values.accessTokenEnc,
+        refresh_token_enc: values.refreshTokenEnc,
+        expires_at: values.expiresAt,
+        scope: values.scope,
+        calendar_id: values.calendarId ?? "primary",
+        updated_at: now,
+        created_at: now,
+      })
+      .execute();
   }
 }
 
 export async function updateCalendarToken(userId: string, values: Record<string, unknown>) {
   await db
-    .update(googleCalendarTokens)
-    .set({ ...values, updatedAt: new Date() })
-    .where(eq(googleCalendarTokens.userId, userId));
+    .updateTable("google_calendar_tokens")
+    .set({ ...values, updated_at: new Date() })
+    .where("user_id", "=", userId)
+    .execute();
 }
 
 export async function deleteCalendarToken(userId: string) {
-  await db.delete(googleCalendarTokens).where(eq(googleCalendarTokens.userId, userId));
+  await db.deleteFrom("google_calendar_tokens").where("user_id", "=", userId).execute();
 }
 
 export async function hasCalendarToken(userId: string) {
-  const [row] = await db
-    .select({ id: googleCalendarTokens.id })
-    .from(googleCalendarTokens)
-    .where(eq(googleCalendarTokens.userId, userId))
-    .limit(1);
+  const row = await db
+    .selectFrom("google_calendar_tokens")
+    .select("id")
+    .where("user_id", "=", userId)
+    .executeTakeFirst();
   return Boolean(row);
 }

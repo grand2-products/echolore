@@ -101,7 +101,7 @@ wikiPermissionRoutes.get(
     if (error) return error;
 
     const inherit = await getPageInheritance(id);
-    return c.json({ pageId: id, inheritFromParent: inherit?.inheritFromParent ?? true });
+    return c.json({ pageId: id, inheritFromParent: inherit?.inherit_from_parent ?? true });
   }
 );
 

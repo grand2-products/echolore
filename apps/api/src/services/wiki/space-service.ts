@@ -31,10 +31,10 @@ export async function ensureGeneralSpace(): Promise<Space> {
         id: GENERAL_SPACE_ID,
         name: "General",
         type: "general",
-        ownerUserId: null,
-        groupId: null,
-        createdAt: now,
-        updatedAt: now,
+        owner_user_id: null,
+        group_id: null,
+        created_at: now,
+        updated_at: now,
       }),
     errorMessage: "Failed to create general space",
   });
@@ -45,7 +45,7 @@ async function ensureTeamSpacesForAllGroups(): Promise<void> {
   if (allGroups.length === 0) return;
 
   const allSpaces = await listSpaces();
-  const groupsWithSpaces = new Set(allSpaces.filter((s) => s.groupId).map((s) => s.groupId));
+  const groupsWithSpaces = new Set(allSpaces.filter((s) => s.group_id).map((s) => s.group_id));
 
   await Promise.all(
     allGroups
@@ -68,14 +68,14 @@ export async function listVisibleSpaces(user: SessionUser): Promise<Space[]> {
   }
 
   const memberships = await listMembershipsByUser(user.id);
-  const userGroupIds = memberships.map((m) => m.groupId);
+  const userGroupIds = memberships.map((m) => m.group_id);
   const userGroupIdSet = new Set(userGroupIds);
 
   let allSpacePerms: Array<{ spaceId: string; canRead: boolean }> = [];
   if (userGroupIds.length > 0) {
     allSpacePerms = (await listSpacePermissionsByGroupIds(userGroupIds)).map((p) => ({
-      spaceId: p.spaceId,
-      canRead: p.canRead,
+      spaceId: p.space_id,
+      canRead: p.can_read,
     }));
   }
   const spacePermsMap = new Map<string, boolean[]>();
@@ -97,7 +97,7 @@ export async function listVisibleSpaces(user: SessionUser): Promise<Space[]> {
     }
 
     if (space.type === "general") return true;
-    if (space.type === "team") return space.groupId !== null && userGroupIdSet.has(space.groupId);
+    if (space.type === "team") return space.group_id !== null && userGroupIdSet.has(space.group_id);
     return false;
   });
 }
@@ -111,10 +111,10 @@ export async function getOrCreatePersonalSpace(user: SessionUser): Promise<Space
         id: `space_${nanoid(12)}`,
         name: user.name,
         type: "personal",
-        ownerUserId: user.id,
-        groupId: null,
-        createdAt: now,
-        updatedAt: now,
+        owner_user_id: user.id,
+        group_id: null,
+        created_at: now,
+        updated_at: now,
       }),
     errorMessage: "Failed to create personal space",
   });
@@ -127,27 +127,27 @@ export async function canAccessSpace(
 ): Promise<boolean> {
   if (space.type === "personal") {
     if (action === "read") return true;
-    return space.ownerUserId === user.id;
+    return space.owner_user_id === user.id;
   }
   if (user.role === UserRole.Admin) return true;
 
   const memberships = await listMembershipsByUser(user.id);
-  const groupIds = memberships.map((m) => m.groupId);
+  const groupIds = memberships.map((m) => m.group_id);
 
   if (groupIds.length > 0) {
     const perms = await listSpacePermissionsForSpace(space.id, groupIds);
     if (perms.length > 0) {
       return perms.some((p) => {
-        if (action === "read") return p.canRead;
-        if (action === "write") return p.canWrite;
-        return p.canDelete;
+        if (action === "read") return p.can_read;
+        if (action === "write") return p.can_write;
+        return p.can_delete;
       });
     }
   }
 
   if (space.type === "general") return true;
-  if (space.type === "team" && space.groupId) {
-    return groupIds.includes(space.groupId);
+  if (space.type === "team" && space.group_id) {
+    return groupIds.includes(space.group_id);
   }
   return false;
 }
@@ -161,10 +161,10 @@ export async function ensureTeamSpaceForGroup(groupId: string, groupName: string
         id: `space_${nanoid(12)}`,
         name: groupName,
         type: "team",
-        ownerUserId: null,
-        groupId,
-        createdAt: now,
-        updatedAt: now,
+        owner_user_id: null,
+        group_id: groupId,
+        created_at: now,
+        updated_at: now,
       }),
     errorMessage: "Failed to create team space",
   });
