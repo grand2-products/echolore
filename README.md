@@ -23,7 +23,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup instructions.
 
 ## Tech Stack
 - **Frontend**: Next.js
-- **API**: Hono + Drizzle ORM
+- **API**: Hono + Kysely
 - **Database**: PostgreSQL (pgvector)
 - **Realtime**: LiveKit
 - **Cache**: Valkey

@@ -37,7 +37,7 @@ This document describes the currently implemented release flow.
   - execute `scripts/release/remote-runtime-apply.sh` on the host
   - `docker compose config`
   - `docker compose pull`
-  - start DB and run drizzle-orm migrations
+  - start DB and run SQL migrations (Kysely migrator)
   - `docker compose up -d --remove-orphans`
   - `docker compose ps`
   - API host health verification

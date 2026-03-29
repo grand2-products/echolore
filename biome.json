@@ -53,7 +53,7 @@
       "!**/plan",
       "!**/*.md",
       "!**/terraform",
-      "!**/drizzle",
+
       "!**/data",
       "!**/*.js",
       "!**/globals.css"

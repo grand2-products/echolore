@@ -26,7 +26,7 @@ This document describes the currently implemented system architecture of `echolo
 - runtime services are deployed with `docker-compose.yml` on any Linux VPS or server
 - container images are published to GHCR (`ghcr.io`)
 - Traefik handles TLS termination with automatic Let's Encrypt certificate provisioning, including LiveKit WebSocket signaling (wss:// via `/rtc` path route)
-- DB migrations run automatically during each release (drizzle-orm programmatic migrator)
+- DB migrations run automatically during each release (forward-only SQL migrations run on startup via Kysely migrator)
 - all containers use `restart: unless-stopped`; a systemd unit restores the stack after reboot
 - AI credentials (Gemini, Vertex AI, Speech) use API keys configured via environment variables
 - local-only overrides live in `docker-compose.dev.yml`
