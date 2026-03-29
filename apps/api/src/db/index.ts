@@ -1,6 +1,6 @@
-import { drizzle } from "drizzle-orm/node-postgres";
+import { Kysely, PostgresDialect, type Transaction } from "kysely";
 import { Pool } from "pg";
-import * as schema from "./schema.js";
+import type { Database } from "./schema/database.js";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString && process.env.NODE_ENV !== "test") {
@@ -11,6 +11,8 @@ const pool = new Pool({
   connectionString: connectionString || "postgresql://localhost:5432/test",
 });
 
-export const db = drizzle(pool, { schema });
+export const db = new Kysely<Database>({
+  dialect: new PostgresDialect({ pool }),
+});
 
-export { schema };
+export type DbTransaction = Transaction<Database>;

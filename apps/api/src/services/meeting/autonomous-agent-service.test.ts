@@ -51,27 +51,27 @@ describe("autonomous-agent-service", () => {
 
   const makeSession = (overrides?: Record<string, unknown>) => ({
     id: "session-1",
-    meetingId: "meeting-1",
-    agentId: "agent-1",
-    lastAutoEvalSegmentId: null,
-    invokedByUserId: "user-1",
+    meeting_id: "meeting-1",
+    agent_id: "agent-1",
+    last_auto_eval_segment_id: null,
+    invoked_by_user_id: "user-1",
     ...overrides,
   });
 
   const makeAgent = (overrides?: Record<string, unknown>) => ({
     id: "agent-1",
     name: "Test Agent",
-    systemPrompt: "You are a helpful assistant",
-    interventionStyle: "proactive",
-    defaultProvider: "gemini",
-    autonomousCooldownSec: 60,
+    system_prompt: "You are a helpful assistant",
+    intervention_style: "proactive",
+    default_provider: "gemini",
+    autonomous_cooldown_sec: 60,
     ...overrides,
   });
 
   const makeSegments = (count: number) =>
     Array.from({ length: count }, (_, i) => ({
       id: `seg-${i}`,
-      speakerLabel: `Speaker ${i}`,
+      speaker_label: `Speaker ${i}`,
       content: `Content of segment ${i}`,
     }));
 
@@ -150,7 +150,7 @@ describe("autonomous-agent-service", () => {
   describe("Zod validation of LLM response", () => {
     it("returns shouldIntervene false when LLM returns invalid JSON", async () => {
       const session = makeSession();
-      const agent = makeAgent({ autonomousCooldownSec: 0 });
+      const agent = makeAgent({ autonomous_cooldown_sec: 0 });
       const segments = makeSegments(4);
 
       listAutonomousActiveSessionsMock.mockResolvedValue([{ session, agent }]);
@@ -179,7 +179,7 @@ describe("autonomous-agent-service", () => {
 
     it("returns shouldIntervene false when LLM returns valid JSON with invalid schema", async () => {
       const session = makeSession();
-      const agent = makeAgent({ autonomousCooldownSec: 0 });
+      const agent = makeAgent({ autonomous_cooldown_sec: 0 });
       const segments = makeSegments(4);
 
       listAutonomousActiveSessionsMock.mockResolvedValue([{ session, agent }]);
@@ -229,7 +229,7 @@ describe("autonomous-agent-service", () => {
 
     it("skips evaluation when within cooldown period", async () => {
       const session = makeSession();
-      const agent = makeAgent({ autonomousCooldownSec: 300 }); // 5 min cooldown
+      const agent = makeAgent({ autonomous_cooldown_sec: 300 }); // 5 min cooldown
 
       listAutonomousActiveSessionsMock.mockResolvedValue([{ session, agent }]);
       listFinalSegmentsAfterMock.mockResolvedValue(makeSegments(5));
@@ -247,7 +247,7 @@ describe("autonomous-agent-service", () => {
 
     it("triggers intervention when LLM decides shouldIntervene is true", async () => {
       const session = makeSession();
-      const agent = makeAgent({ autonomousCooldownSec: 0 });
+      const agent = makeAgent({ autonomous_cooldown_sec: 0 });
       const segments = makeSegments(4);
 
       listAutonomousActiveSessionsMock.mockResolvedValue([{ session, agent }]);
@@ -290,7 +290,7 @@ describe("autonomous-agent-service", () => {
 
     it("does not intervene when LLM decides shouldIntervene is false", async () => {
       const session = makeSession();
-      const agent = makeAgent({ autonomousCooldownSec: 0 });
+      const agent = makeAgent({ autonomous_cooldown_sec: 0 });
       const segments = makeSegments(4);
 
       listAutonomousActiveSessionsMock.mockResolvedValue([{ session, agent }]);
@@ -324,7 +324,7 @@ describe("autonomous-agent-service", () => {
 
     it("does not intervene when text generation is not enabled", async () => {
       const session = makeSession();
-      const agent = makeAgent({ autonomousCooldownSec: 0 });
+      const agent = makeAgent({ autonomous_cooldown_sec: 0 });
 
       listAutonomousActiveSessionsMock.mockResolvedValue([{ session, agent }]);
       listFinalSegmentsAfterMock.mockResolvedValue(makeSegments(5));
@@ -343,7 +343,7 @@ describe("autonomous-agent-service", () => {
 
     it("updates the eval cursor even when decision is to not intervene", async () => {
       const session = makeSession();
-      const agent = makeAgent({ autonomousCooldownSec: 0 });
+      const agent = makeAgent({ autonomous_cooldown_sec: 0 });
       const segments = makeSegments(4);
 
       listAutonomousActiveSessionsMock.mockResolvedValue([{ session, agent }]);

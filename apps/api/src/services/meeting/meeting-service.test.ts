@@ -1,21 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { blocks, type Meeting, summaries } from "../../db/schema.js";
+import type { Meeting } from "../../db/schema.js";
 import { createMeetingSummaryWikiArtifacts, MEETING_NOTES_PAGE_ID } from "./meeting-service.js";
 
 const { dbMock, createPageWithAccessDefaultsTxMock } = vi.hoisted(() => {
-  const selectFromWhereMock = vi.fn();
+  const selectExecuteTakeFirstMock = vi.fn();
+  const transactionExecuteMock = vi.fn();
   return {
     dbMock: {
-      transaction: vi.fn(),
-      select: vi.fn(() => ({
-        from: vi.fn(() => ({
-          where: selectFromWhereMock,
+      transaction: vi.fn(() => ({
+        execute: transactionExecuteMock,
+      })),
+      selectFrom: vi.fn(() => ({
+        select: vi.fn(() => ({
+          where: vi.fn(() => ({
+            executeTakeFirst: selectExecuteTakeFirstMock,
+          })),
         })),
       })),
-      insert: vi.fn(() => ({
-        values: vi.fn(async () => undefined),
-      })),
-      _selectFromWhereMock: selectFromWhereMock,
+      _selectExecuteTakeFirstMock: selectExecuteTakeFirstMock,
+      _transactionExecuteMock: transactionExecuteMock,
     },
     createPageWithAccessDefaultsTxMock: vi.fn(),
   };
@@ -35,53 +38,58 @@ vi.mock("../wiki/space-service.js", () => ({
 
 describe("meeting-service", () => {
   beforeEach(() => {
-    dbMock.transaction.mockReset();
-    dbMock.select.mockClear();
-    dbMock.insert.mockClear();
-    dbMock._selectFromWhereMock.mockReset();
+    dbMock._transactionExecuteMock.mockReset();
+    dbMock._selectExecuteTakeFirstMock.mockReset();
+    dbMock.selectFrom.mockClear();
     createPageWithAccessDefaultsTxMock.mockReset();
     vi.restoreAllMocks();
     // Default: Meeting Notes page already exists
-    dbMock._selectFromWhereMock.mockResolvedValue([{ id: MEETING_NOTES_PAGE_ID }]);
+    dbMock._selectExecuteTakeFirstMock.mockResolvedValue({ id: MEETING_NOTES_PAGE_ID });
   });
 
   it("creates summary, wiki page, and blocks in a single transaction", async () => {
     const summaryRecord = {
       id: "summary_1",
-      meetingId: "meeting_1",
+      meeting_id: "meeting_1",
       content: "Summary body",
-      createdAt: new Date("2026-03-11T00:00:00.000Z"),
+      created_at: new Date("2026-03-11T00:00:00.000Z"),
     };
     const pageRecord = {
       id: "page_1",
       title: "Planning - AI Summary",
-      parentId: MEETING_NOTES_PAGE_ID,
-      authorId: "user_1",
-      createdAt: new Date("2026-03-11T00:00:00.000Z"),
-      updatedAt: new Date("2026-03-11T00:00:00.000Z"),
+      parent_id: MEETING_NOTES_PAGE_ID,
+      author_id: "user_1",
+      created_at: new Date("2026-03-11T00:00:00.000Z"),
+      updated_at: new Date("2026-03-11T00:00:00.000Z"),
     };
 
-    const insertMock = vi.fn((table: unknown) => {
-      if (table === summaries) {
+    const insertedTables: string[] = [];
+    const insertMock = vi.fn((table: string) => {
+      insertedTables.push(table);
+      if (table === "summaries") {
         return {
           values: vi.fn(() => ({
-            returning: vi.fn(async () => [summaryRecord]),
+            returningAll: vi.fn(() => ({
+              executeTakeFirst: vi.fn(async () => summaryRecord),
+            })),
           })),
         };
       }
 
-      if (table === blocks) {
+      if (table === "blocks") {
         return {
-          values: vi.fn(async () => undefined),
+          values: vi.fn(() => ({
+            execute: vi.fn(async () => undefined),
+          })),
         };
       }
 
       throw new Error("Unexpected table");
     });
 
-    dbMock.transaction.mockImplementation(
-      async (callback: (tx: { insert: typeof insertMock }) => unknown) =>
-        callback({ insert: insertMock })
+    dbMock._transactionExecuteMock.mockImplementation(
+      async (callback: (tx: { insertInto: typeof insertMock }) => unknown) =>
+        callback({ insertInto: insertMock })
     );
     createPageWithAccessDefaultsTxMock.mockResolvedValue(pageRecord);
 
@@ -95,22 +103,22 @@ describe("meeting-service", () => {
     const meeting: Meeting = {
       id: "meeting_1",
       title: "Planning",
-      creatorId: "user_1",
-      roomName: "room-a",
+      creator_id: "user_1",
+      room_name: "room-a",
       status: "ended",
-      startedAt: null,
-      endedAt: null,
-      scheduledAt: null,
-      googleCalendarEventId: null,
-      createdAt: new Date("2026-03-11T00:00:00.000Z"),
+      started_at: null,
+      ended_at: null,
+      scheduled_at: null,
+      google_calendar_event_id: null,
+      created_at: new Date("2026-03-11T00:00:00.000Z"),
     };
 
     const result = await createMeetingSummaryWikiArtifacts(meeting, "Summary body");
 
-    expect(dbMock.transaction).toHaveBeenCalledTimes(1);
-    expect(insertMock).toHaveBeenNthCalledWith(1, summaries);
+    expect(dbMock._transactionExecuteMock).toHaveBeenCalledTimes(1);
+    expect(insertedTables[0]).toBe("summaries");
     expect(createPageWithAccessDefaultsTxMock).toHaveBeenCalledTimes(1);
-    expect(insertMock).toHaveBeenNthCalledWith(2, blocks);
+    expect(insertedTables[1]).toBe("blocks");
     expect(result).toEqual({
       summary: summaryRecord,
       wikiPage: {
@@ -123,38 +131,42 @@ describe("meeting-service", () => {
   });
 
   it("fails when the summary insert does not return a record", async () => {
-    const insertMock = vi.fn((table: unknown) => {
-      if (table === summaries) {
+    const insertMock = vi.fn((table: string) => {
+      if (table === "summaries") {
         return {
           values: vi.fn(() => ({
-            returning: vi.fn(async () => []),
+            returningAll: vi.fn(() => ({
+              executeTakeFirst: vi.fn(async () => undefined),
+            })),
           })),
         };
       }
 
       return {
         values: vi.fn(() => ({
-          returning: vi.fn(async () => []),
+          returningAll: vi.fn(() => ({
+            executeTakeFirst: vi.fn(async () => undefined),
+          })),
         })),
       };
     });
 
-    dbMock.transaction.mockImplementation(
-      async (callback: (tx: { insert: typeof insertMock }) => unknown) =>
-        callback({ insert: insertMock })
+    dbMock._transactionExecuteMock.mockImplementation(
+      async (callback: (tx: { insertInto: typeof insertMock }) => unknown) =>
+        callback({ insertInto: insertMock })
     );
 
     const meeting: Meeting = {
       id: "meeting_1",
       title: "Planning",
-      creatorId: "user_1",
-      roomName: "room-a",
+      creator_id: "user_1",
+      room_name: "room-a",
       status: "ended",
-      startedAt: null,
-      endedAt: null,
-      scheduledAt: null,
-      googleCalendarEventId: null,
-      createdAt: new Date("2026-03-11T00:00:00.000Z"),
+      started_at: null,
+      ended_at: null,
+      scheduled_at: null,
+      google_calendar_event_id: null,
+      created_at: new Date("2026-03-11T00:00:00.000Z"),
     };
 
     await expect(createMeetingSummaryWikiArtifacts(meeting, "Summary body")).rejects.toThrow(

@@ -38,7 +38,7 @@ filesRoutes.get(
       return jsonError(c, 404, "FILE_NOT_FOUND", "File not found");
     }
 
-    const authz = await authorizeOwnerResource(c, "file", id, file.uploaderId, "read");
+    const authz = await authorizeOwnerResource(c, "file", id, file.uploader_id, "read");
     if (!authz.allowed) {
       return jsonError(c, 403, "FORBIDDEN", "Forbidden");
     }
@@ -126,8 +126,11 @@ filesRoutes.post(
         import("../services/knowledge/knowledge-suggestion-service.js")
           .then(async ({ generateSuggestions }) => {
             const { db: dbInst } = await import("../db/index.js");
-            const { spaces } = await import("../db/schema.js");
-            const [space] = await dbInst.select({ id: spaces.id }).from(spaces).limit(1);
+            const space = await dbInst
+              .selectFrom("spaces")
+              .select("id")
+              .limit(1)
+              .executeTakeFirst();
             if (!space) return;
             return generateSuggestions({
               sourceType: "file_upload",
@@ -158,16 +161,16 @@ filesRoutes.get(
       return jsonError(c, 404, "FILE_NOT_FOUND", "File not found");
     }
 
-    const authz = await authorizeOwnerResource(c, "file", id, fileRecord.uploaderId, "read");
+    const authz = await authorizeOwnerResource(c, "file", id, fileRecord.uploader_id, "read");
     if (!authz.allowed) {
       return jsonError(c, 403, "FORBIDDEN", "Forbidden");
     }
 
-    const buffer = await loadFile(fileRecord.storagePath);
+    const buffer = await loadFile(fileRecord.storage_path);
 
     return new Response(new Uint8Array(buffer), {
       headers: {
-        "Content-Type": fileRecord.contentType || "application/octet-stream",
+        "Content-Type": fileRecord.content_type || "application/octet-stream",
         "Content-Disposition": `attachment; filename="${encodeURIComponent(fileRecord.filename)}"`,
         "Cache-Control": "private, max-age=3600",
       },
@@ -188,12 +191,12 @@ filesRoutes.delete(
       return jsonError(c, 404, "FILE_NOT_FOUND", "File not found");
     }
 
-    const authz = await authorizeOwnerResource(c, "file", id, fileRecord.uploaderId, "delete");
+    const authz = await authorizeOwnerResource(c, "file", id, fileRecord.uploader_id, "delete");
     if (!authz.allowed) {
       return jsonError(c, 403, "FORBIDDEN", "Forbidden");
     }
 
-    await removeFile(fileRecord.storagePath);
+    await removeFile(fileRecord.storage_path);
 
     await deleteFile(id);
 

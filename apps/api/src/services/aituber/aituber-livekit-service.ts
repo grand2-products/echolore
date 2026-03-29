@@ -1,7 +1,6 @@
-import { AccessToken, DataPacket_Kind, RoomServiceClient } from "livekit-server-sdk";
-import { livekitApiKey, livekitApiSecret, livekitHost } from "../../lib/livekit-config.js";
-
-const roomService = new RoomServiceClient(livekitHost, livekitApiKey, livekitApiSecret);
+import { AccessToken, DataPacket_Kind } from "livekit-server-sdk";
+import { roomService } from "../../lib/livekit-client.js";
+import { livekitApiKey, livekitApiSecret } from "../../lib/livekit-config.js";
 
 const encoder = new TextEncoder();
 

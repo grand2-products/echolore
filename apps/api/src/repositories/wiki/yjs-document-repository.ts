@@ -1,9 +1,11 @@
-import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { yjsDocuments } from "../../db/schema.js";
 
 export async function getYjsState(pageId: string): Promise<Buffer | null> {
-  const [row] = await db.select().from(yjsDocuments).where(eq(yjsDocuments.pageId, pageId));
+  const row = await db
+    .selectFrom("yjs_documents")
+    .selectAll()
+    .where("page_id", "=", pageId)
+    .executeTakeFirst();
   if (!row) return null;
   return Buffer.from(row.state, "base64");
 }
@@ -11,10 +13,8 @@ export async function getYjsState(pageId: string): Promise<Buffer | null> {
 export async function upsertYjsState(pageId: string, state: Buffer): Promise<void> {
   const base64 = state.toString("base64");
   await db
-    .insert(yjsDocuments)
-    .values({ pageId, state: base64, updatedAt: new Date() })
-    .onConflictDoUpdate({
-      target: yjsDocuments.pageId,
-      set: { state: base64, updatedAt: new Date() },
-    });
+    .insertInto("yjs_documents")
+    .values({ page_id: pageId, state: base64, updated_at: new Date() })
+    .onConflict((oc) => oc.column("page_id").doUpdateSet({ state: base64, updated_at: new Date() }))
+    .execute();
 }

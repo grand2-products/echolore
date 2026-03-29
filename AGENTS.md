@@ -20,7 +20,7 @@
 
 ## Runtime Architecture
 - Web: Next.js
-- API: Hono + Drizzle ORM
+- API: Hono + Kysely
 - Database: PostgreSQL
 - Realtime: LiveKit
 - Cache/broker: Valkey
@@ -99,11 +99,8 @@
 
 ## Database Rules
 - Database schema is defined in `apps/api/src/db/schema.ts`.
-- Schema changes should keep Drizzle artifacts and runtime code aligned.
-- Use:
-  - `pnpm db:generate` for migration generation
-  - `pnpm db:migrate` for applying migrations
-  - `pnpm db:push` only when that workflow is intentionally chosen
+- Schema changes require updating `apps/api/src/db/schema/database.ts` (Kysely type interface) and adding a new SQL migration in `apps/api/src/db/migrations/`.
+- Use `pnpm db:migrate` to apply migrations.
 - When changing schema for shared business entities, review API contracts and authorization impact together.
 - Multi-step writes that must stay consistent should prefer DB transactions.
 

@@ -206,6 +206,27 @@ export default function MeetingsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {getStatusBadge(meeting.status)}
+                  {meeting.status === "active" &&
+                    meeting.activeParticipantCount != null &&
+                    meeting.activeParticipantCount > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                        <svg
+                          className="h-3.5 w-3.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
+                          />
+                        </svg>
+                        {meeting.activeParticipantCount}
+                      </span>
+                    )}
                   <button
                     type="button"
                     onClick={() => runRoomAi(meeting.id)}

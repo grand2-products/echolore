@@ -1,6 +1,5 @@
-import { and, eq, gt, or, sql } from "drizzle-orm";
+import { sql } from "kysely";
 import { db } from "../../db/index.js";
-import { auditLogs } from "../../db/schema.js";
 
 export async function insertAuditLog(payload: {
   id: string;
@@ -14,7 +13,21 @@ export async function insertAuditLog(payload: {
   userAgent: string | null;
   createdAt: Date;
 }): Promise<void> {
-  await db.insert(auditLogs).values(payload);
+  await db
+    .insertInto("audit_logs")
+    .values({
+      id: payload.id,
+      actor_user_id: payload.actorUserId,
+      actor_email: payload.actorEmail,
+      action: payload.action,
+      resource_type: payload.resourceType,
+      resource_id: payload.resourceId,
+      metadata: payload.metadata,
+      ip_address: payload.ipAddress,
+      user_agent: payload.userAgent,
+      created_at: payload.createdAt,
+    })
+    .execute();
 }
 
 export async function countAuditLogsByActionAndIp(
@@ -22,16 +35,13 @@ export async function countAuditLogsByActionAndIp(
   ipAddress: string,
   since: Date
 ): Promise<number> {
-  const [result] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(auditLogs)
-    .where(
-      and(
-        eq(auditLogs.action, action),
-        gt(auditLogs.createdAt, since),
-        eq(auditLogs.ipAddress, ipAddress)
-      )
-    );
+  const result = await db
+    .selectFrom("audit_logs")
+    .select(sql<number>`count(*)`.as("count"))
+    .where("action", "=", action)
+    .where("created_at", ">", since)
+    .where("ip_address", "=", ipAddress)
+    .executeTakeFirst();
   return Number(result?.count ?? 0);
 }
 
@@ -40,20 +50,24 @@ export async function countAuditLogsByActionAndIdentity(
   since: Date,
   identity: { email?: string | null; ipAddress?: string | null }
 ): Promise<number> {
-  const conditions = [eq(auditLogs.action, action), gt(auditLogs.createdAt, since)];
-
-  const identityConditions = [];
-  if (identity.email) identityConditions.push(eq(auditLogs.actorEmail, identity.email));
-  if (identity.ipAddress) identityConditions.push(eq(auditLogs.ipAddress, identity.ipAddress));
+  const identityConditions: Array<{
+    col: "actor_email" | "ip_address";
+    val: string;
+  }> = [];
+  if (identity.email) identityConditions.push({ col: "actor_email", val: identity.email });
+  if (identity.ipAddress) identityConditions.push({ col: "ip_address", val: identity.ipAddress });
 
   if (identityConditions.length === 0) {
     return 0;
   }
 
-  const [result] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(auditLogs)
-    .where(and(...conditions, or(...identityConditions)));
+  const result = await db
+    .selectFrom("audit_logs")
+    .select(sql<number>`count(*)`.as("count"))
+    .where("action", "=", action)
+    .where("created_at", ">", since)
+    .where((eb) => eb.or(identityConditions.map((c) => eb(c.col, "=", c.val))))
+    .executeTakeFirst();
 
   return Number(result?.count ?? 0);
 }

@@ -108,13 +108,13 @@ describe("aituber-service", () => {
         expect.objectContaining({
           name: "TestChar",
           personality: "Friendly",
-          systemPrompt: "You are a test character.",
-          speakingStyle: null,
-          languageCode: "ja-JP",
-          voiceName: null,
-          avatarUrl: null,
-          isPublic: false,
-          createdBy: "user-1",
+          system_prompt: "You are a test character.",
+          speaking_style: null,
+          language_code: "ja-JP",
+          voice_name: null,
+          avatar_url: null,
+          is_public: false,
+          created_by: "user-1",
         })
       );
       expect(result).toEqual(character);
@@ -144,11 +144,11 @@ describe("aituber-service", () => {
 
       expect(repoMock.createCharacter).toHaveBeenCalledWith(
         expect.objectContaining({
-          speakingStyle: "polite",
-          languageCode: "en-US",
-          voiceName: "voice-1",
-          avatarUrl: "https://example.com/avatar.png",
-          isPublic: true,
+          speaking_style: "polite",
+          language_code: "en-US",
+          voice_name: "voice-1",
+          avatar_url: "https://example.com/avatar.png",
+          is_public: true,
         })
       );
     });
@@ -249,11 +249,11 @@ describe("aituber-service", () => {
 
       expect(repoMock.createSession).toHaveBeenCalledWith(
         expect.objectContaining({
-          characterId: "char-1",
-          creatorId: "user-1",
+          character_id: "char-1",
+          creator_id: "user-1",
           title: "Test Session",
           status: "created",
-          roomName: expect.stringMatching(/^aituber-/),
+          room_name: expect.stringMatching(/^aituber-/),
         })
       );
       expect(result).toEqual(session);
@@ -380,10 +380,10 @@ describe("aituber-service", () => {
 
       expect(repoMock.createMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          sessionId: "session-1",
+          session_id: "session-1",
           role: "viewer",
-          senderUserId: "user-1",
-          senderName: "Taro",
+          sender_user_id: "user-1",
+          sender_name: "Taro",
           content: "Hello!",
         })
       );
@@ -402,7 +402,7 @@ describe("aituber-service", () => {
 
       expect(repoMock.createMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          senderUserId: null,
+          sender_user_id: null,
         })
       );
     });
@@ -433,12 +433,12 @@ describe("aituber-service", () => {
 
       expect(repoMock.createMessage).toHaveBeenCalledWith(
         expect.objectContaining({
-          sessionId: "session-1",
+          session_id: "session-1",
           role: "assistant",
-          senderUserId: null,
-          senderName: "AI",
+          sender_user_id: null,
+          sender_name: "AI",
           content: "Response text",
-          processedAt: expect.any(Date),
+          processed_at: expect.any(Date),
         })
       );
       expect(result).toEqual(message);

@@ -25,7 +25,7 @@ meetingAgentRoutes.get(
     const meeting = await getMeetingById(id);
     if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "read");
     if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     return c.json({ events: await listMeetingAgentTimeline(id) });
@@ -45,7 +45,7 @@ meetingAgentRoutes.get(
     const meeting = await getMeetingById(id);
     if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "read");
     if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     return c.json({ sessions: await listActiveAgentSessions(id) });
@@ -63,7 +63,7 @@ meetingAgentRoutes.post(
     const meeting = await getMeetingById(id);
     if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "write");
     if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     const result = await invokeMeetingAgent({
@@ -95,7 +95,7 @@ meetingAgentRoutes.post(
     const meeting = await getMeetingById(id);
     if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "write");
     if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     const session = await leaveMeetingAgent({
@@ -124,7 +124,7 @@ meetingAgentRoutes.post(
     const meeting = await getMeetingById(id);
     if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "write");
     if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     const response = await generateMeetingAgentResponse({

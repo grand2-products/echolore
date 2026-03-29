@@ -43,7 +43,7 @@ aituberRoutes.post(
     if (body.avatarFileId) {
       const file = await getFileById(body.avatarFileId);
       if (!file) return jsonError(c, 400, "INVALID_AVATAR_FILE", "Avatar file does not exist");
-      if (user.role !== UserRole.Admin && file.uploaderId !== user.id) {
+      if (user.role !== UserRole.Admin && file.uploader_id !== user.id) {
         return jsonError(c, 403, "FORBIDDEN", "Not authorized to use this avatar file");
       }
     }
@@ -72,7 +72,7 @@ aituberRoutes.get(
     const user = c.get("user");
     const character = await aituberService.getCharacter(id);
     if (!character) return jsonError(c, 404, "NOT_FOUND", "Character not found");
-    if (!character.isPublic && !isOwnerOrAdmin(user, character.createdBy)) {
+    if (!character.is_public && !isOwnerOrAdmin(user, character.created_by)) {
       return jsonError(c, 403, "FORBIDDEN", "Not authorized to view this character");
     }
     return c.json({ character: toCharacterResponse(character) });
@@ -100,14 +100,14 @@ aituberRoutes.patch(
     const user = c.get("user");
     const existing = await aituberService.getCharacter(id);
     if (!existing) return jsonError(c, 404, "NOT_FOUND", "Character not found");
-    if (!isOwnerOrAdmin(user, existing.createdBy)) {
+    if (!isOwnerOrAdmin(user, existing.created_by)) {
       return jsonError(c, 403, "FORBIDDEN", "Not authorized to update this character");
     }
     const body = c.req.valid("json");
     if (body.avatarFileId) {
       const file = await getFileById(body.avatarFileId);
       if (!file) return jsonError(c, 400, "INVALID_AVATAR_FILE", "Avatar file does not exist");
-      if (user.role !== UserRole.Admin && file.uploaderId !== user.id) {
+      if (user.role !== UserRole.Admin && file.uploader_id !== user.id) {
         return jsonError(c, 403, "FORBIDDEN", "Not authorized to use this avatar file");
       }
     }
@@ -124,7 +124,7 @@ aituberRoutes.post(
     const user = c.get("user");
     const existing = await aituberService.getCharacter(id);
     if (!existing) return jsonError(c, 404, "NOT_FOUND", "Character not found");
-    if (!isOwnerOrAdmin(user, existing.createdBy)) {
+    if (!isOwnerOrAdmin(user, existing.created_by)) {
       return jsonError(c, 403, "FORBIDDEN", "Not authorized to update this character");
     }
 
@@ -200,11 +200,11 @@ aituberRoutes.post(
     }
 
     // Clean up old avatar file if replacing
-    if (existing.avatarFileId) {
-      const oldFile = await getFileById(existing.avatarFileId);
+    if (existing.avatar_file_id) {
+      const oldFile = await getFileById(existing.avatar_file_id);
       if (oldFile) {
         console.log(`[aituber] Cleaning up old avatar file: ${oldFile.id}`);
-        await removeFile(oldFile.storagePath).catch((err) =>
+        await removeFile(oldFile.storage_path).catch((err) =>
           console.warn(`[aituber] Failed to delete old avatar file ${oldFile.id}:`, err)
         );
       }
@@ -235,7 +235,7 @@ aituberRoutes.delete(
     const user = c.get("user");
     const existing = await aituberService.getCharacter(id);
     if (!existing) return jsonError(c, 404, "NOT_FOUND", "Character not found");
-    if (!isOwnerOrAdmin(user, existing.createdBy)) {
+    if (!isOwnerOrAdmin(user, existing.created_by)) {
       return jsonError(c, 403, "FORBIDDEN", "Not authorized to delete this character");
     }
     await aituberService.deleteCharacter(id);
@@ -276,14 +276,14 @@ aituberRoutes.post(
     const user = c.get("user");
     const character = await aituberService.getCharacter(id);
     if (!character) return jsonError(c, 404, "NOT_FOUND", "Character not found");
-    if (!character.isPublic && !isOwnerOrAdmin(user, character.createdBy)) {
+    if (!character.is_public && !isOwnerOrAdmin(user, character.created_by)) {
       return jsonError(c, 403, "FORBIDDEN", "Not authorized to preview this character");
     }
     const { text } = c.req.valid("json");
     const result = await ttsService.synthesizeSpeech(
       text,
-      character.languageCode,
-      character.voiceName
+      character.language_code,
+      character.voice_name
     );
     return c.json({
       audio: result.audio.toString("base64"),
@@ -344,7 +344,7 @@ aituberRoutes.get(
     const { id } = c.req.param();
     const session = await aituberService.getSession(id);
     if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
-    const character = await aituberService.getCharacter(session.characterId);
+    const character = await aituberService.getCharacter(session.character_id);
     return c.json({
       session: {
         ...session,
@@ -363,20 +363,20 @@ aituberRoutes.post(
     const user = c.get("user");
     const session = await aituberService.getSession(id);
     if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
-    if (!isOwnerOrAdmin(user, session.creatorId)) {
+    if (!isOwnerOrAdmin(user, session.creator_id)) {
       return jsonError(c, 403, "FORBIDDEN", "Not authorized to start this session");
     }
 
     // Create LiveKit room
-    await livekitService.createAituberRoom(session.roomName);
+    await livekitService.createAituberRoom(session.room_name);
 
     // Start session
     const updated = await aituberService.startSession(id);
 
     // Get character and start AI processing loop
-    const character = await aituberService.getCharacter(session.characterId);
+    const character = await aituberService.getCharacter(session.character_id);
     if (character) {
-      await aiService.startProcessingLoop(id, character, session.roomName);
+      await aiService.startProcessingLoop(id, character, session.room_name);
     }
 
     return c.json({ session: updated });
@@ -391,7 +391,7 @@ aituberRoutes.post(
     const user = c.get("user");
     const session = await aituberService.getSession(id);
     if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
-    if (!isOwnerOrAdmin(user, session.creatorId)) {
+    if (!isOwnerOrAdmin(user, session.creator_id)) {
       return jsonError(c, 403, "FORBIDDEN", "Not authorized to stop this session");
     }
 
@@ -402,7 +402,7 @@ aituberRoutes.post(
     const updated = await aituberService.stopSession(id);
 
     // Delete LiveKit room
-    await livekitService.deleteAituberRoom(session.roomName);
+    await livekitService.deleteAituberRoom(session.room_name);
 
     return c.json({ session: updated });
   }
@@ -437,7 +437,7 @@ aituberRoutes.post(
     });
 
     // Also broadcast via data channel for immediate display
-    await livekitService.sendDataToRoom(session.roomName, {
+    await livekitService.sendDataToRoom(session.room_name, {
       type: "viewer-message",
       messageId: message.id,
       senderName,
@@ -457,7 +457,7 @@ aituberRoutes.get(
     const session = await aituberService.getSession(id);
     if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
     // Only live sessions are publicly viewable; others require ownership
-    if (session.status !== "live" && !isOwnerOrAdmin(user, session.creatorId)) {
+    if (session.status !== "live" && !isOwnerOrAdmin(user, session.creator_id)) {
       return jsonError(c, 403, "FORBIDDEN", "Not authorized to view messages");
     }
     const messages = await aituberService.listMessages(id);
@@ -477,7 +477,7 @@ aituberRoutes.get(
       return jsonError(c, 400, "SESSION_NOT_LIVE", "Session is not live");
     }
     const token = await livekitService.generateViewerToken(
-      session.roomName,
+      session.room_name,
       `viewer-${user.id}`,
       user.name
     );

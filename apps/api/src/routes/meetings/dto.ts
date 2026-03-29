@@ -1,61 +1,76 @@
 import type {
   MeetingDto,
+  MeetingParticipantDto,
   RealtimeTranscriptSegmentDto,
   SummaryDto,
   TranscriptDto,
 } from "@echolore/shared/contracts";
 import type {
-  meetings,
-  meetingTranscriptSegments,
-  summaries,
-  transcripts,
+  Meeting,
+  MeetingParticipant,
+  MeetingTranscriptSegment,
+  Summary,
+  Transcript,
 } from "../../db/schema.js";
 
 export const toIso = (value: Date | null): string | null => (value ? value.toISOString() : null);
 
-export const toMeetingDto = (meeting: typeof meetings.$inferSelect): MeetingDto => ({
+export const toMeetingDto = (meeting: Meeting): MeetingDto => ({
   id: meeting.id,
   title: meeting.title,
-  creatorId: meeting.creatorId,
-  roomName: meeting.roomName,
+  creatorId: meeting.creator_id,
+  roomName: meeting.room_name,
   status: meeting.status as MeetingDto["status"],
-  startedAt: toIso(meeting.startedAt),
-  endedAt: toIso(meeting.endedAt),
-  scheduledAt: toIso(meeting.scheduledAt),
-  googleCalendarEventId: meeting.googleCalendarEventId,
-  createdAt: meeting.createdAt.toISOString(),
+  startedAt: toIso(meeting.started_at),
+  endedAt: toIso(meeting.ended_at),
+  scheduledAt: toIso(meeting.scheduled_at),
+  googleCalendarEventId: meeting.google_calendar_event_id,
+  createdAt: meeting.created_at.toISOString(),
 });
 
-export const toTranscriptDto = (transcript: typeof transcripts.$inferSelect): TranscriptDto => ({
+export const toTranscriptDto = (transcript: Transcript): TranscriptDto => ({
   id: transcript.id,
-  meetingId: transcript.meetingId,
-  speakerId: transcript.speakerId,
+  meetingId: transcript.meeting_id,
+  speakerId: transcript.speaker_id,
   content: transcript.content,
   timestamp: transcript.timestamp.toISOString(),
-  createdAt: transcript.createdAt.toISOString(),
+  createdAt: transcript.created_at.toISOString(),
 });
 
-export const toSummaryDto = (summary: typeof summaries.$inferSelect): SummaryDto => ({
+export const toSummaryDto = (summary: Summary): SummaryDto => ({
   id: summary.id,
-  meetingId: summary.meetingId,
+  meetingId: summary.meeting_id,
   content: summary.content,
-  createdAt: summary.createdAt.toISOString(),
+  createdAt: summary.created_at.toISOString(),
+});
+
+export const toMeetingParticipantDto = (
+  participant: MeetingParticipant
+): MeetingParticipantDto => ({
+  id: participant.id,
+  meetingId: participant.meeting_id,
+  userId: participant.user_id,
+  guestIdentity: participant.guest_identity,
+  displayName: participant.display_name,
+  role: participant.role as MeetingParticipantDto["role"],
+  joinedAt: participant.joined_at.toISOString(),
+  leftAt: toIso(participant.left_at),
 });
 
 export const toRealtimeTranscriptSegmentDto = (
-  segment: typeof meetingTranscriptSegments.$inferSelect
+  segment: MeetingTranscriptSegment
 ): RealtimeTranscriptSegmentDto => ({
   id: segment.id,
-  meetingId: segment.meetingId,
-  participantIdentity: segment.participantIdentity,
-  speakerUserId: segment.speakerUserId,
-  speakerLabel: segment.speakerLabel,
+  meetingId: segment.meeting_id,
+  participantIdentity: segment.participant_identity,
+  speakerUserId: segment.speaker_user_id,
+  speakerLabel: segment.speaker_label,
   content: segment.content,
-  isPartial: segment.isPartial,
-  segmentKey: segment.segmentKey,
+  isPartial: segment.is_partial,
+  segmentKey: segment.segment_key,
   provider: segment.provider,
   confidence: segment.confidence,
-  startedAt: segment.startedAt.toISOString(),
-  finalizedAt: segment.finalizedAt?.toISOString() ?? null,
-  createdAt: segment.createdAt.toISOString(),
+  startedAt: segment.started_at.toISOString(),
+  finalizedAt: segment.finalized_at?.toISOString() ?? null,
+  createdAt: segment.created_at.toISOString(),
 });

@@ -56,24 +56,24 @@ async function runEvaluationTick(): Promise<void> {
 async function evaluateAgent(
   session: {
     id: string;
-    meetingId: string;
-    agentId: string;
-    lastAutoEvalSegmentId: string | null;
-    invokedByUserId: string;
+    meeting_id: string;
+    agent_id: string;
+    last_auto_eval_segment_id: string | null;
+    invoked_by_user_id: string;
   },
   agent: {
     id: string;
     name: string;
-    systemPrompt: string;
-    interventionStyle: string;
-    defaultProvider: string;
-    autonomousCooldownSec: number;
+    system_prompt: string;
+    intervention_style: string;
+    default_provider: string;
+    autonomous_cooldown_sec: number;
   }
 ): Promise<void> {
   // Stage 1a: Check for new finalized segments
   const newSegments = await listFinalSegmentsAfter(
-    session.meetingId,
-    session.lastAutoEvalSegmentId
+    session.meeting_id,
+    session.last_auto_eval_segment_id
   );
 
   if (newSegments.length < MIN_NEW_SEGMENTS) {
@@ -81,10 +81,10 @@ async function evaluateAgent(
   }
 
   // Stage 1b: Cooldown check
-  const lastAutoTime = await getLastAutonomousEventTime(session.meetingId, agent.id);
+  const lastAutoTime = await getLastAutonomousEventTime(session.meeting_id, agent.id);
   if (lastAutoTime) {
     const elapsed = (Date.now() - lastAutoTime.getTime()) / 1000;
-    if (elapsed < agent.autonomousCooldownSec) {
+    if (elapsed < agent.autonomous_cooldown_sec) {
       return;
     }
   }
@@ -96,7 +96,7 @@ async function evaluateAgent(
   // Stage 2: LLM decision
   const recentLines = newSegments.map(
     (seg) =>
-      `<transcript_line>${escapeXmlTags(`${seg.speakerLabel}: ${seg.content}`)}</transcript_line>`
+      `<transcript_line>${escapeXmlTags(`${seg.speaker_label}: ${seg.content}`)}</transcript_line>`
   );
 
   const decision = await callDecisionLlm(agent, recentLines);
@@ -106,10 +106,10 @@ async function evaluateAgent(
 
   // Intervene using the existing pipeline
   await generateMeetingAgentResponse({
-    meetingId: session.meetingId,
+    meetingId: session.meeting_id,
     agentId: agent.id,
     prompt: decision.suggestedPrompt,
-    triggeredByUserId: session.invokedByUserId,
+    triggeredByUserId: session.invoked_by_user_id,
     triggerMode: "autonomous",
   });
 }
@@ -117,16 +117,16 @@ async function evaluateAgent(
 async function callDecisionLlm(
   agent: {
     name: string;
-    systemPrompt: string;
-    interventionStyle: string;
-    defaultProvider: string;
+    system_prompt: string;
+    intervention_style: string;
+    default_provider: string;
   },
   recentTranscriptLines: string[]
 ): Promise<{ shouldIntervene: boolean; reason: string; suggestedPrompt: string }> {
   const result = await initLlmWithSettings({
     temperature: 0,
     maxTokens: 200,
-    defaultProvider: agent.defaultProvider,
+    defaultProvider: agent.default_provider,
   });
 
   if (!result) {
@@ -138,8 +138,8 @@ async function callDecisionLlm(
 
     const prompt = buildAutonomousDecisionPrompt({
       agentName: escapeXmlTags(agent.name),
-      interventionStyle: escapeXmlTags(agent.interventionStyle),
-      systemPrompt: escapeXmlTags(agent.systemPrompt),
+      interventionStyle: escapeXmlTags(agent.intervention_style),
+      systemPrompt: escapeXmlTags(agent.system_prompt),
       recentTranscriptLines,
     });
 

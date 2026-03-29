@@ -29,11 +29,11 @@ wikiFileRoutes.get(
       return jsonError(c, 404, "WIKI_FILE_NOT_FOUND", "File not found");
     }
 
-    const buffer = await loadFile(fileRecord.storagePath);
+    const buffer = await loadFile(fileRecord.storage_path);
 
     return new Response(new Uint8Array(buffer), {
       headers: {
-        "Content-Type": fileRecord.contentType || "application/octet-stream",
+        "Content-Type": fileRecord.content_type || "application/octet-stream",
         "Content-Disposition": `inline; filename="${encodeURIComponent(fileRecord.filename)}"`,
         "Cache-Control": "private, max-age=3600",
       },

@@ -116,21 +116,21 @@ export async function generateMeetingAgentResponse(input: {
     listFinalTranscriptSegmentsByMeeting(input.meetingId),
   ]);
 
-  if (!agent || !agent.isActive || !session) {
+  if (!agent || !agent.is_active || !session) {
     return null;
   }
 
   const transcriptLines = [...transcriptSegments]
     .reverse()
-    .map((segment) => `${segment.speakerLabel}: ${segment.content}`);
+    .map((segment) => `${segment.speaker_label}: ${segment.content}`);
   const responseText = await generateAgentTextResponse({
     meetingId: input.meetingId,
     agentName: agent.name,
-    systemPrompt: agent.systemPrompt,
-    interventionStyle: agent.interventionStyle,
+    systemPrompt: agent.system_prompt,
+    interventionStyle: agent.intervention_style,
     prompt: input.prompt,
     transcriptLines,
-    defaultProvider: agent.defaultProvider,
+    defaultProvider: agent.default_provider,
     triggeredByUserId: input.triggeredByUserId,
   });
 
@@ -138,12 +138,12 @@ export async function generateMeetingAgentResponse(input: {
   let audio: { mimeType: string; base64: string } | null = null;
   if (input.triggerMode !== "autonomous") {
     try {
-      const speechProvider = agent.defaultProvider === "zhipu" ? "google" : agent.defaultProvider;
+      const speechProvider = agent.default_provider === "zhipu" ? "google" : agent.default_provider;
       const gateways = createSpeechGatewayBundle(speechProvider);
       const synthesized = await gateways.tts.synthesize({
         text: responseText,
         languageCode: input.languageCode ?? "ja-JP",
-        voice: agent.voiceProfile ?? undefined,
+        voice: agent.voice_profile ?? undefined,
       });
       audio = {
         mimeType: synthesized.mimeType,
@@ -159,9 +159,9 @@ export async function generateMeetingAgentResponse(input: {
 
   await createMeetingAgentEvent({
     id: crypto.randomUUID(),
-    meetingId: input.meetingId,
-    agentId: input.agentId,
-    eventType,
+    meeting_id: input.meetingId,
+    agent_id: input.agentId,
+    event_type: eventType,
     payload: {
       sessionId: session.id,
       prompt: input.prompt,
@@ -169,16 +169,16 @@ export async function generateMeetingAgentResponse(input: {
       audioAvailable: Boolean(audio),
       triggerMode: input.triggerMode ?? "manual",
     },
-    triggeredByUserId: input.triggeredByUserId,
-    createdAt: new Date(),
+    triggered_by_user_id: input.triggeredByUserId,
+    created_at: new Date(),
   });
 
   return {
     agent: {
       id: agent.id,
       name: agent.name,
-      voiceProfile: agent.voiceProfile,
-      provider: agent.defaultProvider,
+      voiceProfile: agent.voice_profile,
+      provider: agent.default_provider,
     },
     sessionId: session.id,
     responseText,

@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   initLlmWithSettingsMock,
-  dbMock,
   createSuggestionMock,
   getSuggestionByIdMock,
   updateSuggestionMock,
@@ -10,38 +9,13 @@ const {
   createPageRevisionMock,
   indexPageMock,
   buildKnowledgeSuggestionPromptMock,
+  listActivePageTitlesMock,
+  listBlockContentSnippetsMock,
+  insertBlocksMock,
+  updatePageTitleAndReplaceBlocksMock,
 } = vi.hoisted(() => {
-  const selectFromWhereLimitMock = vi.fn();
-  const selectFromWhereOrderByMock = vi.fn(() => ({ limit: selectFromWhereLimitMock }));
-  const selectFromWhereMock = vi.fn(() => ({
-    orderBy: selectFromWhereOrderByMock,
-    limit: selectFromWhereLimitMock,
-  }));
-  const selectFromOrderByMock = vi.fn(() => ({ limit: vi.fn().mockResolvedValue([]) }));
   return {
     initLlmWithSettingsMock: vi.fn(),
-    dbMock: {
-      transaction: vi.fn(),
-      select: vi.fn(() => ({
-        from: vi.fn(() => ({
-          where: selectFromWhereMock,
-          orderBy: selectFromOrderByMock,
-        })),
-      })),
-      insert: vi.fn(() => ({
-        values: vi.fn(),
-      })),
-      delete: vi.fn(() => ({
-        where: vi.fn(),
-      })),
-      update: vi.fn(() => ({
-        set: vi.fn(() => ({
-          where: vi.fn(),
-        })),
-      })),
-      _selectFromWhereMock: selectFromWhereMock,
-      _selectFromWhereLimitMock: selectFromWhereLimitMock,
-    },
     createSuggestionMock: vi.fn(),
     getSuggestionByIdMock: vi.fn(),
     updateSuggestionMock: vi.fn(),
@@ -49,6 +23,10 @@ const {
     createPageRevisionMock: vi.fn(),
     indexPageMock: vi.fn(),
     buildKnowledgeSuggestionPromptMock: vi.fn(),
+    listActivePageTitlesMock: vi.fn(),
+    listBlockContentSnippetsMock: vi.fn(),
+    insertBlocksMock: vi.fn(),
+    updatePageTitleAndReplaceBlocksMock: vi.fn(),
   };
 });
 
@@ -65,25 +43,17 @@ vi.mock("../../ai/agent/knowledge-suggestion-prompt.js", () => ({
   buildKnowledgeSuggestionPrompt: buildKnowledgeSuggestionPromptMock,
 }));
 
-vi.mock("../../db/index.js", () => ({
-  db: dbMock,
-}));
-
-vi.mock("../../db/schema.js", () => ({
-  blocks: { pageId: "pageId", content: "content", sortOrder: "sortOrder" },
-  pages: {
-    id: "id",
-    title: "title",
-    spaceId: "spaceId",
-    deletedAt: "deletedAt",
-    updatedAt: "updatedAt",
-  },
-}));
-
 vi.mock("../../repositories/knowledge/knowledge-suggestion-repository.js", () => ({
   createSuggestion: createSuggestionMock,
   getSuggestionById: getSuggestionByIdMock,
   updateSuggestion: updateSuggestionMock,
+}));
+
+vi.mock("../../repositories/wiki/wiki-repository.js", () => ({
+  listActivePageTitles: listActivePageTitlesMock,
+  listBlockContentSnippets: listBlockContentSnippetsMock,
+  insertBlocks: insertBlocksMock,
+  updatePageTitleAndReplaceBlocks: updatePageTitleAndReplaceBlocksMock,
 }));
 
 vi.mock("../wiki/wiki-service.js", () => ({
@@ -112,8 +82,10 @@ describe("knowledge-suggestion-service", () => {
     createPageRevisionMock.mockReset();
     indexPageMock.mockReset();
     buildKnowledgeSuggestionPromptMock.mockReset();
-    dbMock.transaction.mockReset();
-    dbMock._selectFromWhereLimitMock.mockReset();
+    listActivePageTitlesMock.mockReset();
+    listBlockContentSnippetsMock.mockReset();
+    insertBlocksMock.mockReset();
+    updatePageTitleAndReplaceBlocksMock.mockReset();
   });
 
   describe("generateSuggestions", () => {
@@ -136,8 +108,8 @@ describe("knowledge-suggestion-service", () => {
     it("generates suggestions from valid LLM JSON response", async () => {
       buildKnowledgeSuggestionPromptMock.mockReturnValue("test prompt");
 
-      // Mock db.select for existing pages and blocks
-      dbMock._selectFromWhereLimitMock.mockResolvedValueOnce([]); // existing pages query (limit 30)
+      listActivePageTitlesMock.mockResolvedValue([]);
+      listBlockContentSnippetsMock.mockResolvedValue([]);
 
       const llmResponse = JSON.stringify([
         {
@@ -168,10 +140,10 @@ describe("knowledge-suggestion-service", () => {
       expect(createSuggestionMock).toHaveBeenCalledTimes(1);
       expect(createSuggestionMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          sourceType: "transcription",
-          sourceId: "meeting_1",
-          targetType: "new_page",
-          proposedTitle: "Roadmap Summary",
+          source_type: "transcription",
+          source_id: "meeting_1",
+          target_type: "new_page",
+          proposed_title: "Roadmap Summary",
           status: "pending",
         })
       );
@@ -179,7 +151,8 @@ describe("knowledge-suggestion-service", () => {
 
     it("parses JSON wrapped in markdown code blocks", async () => {
       buildKnowledgeSuggestionPromptMock.mockReturnValue("test prompt");
-      dbMock._selectFromWhereLimitMock.mockResolvedValueOnce([]);
+      listActivePageTitlesMock.mockResolvedValue([]);
+      listBlockContentSnippetsMock.mockResolvedValue([]);
 
       const llmResponse =
         "```json\n" +
@@ -208,7 +181,8 @@ describe("knowledge-suggestion-service", () => {
 
     it("skips invalid items that fail Zod validation", async () => {
       buildKnowledgeSuggestionPromptMock.mockReturnValue("test prompt");
-      dbMock._selectFromWhereLimitMock.mockResolvedValueOnce([]);
+      listActivePageTitlesMock.mockResolvedValue([]);
+      listBlockContentSnippetsMock.mockResolvedValue([]);
 
       const llmResponse = JSON.stringify([
         {
@@ -238,13 +212,14 @@ describe("knowledge-suggestion-service", () => {
       // Only the valid item should be created
       expect(createSuggestionMock).toHaveBeenCalledTimes(1);
       expect(createSuggestionMock).toHaveBeenCalledWith(
-        expect.objectContaining({ proposedTitle: "Good Page" })
+        expect.objectContaining({ proposed_title: "Good Page" })
       );
     });
 
     it("handles non-JSON LLM responses gracefully", async () => {
       buildKnowledgeSuggestionPromptMock.mockReturnValue("test prompt");
-      dbMock._selectFromWhereLimitMock.mockResolvedValueOnce([]);
+      listActivePageTitlesMock.mockResolvedValue([]);
+      listBlockContentSnippetsMock.mockResolvedValue([]);
 
       initLlmWithSettingsMock.mockResolvedValue({
         model: { invoke: vi.fn().mockResolvedValue({ content: "This is not JSON at all" }) },
@@ -259,7 +234,8 @@ describe("knowledge-suggestion-service", () => {
 
     it("handles LLM invocation errors gracefully", async () => {
       buildKnowledgeSuggestionPromptMock.mockReturnValue("test prompt");
-      dbMock._selectFromWhereLimitMock.mockResolvedValueOnce([]);
+      listActivePageTitlesMock.mockResolvedValue([]);
+      listBlockContentSnippetsMock.mockResolvedValue([]);
 
       initLlmWithSettingsMock.mockResolvedValue({
         model: { invoke: vi.fn().mockRejectedValue(new Error("LLM API error")) },
@@ -275,7 +251,8 @@ describe("knowledge-suggestion-service", () => {
 
     it("handles non-array JSON responses", async () => {
       buildKnowledgeSuggestionPromptMock.mockReturnValue("test prompt");
-      dbMock._selectFromWhereLimitMock.mockResolvedValueOnce([]);
+      listActivePageTitlesMock.mockResolvedValue([]);
+      listBlockContentSnippetsMock.mockResolvedValue([]);
 
       initLlmWithSettingsMock.mockResolvedValue({
         model: { invoke: vi.fn().mockResolvedValue({ content: '{"not": "an array"}' }) },
@@ -293,22 +270,21 @@ describe("knowledge-suggestion-service", () => {
     it("creates a new page for new_page suggestions", async () => {
       const suggestion = {
         id: "sug_1",
-        sourceType: "transcription",
+        source_type: "transcription",
         status: "pending",
-        targetType: "new_page",
-        targetPageId: null,
-        targetSpaceId: "space_1",
-        proposedTitle: "New Page Title",
-        proposedBlocks: [
+        target_type: "new_page",
+        target_page_id: null,
+        target_space_id: "space_1",
+        proposed_title: "New Page Title",
+        proposed_blocks: [
           { type: "paragraph", content: "Block content", properties: null, sortOrder: 0 },
         ],
-        aiReasoning: "test",
+        ai_reasoning: "test",
       };
 
       getSuggestionByIdMock.mockResolvedValue(suggestion);
       createPageWithAccessDefaultsMock.mockResolvedValue({ id: "page_new" });
-      // biome-ignore lint/suspicious/noExplicitAny: mock chain
-      dbMock.insert = vi.fn(() => ({ values: vi.fn() })) as any;
+      insertBlocksMock.mockResolvedValue(undefined);
       updateSuggestionMock.mockResolvedValue({});
       indexPageMock.mockResolvedValue(undefined);
 
@@ -331,8 +307,8 @@ describe("knowledge-suggestion-service", () => {
         "sug_1",
         expect.objectContaining({
           status: "approved",
-          reviewedByUserId: "reviewer_1",
-          resultPageId: "page_new",
+          reviewed_by_user_id: "reviewer_1",
+          result_page_id: "page_new",
         })
       );
     });
@@ -341,33 +317,18 @@ describe("knowledge-suggestion-service", () => {
       const suggestion = {
         id: "sug_2",
         status: "pending",
-        targetType: "update_page",
-        targetPageId: "existing_page",
-        targetSpaceId: "space_1",
-        proposedTitle: "Updated Title",
-        proposedBlocks: [
+        target_type: "update_page",
+        target_page_id: "existing_page",
+        target_space_id: "space_1",
+        proposed_title: "Updated Title",
+        proposed_blocks: [
           { type: "paragraph", content: "Updated content", properties: null, sortOrder: 0 },
         ],
       };
 
       getSuggestionByIdMock.mockResolvedValue(suggestion);
       createPageRevisionMock.mockResolvedValue(undefined);
-
-      const updateSetWhereMock = vi.fn();
-      const updateSetMock = vi.fn(() => ({ where: updateSetWhereMock }));
-      const updateMock = vi.fn(() => ({ set: updateSetMock }));
-      const deleteMock = vi.fn(() => ({ where: vi.fn() }));
-      const insertMock = vi.fn(() => ({ values: vi.fn() }));
-
-      dbMock.transaction.mockImplementation(
-        async (
-          callback: (tx: {
-            update: typeof updateMock;
-            delete: typeof deleteMock;
-            insert: typeof insertMock;
-          }) => unknown
-        ) => callback({ update: updateMock, delete: deleteMock, insert: insertMock })
-      );
+      updatePageTitleAndReplaceBlocksMock.mockResolvedValue(undefined);
       updateSuggestionMock.mockResolvedValue({});
       indexPageMock.mockResolvedValue(undefined);
 
@@ -375,7 +336,7 @@ describe("knowledge-suggestion-service", () => {
 
       expect(result).toEqual({ pageId: "existing_page" });
       expect(createPageRevisionMock).toHaveBeenCalledWith("existing_page", "reviewer_1");
-      expect(dbMock.transaction).toHaveBeenCalledTimes(1);
+      expect(updatePageTitleAndReplaceBlocksMock).toHaveBeenCalledTimes(1);
     });
 
     it("throws when suggestion is not found", async () => {
@@ -401,9 +362,9 @@ describe("knowledge-suggestion-service", () => {
       getSuggestionByIdMock.mockResolvedValue({
         id: "sug_1",
         status: "pending",
-        targetType: "update_page",
-        targetPageId: null,
-        proposedBlocks: [],
+        target_type: "update_page",
+        target_page_id: null,
+        proposed_blocks: [],
       });
 
       await expect(approveSuggestion("sug_1", "reviewer_1")).rejects.toThrow(
@@ -426,8 +387,8 @@ describe("knowledge-suggestion-service", () => {
         "sug_1",
         expect.objectContaining({
           status: "rejected",
-          reviewedByUserId: "reviewer_1",
-          rejectionReason: "Not relevant",
+          reviewed_by_user_id: "reviewer_1",
+          rejection_reason: "Not relevant",
         })
       );
     });

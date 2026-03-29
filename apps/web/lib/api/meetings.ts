@@ -53,6 +53,12 @@ export const meetingsApi = {
       method: "DELETE",
     }),
 
+  endForAll: (id: string) =>
+    fetchApi<{ meeting: unknown }>(`/meetings/${id}/end`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
   addTranscript: (id: string, data: CreateTranscriptRequest) =>
     fetchApi<CreateTranscriptResponse>(`/meetings/${id}/transcripts`, {
       method: "POST",

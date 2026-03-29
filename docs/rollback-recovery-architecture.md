@@ -26,7 +26,7 @@ This document describes the current rollback and recovery shape for `echolore`.
 
 ## Migration Rollback Strategy
 
-Drizzle migrations are forward-only. The API runs pending migrations on startup
+SQL migrations are forward-only. The API runs pending migrations on startup
 (`migrate()` in `db/index.ts`). Rolling back to an older image does **not** undo
 schema changes.
 
@@ -54,7 +54,7 @@ schema.
    docker compose exec db psql -U wiki -d wiki -f /path/to/rollback.sql
    ```
 3. Document the rollback script path in the PR description and release notes.
-4. After rollback, manually update `drizzle/__drizzle_migrations` to remove
+4. After rollback, manually update `_migrations` to remove
    the rolled-back entry so the next deploy does not skip the re-applied
    migration.
 

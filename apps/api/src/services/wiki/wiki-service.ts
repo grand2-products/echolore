@@ -82,7 +82,7 @@ export async function filterReadablePages(user: SessionUser, items: Page[]): Pro
   }
 
   const readablePages = await Promise.all(
-    items.map(async (page) => ((await canReadPage(user, page.id, page.authorId)) ? page : null))
+    items.map(async (page) => ((await canReadPage(user, page.id, page.author_id)) ? page : null))
   );
 
   return readablePages.filter((page): page is Page => Boolean(page));
@@ -128,9 +128,9 @@ export async function searchVisiblePages(
 
   const blockMap = new Map<string, string[]>();
   for (const block of allBlocks) {
-    const items = blockMap.get(block.pageId) ?? [];
+    const items = blockMap.get(block.page_id) ?? [];
     if (block.content) items.push(stripHtml(block.content));
-    blockMap.set(block.pageId, items);
+    blockMap.set(block.page_id, items);
   }
 
   // Build snippets from the shared block map
@@ -224,17 +224,17 @@ export async function createPageRevision(pageId: string, authorId: string) {
     type: block.type,
     content: block.content,
     properties: block.properties as Record<string, unknown> | null,
-    sortOrder: block.sortOrder,
+    sortOrder: block.sort_order,
   }));
 
   return createRevision({
     id: `rev_${nanoid(12)}`,
-    pageId,
-    revisionNumber,
+    page_id: pageId,
+    revision_number: revisionNumber,
     title: page.title,
     blocks: blocksSnapshot,
-    authorId,
-    createdAt: new Date(),
+    author_id: authorId,
+    created_at: new Date(),
   });
 }
 
@@ -248,7 +248,7 @@ export async function restoreRevision(pageId: string, revisionId: string, actorU
   if (!revision) {
     throw new Error(`Revision not found: ${revisionId}`);
   }
-  if (revision.pageId !== pageId) {
+  if (revision.page_id !== pageId) {
     throw new Error("Revision does not belong to this page");
   }
 
@@ -257,13 +257,17 @@ export async function restoreRevision(pageId: string, revisionId: string, actorU
 
   return restorePageRevisionRepo({
     pageId,
-    revision,
+    revision: {
+      pageId: revision.page_id,
+      title: revision.title,
+      blocks: revision.blocks,
+    },
     currentTitle: page.title,
     currentBlocks: currentBlocks.map((b) => ({
       type: b.type,
       content: b.content,
       properties: b.properties,
-      sortOrder: b.sortOrder,
+      sortOrder: b.sort_order,
     })),
     revisionNumber,
     actorUserId,

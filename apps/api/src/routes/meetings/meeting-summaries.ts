@@ -23,7 +23,7 @@ meetingSummaryRoutes.post(
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "write");
     if (!authz.allowed) {
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }

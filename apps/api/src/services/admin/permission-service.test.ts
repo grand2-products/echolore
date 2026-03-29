@@ -58,18 +58,18 @@ describe("permission-service", () => {
       listPagePermissionsMock.mockResolvedValue([
         {
           id: "p1",
-          pageId: "page1",
-          groupId: "g1",
-          canRead: true,
-          canWrite: false,
-          canDelete: false,
+          page_id: "page1",
+          group_id: "g1",
+          can_read: true,
+          can_write: false,
+          can_delete: false,
         },
       ]);
       listGroupsMock.mockResolvedValue([
         { id: "g1", name: "Engineering" },
         { id: "g2", name: "Design" },
       ]);
-      getPageInheritanceMock.mockResolvedValue({ inheritFromParent: false });
+      getPageInheritanceMock.mockResolvedValue({ inherit_from_parent: false });
 
       const result = await getPagePermissionsDetail("page1");
 
@@ -79,11 +79,11 @@ describe("permission-service", () => {
         permissions: [
           {
             id: "p1",
-            pageId: "page1",
-            groupId: "g1",
-            canRead: true,
-            canWrite: false,
-            canDelete: false,
+            page_id: "page1",
+            group_id: "g1",
+            can_read: true,
+            can_write: false,
+            can_delete: false,
             group: { id: "g1", name: "Engineering" },
           },
         ],
@@ -104,11 +104,11 @@ describe("permission-service", () => {
       listPagePermissionsMock.mockResolvedValue([
         {
           id: "p1",
-          pageId: "page1",
-          groupId: "deleted_group",
-          canRead: true,
-          canWrite: false,
-          canDelete: false,
+          page_id: "page1",
+          group_id: "deleted_group",
+          can_read: true,
+          can_write: false,
+          can_delete: false,
         },
       ]);
       listGroupsMock.mockResolvedValue([]);
@@ -151,11 +151,11 @@ describe("permission-service", () => {
       listSpacePermissionsMock.mockResolvedValue([
         {
           id: "sp1",
-          spaceId: "s1",
-          groupId: "g1",
-          canRead: true,
-          canWrite: true,
-          canDelete: false,
+          space_id: "s1",
+          group_id: "g1",
+          can_read: true,
+          can_write: true,
+          can_delete: false,
         },
       ]);
       listGroupsMock.mockResolvedValue([{ id: "g1", name: "Engineering" }]);
@@ -167,11 +167,11 @@ describe("permission-service", () => {
         permissions: [
           {
             id: "sp1",
-            spaceId: "s1",
-            groupId: "g1",
-            canRead: true,
-            canWrite: true,
-            canDelete: false,
+            space_id: "s1",
+            group_id: "g1",
+            can_read: true,
+            can_write: true,
+            can_delete: false,
             groupName: "Engineering",
           },
         ],
@@ -182,11 +182,11 @@ describe("permission-service", () => {
       listSpacePermissionsMock.mockResolvedValue([
         {
           id: "sp1",
-          spaceId: "s1",
-          groupId: "deleted_g",
-          canRead: true,
-          canWrite: false,
-          canDelete: false,
+          space_id: "s1",
+          group_id: "deleted_g",
+          can_read: true,
+          can_write: false,
+          can_delete: false,
         },
       ]);
       listGroupsMock.mockResolvedValue([]);

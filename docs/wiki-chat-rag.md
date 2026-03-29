@@ -88,7 +88,7 @@ curl -X POST http://localhost:3001/api/admin/reindex-wiki \
 | `apps/api/src/ai/agent/create-wiki-chat-agent.ts` | LangGraph ReActエージェント生成 |
 | `apps/api/src/ai/tools/wiki-chat-tools.ts` | wiki_search / wiki_read_page ツール |
 | `apps/api/src/lib/html-utils.ts` | HTMLタグ除去ユーティリティ |
-| `apps/api/drizzle/0012_page_embeddings.sql` | pgvectorマイグレーション |
+| `apps/api/src/db/migrations/0012_page_embeddings.sql` | pgvectorマイグレーション |
 
 ## オブザーバビリティ
 

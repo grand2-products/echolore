@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { pageInheritance, pagePermissions, pages, userGroupMemberships } from "../../db/schema.js";
 import { createPageWithAccessDefaultsTx } from "../../repositories/wiki/wiki-repository.js";
 
 describe("wiki-service", () => {
@@ -11,72 +10,78 @@ describe("wiki-service", () => {
     const pageRecord = {
       id: "page_1",
       title: "Root",
+      space_id: "00000000-0000-0000-0000-000000000001",
+      parent_id: null,
+      author_id: "user_1",
+      created_at: new Date("2026-03-12T00:00:00.000Z"),
+      updated_at: new Date("2026-03-12T00:00:00.000Z"),
+      deleted_at: null,
+    };
+
+    const insertedTables: string[] = [];
+    const insertedValues: unknown[] = [];
+
+    const trx = {
+      insertInto: vi.fn((table: string) => {
+        insertedTables.push(table);
+        return {
+          values: vi.fn((values: unknown) => {
+            insertedValues.push(values);
+            if (table === "pages") {
+              return {
+                returningAll: vi.fn(() => ({
+                  executeTakeFirst: vi.fn(async () => pageRecord),
+                })),
+              };
+            }
+            return {
+              execute: vi.fn(async () => undefined),
+            };
+          }),
+        };
+      }),
+      selectFrom: vi.fn(() => ({
+        select: vi.fn(() => ({
+          where: vi.fn(() => ({
+            execute: vi.fn(async () => [{ group_id: "group_eng" }, { group_id: "group_ops" }]),
+          })),
+        })),
+      })),
+    };
+
+    await createPageWithAccessDefaultsTx(trx as never, {
+      id: "page_1",
+      title: "Root",
       spaceId: "00000000-0000-0000-0000-000000000001",
       parentId: null,
       authorId: "user_1",
       createdAt: new Date("2026-03-12T00:00:00.000Z"),
       updatedAt: new Date("2026-03-12T00:00:00.000Z"),
-    };
-
-    const insertMock = vi.fn((table: unknown) => {
-      if (table === pages) {
-        return {
-          values: vi.fn(() => ({
-            returning: vi.fn(async () => [pageRecord]),
-          })),
-        };
-      }
-
-      if (table === pageInheritance || table === pagePermissions) {
-        return {
-          values: vi.fn(async () => undefined),
-        };
-      }
-
-      throw new Error("Unexpected table");
     });
 
-    const whereMock = vi.fn(async () => [{ groupId: "group_eng" }, { groupId: "group_ops" }]);
-    const tx = {
-      insert: insertMock,
-      select: vi.fn(() => ({
-        from: vi.fn((table: unknown) => {
-          if (table !== userGroupMemberships) throw new Error("Unexpected table");
-          return {
-            where: whereMock,
-          };
-        }),
-      })),
-    };
-
-    await createPageWithAccessDefaultsTx(tx as never, {
-      ...pageRecord,
-    });
-
-    expect(insertMock).toHaveBeenNthCalledWith(1, pages);
-    expect(insertMock).toHaveBeenNthCalledWith(2, pageInheritance);
-    expect(insertMock).toHaveBeenNthCalledWith(3, pagePermissions);
-    expect(whereMock).toHaveBeenCalledTimes(1);
-    expect(insertMock.mock.results[1]?.value.values).toHaveBeenCalledWith(
+    expect(insertedTables[0]).toBe("pages");
+    expect(insertedTables[1]).toBe("page_inheritance");
+    expect(insertedTables[2]).toBe("page_permissions");
+    expect(insertedValues[1]).toEqual(
       expect.objectContaining({
-        pageId: "page_1",
-        inheritFromParent: false,
+        page_id: "page_1",
+        inherit_from_parent: false,
       })
     );
-    expect(insertMock.mock.results[2]?.value.values).toHaveBeenCalledWith([
+    expect(insertedValues[2]).toEqual([
       expect.objectContaining({
-        pageId: "page_1",
-        groupId: "group_eng",
-        canRead: true,
-        canWrite: true,
-        canDelete: false,
+        page_id: "page_1",
+        group_id: "group_eng",
+        can_read: true,
+        can_write: true,
+        can_delete: false,
       }),
       expect.objectContaining({
-        pageId: "page_1",
-        groupId: "group_ops",
-        canRead: true,
-        canWrite: true,
-        canDelete: false,
+        page_id: "page_1",
+        group_id: "group_ops",
+        can_read: true,
+        can_write: true,
+        can_delete: false,
       }),
     ]);
   });
@@ -85,49 +90,58 @@ describe("wiki-service", () => {
     const pageRecord = {
       id: "page_child",
       title: "Child",
+      space_id: "00000000-0000-0000-0000-000000000001",
+      parent_id: "page_parent",
+      author_id: "user_1",
+      created_at: new Date("2026-03-12T00:00:00.000Z"),
+      updated_at: new Date("2026-03-12T00:00:00.000Z"),
+      deleted_at: null,
+    };
+
+    const insertedTables: string[] = [];
+    const insertedValues: unknown[] = [];
+
+    const trx = {
+      insertInto: vi.fn((table: string) => {
+        insertedTables.push(table);
+        return {
+          values: vi.fn((values: unknown) => {
+            insertedValues.push(values);
+            if (table === "pages") {
+              return {
+                returningAll: vi.fn(() => ({
+                  executeTakeFirst: vi.fn(async () => pageRecord),
+                })),
+              };
+            }
+            return {
+              execute: vi.fn(async () => undefined),
+            };
+          }),
+        };
+      }),
+      selectFrom: vi.fn(),
+    };
+
+    await createPageWithAccessDefaultsTx(trx as never, {
+      id: "page_child",
+      title: "Child",
       spaceId: "00000000-0000-0000-0000-000000000001",
       parentId: "page_parent",
       authorId: "user_1",
       createdAt: new Date("2026-03-12T00:00:00.000Z"),
       updatedAt: new Date("2026-03-12T00:00:00.000Z"),
-    };
-
-    const insertMock = vi.fn((table: unknown) => {
-      if (table === pages) {
-        return {
-          values: vi.fn(() => ({
-            returning: vi.fn(async () => [pageRecord]),
-          })),
-        };
-      }
-
-      if (table === pageInheritance) {
-        return {
-          values: vi.fn(async () => undefined),
-        };
-      }
-
-      throw new Error("Unexpected table");
     });
 
-    const tx = {
-      insert: insertMock,
-      select: vi.fn(),
-    };
-
-    await createPageWithAccessDefaultsTx(tx as never, {
-      ...pageRecord,
-    });
-
-    expect(insertMock).toHaveBeenNthCalledWith(1, pages);
-    expect(insertMock).toHaveBeenNthCalledWith(2, pageInheritance);
-    expect(insertMock).not.toHaveBeenCalledWith(pagePermissions);
-    expect(insertMock.mock.results[1]?.value.values).toHaveBeenCalledWith(
+    expect(insertedTables[0]).toBe("pages");
+    expect(insertedTables[1]).toBe("page_inheritance");
+    expect(insertedTables).not.toContain("page_permissions");
+    expect(insertedValues[1]).toEqual(
       expect.objectContaining({
-        pageId: "page_child",
-        inheritFromParent: true,
+        page_id: "page_child",
+        inherit_from_parent: true,
       })
     );
-    expect(tx.select).not.toHaveBeenCalled();
+    expect(trx.selectFrom).not.toHaveBeenCalled();
   });
 });

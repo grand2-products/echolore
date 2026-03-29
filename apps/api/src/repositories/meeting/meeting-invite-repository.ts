@@ -1,31 +1,30 @@
-import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { sql } from "kysely";
 import { db } from "../../db/index.js";
-import { meetingGuestRequests, meetingInvites } from "../../db/schema.js";
 
 // ---------------------------------------------------------------------------
 // Invite queries
 // ---------------------------------------------------------------------------
 
 export async function findValidInviteByToken(token: string) {
-  const [invite] = await db
-    .select()
-    .from(meetingInvites)
-    .where(
-      and(
-        eq(meetingInvites.token, token),
-        isNull(meetingInvites.revokedAt),
-        gt(meetingInvites.expiresAt, new Date())
-      )
-    );
-  return invite ?? null;
+  return (
+    (await db
+      .selectFrom("meeting_invites")
+      .selectAll()
+      .where("token", "=", token)
+      .where("revoked_at", "is", null)
+      .where("expires_at", ">", new Date())
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function findInviteByToken(token: string) {
-  const [invite] = await db
-    .select({ id: meetingInvites.id })
-    .from(meetingInvites)
-    .where(eq(meetingInvites.token, token));
-  return invite ?? null;
+  return (
+    (await db
+      .selectFrom("meeting_invites")
+      .select("id")
+      .where("token", "=", token)
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function createInvite(input: {
@@ -39,31 +38,45 @@ export async function createInvite(input: {
   expiresAt: Date;
   createdAt: Date;
 }) {
-  const [created] = await db.insert(meetingInvites).values(input).returning();
-  return created ?? null;
+  return (
+    (await db
+      .insertInto("meeting_invites")
+      .values({
+        id: input.id,
+        meeting_id: input.meetingId,
+        token: input.token,
+        created_by_user_id: input.createdByUserId,
+        label: input.label,
+        max_uses: input.maxUses,
+        use_count: input.useCount,
+        expires_at: input.expiresAt,
+        created_at: input.createdAt,
+      })
+      .returningAll()
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function listInvitesByMeeting(meetingId: string) {
   return db
-    .select()
-    .from(meetingInvites)
-    .where(eq(meetingInvites.meetingId, meetingId))
-    .orderBy(desc(meetingInvites.createdAt));
+    .selectFrom("meeting_invites")
+    .selectAll()
+    .where("meeting_id", "=", meetingId)
+    .orderBy("created_at", "desc")
+    .execute();
 }
 
 export async function revokeInvite(inviteId: string, meetingId: string) {
-  const [revoked] = await db
-    .update(meetingInvites)
-    .set({ revokedAt: new Date() })
-    .where(
-      and(
-        eq(meetingInvites.id, inviteId),
-        eq(meetingInvites.meetingId, meetingId),
-        isNull(meetingInvites.revokedAt)
-      )
-    )
-    .returning();
-  return revoked ?? null;
+  return (
+    (await db
+      .updateTable("meeting_invites")
+      .set({ revoked_at: new Date() })
+      .where("id", "=", inviteId)
+      .where("meeting_id", "=", meetingId)
+      .where("revoked_at", "is", null)
+      .returningAll()
+      .executeTakeFirst()) ?? null
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -80,57 +93,57 @@ export async function incrementUseCountAndCreateGuestRequest(
     userAgent: string | null;
   }
 ) {
-  return db.transaction(async (tx) => {
-    const [invite] = await tx
-      .update(meetingInvites)
-      .set({ useCount: sql`${meetingInvites.useCount} + 1` })
-      .where(
-        and(
-          eq(meetingInvites.token, token),
-          isNull(meetingInvites.revokedAt),
-          gt(meetingInvites.expiresAt, new Date()),
-          sql`(${meetingInvites.maxUses} IS NULL OR ${meetingInvites.useCount} < ${meetingInvites.maxUses})`
-        )
-      )
-      .returning();
+  return db.transaction().execute(async (trx) => {
+    const invite = await trx
+      .updateTable("meeting_invites")
+      .set({ use_count: sql`use_count + 1` })
+      .where("token", "=", token)
+      .where("revoked_at", "is", null)
+      .where("expires_at", ">", new Date())
+      .where(sql`(max_uses IS NULL OR use_count < max_uses)`, "=", sql`true`)
+      .returningAll()
+      .executeTakeFirst();
 
     if (!invite) return null;
 
-    const [created] = await tx
-      .insert(meetingGuestRequests)
+    const created = await trx
+      .insertInto("meeting_guest_requests")
       .values({
         id: guestRequest.id,
-        inviteId: invite.id,
-        meetingId: invite.meetingId,
-        guestName: guestRequest.guestName,
-        guestIdentity: guestRequest.guestIdentity,
+        invite_id: invite.id,
+        meeting_id: invite.meeting_id,
+        guest_name: guestRequest.guestName,
+        guest_identity: guestRequest.guestIdentity,
         status: "pending",
-        ipAddress: guestRequest.ipAddress,
-        userAgent: guestRequest.userAgent,
-        createdAt: new Date(),
+        ip_address: guestRequest.ipAddress,
+        user_agent: guestRequest.userAgent,
+        created_at: new Date(),
       })
-      .returning();
+      .returningAll()
+      .executeTakeFirst();
 
     return { invite, guestRequest: created };
   });
 }
 
 export async function getGuestRequestByIdAndInvite(requestId: string, inviteId: string) {
-  const [request] = await db
-    .select()
-    .from(meetingGuestRequests)
-    .where(
-      and(eq(meetingGuestRequests.id, requestId), eq(meetingGuestRequests.inviteId, inviteId))
-    );
-  return request ?? null;
+  return (
+    (await db
+      .selectFrom("meeting_guest_requests")
+      .selectAll()
+      .where("id", "=", requestId)
+      .where("invite_id", "=", inviteId)
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function listGuestRequestsByMeeting(meetingId: string) {
   return db
-    .select()
-    .from(meetingGuestRequests)
-    .where(eq(meetingGuestRequests.meetingId, meetingId))
-    .orderBy(desc(meetingGuestRequests.createdAt));
+    .selectFrom("meeting_guest_requests")
+    .selectAll()
+    .where("meeting_id", "=", meetingId)
+    .orderBy("created_at", "desc")
+    .execute();
 }
 
 export async function resolveGuestRequest(
@@ -139,20 +152,18 @@ export async function resolveGuestRequest(
   status: "approved" | "rejected",
   userId: string
 ) {
-  const [updated] = await db
-    .update(meetingGuestRequests)
-    .set({
-      status,
-      approvedByUserId: userId,
-      resolvedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(meetingGuestRequests.id, requestId),
-        eq(meetingGuestRequests.meetingId, meetingId),
-        eq(meetingGuestRequests.status, "pending")
-      )
-    )
-    .returning();
-  return updated ?? null;
+  return (
+    (await db
+      .updateTable("meeting_guest_requests")
+      .set({
+        status,
+        approved_by_user_id: userId,
+        resolved_at: new Date(),
+      })
+      .where("id", "=", requestId)
+      .where("meeting_id", "=", meetingId)
+      .where("status", "=", "pending")
+      .returningAll()
+      .executeTakeFirst()) ?? null
+  );
 }

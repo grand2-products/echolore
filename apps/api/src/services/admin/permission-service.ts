@@ -24,10 +24,10 @@ export async function getPagePermissionsDetail(pageId: string) {
 
   return {
     pageId,
-    inheritFromParent: inheritance?.inheritFromParent ?? true,
+    inheritFromParent: inheritance?.inherit_from_parent ?? true,
     permissions: permissions.map((permission) => ({
       ...permission,
-      group: groups.find((group) => group.id === permission.groupId) ?? null,
+      group: groups.find((group) => group.id === permission.group_id) ?? null,
     })),
   };
 }
@@ -56,7 +56,7 @@ export async function getSpacePermissionsDetail(spaceId: string) {
     spaceId,
     permissions: permissions.map((permission) => ({
       ...permission,
-      groupName: groups.find((group) => group.id === permission.groupId)?.name ?? undefined,
+      groupName: groups.find((group) => group.id === permission.group_id)?.name ?? undefined,
     })),
   };
 }

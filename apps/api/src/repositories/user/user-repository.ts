@@ -1,23 +1,28 @@
-import { and, count, eq, isNull, sql } from "drizzle-orm";
+import { sql } from "kysely";
 import { db } from "../../db/index.js";
-import { users } from "../../db/schema.js";
-import { firstOrNull, getRecordById } from "../../lib/db-utils.js";
+import { getRecordById } from "../../lib/db-utils.js";
 
 export async function getUserCount() {
-  const [row] = await db.select({ value: count() }).from(users).where(isNull(users.deletedAt));
+  const row = await db
+    .selectFrom("users")
+    .select(sql<number>`count(*)::int`.as("value"))
+    .where("deleted_at", "is", null)
+    .executeTakeFirst();
   return row?.value ?? 0;
 }
 
 export async function listUsers() {
-  return db.select().from(users);
+  return db.selectFrom("users").selectAll().execute();
 }
 
 export async function getUserById(id: string) {
-  return getRecordById(users, id);
+  return getRecordById("users", id);
 }
 
 export async function getUserByEmail(email: string) {
-  return firstOrNull(await db.select().from(users).where(eq(users.email, email)));
+  return (
+    (await db.selectFrom("users").selectAll().where("email", "=", email).executeTakeFirst()) ?? null
+  );
 }
 
 export async function createUser(input: {
@@ -29,7 +34,21 @@ export async function createUser(input: {
   createdAt: Date;
   updatedAt: Date;
 }) {
-  return firstOrNull(await db.insert(users).values(input).returning());
+  return (
+    (await db
+      .insertInto("users")
+      .values({
+        id: input.id,
+        email: input.email,
+        name: input.name,
+        avatar_url: input.avatarUrl,
+        role: input.role,
+        created_at: input.createdAt,
+        updated_at: input.updatedAt,
+      })
+      .returningAll()
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function updateUser(
@@ -40,59 +59,78 @@ export async function updateUser(
     updatedAt: Date;
   }
 ) {
-  return firstOrNull(await db.update(users).set(input).where(eq(users.id, id)).returning());
+  return (
+    (await db
+      .updateTable("users")
+      .set({
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.avatarUrl !== undefined ? { avatar_url: input.avatarUrl } : {}),
+        updated_at: input.updatedAt,
+      })
+      .where("id", "=", id)
+      .returningAll()
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function deleteUser(id: string) {
-  return firstOrNull(await db.delete(users).where(eq(users.id, id)).returning());
+  return (
+    (await db.deleteFrom("users").where("id", "=", id).returningAll().executeTakeFirst()) ?? null
+  );
 }
 
 export async function suspendUser(id: string) {
   const now = new Date();
-  return firstOrNull(
-    await db
-      .update(users)
+  return (
+    (await db
+      .updateTable("users")
       .set({
-        suspendedAt: now,
-        tokenVersion: sql`${users.tokenVersion} + 1`,
-        updatedAt: now,
+        suspended_at: now,
+        token_version: sql`token_version + 1`,
+        updated_at: now,
       })
-      .where(and(eq(users.id, id), isNull(users.suspendedAt)))
-      .returning()
+      .where("id", "=", id)
+      .where("suspended_at", "is", null)
+      .returningAll()
+      .executeTakeFirst()) ?? null
   );
 }
 
 export async function unsuspendUser(id: string) {
-  return firstOrNull(
-    await db
-      .update(users)
-      .set({ suspendedAt: null, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning()
+  return (
+    (await db
+      .updateTable("users")
+      .set({ suspended_at: null, updated_at: new Date() })
+      .where("id", "=", id)
+      .returningAll()
+      .executeTakeFirst()) ?? null
   );
 }
 
 export async function softDeleteUser(id: string) {
   const now = new Date();
-  return firstOrNull(
-    await db
-      .update(users)
+  return (
+    (await db
+      .updateTable("users")
       .set({
-        deletedAt: now,
-        tokenVersion: sql`${users.tokenVersion} + 1`,
-        updatedAt: now,
+        deleted_at: now,
+        token_version: sql`token_version + 1`,
+        updated_at: now,
       })
-      .where(and(eq(users.id, id), isNull(users.deletedAt)))
-      .returning()
+      .where("id", "=", id)
+      .where("deleted_at", "is", null)
+      .returningAll()
+      .executeTakeFirst()) ?? null
   );
 }
 
 export async function restoreUser(id: string) {
-  return firstOrNull(
-    await db
-      .update(users)
-      .set({ deletedAt: null, suspendedAt: null, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning()
+  return (
+    (await db
+      .updateTable("users")
+      .set({ deleted_at: null, suspended_at: null, updated_at: new Date() })
+      .where("id", "=", id)
+      .returningAll()
+      .executeTakeFirst()) ?? null
   );
 }

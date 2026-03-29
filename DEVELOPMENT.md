@@ -38,7 +38,7 @@ High-level project overview lives in `README.md`.
   - or `pnpm dev:daily`
 - `dev.ps1` starts middleware (`db`, `valkey`, `livekit`) in Docker and then runs `web`, `api`, and `worker` through Turborepo in the current shell.
 - `dev.ps1` begins with `pnpm install --frozen-lockfile` so workspace dependencies are aligned before any app starts.
-- After PostgreSQL becomes healthy, `dev.ps1` applies the schema before starting app processes. It prefers `pnpm db:migrate`, falls back to `db:push --force` when Drizzle migration artifacts are not present in `apps/api/drizzle/meta/_journal.json`, and also uses that `db:push --force` path when the local database already has application tables but no `__drizzle_migrations` history table.
+- After PostgreSQL becomes healthy, `dev.ps1` applies the schema before starting app processes by running `pnpm db:migrate` (forward-only SQL migrations via Kysely migrator).
 - Turborepo uses `stream` UI so terminal output stays copyable in regular shells.
 - `dev.ps1` only loads root `.env` for orchestration overrides such as shared local ports.
 - Each app dev script loads its own `.env` and `.env.local` via `dotenv-cli`.
@@ -78,16 +78,13 @@ High-level project overview lives in `README.md`.
   - `pnpm typecheck`
   - `pnpm test`
 - Database
-  - `pnpm db:generate`
   - `pnpm db:migrate`
-  - `pnpm db:push`
   - `pnpm db:studio`
 
 ## Database Workflow
 - Schema source: `apps/api/src/db/schema.ts`
-- Use `pnpm db:generate` when creating migrations.
-- Use `pnpm db:migrate` when applying migrations.
-- Use `pnpm db:push` only when that workflow is intentionally chosen.
+- Migrations are forward-only SQL files in `apps/api/src/db/migrations/`.
+- Use `pnpm db:migrate` to apply pending migrations.
 - When schema changes affect business entities, review:
   - shared contracts in `packages/shared`
   - API route behavior

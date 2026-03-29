@@ -65,7 +65,7 @@ export async function registerPasswordUser(input: {
     ? await findPasswordIdentityByUserId(existingUser.id)
     : null;
 
-  if (existingUser?.emailVerifiedAt && existingPasswordIdentity) {
+  if (existingUser?.email_verified_at && existingPasswordIdentity) {
     throw new Error("Password login is already configured for this email address");
   }
 
@@ -85,16 +85,16 @@ export async function verifyEmailRegistrationToken(token: string) {
   const tokenHash = hashValue(token);
   const verification = await findValidEmailVerificationToken(tokenHash);
 
-  if (!verification || !verification.pendingPasswordHash) {
+  if (!verification || !verification.pending_password_hash) {
     return null;
   }
 
   const user = await processEmailVerification({
     id: verification.id,
     email: verification.email,
-    userId: verification.userId,
-    pendingPasswordHash: verification.pendingPasswordHash,
-    pendingName: verification.pendingName,
+    userId: verification.user_id,
+    pendingPasswordHash: verification.pending_password_hash,
+    pendingName: verification.pending_name,
   });
 
   if (!user) return null;
@@ -105,15 +105,15 @@ export async function authenticatePasswordUser(email: string, password: string) 
   const normalizedEmail = normalizeEmail(email);
   const record = await findUserByEmailWithPasswordIdentity(normalizedEmail);
 
-  if (!record?.identity.passwordHash || !record.user.emailVerifiedAt) {
+  if (!record?.identity.password_hash || !record.user.email_verified_at) {
     return null;
   }
 
-  if (record.user.suspendedAt || record.user.deletedAt) {
+  if (record.user.suspended_at || record.user.deleted_at) {
     return null;
   }
 
-  const isValid = await verifyPassword(password, record.identity.passwordHash);
+  const isValid = await verifyPassword(password, record.identity.password_hash);
   if (!isValid) {
     return null;
   }

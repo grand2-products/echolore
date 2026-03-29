@@ -132,31 +132,31 @@ describe("meetingsRoutes", () => {
     getMeetingByIdMock.mockResolvedValue({
       id: "meeting_1",
       title: "Planning",
-      creatorId: "user_1",
-      roomName: "room-1",
+      creator_id: "user_1",
+      room_name: "room-1",
       status: "scheduled",
-      startedAt: new Date("2026-03-11T10:00:00.000Z"),
-      endedAt: null,
-      scheduledAt: null,
-      googleCalendarEventId: null,
-      createdAt: new Date("2026-03-11T09:00:00.000Z"),
+      started_at: new Date("2026-03-11T10:00:00.000Z"),
+      ended_at: null,
+      scheduled_at: null,
+      google_calendar_event_id: null,
+      created_at: new Date("2026-03-11T09:00:00.000Z"),
     });
     getMeetingTranscriptsMock.mockResolvedValue([
       {
         id: "transcript_1",
-        meetingId: "meeting_1",
-        speakerId: "speaker_1",
+        meeting_id: "meeting_1",
+        speaker_id: "speaker_1",
         content: "Hello",
         timestamp: new Date("2026-03-11T10:05:00.000Z"),
-        createdAt: new Date("2026-03-11T10:05:01.000Z"),
+        created_at: new Date("2026-03-11T10:05:01.000Z"),
       },
     ]);
     getMeetingSummariesMock.mockResolvedValue([
       {
         id: "summary_1",
-        meetingId: "meeting_1",
+        meeting_id: "meeting_1",
         content: "Summary",
-        createdAt: new Date("2026-03-11T10:10:00.000Z"),
+        created_at: new Date("2026-03-11T10:10:00.000Z"),
       },
     ]);
 
@@ -203,12 +203,12 @@ describe("meetingsRoutes", () => {
     getMeetingByIdMock.mockResolvedValue({
       id: "meeting_1",
       title: "Planning",
-      creatorId: "user_1",
-      roomName: "room-1",
+      creator_id: "user_1",
+      room_name: "room-1",
       status: "scheduled",
-      startedAt: null,
-      endedAt: null,
-      createdAt: new Date("2026-03-11T09:00:00.000Z"),
+      started_at: null,
+      ended_at: null,
+      created_at: new Date("2026-03-11T09:00:00.000Z"),
     });
 
     const response = await app.request("http://localhost/api/meetings/meeting_1");
@@ -226,9 +226,16 @@ describe("meetingsRoutes", () => {
     const app = createApp(memberUser({ email: "owner@example.com", name: "Owner" }));
 
     createMeetingMock.mockImplementation(async (input) => ({
-      ...input,
-      startedAt: null,
-      endedAt: null,
+      id: input.id,
+      title: input.title,
+      creator_id: input.creatorId,
+      room_name: input.roomName,
+      status: input.status,
+      started_at: null,
+      ended_at: null,
+      scheduled_at: input.scheduledAt ?? null,
+      google_calendar_event_id: null,
+      created_at: input.createdAt,
     }));
 
     const response = await app.request("http://localhost/api/meetings", {
@@ -260,12 +267,12 @@ describe("meetingsRoutes", () => {
     getMeetingByIdMock.mockResolvedValue({
       id: "meeting_1",
       title: "Planning",
-      creatorId: "user_1",
-      roomName: "room-1",
+      creator_id: "user_1",
+      room_name: "room-1",
       status: "active",
-      startedAt: new Date("2026-03-12T09:00:00.000Z"),
-      endedAt: null,
-      createdAt: new Date("2026-03-12T08:50:00.000Z"),
+      started_at: new Date("2026-03-12T09:00:00.000Z"),
+      ended_at: null,
+      created_at: new Date("2026-03-12T08:50:00.000Z"),
     });
     listActiveAgentSessionsMock.mockResolvedValue([
       {
@@ -305,12 +312,12 @@ describe("meetingsRoutes", () => {
     getMeetingByIdMock.mockResolvedValue({
       id: "meeting_1",
       title: "Planning",
-      creatorId: "user_1",
-      roomName: "room-1",
+      creator_id: "user_1",
+      room_name: "room-1",
       status: "active",
-      startedAt: null,
-      endedAt: null,
-      createdAt: new Date("2026-03-12T08:50:00.000Z"),
+      started_at: null,
+      ended_at: null,
+      created_at: new Date("2026-03-12T08:50:00.000Z"),
     });
 
     const response = await app.request("http://localhost/api/meetings/meeting_1/agents/active");
@@ -329,12 +336,12 @@ describe("meetingsRoutes", () => {
     getMeetingByIdMock.mockResolvedValue({
       id: "meeting_1",
       title: "Planning",
-      creatorId: "user_1",
-      roomName: "room-1",
+      creator_id: "user_1",
+      room_name: "room-1",
       status: "active",
-      startedAt: null,
-      endedAt: null,
-      createdAt: new Date("2026-03-12T08:50:00.000Z"),
+      started_at: null,
+      ended_at: null,
+      created_at: new Date("2026-03-12T08:50:00.000Z"),
     });
 
     const response = await app.request(
@@ -360,12 +367,12 @@ describe("meetingsRoutes", () => {
     getMeetingByIdMock.mockResolvedValue({
       id: "meeting_1",
       title: "Planning",
-      creatorId: "user_1",
-      roomName: "room-1",
+      creator_id: "user_1",
+      room_name: "room-1",
       status: "active",
-      startedAt: null,
-      endedAt: null,
-      createdAt: new Date("2026-03-12T08:50:00.000Z"),
+      started_at: null,
+      ended_at: null,
+      created_at: new Date("2026-03-12T08:50:00.000Z"),
     });
     leaveMeetingAgentMock.mockResolvedValue({
       id: "session_1",

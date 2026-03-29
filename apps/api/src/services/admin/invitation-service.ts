@@ -1,7 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { authIdentities, userGroupMemberships, userInvitations, users } from "../../db/schema.js";
 import { hashValue, normalizeEmail, toSessionUser } from "../auth/auth-utils.js";
 import { hashPassword } from "../auth/password-service.js";
 
@@ -22,26 +20,24 @@ export async function createInvitation(input: {
   const now = new Date();
 
   // Check if email is already registered
-  const [existingUser] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email));
+  const existingUser = await db
+    .selectFrom("users")
+    .select("id")
+    .where("email", "=", email)
+    .executeTakeFirst();
   if (existingUser) {
     throw new Error("A user with this email already exists");
   }
 
   // Check for existing non-expired pending invitation
-  const [existingInvite] = await db
-    .select({ id: userInvitations.id })
-    .from(userInvitations)
-    .where(
-      and(
-        eq(userInvitations.email, email),
-        isNull(userInvitations.usedAt),
-        isNull(userInvitations.revokedAt),
-        gt(userInvitations.expiresAt, now)
-      )
-    );
+  const existingInvite = await db
+    .selectFrom("user_invitations")
+    .select("id")
+    .where("email", "=", email)
+    .where("used_at", "is", null)
+    .where("revoked_at", "is", null)
+    .where("expires_at", ">", now)
+    .executeTakeFirst();
   if (existingInvite) {
     throw new Error("An active invitation already exists for this email");
   }
@@ -52,19 +48,20 @@ export async function createInvitation(input: {
 
   const id = `inv_${crypto.randomUUID()}`;
 
-  const [invitation] = await db
-    .insert(userInvitations)
+  const invitation = await db
+    .insertInto("user_invitations")
     .values({
       id,
       email,
-      tokenHash,
+      token_hash: tokenHash,
       role,
-      groupIds,
-      invitedByUserId: input.invitedByUserId,
-      expiresAt,
-      createdAt: now,
+      group_ids: groupIds,
+      invited_by_user_id: input.invitedByUserId,
+      expires_at: expiresAt,
+      created_at: now,
     })
-    .returning();
+    .returningAll()
+    .executeTakeFirst();
 
   if (!invitation) throw new Error("Failed to create invitation");
 
@@ -73,51 +70,44 @@ export async function createInvitation(input: {
 
 export async function listInvitations() {
   const invitations = await db
-    .select({
-      invitation: userInvitations,
-      inviterEmail: users.email,
-    })
-    .from(userInvitations)
-    .leftJoin(users, eq(userInvitations.invitedByUserId, users.id))
-    .orderBy(userInvitations.createdAt);
+    .selectFrom("user_invitations")
+    .leftJoin("users", "user_invitations.invited_by_user_id", "users.id")
+    .selectAll("user_invitations")
+    .select("users.email as inviter_email")
+    .orderBy("user_invitations.created_at")
+    .execute();
 
   return invitations.map((row) => ({
-    ...row.invitation,
-    invitedByEmail: row.inviterEmail,
+    ...row,
+    invitedByEmail: row.inviter_email,
   }));
 }
 
 export async function revokeInvitation(invitationId: string) {
-  const [updated] = await db
-    .update(userInvitations)
-    .set({ revokedAt: new Date() })
-    .where(
-      and(
-        eq(userInvitations.id, invitationId),
-        isNull(userInvitations.usedAt),
-        isNull(userInvitations.revokedAt)
-      )
-    )
-    .returning();
+  const updated = await db
+    .updateTable("user_invitations")
+    .set({ revoked_at: new Date() })
+    .where("id", "=", invitationId)
+    .where("used_at", "is", null)
+    .where("revoked_at", "is", null)
+    .returningAll()
+    .executeTakeFirst();
 
   return updated ?? null;
 }
 
 export async function validateInviteToken(token: string) {
   const tokenHash = hashValue(token);
-  const [row] = await db
-    .select()
-    .from(userInvitations)
-    .where(
-      and(
-        eq(userInvitations.tokenHash, tokenHash),
-        isNull(userInvitations.usedAt),
-        isNull(userInvitations.revokedAt)
-      )
-    );
+  const row = await db
+    .selectFrom("user_invitations")
+    .selectAll()
+    .where("token_hash", "=", tokenHash)
+    .where("used_at", "is", null)
+    .where("revoked_at", "is", null)
+    .executeTakeFirst();
 
   if (!row) return null;
-  if (row.expiresAt < new Date()) return null;
+  if (row.expires_at < new Date()) return null;
 
   return row;
 }
@@ -138,74 +128,80 @@ export async function acceptInvitation(token: string, input: { name: string; pas
   const userId = `user_${crypto.randomUUID()}`;
   const tokenHash = hashValue(token);
 
-  const user = await db.transaction(async (tx) => {
+  const user = await db.transaction().execute(async (trx) => {
     // Re-validate inside transaction to prevent TOCTOU race
-    const [invitation] = await tx
-      .select()
-      .from(userInvitations)
-      .where(
-        and(
-          eq(userInvitations.tokenHash, tokenHash),
-          isNull(userInvitations.usedAt),
-          isNull(userInvitations.revokedAt)
-        )
-      );
+    const invitation = await trx
+      .selectFrom("user_invitations")
+      .selectAll()
+      .where("token_hash", "=", tokenHash)
+      .where("used_at", "is", null)
+      .where("revoked_at", "is", null)
+      .executeTakeFirst();
 
-    if (!invitation || invitation.expiresAt < now) {
+    if (!invitation || invitation.expires_at < now) {
       throw new Error("Invalid or expired invitation");
     }
 
     // Mark invitation as used first (prevents concurrent accepts)
-    const [marked] = await tx
-      .update(userInvitations)
-      .set({ usedAt: now })
-      .where(and(eq(userInvitations.id, invitation.id), isNull(userInvitations.usedAt)))
-      .returning();
+    const marked = await trx
+      .updateTable("user_invitations")
+      .set({ used_at: now })
+      .where("id", "=", invitation.id)
+      .where("used_at", "is", null)
+      .returningAll()
+      .executeTakeFirst();
 
     if (!marked) {
       throw new Error("Invalid or expired invitation");
     }
 
     // Create user
-    const [created] = await tx
-      .insert(users)
+    const created = await trx
+      .insertInto("users")
       .values({
         id: userId,
         email: invitation.email,
         name,
-        avatarUrl: null,
-        emailVerifiedAt: now,
-        tokenVersion: 1,
+        avatar_url: null,
+        email_verified_at: now,
+        token_version: 1,
         role: invitation.role,
-        createdAt: now,
-        updatedAt: now,
+        created_at: now,
+        updated_at: now,
       })
-      .returning();
+      .returningAll()
+      .executeTakeFirst();
 
     if (!created) throw new Error("Failed to create user");
 
     // Create password identity
-    await tx.insert(authIdentities).values({
-      id: `auth_${crypto.randomUUID()}`,
-      userId: created.id,
-      provider: "password",
-      providerUserId: created.email,
-      passwordHash,
-      createdAt: now,
-      updatedAt: now,
-    });
+    await trx
+      .insertInto("auth_identities")
+      .values({
+        id: `auth_${crypto.randomUUID()}`,
+        user_id: created.id,
+        provider: "password",
+        provider_user_id: created.email,
+        password_hash: passwordHash,
+        created_at: now,
+        updated_at: now,
+      })
+      .execute();
 
     // Add group memberships
-    if (invitation.groupIds.length > 0) {
-      await tx.insert(userGroupMemberships).values(
-        invitation.groupIds.map((groupId) => ({
-          id: `ugm_${crypto.randomUUID()}`,
-          userId: created.id,
-          groupId,
-          addedBy: invitation.invitedByUserId,
-          createdAt: now,
-        }))
-      );
+    if (invitation.group_ids.length > 0) {
+      await trx
+        .insertInto("user_group_memberships")
+        .values(
+          invitation.group_ids.map((groupId) => ({
+            id: `ugm_${crypto.randomUUID()}`,
+            user_id: created.id,
+            group_id: groupId,
+            added_by: invitation.invited_by_user_id,
+            created_at: now,
+          }))
+        )
+        .execute();
     }
 
     return created;

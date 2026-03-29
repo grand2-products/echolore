@@ -117,21 +117,17 @@ export async function handleEgressWebhook(event: {
   // Trigger transcription and notification on completion (fire-and-forget)
   if (status === "completed") {
     const recording = await getRecordingByEgressId(egressId);
-    if (recording?.storagePath) {
-      const path = recording.storagePath;
+    if (recording?.storage_path) {
+      const path = recording.storage_path;
       import("./recording-transcription-service.js")
-        .then(({ transcribeRecording }) => transcribeRecording(recording.meetingId, path))
+        .then(({ transcribeRecording }) => transcribeRecording(recording.meeting_id, path))
         .catch((err) => console.error("[recording] Auto-transcription failed:", err));
     }
     // Email notification
     if (recording) {
       import("../notification/notification-service.js")
         .then(({ notifyRecordingComplete }) =>
-          notifyRecordingComplete(
-            recording.meetingId,
-            recording.meeting?.title ?? "Untitled Meeting",
-            recording.initiatedBy
-          )
+          notifyRecordingComplete(recording.meeting_id, "Untitled Meeting", recording.initiated_by)
         )
         .catch((err) => console.error("[recording] Notification failed:", err));
     }

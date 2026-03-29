@@ -46,17 +46,17 @@ aiChatRoutes.get(
     });
 
     // Filter: if mine=1, only show user's own conversations
-    const filtered = mine ? rows.filter((r) => r.conversation.creatorId === user.id) : rows;
+    const filtered = mine ? rows.filter((r) => r.creator_id === user.id) : rows;
 
     // Batch fetch message counts and last messages (avoids N+1)
-    const conversationIds = filtered.map((r) => r.conversation.id);
+    const conversationIds = filtered.map((r) => r.id);
     const stats = await getConversationStats(conversationIds);
 
     const conversations = filtered.map((r) => {
-      const stat = stats.get(r.conversation.id);
+      const stat = stats.get(r.id);
       return {
-        ...r.conversation,
-        creatorName: r.creatorName,
+        ...r,
+        creatorName: r.creator_name,
         messageCount: stat?.count ?? 0,
         lastMessagePreview: stat?.lastContent ?? null,
       };
@@ -83,10 +83,10 @@ aiChatRoutes.post("/", zValidator("json", createConversationSchema), async (c) =
       const conversation = await createConversation({
         id: nanoid(),
         title: data.title || "New Chat",
-        creatorId: user.id,
+        creator_id: user.id,
         visibility: data.visibility || "team",
-        createdAt: now,
-        updatedAt: now,
+        created_at: now,
+        updated_at: now,
       });
 
       return c.json({ conversation }, 201);

@@ -1,13 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useT } from "@/lib/i18n";
 import { CharacterList } from "./CharacterList";
 import { useCharacters } from "./use-characters";
 
 export default function AituberCharactersPage() {
   const t = useT();
-  const { characters, loading, error, message, handleDelete } = useCharacters();
+  const {
+    characters,
+    loading,
+    error,
+    message,
+    deleteTarget,
+    setDeleteTarget,
+    confirmDelete,
+    cancelDelete,
+  } = useCharacters();
 
   if (loading) {
     return (
@@ -51,7 +61,14 @@ export default function AituberCharactersPage() {
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
       {message && <p className="mb-4 text-sm text-green-600">{message}</p>}
 
-      <CharacterList characters={characters} onDelete={handleDelete} />
+      <CharacterList characters={characters} onDelete={setDeleteTarget} />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t("aituber.characters.deleteConfirm")}
+        variant="danger"
+        onConfirm={() => void confirmDelete()}
+        onCancel={cancelDelete}
+      />
     </div>
   );
 }

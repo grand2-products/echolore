@@ -1,7 +1,5 @@
-import { eq } from "drizzle-orm";
 import * as Y from "yjs";
 import { db } from "../../db/index.js";
-import { blocks, yjsDocuments } from "../../db/schema.js";
 
 const FRAGMENT_NAME = "document-store";
 
@@ -33,10 +31,23 @@ export async function syncBlocksFromYDoc(pageId: string, doc: Y.Doc): Promise<vo
     updatedAt: now,
   }));
 
-  await db.transaction(async (tx) => {
-    await tx.delete(blocks).where(eq(blocks.pageId, pageId));
+  await db.transaction().execute(async (trx) => {
+    await trx.deleteFrom("blocks").where("page_id", "=", pageId).execute();
     if (blockValues.length > 0) {
-      await tx.insert(blocks).values(blockValues);
+      await trx
+        .insertInto("blocks")
+        .values(
+          blockValues.map((b) => ({
+            id: b.id,
+            page_id: b.pageId,
+            type: b.type,
+            content: b.content,
+            sort_order: b.sortOrder,
+            created_at: b.createdAt,
+            updated_at: b.updatedAt,
+          }))
+        )
+        .execute();
     }
   });
 }
@@ -104,7 +115,7 @@ function extractAllText(element: Y.XmlElement | Y.XmlFragment): string {
  * for pages that were edited via Yjs before this sync was added.
  */
 export async function resyncAllYjsBlocks(): Promise<{ synced: number; errors: number }> {
-  const rows = await db.select().from(yjsDocuments);
+  const rows = await db.selectFrom("yjs_documents").selectAll().execute();
   let synced = 0;
   let errors = 0;
 
@@ -112,12 +123,12 @@ export async function resyncAllYjsBlocks(): Promise<{ synced: number; errors: nu
     try {
       const doc = new Y.Doc();
       Y.applyUpdate(doc, new Uint8Array(Buffer.from(row.state, "base64")));
-      await syncBlocksFromYDoc(row.pageId, doc);
+      await syncBlocksFromYDoc(row.page_id, doc);
       doc.destroy();
       synced++;
     } catch (err) {
       errors++;
-      console.error(`[yjs-block-sync] Failed to sync page ${row.pageId}:`, err);
+      console.error(`[yjs-block-sync] Failed to sync page ${row.page_id}:`, err);
     }
   }
 

@@ -51,7 +51,7 @@ async function runScan(): Promise<void> {
         sourceId: page.id,
         sourceSummary: `Wiki page scan: ${page.title}`,
         sourceContent: content,
-        targetSpaceId: page.spaceId,
+        targetSpaceId: page.space_id,
       });
     }
 

@@ -22,7 +22,7 @@ wikiTrashRoutes.get(
     const filtered =
       user.role === UserRole.Admin
         ? deletedPages
-        : deletedPages.filter((p) => p.authorId === user.id);
+        : deletedPages.filter((p) => p.author_id === user.id);
     return c.json({ pages: filtered });
   }
 );

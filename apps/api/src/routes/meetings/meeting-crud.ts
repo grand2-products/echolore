@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { jsonError, tryCatchResponse, withErrorHandler } from "../../lib/api-error.js";
 import { auditAction } from "../../lib/audit.js";
 import type { AppEnv } from "../../lib/auth.js";
+import { roomService } from "../../lib/livekit-client.js";
 import { parsePaginationParams } from "../../lib/pagination.js";
 import { authorizeOwnerResource } from "../../policies/authorization-policy.js";
 import {
@@ -12,16 +13,21 @@ import {
   updateCalendarEvent,
 } from "../../services/calendar/google-calendar-sync-service.js";
 import {
+  closeAllParticipantSessions,
+  countAllMeetings,
+  countMeetingsByUser,
   createMeeting,
   deleteMeeting,
+  getActiveParticipantCounts,
   getMeetingById,
   getMeetingSummaries,
   getMeetingTranscripts,
   listAllMeetings,
+  listMeetingParticipants,
   listMeetingsByUser,
   updateMeeting,
 } from "../../services/meeting/meeting-service.js";
-import { toMeetingDto, toSummaryDto, toTranscriptDto } from "./dto.js";
+import { toMeetingDto, toMeetingParticipantDto, toSummaryDto, toTranscriptDto } from "./dto.js";
 import { createMeetingSchema, updateMeetingSchema } from "./schemas.js";
 
 export const meetingCrudRoutes = new Hono<AppEnv>();
@@ -34,12 +40,24 @@ meetingCrudRoutes.get(
     const user = c.get("user");
 
     const { limit, offset } = parsePaginationParams(c);
-    const allMeetings =
-      user.role === UserRole.Admin ? await listAllMeetings() : await listMeetingsByUser(user.id);
+    const isAdmin = user.role === UserRole.Admin;
+
+    const [meetings, total] = await Promise.all([
+      isAdmin ? listAllMeetings({ limit, offset }) : listMeetingsByUser(user.id, { limit, offset }),
+      isAdmin ? countAllMeetings() : countMeetingsByUser(user.id),
+    ]);
+
+    // Fetch active participant counts for active meetings in a single query
+    const activeMeetingIds = meetings.filter((m) => m.status === "active").map((m) => m.id);
+    const participantCounts = await getActiveParticipantCounts(activeMeetingIds);
 
     return c.json({
-      meetings: allMeetings.slice(offset, offset + limit).map(toMeetingDto),
-      total: allMeetings.length,
+      meetings: meetings.map((m) => ({
+        ...toMeetingDto(m),
+        activeParticipantCount:
+          m.status === "active" ? (participantCounts.get(m.id) ?? 0) : undefined,
+      })),
+      total,
     });
   }
 );
@@ -57,7 +75,7 @@ meetingCrudRoutes.get(
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "read");
     if (!authz.allowed) {
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
@@ -77,6 +95,28 @@ meetingCrudRoutes.get(
       transcripts: meetingTranscripts.map(toTranscriptDto),
       summaries: meetingSummaries.map(toSummaryDto),
     });
+  }
+);
+
+// GET /api/meetings/:id/participants - List meeting participants
+meetingCrudRoutes.get(
+  "/:id/participants",
+  withErrorHandler("MEETING_PARTICIPANTS_FAILED", "Failed to fetch meeting participants"),
+  async (c) => {
+    const { id } = c.req.param();
+
+    const meeting = await getMeetingById(id);
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+    }
+
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "read");
+    if (!authz.allowed) {
+      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+    }
+
+    const participants = await listMeetingParticipants(id);
+    return c.json({ participants: participants.map(toMeetingParticipantDto) });
   }
 );
 
@@ -142,7 +182,7 @@ meetingCrudRoutes.put(
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "write");
     if (!authz.allowed) {
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
@@ -189,7 +229,7 @@ meetingCrudRoutes.delete(
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "delete");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "delete");
     if (!authz.allowed) {
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
@@ -208,5 +248,54 @@ meetingCrudRoutes.delete(
     }
 
     return c.json({ success: true });
+  }
+);
+
+// POST /api/meetings/:id/end - End meeting for all participants
+meetingCrudRoutes.post(
+  "/:id/end",
+  withErrorHandler("MEETING_END_FAILED", "Failed to end meeting"),
+  async (c) => {
+    const { id } = c.req.param();
+
+    const meeting = await getMeetingById(id);
+    if (!meeting) {
+      return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+    }
+
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "write");
+    if (!authz.allowed) {
+      return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+    }
+
+    if (meeting.status !== "active") {
+      return jsonError(c, 400, "MEETING_NOT_ACTIVE", "Meeting is not currently active");
+    }
+
+    const now = new Date();
+
+    // Update meeting + close participant sessions concurrently
+    const [updatedMeeting] = await Promise.all([
+      updateMeeting(id, { status: "ended", ended_at: now }),
+      closeAllParticipantSessions(id, now),
+    ]);
+
+    // Delete LiveKit room to force-disconnect all participants
+    try {
+      await roomService.deleteRoom(meeting.roomName);
+    } catch {
+      // Room may already be empty — best-effort
+    }
+
+    // Best-effort calendar sync
+    try {
+      await updateCalendarEvent(id, c.get("user").id);
+    } catch {
+      // Calendar sync is optional
+    }
+
+    await auditAction(c, "meeting.end_for_all", "meeting", id);
+
+    return c.json({ meeting: updatedMeeting ? toMeetingDto(updatedMeeting) : null });
   }
 );

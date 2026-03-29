@@ -1,31 +1,34 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { sql } from "kysely";
 import { db } from "../../db/index.js";
-import { type NewPageRevision, pageRevisions } from "../../db/schema.js";
+import type { NewPageRevision } from "../../db/schema.js";
 
 export async function createRevision(data: NewPageRevision) {
-  const [revision] = await db.insert(pageRevisions).values(data).returning();
-  return revision ?? null;
+  return (
+    (await db.insertInto("page_revisions").values(data).returningAll().executeTakeFirst()) ?? null
+  );
 }
 
 export async function listRevisionsByPageId(pageId: string) {
   return db
-    .select()
-    .from(pageRevisions)
-    .where(eq(pageRevisions.pageId, pageId))
-    .orderBy(desc(pageRevisions.revisionNumber));
+    .selectFrom("page_revisions")
+    .selectAll()
+    .where("page_id", "=", pageId)
+    .orderBy("revision_number", "desc")
+    .execute();
 }
 
 export async function getRevisionById(id: string) {
-  const [revision] = await db.select().from(pageRevisions).where(eq(pageRevisions.id, id));
-  return revision ?? null;
+  return (
+    (await db.selectFrom("page_revisions").selectAll().where("id", "=", id).executeTakeFirst()) ??
+    null
+  );
 }
 
 export async function getNextRevisionNumber(pageId: string) {
-  const [result] = await db
-    .select({
-      next: sql<number>`coalesce(max(${pageRevisions.revisionNumber}), 0) + 1`,
-    })
-    .from(pageRevisions)
-    .where(eq(pageRevisions.pageId, pageId));
+  const result = await db
+    .selectFrom("page_revisions")
+    .select(sql<number>`coalesce(max(revision_number), 0) + 1`.as("next"))
+    .where("page_id", "=", pageId)
+    .executeTakeFirst();
   return result?.next ?? 1;
 }

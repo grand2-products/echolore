@@ -1,7 +1,6 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { sql } from "kysely";
 import { db } from "../../db/index.js";
 import type { KnowledgeSuggestion, NewKnowledgeSuggestion } from "../../db/schema.js";
-import { knowledgeSuggestions } from "../../db/schema.js";
 
 export async function listSuggestions(filters?: {
   status?: string;
@@ -9,39 +8,46 @@ export async function listSuggestions(filters?: {
   limit?: number;
   offset?: number;
 }): Promise<{ rows: KnowledgeSuggestion[]; total: number }> {
-  const conditions = [];
+  let baseQuery = db.selectFrom("knowledge_suggestions");
+
   if (filters?.status) {
-    conditions.push(eq(knowledgeSuggestions.status, filters.status));
+    baseQuery = baseQuery.where("status", "=", filters.status);
   }
   if (filters?.sourceType) {
-    conditions.push(eq(knowledgeSuggestions.sourceType, filters.sourceType));
+    baseQuery = baseQuery.where("source_type", "=", filters.sourceType);
   }
 
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-
-  const [rows, [countRow]] = await Promise.all([
-    db
-      .select()
-      .from(knowledgeSuggestions)
-      .where(where)
-      .orderBy(desc(knowledgeSuggestions.createdAt))
+  const [rows, countRow] = await Promise.all([
+    baseQuery
+      .selectAll()
+      .orderBy("created_at", "desc")
       .limit(filters?.limit ?? 50)
-      .offset(filters?.offset ?? 0),
-    db.select({ count: sql<number>`count(*)::int` }).from(knowledgeSuggestions).where(where),
+      .offset(filters?.offset ?? 0)
+      .execute(),
+    baseQuery.select(sql<number>`count(*)::int`.as("count")).executeTakeFirst(),
   ]);
 
   return { rows, total: countRow?.count ?? 0 };
 }
 
 export async function getSuggestionById(id: string): Promise<KnowledgeSuggestion | null> {
-  const [row] = await db.select().from(knowledgeSuggestions).where(eq(knowledgeSuggestions.id, id));
-  return row ?? null;
+  return (
+    (await db
+      .selectFrom("knowledge_suggestions")
+      .selectAll()
+      .where("id", "=", id)
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function createSuggestion(
   input: NewKnowledgeSuggestion
 ): Promise<KnowledgeSuggestion> {
-  const [row] = await db.insert(knowledgeSuggestions).values(input).returning();
+  const row = await db
+    .insertInto("knowledge_suggestions")
+    .values(input)
+    .returningAll()
+    .executeTakeFirst();
   if (!row) throw new Error("Failed to create knowledge suggestion");
   return row;
 }
@@ -52,18 +58,20 @@ export async function updateSuggestion(
     Pick<
       KnowledgeSuggestion,
       | "status"
-      | "reviewedByUserId"
-      | "reviewedAt"
-      | "rejectionReason"
-      | "resultPageId"
-      | "updatedAt"
+      | "reviewed_by_user_id"
+      | "reviewed_at"
+      | "rejection_reason"
+      | "result_page_id"
+      | "updated_at"
     >
   >
 ): Promise<KnowledgeSuggestion | null> {
-  const [row] = await db
-    .update(knowledgeSuggestions)
-    .set(updates)
-    .where(eq(knowledgeSuggestions.id, id))
-    .returning();
-  return row ?? null;
+  return (
+    (await db
+      .updateTable("knowledge_suggestions")
+      .set(updates)
+      .where("id", "=", id)
+      .returningAll()
+      .executeTakeFirst()) ?? null
+  );
 }

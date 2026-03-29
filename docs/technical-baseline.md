@@ -7,7 +7,7 @@ This document records the currently adopted technical baseline for the repositor
 ## Runtime Baseline
 - Web: Next.js
 - API: Hono
-- ORM: Drizzle ORM
+- ORM: Kysely
 - Database: PostgreSQL
 - Realtime: LiveKit
 - Cache/broker: Valkey
@@ -26,7 +26,7 @@ This document records the currently adopted technical baseline for the repositor
 - release path is GitHub Actions workflow only
 - CI triggers App Release
 - runtime deploy uses prebuilt images
-- DB migrations run automatically during each release (drizzle-orm programmatic migrator)
+- DB migrations run automatically during each release (forward-only SQL migrations run on startup via Kysely migrator)
 - AI credentials (Gemini, Vertex AI, Speech) use API keys configured via environment variables
 - `docker-compose.yml` is the runtime compose
 - `docker-compose.dev.yml` is the local development override

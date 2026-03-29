@@ -11,20 +11,20 @@
  */
 export function resolveUserAvatarUrl(user: {
   id: string;
-  avatarUrl: string | null;
+  avatar_url: string | null;
 }): string | null {
-  if (!user.avatarUrl) return null;
+  if (!user.avatar_url) return null;
 
   // External URL — pass through
-  if (user.avatarUrl.startsWith("http://") || user.avatarUrl.startsWith("https://")) {
-    return user.avatarUrl;
+  if (user.avatar_url.startsWith("http://") || user.avatar_url.startsWith("https://")) {
+    return user.avatar_url;
   }
 
   // Internal storage path — convert to serving endpoint
-  if (user.avatarUrl.startsWith("avatars/")) {
+  if (user.avatar_url.startsWith("avatars/")) {
     return `/api/users/${user.id}/avatar`;
   }
 
   // Legacy value (e.g. "/api/users/{id}/avatar" from before refactor) — pass through
-  return user.avatarUrl;
+  return user.avatar_url;
 }

@@ -196,13 +196,32 @@ app.onError((err, c) => {
 // Run database migrations on startup (idempotent — skips already-applied)
 if (process.env.NODE_ENV !== "test") {
   const { Pool: MigrationPool } = await import("pg");
-  const { drizzle: migrationDrizzle } = await import("drizzle-orm/node-postgres");
-  const { migrate } = await import("drizzle-orm/node-postgres/migrator");
+  const { promises: fs } = await import("node:fs");
+  const path = await import("node:path");
   const migrationPool = new MigrationPool({ connectionString: process.env.DATABASE_URL });
   try {
     await migrationPool.query("CREATE EXTENSION IF NOT EXISTS vector;");
-    const migrationDb = migrationDrizzle(migrationPool);
-    await migrate(migrationDb, { migrationsFolder: "./drizzle" });
+    await migrationPool.query(`
+      CREATE TABLE IF NOT EXISTS _migrations (
+        name TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
+    const migrationsDir = path.resolve(import.meta.dirname, "db/migrations");
+    const files = (await fs.readdir(migrationsDir))
+      .filter((f: string) => f.endsWith(".sql"))
+      .sort();
+    for (const file of files) {
+      const name = file.replace(/\.sql$/, "");
+      const { rows } = await migrationPool.query("SELECT 1 FROM _migrations WHERE name = $1", [
+        name,
+      ]);
+      if (rows.length > 0) continue;
+      console.log(`Applying migration: ${file}`);
+      const sqlText = await fs.readFile(path.join(migrationsDir, file), "utf-8");
+      await migrationPool.query(sqlText);
+      await migrationPool.query("INSERT INTO _migrations (name) VALUES ($1)", [name]);
+    }
     console.log("Database migrations applied successfully");
   } catch (err) {
     console.error("Database migration failed:", err);

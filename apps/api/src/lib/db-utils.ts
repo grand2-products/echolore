@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
-import type { PgColumn, PgTable, TableConfig } from "drizzle-orm/pg-core";
+import { sql } from "kysely";
 import { db } from "../db/index.js";
+import type { Database } from "../db/schema.js";
 
 /**
  * Extract first row from query result, return null if empty.
@@ -12,17 +12,10 @@ export function firstOrNull<T>(rows: T[]): T | null {
 /**
  * Fetch a single record by its `id` column, returning null when not found.
  */
-export async function getRecordById<T extends PgTable<TableConfig> & { id: PgColumn }>(
-  table: T,
-  id: string
-): Promise<T["$inferSelect"] | null> {
-  return firstOrNull(
-    await db
-      .select()
-      // biome-ignore lint/suspicious/noExplicitAny: Drizzle's from() conditional type requires cast
-      .from(table as any)
-      .where(eq(table.id, id))
-  );
+export async function getRecordById<T extends keyof Database & string>(table: T, id: string) {
+  const result = await sql`SELECT * FROM ${sql.table(table)} WHERE id = ${id} LIMIT 1`.execute(db);
+  // biome-ignore lint/suspicious/noExplicitAny: raw SQL result requires cast
+  return (result.rows[0] as any) ?? null;
 }
 
 /**

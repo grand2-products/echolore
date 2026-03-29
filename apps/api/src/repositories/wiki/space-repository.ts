@@ -1,44 +1,53 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { sql } from "kysely";
 import { db } from "../../db/index.js";
-import { type NewSpace, spaces } from "../../db/schema.js";
-import { firstOrNull } from "../../lib/db-utils.js";
+import type { NewSpace } from "../../db/schema.js";
 
 export async function getSpaceById(id: string) {
-  return firstOrNull(await db.select().from(spaces).where(eq(spaces.id, id)));
+  return (
+    (await db.selectFrom("spaces").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
+  );
 }
 
 export async function findGeneralSpace() {
-  return firstOrNull(await db.select().from(spaces).where(eq(spaces.type, "general")).limit(1));
+  return (
+    (await db.selectFrom("spaces").selectAll().where("type", "=", "general").executeTakeFirst()) ??
+    null
+  );
 }
 
 export async function findPersonalSpaceByUserId(userId: string) {
-  return firstOrNull(
-    await db
-      .select()
-      .from(spaces)
-      .where(and(eq(spaces.type, "personal"), eq(spaces.ownerUserId, userId)))
+  return (
+    (await db
+      .selectFrom("spaces")
+      .selectAll()
+      .where("type", "=", "personal")
+      .where("owner_user_id", "=", userId)
+      .executeTakeFirst()) ?? null
   );
 }
 
 export async function findTeamSpaceByGroupId(groupId: string) {
-  return firstOrNull(
-    await db
-      .select()
-      .from(spaces)
-      .where(and(eq(spaces.type, "team"), eq(spaces.groupId, groupId)))
+  return (
+    (await db
+      .selectFrom("spaces")
+      .selectAll()
+      .where("type", "=", "team")
+      .where("group_id", "=", groupId)
+      .executeTakeFirst()) ?? null
   );
 }
 
 export async function listSpaces() {
   return db
-    .select()
-    .from(spaces)
+    .selectFrom("spaces")
+    .selectAll()
     .orderBy(
-      sql`CASE ${spaces.type} WHEN 'general' THEN 0 WHEN 'team' THEN 1 WHEN 'personal' THEN 2 ELSE 3 END`,
-      asc(spaces.name)
-    );
+      sql`CASE type WHEN 'general' THEN 0 WHEN 'team' THEN 1 WHEN 'personal' THEN 2 ELSE 3 END`
+    )
+    .orderBy("name", "asc")
+    .execute();
 }
 
 export async function createSpace(space: NewSpace) {
-  return firstOrNull(await db.insert(spaces).values(space).returning());
+  return (await db.insertInto("spaces").values(space).returningAll().executeTakeFirst()) ?? null;
 }

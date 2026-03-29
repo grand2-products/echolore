@@ -1,41 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { dbMock, generateSuggestionsMock } = vi.hoisted(() => {
-  const selectFromWhereLimitMock = vi.fn();
-  const selectFromWhereOrderByMock = vi.fn(() => ({ limit: selectFromWhereLimitMock }));
-  const selectFromWhereMock = vi.fn(() => ({ orderBy: selectFromWhereOrderByMock }));
-  const selectFromOrderByMock = vi.fn(() => ({ limit: selectFromWhereLimitMock }));
-  const selectFromMock = vi.fn(() => ({
-    where: selectFromWhereMock,
-    orderBy: selectFromOrderByMock,
-  }));
-  return {
-    dbMock: {
-      select: vi.fn(() => ({
-        from: selectFromMock,
-      })),
-      _selectFromMock: selectFromMock,
-      _selectFromWhereMock: selectFromWhereMock,
-      _selectFromWhereLimitMock: selectFromWhereLimitMock,
-      _selectFromWhereOrderByMock: selectFromWhereOrderByMock,
-    },
+const { listRecentUpdatedPagesMock, listPageBlockContentsMock, generateSuggestionsMock } =
+  vi.hoisted(() => ({
+    listRecentUpdatedPagesMock: vi.fn(),
+    listPageBlockContentsMock: vi.fn(),
     generateSuggestionsMock: vi.fn(),
-  };
-});
+  }));
 
-vi.mock("../../db/index.js", () => ({
-  db: dbMock,
-}));
-
-vi.mock("../../db/schema.js", () => ({
-  blocks: { pageId: "pageId", content: "content", type: "type", sortOrder: "sortOrder" },
-  pages: {
-    id: "id",
-    title: "title",
-    spaceId: "spaceId",
-    deletedAt: "deletedAt",
-    updatedAt: "updatedAt",
-  },
+vi.mock("../../repositories/wiki/wiki-repository.js", () => ({
+  listRecentUpdatedPages: listRecentUpdatedPagesMock,
+  listPageBlockContents: listPageBlockContentsMock,
 }));
 
 vi.mock("./knowledge-suggestion-service.js", () => ({
@@ -48,7 +22,8 @@ describe("knowledge-scan-service", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     generateSuggestionsMock.mockReset();
-    dbMock._selectFromWhereLimitMock.mockReset();
+    listRecentUpdatedPagesMock.mockReset();
+    listPageBlockContentsMock.mockReset();
   });
 
   afterEach(() => {
@@ -67,11 +42,12 @@ describe("knowledge-scan-service", () => {
   });
 
   it("runs scan on interval and processes pages with sufficient content", async () => {
-    // First query: recent pages
-    dbMock._selectFromWhereLimitMock
-      .mockResolvedValueOnce([{ id: "p1", title: "Page One", spaceId: "s1" }])
-      // Second query: blocks for page p1
-      .mockResolvedValueOnce([{ content: "A".repeat(110), type: "paragraph" }]);
+    listRecentUpdatedPagesMock.mockResolvedValueOnce([
+      { id: "p1", title: "Page One", space_id: "s1" },
+    ]);
+    listPageBlockContentsMock.mockResolvedValueOnce([
+      { content: "A".repeat(110), type: "paragraph" },
+    ]);
 
     generateSuggestionsMock.mockResolvedValue(undefined);
 
@@ -93,9 +69,10 @@ describe("knowledge-scan-service", () => {
   });
 
   it("skips pages with insufficient content (< 100 chars)", async () => {
-    dbMock._selectFromWhereLimitMock
-      .mockResolvedValueOnce([{ id: "p1", title: "Short Page", spaceId: "s1" }])
-      .mockResolvedValueOnce([{ content: "Short", type: "paragraph" }]);
+    listRecentUpdatedPagesMock.mockResolvedValueOnce([
+      { id: "p1", title: "Short Page", space_id: "s1" },
+    ]);
+    listPageBlockContentsMock.mockResolvedValueOnce([{ content: "Short", type: "paragraph" }]);
 
     startKnowledgeScanLoop(1000);
     await vi.advanceTimersByTimeAsync(1000);
@@ -106,7 +83,7 @@ describe("knowledge-scan-service", () => {
   });
 
   it("does nothing when no recent pages exist", async () => {
-    dbMock._selectFromWhereLimitMock.mockResolvedValueOnce([]);
+    listRecentUpdatedPagesMock.mockResolvedValueOnce([]);
 
     startKnowledgeScanLoop(1000);
     await vi.advanceTimersByTimeAsync(1000);
@@ -117,7 +94,7 @@ describe("knowledge-scan-service", () => {
   });
 
   it("handles scan errors gracefully without crashing", async () => {
-    dbMock._selectFromWhereLimitMock.mockRejectedValueOnce(new Error("DB connection failed"));
+    listRecentUpdatedPagesMock.mockRejectedValueOnce(new Error("DB connection failed"));
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     startKnowledgeScanLoop(1000);
@@ -129,7 +106,7 @@ describe("knowledge-scan-service", () => {
     );
 
     // Should be able to run again after error
-    dbMock._selectFromWhereLimitMock.mockResolvedValueOnce([]);
+    listRecentUpdatedPagesMock.mockResolvedValueOnce([]);
     await vi.advanceTimersByTimeAsync(1000);
 
     stopKnowledgeScanLoop();

@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import type { users } from "../../db/schema.js";
+import type { User } from "../../db/schema.js";
 import {
   createAuthRefreshToken,
   findAuthRefreshToken,
@@ -61,11 +61,11 @@ export function parseSignedAccessToken(token: string): AccessTokenPayload | null
   }
 }
 
-export function buildAccessToken(user: typeof users.$inferSelect, authMode: SupportedAuthMode) {
+export function buildAccessToken(user: User, authMode: SupportedAuthMode) {
   const expiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000);
   const accessToken = createSignedAccessToken({
     sub: user.id,
-    ver: user.tokenVersion,
+    ver: user.token_version,
     am: authMode,
     exp: Math.floor(expiresAt.getTime() / 1000),
   });
@@ -116,21 +116,21 @@ export async function refreshAccessToken(input: {
   deviceName?: string | null;
 }): Promise<RefreshResult | null> {
   const refreshRecord = await findActiveRefreshToken(input.refreshToken);
-  if (!refreshRecord || refreshRecord.clientType !== input.clientType) {
+  if (!refreshRecord || refreshRecord.client_type !== input.clientType) {
     return null;
   }
 
-  const user = await findUserById(refreshRecord.userId);
-  if (!user || user.suspendedAt || user.deletedAt) {
+  const user = await findUserById(refreshRecord.user_id);
+  if (!user || user.suspended_at || user.deleted_at) {
     return null;
   }
 
-  const authMode = refreshRecord.authMode as SupportedAuthMode;
+  const authMode = refreshRecord.auth_mode as SupportedAuthMode;
 
   // Grace period hit: token was already revoked and rotated.
   // Return a fresh access token but reuse the already-issued successor
   // refresh token instead of creating another one.
-  if (refreshRecord.revokedAt) {
+  if (refreshRecord.revoked_at) {
     const { accessToken, expiresAt } = buildAccessToken(user, authMode);
     const successor = await findSuccessorRefreshToken(refreshRecord.id);
     // If successor was already revoked/missing, reject — the chain moved on
@@ -154,7 +154,7 @@ export async function refreshAccessToken(input: {
     userId: user.id,
     clientType: input.clientType,
     authMode,
-    deviceName: input.deviceName ?? refreshRecord.deviceName ?? null,
+    deviceName: input.deviceName ?? refreshRecord.device_name ?? null,
     rotatedFromId: refreshRecord.id,
   });
 
@@ -173,7 +173,7 @@ export async function revokeRefreshToken(rawRefreshToken: string | null | undefi
   }
 
   const refreshRecord = await findActiveRefreshToken(rawRefreshToken);
-  if (!refreshRecord || refreshRecord.revokedAt) {
+  if (!refreshRecord || refreshRecord.revoked_at) {
     return;
   }
 
