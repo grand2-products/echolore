@@ -68,9 +68,9 @@ export function normalizeEmail(email: string) {
 }
 
 export function getSessionSecret() {
-  const secret = process.env.AUTH_SESSION_SECRET;
+  const secret = process.env.AUTH_SECRET;
   if (!secret) {
-    throw new Error("AUTH_SESSION_SECRET is required when password authentication is enabled");
+    throw new Error("AUTH_SECRET is required when password authentication is enabled");
   }
   return secret;
 }

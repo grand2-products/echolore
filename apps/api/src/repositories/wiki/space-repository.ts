@@ -1,21 +1,21 @@
 import { sql } from "kysely";
 import { db } from "../../db/index.js";
-import type { NewSpace } from "../../db/schema.js";
+import type { NewSpace, Space } from "../../db/schema.js";
 
-export async function getSpaceById(id: string) {
+export async function getSpaceById(id: string): Promise<Space | null> {
   return (
     (await db.selectFrom("spaces").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
   );
 }
 
-export async function findGeneralSpace() {
+export async function findGeneralSpace(): Promise<Space | null> {
   return (
     (await db.selectFrom("spaces").selectAll().where("type", "=", "general").executeTakeFirst()) ??
     null
   );
 }
 
-export async function findPersonalSpaceByUserId(userId: string) {
+export async function findPersonalSpaceByUserId(userId: string): Promise<Space | null> {
   return (
     (await db
       .selectFrom("spaces")
@@ -26,7 +26,7 @@ export async function findPersonalSpaceByUserId(userId: string) {
   );
 }
 
-export async function findTeamSpaceByGroupId(groupId: string) {
+export async function findTeamSpaceByGroupId(groupId: string): Promise<Space | null> {
   return (
     (await db
       .selectFrom("spaces")
@@ -37,7 +37,7 @@ export async function findTeamSpaceByGroupId(groupId: string) {
   );
 }
 
-export async function listSpaces() {
+export async function listSpaces(): Promise<Space[]> {
   return db
     .selectFrom("spaces")
     .selectAll()
@@ -48,6 +48,6 @@ export async function listSpaces() {
     .execute();
 }
 
-export async function createSpace(space: NewSpace) {
+export async function createSpace(space: NewSpace): Promise<Space | null> {
   return (await db.insertInto("spaces").values(space).returningAll().executeTakeFirst()) ?? null;
 }

@@ -1,7 +1,8 @@
 import { sql } from "kysely";
 import { db } from "../../db/index.js";
+import type { User } from "../../db/schema.js";
 
-export async function getUserCount() {
+export async function getUserCount(): Promise<number> {
   const row = await db
     .selectFrom("users")
     .select(sql<number>`count(*)::int`.as("value"))
@@ -10,15 +11,15 @@ export async function getUserCount() {
   return row?.value ?? 0;
 }
 
-export async function listUsers() {
+export async function listUsers(): Promise<User[]> {
   return db.selectFrom("users").selectAll().execute();
 }
 
-export async function getUserById(id: string) {
+export async function getUserById(id: string): Promise<User | null> {
   return (await db.selectFrom("users").selectAll().where("id", "=", id).executeTakeFirst()) ?? null;
 }
 
-export async function getUserByEmail(email: string) {
+export async function getUserByEmail(email: string): Promise<User | null> {
   return (
     (await db.selectFrom("users").selectAll().where("email", "=", email).executeTakeFirst()) ?? null
   );
@@ -32,7 +33,7 @@ export async function createUser(input: {
   role: string;
   createdAt: Date;
   updatedAt: Date;
-}) {
+}): Promise<User | null> {
   return (
     (await db
       .insertInto("users")
@@ -57,7 +58,7 @@ export async function updateUser(
     avatarUrl?: string | null;
     updatedAt: Date;
   }
-) {
+): Promise<User | null> {
   return (
     (await db
       .updateTable("users")
@@ -72,13 +73,13 @@ export async function updateUser(
   );
 }
 
-export async function deleteUser(id: string) {
+export async function deleteUser(id: string): Promise<User | null> {
   return (
     (await db.deleteFrom("users").where("id", "=", id).returningAll().executeTakeFirst()) ?? null
   );
 }
 
-export async function suspendUser(id: string) {
+export async function suspendUser(id: string): Promise<User | null> {
   const now = new Date();
   return (
     (await db
@@ -95,7 +96,7 @@ export async function suspendUser(id: string) {
   );
 }
 
-export async function unsuspendUser(id: string) {
+export async function unsuspendUser(id: string): Promise<User | null> {
   return (
     (await db
       .updateTable("users")
@@ -106,7 +107,7 @@ export async function unsuspendUser(id: string) {
   );
 }
 
-export async function softDeleteUser(id: string) {
+export async function softDeleteUser(id: string): Promise<User | null> {
   const now = new Date();
   return (
     (await db
@@ -123,7 +124,7 @@ export async function softDeleteUser(id: string) {
   );
 }
 
-export async function restoreUser(id: string) {
+export async function restoreUser(id: string): Promise<User | null> {
   return (
     (await db
       .updateTable("users")

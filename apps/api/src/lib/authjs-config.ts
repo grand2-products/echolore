@@ -4,13 +4,11 @@ import Google from "@auth/core/providers/google";
 import { UserRole } from "@echolore/shared/contracts";
 import { db } from "../db/index.js";
 import { getAuthSettings, resolveAllowedDomain } from "../services/admin/auth-settings-service.js";
-import {
-  authenticatePasswordUser,
-  isRegistrationOpen,
-  reconcileGoogleIdentity,
-} from "../services/auth/password-auth-service.js";
+import { isRegistrationOpen } from "../services/auth/auth-utils.js";
+import { reconcileGoogleIdentity } from "../services/auth/oauth-service.js";
+import { authenticatePasswordUser } from "../services/auth/password-service.js";
 
-const AUTH_SECRET = process.env.AUTH_SECRET || process.env.AUTH_SESSION_SECRET;
+const AUTH_SECRET = process.env.AUTH_SECRET;
 
 async function resolveGoogleCredentials(): Promise<{
   clientId: string | undefined;

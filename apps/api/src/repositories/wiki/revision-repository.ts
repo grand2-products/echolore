@@ -1,8 +1,8 @@
 import { sql } from "kysely";
 import { db } from "../../db/index.js";
-import type { NewPageRevision } from "../../db/schema.js";
+import type { NewPageRevision, PageRevision } from "../../db/schema.js";
 
-export async function createRevision(data: NewPageRevision) {
+export async function createRevision(data: NewPageRevision): Promise<PageRevision | null> {
   return (
     (await db
       .insertInto("page_revisions")
@@ -15,7 +15,7 @@ export async function createRevision(data: NewPageRevision) {
   );
 }
 
-export async function listRevisionsByPageId(pageId: string) {
+export async function listRevisionsByPageId(pageId: string): Promise<PageRevision[]> {
   return db
     .selectFrom("page_revisions")
     .selectAll()
@@ -24,14 +24,14 @@ export async function listRevisionsByPageId(pageId: string) {
     .execute();
 }
 
-export async function getRevisionById(id: string) {
+export async function getRevisionById(id: string): Promise<PageRevision | null> {
   return (
     (await db.selectFrom("page_revisions").selectAll().where("id", "=", id).executeTakeFirst()) ??
     null
   );
 }
 
-export async function getNextRevisionNumber(pageId: string) {
+export async function getNextRevisionNumber(pageId: string): Promise<number> {
   const result = await db
     .selectFrom("page_revisions")
     .select(sql<number>`coalesce(max(revision_number), 0) + 1`.as("next"))

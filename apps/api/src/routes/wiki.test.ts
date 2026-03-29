@@ -74,7 +74,7 @@ vi.mock("../services/wiki/wiki-service.js", () => ({
   searchVisiblePages: searchVisiblePagesMock,
 }));
 
-vi.mock("../services/file/file-service.js", () => ({
+vi.mock("../repositories/file/file-repository.js", () => ({
   getFileById: getFileByIdMock,
 }));
 

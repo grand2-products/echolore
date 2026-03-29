@@ -1,7 +1,7 @@
 import { sql } from "kysely";
 import { db } from "../../db/index.js";
 
-export async function countActiveUsers(since: Date) {
+export async function countActiveUsers(since: Date): Promise<{ value: number } | undefined> {
   const row = await db
     .selectFrom("audit_logs")
     .select(sql<number>`count(distinct ${sql.ref("actorUserId")})`.as("value"))
@@ -12,7 +12,9 @@ export async function countActiveUsers(since: Date) {
   return row;
 }
 
-export async function getSearchStats(since: Date) {
+export async function getSearchStats(
+  since: Date
+): Promise<{ total: number; success: number } | undefined> {
   const row = await db
     .selectFrom("audit_logs")
     .select([
@@ -28,7 +30,9 @@ export async function getSearchStats(since: Date) {
   return row;
 }
 
-export async function getMeetingStats(since: Date) {
+export async function getMeetingStats(
+  since: Date
+): Promise<{ total: number; withMinutes: number } | undefined> {
   const row = await db
     .selectFrom("meetings")
     .select([
@@ -45,7 +49,9 @@ export async function getMeetingStats(since: Date) {
   return row;
 }
 
-export async function getSecurityStats(since: Date) {
+export async function getSecurityStats(
+  since: Date
+): Promise<{ authRejectedTotal: number; authzDeniedTotal: number } | undefined> {
   const row = await db
     .selectFrom("audit_logs")
     .select([

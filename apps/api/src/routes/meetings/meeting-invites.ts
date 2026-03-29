@@ -14,7 +14,7 @@ import {
   listInvitesByMeeting,
   resolveGuestRequest,
   revokeInvite,
-} from "../../services/meeting/meeting-invite-service.js";
+} from "../../repositories/meeting/meeting-invite-repository.js";
 import { getMeetingById } from "../../services/meeting/meeting-service.js";
 
 const encoder = new TextEncoder();

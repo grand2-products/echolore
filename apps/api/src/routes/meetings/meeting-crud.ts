@@ -187,7 +187,12 @@ meetingCrudRoutes.put(
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
 
-    const updateData: Record<string, unknown> = {};
+    const updateData: {
+      title?: string;
+      status?: string;
+      startedAt?: Date;
+      endedAt?: Date;
+    } = {};
 
     if (data.title) updateData.title = data.title;
     if (data.status) {

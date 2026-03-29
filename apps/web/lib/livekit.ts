@@ -1,5 +1,5 @@
 import type { LivekitTokenResponse } from "@echolore/shared/contracts";
-import { apiFetch } from "./api";
+import { fetchApi } from "./api";
 import { getPublicLivekitUrl } from "./runtime-env";
 
 export const COWORKING_ROOM_NAME = "everybody-coworking";
@@ -13,7 +13,7 @@ export async function fetchLiveKitToken(params: {
   participantName: string;
   participantIdentity: string;
 }): Promise<string> {
-  const result = await apiFetch<LivekitTokenResponse>("/livekit/token", {
+  const result = await fetchApi<LivekitTokenResponse>("/livekit/token", {
     method: "POST",
     body: JSON.stringify(params),
   });

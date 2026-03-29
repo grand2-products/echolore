@@ -1,11 +1,12 @@
 import { sql } from "kysely";
 import { db } from "../../db/index.js";
+import type { MeetingGuestRequest, MeetingInvite } from "../../db/schema.js";
 
 // ---------------------------------------------------------------------------
 // Invite queries
 // ---------------------------------------------------------------------------
 
-export async function findValidInviteByToken(token: string) {
+export async function findValidInviteByToken(token: string): Promise<MeetingInvite | null> {
   return (
     (await db
       .selectFrom("meeting_invites")
@@ -17,7 +18,7 @@ export async function findValidInviteByToken(token: string) {
   );
 }
 
-export async function findInviteByToken(token: string) {
+export async function findInviteByToken(token: string): Promise<Pick<MeetingInvite, "id"> | null> {
   return (
     (await db
       .selectFrom("meeting_invites")
@@ -37,7 +38,7 @@ export async function createInvite(input: {
   useCount: number;
   expiresAt: Date;
   createdAt: Date;
-}) {
+}): Promise<MeetingInvite | null> {
   return (
     (await db
       .insertInto("meeting_invites")
@@ -57,7 +58,7 @@ export async function createInvite(input: {
   );
 }
 
-export async function listInvitesByMeeting(meetingId: string) {
+export async function listInvitesByMeeting(meetingId: string): Promise<MeetingInvite[]> {
   return db
     .selectFrom("meeting_invites")
     .selectAll()
@@ -66,7 +67,10 @@ export async function listInvitesByMeeting(meetingId: string) {
     .execute();
 }
 
-export async function revokeInvite(inviteId: string, meetingId: string) {
+export async function revokeInvite(
+  inviteId: string,
+  meetingId: string
+): Promise<MeetingInvite | null> {
   return (
     (await db
       .updateTable("meeting_invites")
@@ -92,7 +96,7 @@ export async function incrementUseCountAndCreateGuestRequest(
     ipAddress: string | null;
     userAgent: string | null;
   }
-) {
+): Promise<{ invite: MeetingInvite; guestRequest: MeetingGuestRequest | undefined } | null> {
   return db.transaction().execute(async (trx) => {
     const invite = await trx
       .updateTable("meeting_invites")
@@ -126,7 +130,10 @@ export async function incrementUseCountAndCreateGuestRequest(
   });
 }
 
-export async function getGuestRequestByIdAndInvite(requestId: string, inviteId: string) {
+export async function getGuestRequestByIdAndInvite(
+  requestId: string,
+  inviteId: string
+): Promise<MeetingGuestRequest | null> {
   return (
     (await db
       .selectFrom("meeting_guest_requests")
@@ -137,7 +144,9 @@ export async function getGuestRequestByIdAndInvite(requestId: string, inviteId: 
   );
 }
 
-export async function listGuestRequestsByMeeting(meetingId: string) {
+export async function listGuestRequestsByMeeting(
+  meetingId: string
+): Promise<MeetingGuestRequest[]> {
   return db
     .selectFrom("meeting_guest_requests")
     .selectAll()
@@ -151,7 +160,7 @@ export async function resolveGuestRequest(
   meetingId: string,
   status: "approved" | "rejected",
   userId: string
-) {
+): Promise<MeetingGuestRequest | null> {
   return (
     (await db
       .updateTable("meeting_guest_requests")

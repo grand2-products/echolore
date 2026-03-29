@@ -19,7 +19,7 @@ const {
   writeAuditLogMock: vi.fn(),
 }));
 
-vi.mock("../lib/local-auth.js", () => ({
+vi.mock("../services/auth/session-service.js", () => ({
   listAuthSessionsForUser: listAuthSessionsForUserMock,
   resolveAccessTokenSession: resolveAccessTokenSessionMock,
   revokeAuthSessionById: revokeAuthSessionByIdMock,

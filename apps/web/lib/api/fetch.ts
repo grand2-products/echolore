@@ -178,13 +178,6 @@ export async function fetchApi<T>(path: string, options?: RequestInit): Promise<
 }
 
 /**
- * Generic fetch function for API calls (exported for backward compatibility)
- */
-export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  return fetchApi<T>(path, options);
-}
-
-/**
  * Fetch for public (unauthenticated) API endpoints.
  * Does not attempt session refresh on 401.
  */

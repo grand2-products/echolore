@@ -28,15 +28,21 @@ const {
   writeAuditLogMock: vi.fn(),
 }));
 
-vi.mock("../lib/local-auth.js", () => ({
-  authenticatePasswordUser: authenticatePasswordUserMock,
-  exchangeGoogleIdToken: exchangeGoogleIdTokenMock,
+vi.mock("../services/auth/auth-utils.js", () => ({
   isRegistrationOpen: vi.fn().mockResolvedValue(true),
+}));
+vi.mock("../services/auth/oauth-service.js", () => ({
+  exchangeGoogleIdToken: exchangeGoogleIdTokenMock,
   issueMobileTokenPair: issueMobileTokenPairMock,
-  refreshAccessToken: refreshAccessTokenMock,
+}));
+vi.mock("../services/auth/password-service.js", () => ({
+  authenticatePasswordUser: authenticatePasswordUserMock,
   registerPasswordUser: registerPasswordUserMock,
-  revokeRefreshToken: revokeRefreshTokenMock,
   verifyEmailRegistrationToken: verifyEmailRegistrationTokenMock,
+}));
+vi.mock("../services/auth/token-service.js", () => ({
+  refreshAccessToken: refreshAccessTokenMock,
+  revokeRefreshToken: revokeRefreshTokenMock,
 }));
 
 vi.mock("../lib/password-auth-guard.js", () => ({

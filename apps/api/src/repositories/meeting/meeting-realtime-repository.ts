@@ -1,12 +1,18 @@
 import { db } from "../../db/index.js";
 import type {
+  Agent,
+  MeetingAgentEvent,
+  MeetingAgentSession,
+  MeetingTranscriptSegment,
   NewAgent,
   NewMeetingAgentEvent,
   NewMeetingAgentSession,
   NewMeetingTranscriptSegment,
 } from "../../db/schema.js";
 
-export async function listTranscriptSegmentsByMeeting(meetingId: string) {
+export async function listTranscriptSegmentsByMeeting(
+  meetingId: string
+): Promise<MeetingTranscriptSegment[]> {
   return db
     .selectFrom("meeting_transcript_segments")
     .selectAll()
@@ -16,7 +22,10 @@ export async function listTranscriptSegmentsByMeeting(meetingId: string) {
     .execute();
 }
 
-export async function listFinalTranscriptSegmentsByMeeting(meetingId: string, limit = 50) {
+export async function listFinalTranscriptSegmentsByMeeting(
+  meetingId: string,
+  limit = 50
+): Promise<MeetingTranscriptSegment[]> {
   return db
     .selectFrom("meeting_transcript_segments")
     .selectAll()
@@ -28,7 +37,10 @@ export async function listFinalTranscriptSegmentsByMeeting(meetingId: string, li
     .execute();
 }
 
-export async function getTranscriptSegmentByKey(meetingId: string, segmentKey: string) {
+export async function getTranscriptSegmentByKey(
+  meetingId: string,
+  segmentKey: string
+): Promise<MeetingTranscriptSegment | null> {
   return (
     (await db
       .selectFrom("meeting_transcript_segments")
@@ -41,7 +53,9 @@ export async function getTranscriptSegmentByKey(meetingId: string, segmentKey: s
   );
 }
 
-export async function createTranscriptSegment(input: NewMeetingTranscriptSegment) {
+export async function createTranscriptSegment(
+  input: NewMeetingTranscriptSegment
+): Promise<MeetingTranscriptSegment | null> {
   return (
     (await db
       .insertInto("meeting_transcript_segments")
@@ -54,7 +68,7 @@ export async function createTranscriptSegment(input: NewMeetingTranscriptSegment
 export async function updateTranscriptSegment(
   id: string,
   input: Partial<NewMeetingTranscriptSegment>
-) {
+): Promise<MeetingTranscriptSegment | null> {
   return (
     (await db
       .updateTable("meeting_transcript_segments")
@@ -65,7 +79,7 @@ export async function updateTranscriptSegment(
   );
 }
 
-export async function listActiveAgents() {
+export async function listActiveAgents(): Promise<Agent[]> {
   return db
     .selectFrom("agents")
     .selectAll()
@@ -74,17 +88,17 @@ export async function listActiveAgents() {
     .execute();
 }
 
-export async function getAgentById(id: string) {
+export async function getAgentById(id: string): Promise<Agent | null> {
   return (
     (await db.selectFrom("agents").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
   );
 }
 
-export async function createAgent(input: NewAgent) {
+export async function createAgent(input: NewAgent): Promise<Agent | null> {
   return (await db.insertInto("agents").values(input).returningAll().executeTakeFirst()) ?? null;
 }
 
-export async function updateAgent(id: string, input: Partial<NewAgent>) {
+export async function updateAgent(id: string, input: Partial<NewAgent>): Promise<Agent | null> {
   return (
     (await db
       .updateTable("agents")
@@ -95,7 +109,9 @@ export async function updateAgent(id: string, input: Partial<NewAgent>) {
   );
 }
 
-export async function createMeetingAgentSession(input: NewMeetingAgentSession) {
+export async function createMeetingAgentSession(
+  input: NewMeetingAgentSession
+): Promise<MeetingAgentSession | null> {
   return (
     (await db
       .insertInto("meeting_agent_sessions")
@@ -105,7 +121,10 @@ export async function createMeetingAgentSession(input: NewMeetingAgentSession) {
   );
 }
 
-export async function getActiveMeetingAgentSession(meetingId: string, agentId: string) {
+export async function getActiveMeetingAgentSession(
+  meetingId: string,
+  agentId: string
+): Promise<MeetingAgentSession | null> {
   return (
     (await db
       .selectFrom("meeting_agent_sessions")
@@ -119,7 +138,9 @@ export async function getActiveMeetingAgentSession(meetingId: string, agentId: s
   );
 }
 
-export async function listActiveMeetingAgentSessions(meetingId: string) {
+export async function listActiveMeetingAgentSessions(
+  meetingId: string
+): Promise<MeetingAgentSession[]> {
   return db
     .selectFrom("meeting_agent_sessions")
     .selectAll()
@@ -132,7 +153,7 @@ export async function listActiveMeetingAgentSessions(meetingId: string) {
 export async function updateMeetingAgentSession(
   id: string,
   input: Partial<NewMeetingAgentSession>
-) {
+): Promise<MeetingAgentSession | null> {
   return (
     (await db
       .updateTable("meeting_agent_sessions")
@@ -143,7 +164,7 @@ export async function updateMeetingAgentSession(
   );
 }
 
-export async function listMeetingAgentEvents(meetingId: string) {
+export async function listMeetingAgentEvents(meetingId: string): Promise<MeetingAgentEvent[]> {
   return db
     .selectFrom("meeting_agent_events")
     .selectAll()
@@ -152,7 +173,9 @@ export async function listMeetingAgentEvents(meetingId: string) {
     .execute();
 }
 
-export async function createMeetingAgentEvent(input: NewMeetingAgentEvent) {
+export async function createMeetingAgentEvent(
+  input: NewMeetingAgentEvent
+): Promise<MeetingAgentEvent | null> {
   return (
     (await db
       .insertInto("meeting_agent_events")
@@ -169,7 +192,7 @@ export async function listFinalSegmentsAfter(
   meetingId: string,
   afterSegmentId: string | null,
   limit = 50
-) {
+): Promise<MeetingTranscriptSegment[]> {
   let query = db
     .selectFrom("meeting_transcript_segments")
     .selectAll()
@@ -192,7 +215,9 @@ export async function listFinalSegmentsAfter(
   return query.orderBy("createdAt", "asc").limit(limit).execute();
 }
 
-export async function listAutonomousActiveSessions() {
+export async function listAutonomousActiveSessions(): Promise<
+  Array<{ session: MeetingAgentSession; agent: Agent }>
+> {
   const rows = await db
     .selectFrom("meeting_agent_sessions")
     .innerJoin("agents", "meeting_agent_sessions.agentId", "agents.id")
@@ -255,7 +280,10 @@ export async function listAutonomousActiveSessions() {
   }));
 }
 
-export async function updateSessionEvalCursor(sessionId: string, segmentId: string) {
+export async function updateSessionEvalCursor(
+  sessionId: string,
+  segmentId: string
+): Promise<MeetingAgentSession | null> {
   return (
     (await db
       .updateTable("meeting_agent_sessions")

@@ -8,7 +8,7 @@ const { resolveAccessTokenSessionMock, writeAuditLogMock } = vi.hoisted(() => ({
   writeAuditLogMock: vi.fn(),
 }));
 
-vi.mock("./local-auth.js", () => ({
+vi.mock("../services/auth/session-service.js", () => ({
   resolveAccessTokenSession: resolveAccessTokenSessionMock,
 }));
 

@@ -1,4 +1,15 @@
 import { db } from "../../db/index.js";
+import type { MeetingRecording } from "../../db/schema.js";
+
+export interface UpdateRecordingInput {
+  status?: string;
+  storagePath?: string | null;
+  fileSize?: number | null;
+  durationMs?: number | null;
+  startedAt?: Date;
+  endedAt?: Date;
+  errorMessage?: string | null;
+}
 
 export async function createRecording(input: {
   id: string;
@@ -7,7 +18,7 @@ export async function createRecording(input: {
   status: string;
   initiatedBy: string;
   contentType: string;
-}) {
+}): Promise<MeetingRecording | undefined> {
   const row = await db
     .insertInto("meeting_recordings")
     .values({
@@ -23,11 +34,14 @@ export async function createRecording(input: {
   return row;
 }
 
-export async function updateRecordingByEgressId(egressId: string, data: Record<string, unknown>) {
+export async function updateRecordingByEgressId(
+  egressId: string,
+  data: UpdateRecordingInput
+): Promise<void> {
   await db.updateTable("meeting_recordings").set(data).where("egressId", "=", egressId).execute();
 }
 
-export async function listRecordingsByMeeting(meetingId: string) {
+export async function listRecordingsByMeeting(meetingId: string): Promise<MeetingRecording[]> {
   return db
     .selectFrom("meeting_recordings")
     .selectAll()
@@ -36,7 +50,7 @@ export async function listRecordingsByMeeting(meetingId: string) {
     .execute();
 }
 
-export async function findActiveRecording(meetingId: string) {
+export async function findActiveRecording(meetingId: string): Promise<MeetingRecording | null> {
   return (
     (await db
       .selectFrom("meeting_recordings")
@@ -47,7 +61,7 @@ export async function findActiveRecording(meetingId: string) {
   );
 }
 
-export async function getRecordingByEgressId(egressId: string) {
+export async function getRecordingByEgressId(egressId: string): Promise<MeetingRecording | null> {
   return (
     (await db
       .selectFrom("meeting_recordings")

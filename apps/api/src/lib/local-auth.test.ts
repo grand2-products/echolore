@@ -12,11 +12,8 @@ vi.mock("../db/index.js", () => ({
   db: dbMock,
 }));
 
-vi.mock("./email.js", () => ({
-  sendPasswordVerificationEmail: vi.fn(),
-}));
-
-const { reconcileGoogleIdentity, verifyEmailRegistrationToken } = await import("./local-auth.js");
+const { reconcileGoogleIdentity } = await import("../services/auth/oauth-service.js");
+const { verifyEmailRegistrationToken } = await import("../services/auth/password-service.js");
 
 function createTx(options: { selectQueue?: unknown[]; updateQueue?: unknown[] }) {
   const selectQueue = [...(options.selectQueue ?? [])];

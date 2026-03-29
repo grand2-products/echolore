@@ -4,19 +4,17 @@ import { z } from "zod";
 import { jsonError } from "../lib/api-error.js";
 import { writeAuditLog } from "../lib/audit.js";
 import type { AppEnv } from "../lib/auth.js";
-import {
-  authenticatePasswordUser,
-  exchangeGoogleIdToken,
-  isRegistrationOpen,
-  issueMobileTokenPair,
-  refreshAccessToken,
-  registerPasswordUser,
-  revokeRefreshToken,
-  verifyEmailRegistrationToken,
-} from "../lib/local-auth.js";
 import { getRequestIp, isRateLimited } from "../lib/password-auth-guard.js";
 import { ONE_HOUR_MS } from "../lib/time.js";
 import { acceptInvitation, validateInviteToken } from "../services/admin/invitation-service.js";
+import { isRegistrationOpen } from "../services/auth/auth-utils.js";
+import { exchangeGoogleIdToken, issueMobileTokenPair } from "../services/auth/oauth-service.js";
+import {
+  authenticatePasswordUser,
+  registerPasswordUser,
+  verifyEmailRegistrationToken,
+} from "../services/auth/password-service.js";
+import { refreshAccessToken, revokeRefreshToken } from "../services/auth/token-service.js";
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -161,10 +159,6 @@ authRoutes.post("/verify-email", zValidator("json", verifyEmailSchema), async (c
 
   return c.json({ user, authMode: "password" as const });
 });
-
-// Legacy browser login/google routes removed — Auth.js handles browser sign-in
-
-// Mobile token routes — unchanged
 
 authRoutes.post("/token", zValidator("json", tokenAuthSchema), async (c) => {
   const { email, password, deviceName } = c.req.valid("json");

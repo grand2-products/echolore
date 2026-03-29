@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type ApiError, apiFetch, authApi, usersApi, wikiApi } from "./api";
+import { type ApiError, authApi, fetchApi, usersApi, wikiApi } from "./api";
 
 describe("api client", () => {
   afterEach(() => {
@@ -14,7 +14,7 @@ describe("api client", () => {
       })
     );
 
-    await apiFetch<{ ok: boolean }>("/health-like");
+    await fetchApi<{ ok: boolean }>("/health-like");
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/api/health-like",
@@ -59,7 +59,7 @@ describe("api client", () => {
       )
     );
 
-    await expect(apiFetch("/denied")).rejects.toMatchObject({
+    await expect(fetchApi("/denied")).rejects.toMatchObject({
       message: "Forbidden",
       status: 403,
       code: "FORBIDDEN",

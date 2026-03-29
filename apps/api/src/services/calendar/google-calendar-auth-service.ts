@@ -67,7 +67,7 @@ export async function getAuthedClient(userId: string) {
 
   // Auto-refresh handler
   client.on("tokens", async (tokens) => {
-    const updateValues: Record<string, unknown> = {};
+    const updateValues: Parameters<typeof updateCalendarToken>[1] = {};
     if (tokens.access_token) {
       updateValues.accessTokenEnc = encrypt(tokens.access_token);
     }

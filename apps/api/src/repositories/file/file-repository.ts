@@ -1,14 +1,15 @@
 import { db } from "../../db/index.js";
+import type { File } from "../../db/schema.js";
 
-export async function listFiles() {
+export async function listFiles(): Promise<File[]> {
   return db.selectFrom("files").selectAll().execute();
 }
 
-export async function listFilesByUploader(uploaderId: string) {
+export async function listFilesByUploader(uploaderId: string): Promise<File[]> {
   return db.selectFrom("files").selectAll().where("uploaderId", "=", uploaderId).execute();
 }
 
-export async function getFileById(id: string) {
+export async function getFileById(id: string): Promise<File | null> {
   return (await db.selectFrom("files").selectAll().where("id", "=", id).executeTakeFirst()) ?? null;
 }
 
@@ -20,7 +21,7 @@ export async function createFile(input: {
   storagePath: string;
   uploaderId: string;
   createdAt: Date;
-}) {
+}): Promise<File | null> {
   return (
     (await db
       .insertInto("files")
@@ -38,6 +39,6 @@ export async function createFile(input: {
   );
 }
 
-export async function deleteFile(id: string) {
+export async function deleteFile(id: string): Promise<void> {
   await db.deleteFrom("files").where("id", "=", id).execute();
 }

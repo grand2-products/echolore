@@ -1,10 +1,12 @@
 import { sql } from "kysely";
 import { nanoid } from "nanoid";
 import { type DbTransaction, db } from "../../db/index.js";
-import type { NewBlock, NewPage } from "../../db/schema.js";
+import type { Block, NewBlock, NewPage, Page } from "../../db/schema.js";
 import { escapeLikePattern, firstOrNull } from "../../lib/db-utils.js";
 
-export async function listPagesOrderedByUpdatedAt() {
+export async function listPagesOrderedByUpdatedAt(): Promise<
+  Array<Page & { author_name: string | undefined; space_name: string | undefined }>
+> {
   const rows = await db
     .selectFrom("pages")
     .leftJoin("users", "pages.authorId", "users.id")
@@ -32,11 +34,11 @@ export async function listPagesOrderedByUpdatedAt() {
   }));
 }
 
-export async function getPageById(id: string) {
+export async function getPageById(id: string): Promise<Page | null> {
   return (await db.selectFrom("pages").selectAll().where("id", "=", id).executeTakeFirst()) ?? null;
 }
 
-export async function getPageParentId(id: string) {
+export async function getPageParentId(id: string): Promise<string | null> {
   const page = await db
     .selectFrom("pages")
     .select("parentId")
@@ -45,7 +47,7 @@ export async function getPageParentId(id: string) {
   return page?.parentId ?? null;
 }
 
-export async function getPageBlocks(pageId: string) {
+export async function getPageBlocks(pageId: string): Promise<Block[]> {
   return db
     .selectFrom("blocks")
     .selectAll()
@@ -54,7 +56,7 @@ export async function getPageBlocks(pageId: string) {
     .execute();
 }
 
-export async function searchPagesLexically(query: string) {
+export async function searchPagesLexically(query: string): Promise<Page[]> {
   const escaped = `%${escapeLikePattern(query)}%`;
 
   return db
@@ -93,7 +95,9 @@ export async function searchPagesLexically(query: string) {
     .execute();
 }
 
-export async function listBlockContentsByPageIds(pageIds: string[]) {
+export async function listBlockContentsByPageIds(
+  pageIds: string[]
+): Promise<Pick<Block, "pageId" | "content">[]> {
   if (pageIds.length === 0) {
     return [];
   }
@@ -105,30 +109,30 @@ export async function listBlockContentsByPageIds(pageIds: string[]) {
     .execute();
 }
 
-export async function createPage(newPage: NewPage) {
+export async function createPage(newPage: NewPage): Promise<Page | null> {
   return firstOrNull(await db.insertInto("pages").values(newPage).returningAll().execute());
 }
 
 export async function updatePage(
   id: string,
   updatePayload: { title?: string; parentId?: string | null; updatedAt: Date }
-) {
+): Promise<Page | null> {
   return firstOrNull(
     await db.updateTable("pages").set(updatePayload).where("id", "=", id).returningAll().execute()
   );
 }
 
-export async function deletePage(id: string) {
+export async function deletePage(id: string): Promise<void> {
   await db.deleteFrom("pages").where("id", "=", id).execute();
 }
 
-export async function getBlockById(id: string) {
+export async function getBlockById(id: string): Promise<Block | null> {
   return (
     (await db.selectFrom("blocks").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
   );
 }
 
-export async function createBlock(newBlock: NewBlock) {
+export async function createBlock(newBlock: NewBlock): Promise<Block | null> {
   return firstOrNull(
     await db
       .insertInto("blocks")
@@ -150,18 +154,18 @@ export async function updateBlock(
     sortOrder?: number;
     updatedAt: Date;
   }
-) {
+): Promise<Block | null> {
   const setPayload = { ...updatePayload };
   return firstOrNull(
     await db.updateTable("blocks").set(setPayload).where("id", "=", id).returningAll().execute()
   );
 }
 
-export async function deleteBlock(id: string) {
+export async function deleteBlock(id: string): Promise<void> {
   await db.deleteFrom("blocks").where("id", "=", id).execute();
 }
 
-export async function softDeletePage(id: string) {
+export async function softDeletePage(id: string): Promise<Page | null> {
   return firstOrNull(
     await db
       .updateTable("pages")
@@ -172,7 +176,7 @@ export async function softDeletePage(id: string) {
   );
 }
 
-export async function restorePage(id: string) {
+export async function restorePage(id: string): Promise<Page | null> {
   return firstOrNull(
     await db
       .updateTable("pages")
@@ -183,7 +187,7 @@ export async function restorePage(id: string) {
   );
 }
 
-export async function listDeletedPages() {
+export async function listDeletedPages(): Promise<Page[]> {
   return db
     .selectFrom("pages")
     .selectAll()
@@ -192,7 +196,7 @@ export async function listDeletedPages() {
     .execute();
 }
 
-export async function permanentDeletePage(id: string) {
+export async function permanentDeletePage(id: string): Promise<void> {
   await db.deleteFrom("pages").where("id", "=", id).execute();
 }
 
@@ -549,7 +553,10 @@ export async function searchByVector(
 // Knowledge scan / suggestion helpers
 // ---------------------------------------------------------------------------
 
-export async function listRecentUpdatedPages(since: Date, limit: number) {
+export async function listRecentUpdatedPages(
+  since: Date,
+  limit: number
+): Promise<Pick<Page, "id" | "title" | "spaceId">[]> {
   return db
     .selectFrom("pages")
     .select(["id", "title", "spaceId"])
@@ -560,7 +567,10 @@ export async function listRecentUpdatedPages(since: Date, limit: number) {
     .execute();
 }
 
-export async function listPageBlockContents(pageId: string, limit: number) {
+export async function listPageBlockContents(
+  pageId: string,
+  limit: number
+): Promise<Pick<Block, "content" | "type">[]> {
   return db
     .selectFrom("blocks")
     .select(["content", "type"])
@@ -570,7 +580,7 @@ export async function listPageBlockContents(pageId: string, limit: number) {
     .execute();
 }
 
-export async function listActivePageTitles(limit: number) {
+export async function listActivePageTitles(limit: number): Promise<Pick<Page, "id" | "title">[]> {
   return db
     .selectFrom("pages")
     .select(["id", "title"])
@@ -580,7 +590,10 @@ export async function listActivePageTitles(limit: number) {
     .execute();
 }
 
-export async function listBlockContentSnippets(pageId: string, limit: number) {
+export async function listBlockContentSnippets(
+  pageId: string,
+  limit: number
+): Promise<Pick<Block, "content">[]> {
   return db
     .selectFrom("blocks")
     .select("content")
@@ -601,7 +614,7 @@ export async function insertBlocks(
     createdAt: Date;
     updatedAt: Date;
   }>
-) {
+): Promise<void> {
   if (blocksData.length === 0) return;
   await db
     .insertInto("blocks")
@@ -633,7 +646,7 @@ export async function updatePageTitleAndReplaceBlocks(input: {
     updatedAt: Date;
   }>;
   now: Date;
-}) {
+}): Promise<void> {
   return db.transaction().execute(async (trx) => {
     await trx
       .updateTable("pages")
@@ -663,7 +676,7 @@ export async function updatePageTitleAndReplaceBlocks(input: {
   });
 }
 
-export async function getPageSpaceId(id: string) {
+export async function getPageSpaceId(id: string): Promise<string | null> {
   const page = await db
     .selectFrom("pages")
     .select("spaceId")

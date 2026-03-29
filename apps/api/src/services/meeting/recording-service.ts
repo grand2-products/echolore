@@ -5,6 +5,7 @@ import {
   findActiveRecording as findActiveRecordingRepo,
   getRecordingByEgressId,
   listRecordingsByMeeting,
+  type UpdateRecordingInput,
   updateRecordingByEgressId,
 } from "../../repositories/meeting/recording-repository.js";
 import { getStorageSettings } from "../admin/admin-service.js";
@@ -89,7 +90,7 @@ export async function handleEgressWebhook(event: {
       return;
   }
 
-  const updates: Record<string, unknown> = { status };
+  const updates: UpdateRecordingInput = { status };
 
   if (status === "recording") {
     updates.startedAt = new Date();

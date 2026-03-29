@@ -3,7 +3,7 @@ import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { loadFile } from "../../lib/file-storage.js";
 import { authorizePageResource } from "../../policies/authorization-policy.js";
-import { getFileById } from "../../services/file/file-service.js";
+import { getFileById } from "../../repositories/file/file-repository.js";
 import { getPageById } from "../../services/wiki/wiki-service.js";
 
 export const wikiFileRoutes = new Hono<AppEnv>();

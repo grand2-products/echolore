@@ -5,7 +5,6 @@ import { z } from "zod";
 import { jsonError, tryCatchResponse, withErrorHandler } from "../lib/api-error.js";
 import type { AppEnv } from "../lib/auth.js";
 import { buildStoragePath, loadFile, removeFile, saveFile } from "../lib/file-storage.js";
-import { listAuthSessionsForUser, revokeAuthSessionById } from "../lib/local-auth.js";
 import { parsePaginationParams } from "../lib/pagination.js";
 import { authorizeAdminResource, authorizeUserResource } from "../policies/authorization-policy.js";
 import {
@@ -16,6 +15,10 @@ import {
   listUsers,
   updateUser,
 } from "../services/admin/user-service.js";
+import {
+  listAuthSessionsForUser,
+  revokeAuthSessionById,
+} from "../services/auth/session-service.js";
 import { resolveUserAvatarUrl } from "./user-dto.js";
 
 export const usersRoutes = new Hono<AppEnv>();

@@ -1,21 +1,38 @@
 import { sql } from "kysely";
 import { db } from "../../db/index.js";
-import type { NewAiChatConversation, NewAiChatMessage } from "../../db/schema.js";
+import type {
+  AiChatConversation,
+  AiChatMessage,
+  NewAiChatConversation,
+  NewAiChatMessage,
+} from "../../db/schema.js";
 import { escapeLikePattern, firstOrNull } from "../../lib/db-utils.js";
 
-export async function createConversation(conversation: NewAiChatConversation) {
+export async function createConversation(
+  conversation: NewAiChatConversation
+): Promise<AiChatConversation | null> {
   return firstOrNull(
     await db.insertInto("ai_chat_conversations").values(conversation).returningAll().execute()
   );
 }
 
-export async function getConversationById(id: string) {
+export async function getConversationById(id: string): Promise<AiChatConversation | null> {
   return firstOrNull(
     await db.selectFrom("ai_chat_conversations").selectAll().where("id", "=", id).execute()
   );
 }
 
-export async function listConversations(opts: { userId?: string; query?: string }) {
+export async function listConversations(opts: {
+  userId?: string;
+  query?: string;
+}): Promise<
+  Array<
+    Pick<
+      AiChatConversation,
+      "id" | "title" | "creatorId" | "visibility" | "createdAt" | "updatedAt"
+    > & { creator_name: string | null }
+  >
+> {
   let query = db
     .selectFrom("ai_chat_conversations")
     .leftJoin("users", "ai_chat_conversations.creatorId", "users.id")
@@ -55,7 +72,7 @@ export async function listConversations(opts: { userId?: string; query?: string 
 export async function updateConversation(
   id: string,
   payload: { title?: string; visibility?: string; updatedAt: Date }
-) {
+): Promise<AiChatConversation | null> {
   const { updatedAt, ...rest } = payload;
   return firstOrNull(
     await db
@@ -67,17 +84,19 @@ export async function updateConversation(
   );
 }
 
-export async function deleteConversation(id: string) {
+export async function deleteConversation(id: string): Promise<void> {
   await db.deleteFrom("ai_chat_conversations").where("id", "=", id).execute();
 }
 
-export async function createMessage(message: NewAiChatMessage) {
+export async function createMessage(message: NewAiChatMessage): Promise<AiChatMessage | null> {
   return firstOrNull(
     await db.insertInto("ai_chat_messages").values(message).returningAll().execute()
   );
 }
 
-export async function listMessagesByConversationId(conversationId: string) {
+export async function listMessagesByConversationId(
+  conversationId: string
+): Promise<AiChatMessage[]> {
   return db
     .selectFrom("ai_chat_messages")
     .selectAll()
@@ -86,7 +105,10 @@ export async function listMessagesByConversationId(conversationId: string) {
     .execute();
 }
 
-export async function listRecentMessages(conversationId: string, limit = 20) {
+export async function listRecentMessages(
+  conversationId: string,
+  limit = 20
+): Promise<AiChatMessage[]> {
   const rows = await db
     .selectFrom("ai_chat_messages")
     .selectAll()
@@ -98,7 +120,9 @@ export async function listRecentMessages(conversationId: string, limit = 20) {
 }
 
 /** Batch: get message counts and last messages for multiple conversations in 2 queries */
-export async function getConversationStats(conversationIds: string[]) {
+export async function getConversationStats(
+  conversationIds: string[]
+): Promise<Map<string, { count: number; lastContent: string | null }>> {
   if (conversationIds.length === 0)
     return new Map<string, { count: number; lastContent: string | null }>();
 

@@ -24,7 +24,7 @@ vi.mock("@tanstack/react-query", () => ({
 // Because `shouldAttemptSilentRefresh`, `refreshPasswordSession`, and
 // `executeApiRequest` are module-private, we extract them by reading the
 // source and re-evaluating isolated copies.  This is brittle, so instead we
-// test them indirectly through the exported `apiFetch` (which calls
+// test them indirectly through the exported `fetchApi` (which calls
 // executeApiRequest -> shouldAttemptSilentRefresh / refreshPasswordSession).
 //
 // For the pure-logic function `shouldAttemptSilentRefresh` we duplicate the
@@ -67,18 +67,18 @@ describe("shouldAttemptSilentRefresh", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Integration-style tests exercising apiFetch → executeApiRequest with a
+// Integration-style tests exercising fetchApi → executeApiRequest with a
 // mocked global `fetch`.
 // ---------------------------------------------------------------------------
 
-// We dynamically import `apiFetch` so that our env stubs are in place.
-let apiFetch: typeof import("./api").apiFetch;
+// We dynamically import `fetchApi` so that our env stubs are in place.
+let fetchApi: typeof import("./api").fetchApi;
 
 beforeEach(async () => {
   // Reset module registry so each test gets a fresh `refreshSessionPromise`
   vi.resetModules();
   const mod = await import("./api");
-  apiFetch = mod.apiFetch;
+  fetchApi = mod.fetchApi;
 });
 
 afterEach(() => {
@@ -120,7 +120,7 @@ describe("executeApiRequest silent-refresh integration", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await apiFetch<{ pages: unknown[] }>("/wiki");
+    const result = await fetchApi<{ pages: unknown[] }>("/wiki");
 
     expect(result).toEqual({ pages: [] });
     expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -143,7 +143,7 @@ describe("executeApiRequest silent-refresh integration", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(apiFetch("/wiki")).rejects.toThrow();
+    await expect(fetchApi("/wiki")).rejects.toThrow();
 
     // original + session check = 2 calls, no retry of /wiki
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -176,8 +176,8 @@ describe("executeApiRequest silent-refresh integration", () => {
 
     // Fire two requests concurrently that both get 401
     const [r1, r2] = await Promise.all([
-      apiFetch<{ data: string }>("/wiki"),
-      apiFetch<{ data: string }>("/users"),
+      fetchApi<{ data: string }>("/wiki"),
+      fetchApi<{ data: string }>("/users"),
     ]);
 
     expect(r1).toEqual({ data: `${API_BASE}/wiki` });
@@ -200,7 +200,7 @@ describe("executeApiRequest silent-refresh integration", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     // Should throw after the retry also gets 401, without attempting a second refresh
-    await expect(apiFetch("/wiki")).rejects.toThrow();
+    await expect(fetchApi("/wiki")).rejects.toThrow();
 
     // Exactly 3 calls: original, session check, one retry. No further refresh attempts.
     expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -214,7 +214,7 @@ describe("executeApiRequest silent-refresh integration", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(apiFetch("/auth/token")).rejects.toThrow();
+    await expect(fetchApi("/auth/token")).rejects.toThrow();
 
     // Only the original request, no refresh attempt at all
     expect(fetchMock).toHaveBeenCalledTimes(1);

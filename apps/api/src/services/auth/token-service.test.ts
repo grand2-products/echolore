@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
-vi.stubEnv("AUTH_SESSION_SECRET", "test-session-secret-for-vitest-32chars!");
+vi.stubEnv("AUTH_SECRET", "test-session-secret-for-vitest-32chars!");
 
 const { createSignedAccessToken, parseSignedAccessToken } = await import("./token-service.js");
 

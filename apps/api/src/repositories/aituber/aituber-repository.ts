@@ -1,9 +1,18 @@
 import { db } from "../../db/index.js";
-import type { NewAituberCharacter, NewAituberMessage, NewAituberSession } from "../../db/schema.js";
+import type {
+  AituberCharacter,
+  AituberMessage,
+  AituberSession,
+  NewAituberCharacter,
+  NewAituberMessage,
+  NewAituberSession,
+} from "../../db/schema.js";
 
 // --- Characters ---
 
-export async function createCharacter(character: NewAituberCharacter) {
+export async function createCharacter(
+  character: NewAituberCharacter
+): Promise<AituberCharacter | null> {
   return (
     (await db
       .insertInto("aituber_characters")
@@ -13,7 +22,7 @@ export async function createCharacter(character: NewAituberCharacter) {
   );
 }
 
-export async function getCharacterById(id: string) {
+export async function getCharacterById(id: string): Promise<AituberCharacter | null> {
   return (
     (await db
       .selectFrom("aituber_characters")
@@ -23,7 +32,7 @@ export async function getCharacterById(id: string) {
   );
 }
 
-export async function listCharacters(opts?: { createdBy?: string }) {
+export async function listCharacters(opts?: { createdBy?: string }): Promise<AituberCharacter[]> {
   let query = db.selectFrom("aituber_characters").selectAll();
   if (opts?.createdBy) {
     query = query.where("createdBy", "=", opts.createdBy);
@@ -45,7 +54,7 @@ export async function updateCharacter(
     isPublic: boolean;
     updatedAt: Date;
   }>
-) {
+): Promise<AituberCharacter | null> {
   const mapped: Record<string, unknown> = {};
   if (payload.name !== undefined) mapped.name = payload.name;
   if (payload.personality !== undefined) mapped.personality = payload.personality;
@@ -68,27 +77,30 @@ export async function updateCharacter(
   );
 }
 
-export async function deleteCharacter(id: string) {
+export async function deleteCharacter(id: string): Promise<void> {
   await db.deleteFrom("aituber_characters").where("id", "=", id).execute();
 }
 
 // --- Sessions ---
 
-export async function createSession(session: NewAituberSession) {
+export async function createSession(session: NewAituberSession): Promise<AituberSession | null> {
   return (
     (await db.insertInto("aituber_sessions").values(session).returningAll().executeTakeFirst()) ??
     null
   );
 }
 
-export async function getSessionById(id: string) {
+export async function getSessionById(id: string): Promise<AituberSession | null> {
   return (
     (await db.selectFrom("aituber_sessions").selectAll().where("id", "=", id).executeTakeFirst()) ??
     null
   );
 }
 
-export async function listSessions(opts?: { status?: string; creatorId?: string }) {
+export async function listSessions(opts?: {
+  status?: string;
+  creatorId?: string;
+}): Promise<AituberSession[]> {
   let query = db.selectFrom("aituber_sessions").selectAll();
   if (opts?.status) {
     query = query.where("status", "=", opts.status);
@@ -106,7 +118,7 @@ export async function updateSession(
     startedAt: Date;
     endedAt: Date;
   }>
-) {
+): Promise<AituberSession | null> {
   const mapped: Record<string, unknown> = {};
   if (payload.status !== undefined) mapped.status = payload.status;
   if (payload.startedAt !== undefined) mapped.startedAt = payload.startedAt;
@@ -131,7 +143,7 @@ export async function updateSessionWithStatus(
     startedAt: Date;
     endedAt: Date;
   }>
-) {
+): Promise<AituberSession | null> {
   const mapped: Record<string, unknown> = {};
   if (payload.status !== undefined) mapped.status = payload.status;
   if (payload.startedAt !== undefined) mapped.startedAt = payload.startedAt;
@@ -150,14 +162,17 @@ export async function updateSessionWithStatus(
 
 // --- Messages ---
 
-export async function createMessage(message: NewAituberMessage) {
+export async function createMessage(message: NewAituberMessage): Promise<AituberMessage | null> {
   return (
     (await db.insertInto("aituber_messages").values(message).returningAll().executeTakeFirst()) ??
     null
   );
 }
 
-export async function listUnprocessedMessages(sessionId: string, limit = 10) {
+export async function listUnprocessedMessages(
+  sessionId: string,
+  limit = 10
+): Promise<AituberMessage[]> {
   return db
     .selectFrom("aituber_messages")
     .selectAll()
@@ -169,7 +184,7 @@ export async function listUnprocessedMessages(sessionId: string, limit = 10) {
     .execute();
 }
 
-export async function markMessageProcessed(id: string) {
+export async function markMessageProcessed(id: string): Promise<AituberMessage | null> {
   return (
     (await db
       .updateTable("aituber_messages")
@@ -180,7 +195,10 @@ export async function markMessageProcessed(id: string) {
   );
 }
 
-export async function listMessagesBySession(sessionId: string, limit = 50) {
+export async function listMessagesBySession(
+  sessionId: string,
+  limit = 50
+): Promise<AituberMessage[]> {
   return db
     .selectFrom("aituber_messages")
     .selectAll()
@@ -190,7 +208,7 @@ export async function listMessagesBySession(sessionId: string, limit = 50) {
     .execute();
 }
 
-export async function listRecentMessages(sessionId: string, limit = 20) {
+export async function listRecentMessages(sessionId: string, limit = 20): Promise<AituberMessage[]> {
   const rows = await db
     .selectFrom("aituber_messages")
     .selectAll()

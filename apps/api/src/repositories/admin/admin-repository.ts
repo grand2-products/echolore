@@ -1,17 +1,26 @@
 import { db } from "../../db/index.js";
+import type {
+  PageInheritance,
+  PagePermission,
+  SiteSetting,
+  SpacePermission,
+  User,
+  UserGroup,
+  UserGroupMembership,
+} from "../../db/schema.js";
 import { firstOrNull } from "../../lib/db-utils.js";
 
-export async function listGroups() {
+export async function listGroups(): Promise<UserGroup[]> {
   return db.selectFrom("user_groups").selectAll().execute();
 }
 
-export async function getGroupById(id: string) {
+export async function getGroupById(id: string): Promise<UserGroup | null> {
   return (
     (await db.selectFrom("user_groups").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
   );
 }
 
-export async function getGroupByName(name: string) {
+export async function getGroupByName(name: string): Promise<UserGroup | null> {
   return firstOrNull(
     await db.selectFrom("user_groups").selectAll().where("name", "=", name).execute()
   );
@@ -25,7 +34,7 @@ export async function createGroup(input: {
   permissions: string[];
   createdAt: Date;
   updatedAt: Date;
-}) {
+}): Promise<UserGroup | null> {
   return firstOrNull(
     await db
       .insertInto("user_groups")
@@ -51,7 +60,7 @@ export async function updateGroup(
     permissions: string[];
     updatedAt: Date;
   }
-) {
+): Promise<UserGroup | null> {
   return firstOrNull(
     await db
       .updateTable("user_groups")
@@ -67,16 +76,16 @@ export async function updateGroup(
   );
 }
 
-export async function deleteGroup(id: string) {
+export async function deleteGroup(id: string): Promise<void> {
   await db.deleteFrom("user_group_memberships").where("groupId", "=", id).execute();
   await db.deleteFrom("user_groups").where("id", "=", id).execute();
 }
 
-export async function listMemberships() {
+export async function listMemberships(): Promise<UserGroupMembership[]> {
   return db.selectFrom("user_group_memberships").selectAll().execute();
 }
 
-export async function listMembershipsByGroup(groupId: string) {
+export async function listMembershipsByGroup(groupId: string): Promise<UserGroupMembership[]> {
   return db
     .selectFrom("user_group_memberships")
     .selectAll()
@@ -84,16 +93,21 @@ export async function listMembershipsByGroup(groupId: string) {
     .execute();
 }
 
-export async function listMembershipsByUser(userId: string) {
+export async function listMembershipsByUser(userId: string): Promise<UserGroupMembership[]> {
   return db.selectFrom("user_group_memberships").selectAll().where("userId", "=", userId).execute();
 }
 
-export async function listSpacePermissionsByGroupIds(groupIds: string[]) {
+export async function listSpacePermissionsByGroupIds(
+  groupIds: string[]
+): Promise<SpacePermission[]> {
   if (groupIds.length === 0) return [];
   return db.selectFrom("space_permissions").selectAll().where("groupId", "in", groupIds).execute();
 }
 
-export async function listSpacePermissionsForSpace(spaceId: string, groupIds: string[]) {
+export async function listSpacePermissionsForSpace(
+  spaceId: string,
+  groupIds: string[]
+): Promise<SpacePermission[]> {
   if (groupIds.length === 0) return [];
   return db
     .selectFrom("space_permissions")
@@ -103,7 +117,10 @@ export async function listSpacePermissionsForSpace(spaceId: string, groupIds: st
     .execute();
 }
 
-export async function deleteMembership(groupId: string, userId: string) {
+export async function deleteMembership(
+  groupId: string,
+  userId: string
+): Promise<UserGroupMembership | null> {
   return firstOrNull(
     await db
       .deleteFrom("user_group_memberships")
@@ -114,26 +131,29 @@ export async function deleteMembership(groupId: string, userId: string) {
   );
 }
 
-export async function listUsersWithIds(userIds: string[]) {
+export async function listUsersWithIds(userIds: string[]): Promise<User[]> {
   if (userIds.length === 0) return [];
   return db.selectFrom("users").selectAll().where("id", "in", userIds).execute();
 }
 
-export async function listUsersForAdmin() {
+export async function listUsersForAdmin(): Promise<User[]> {
   return db.selectFrom("users").selectAll().execute();
 }
 
-export async function listPagePermissions(pageId: string) {
+export async function listPagePermissions(pageId: string): Promise<PagePermission[]> {
   return db.selectFrom("page_permissions").selectAll().where("pageId", "=", pageId).execute();
 }
 
-export async function getPageInheritance(pageId: string) {
+export async function getPageInheritance(pageId: string): Promise<PageInheritance | null> {
   return firstOrNull(
     await db.selectFrom("page_inheritance").selectAll().where("pageId", "=", pageId).execute()
   );
 }
 
-export async function deletePagePermission(pageId: string, groupId: string) {
+export async function deletePagePermission(
+  pageId: string,
+  groupId: string
+): Promise<PagePermission | null> {
   return firstOrNull(
     await db
       .deleteFrom("page_permissions")
@@ -144,13 +164,13 @@ export async function deletePagePermission(pageId: string, groupId: string) {
   );
 }
 
-export async function getSiteSetting(key: string) {
+export async function getSiteSetting(key: string): Promise<SiteSetting | null> {
   return firstOrNull(
     await db.selectFrom("site_settings").selectAll().where("key", "=", key).execute()
   );
 }
 
-export async function updateUserRole(userId: string, role: string) {
+export async function updateUserRole(userId: string, role: string): Promise<User | null> {
   return firstOrNull(
     await db
       .updateTable("users")
@@ -161,7 +181,7 @@ export async function updateUserRole(userId: string, role: string) {
   );
 }
 
-export async function upsertSiteSetting(key: string, value: string) {
+export async function upsertSiteSetting(key: string, value: string): Promise<SiteSetting | null> {
   const now = new Date();
   return firstOrNull(
     await db
@@ -173,7 +193,7 @@ export async function upsertSiteSetting(key: string, value: string) {
   );
 }
 
-export async function deleteSiteSetting(key: string) {
+export async function deleteSiteSetting(key: string): Promise<SiteSetting | null> {
   return firstOrNull(
     await db.deleteFrom("site_settings").where("key", "=", key).returningAll().execute()
   );
@@ -319,7 +339,7 @@ export async function replacePageInheritance(
   });
 }
 
-export async function listSpacePermissions(spaceId: string) {
+export async function listSpacePermissions(spaceId: string): Promise<SpacePermission[]> {
   return db.selectFrom("space_permissions").selectAll().where("spaceId", "=", spaceId).execute();
 }
 
@@ -369,7 +389,9 @@ export async function deleteSpacePermissionForGroup(
   return result.length > 0;
 }
 
-export async function getGroupPermissionsByIds(groupIds: string[]) {
+export async function getGroupPermissionsByIds(
+  groupIds: string[]
+): Promise<Pick<UserGroup, "id" | "permissions">[]> {
   if (groupIds.length === 0) return [];
   return db
     .selectFrom("user_groups")

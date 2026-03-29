@@ -7,7 +7,7 @@ import {
   getMeetingStats,
   getSearchStats,
   getSecurityStats,
-} from "../services/metrics/metrics-service.js";
+} from "../repositories/metrics/metrics-repository.js";
 
 export const metricsRoutes = new Hono();
 

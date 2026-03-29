@@ -11,7 +11,7 @@ const { countActiveUsersMock, getSearchStatsMock, getMeetingStatsMock, getSecuri
     getSecurityStatsMock: vi.fn(),
   }));
 
-vi.mock("../services/metrics/metrics-service.js", () => ({
+vi.mock("../repositories/metrics/metrics-repository.js", () => ({
   countActiveUsers: countActiveUsersMock,
   getSearchStats: getSearchStatsMock,
   getMeetingStats: getMeetingStatsMock,

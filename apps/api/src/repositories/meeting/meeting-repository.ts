@@ -1,13 +1,20 @@
 import { sql } from "kysely";
 import { type DbTransaction, db } from "../../db/index.js";
-import type { NewMeeting, Page, Summary } from "../../db/schema.js";
+import type {
+  Meeting,
+  MeetingParticipant,
+  NewMeeting,
+  Page,
+  Summary,
+  Transcript,
+} from "../../db/schema.js";
 import { firstOrNull } from "../../lib/db-utils.js";
 import { createPageWithAccessDefaultsTx } from "../wiki/wiki-repository.js";
 
 export async function listMeetingsByUser(
   userId: string,
   opts?: { limit?: number; offset?: number }
-) {
+): Promise<Meeting[]> {
   let query = db
     .selectFrom("meetings")
     .selectAll()
@@ -27,7 +34,10 @@ export async function countMeetingsByUser(userId: string): Promise<number> {
   return result?.count ?? 0;
 }
 
-export async function listAllMeetings(opts?: { limit?: number; offset?: number }) {
+export async function listAllMeetings(opts?: {
+  limit?: number;
+  offset?: number;
+}): Promise<Meeting[]> {
   let query = db.selectFrom("meetings").selectAll().orderBy("createdAt", "desc");
   if (opts?.limit != null) query = query.limit(opts.limit);
   if (opts?.offset != null) query = query.offset(opts.offset);
@@ -42,7 +52,7 @@ export async function countAllMeetings(): Promise<number> {
   return result?.count ?? 0;
 }
 
-export async function listMeetingsByStatus(status: string) {
+export async function listMeetingsByStatus(status: string): Promise<Meeting[]> {
   return db
     .selectFrom("meetings")
     .selectAll()
@@ -51,19 +61,19 @@ export async function listMeetingsByStatus(status: string) {
     .execute();
 }
 
-export async function getMeetingById(id: string) {
+export async function getMeetingById(id: string): Promise<Meeting | null> {
   return (
     (await db.selectFrom("meetings").selectAll().where("id", "=", id).executeTakeFirst()) ?? null
   );
 }
 
-export async function getMeetingByRoomName(roomName: string) {
+export async function getMeetingByRoomName(roomName: string): Promise<Meeting | null> {
   return firstOrNull(
     await db.selectFrom("meetings").selectAll().where("roomName", "=", roomName).execute()
   );
 }
 
-export async function getMeetingTranscripts(meetingId: string) {
+export async function getMeetingTranscripts(meetingId: string): Promise<Transcript[]> {
   return db
     .selectFrom("transcripts")
     .selectAll()
@@ -72,7 +82,7 @@ export async function getMeetingTranscripts(meetingId: string) {
     .execute();
 }
 
-export async function getMeetingSummaries(meetingId: string) {
+export async function getMeetingSummaries(meetingId: string): Promise<Summary[]> {
   return db
     .selectFrom("summaries")
     .selectAll()
@@ -81,7 +91,7 @@ export async function getMeetingSummaries(meetingId: string) {
     .execute();
 }
 
-export async function getLatestMeetingSummary(meetingId: string) {
+export async function getLatestMeetingSummary(meetingId: string): Promise<Summary | null> {
   return firstOrNull(
     await db
       .selectFrom("summaries")
@@ -93,7 +103,9 @@ export async function getLatestMeetingSummary(meetingId: string) {
   );
 }
 
-export async function getRoomAiWikiPageByMeetingId(meetingId: string) {
+export async function getRoomAiWikiPageByMeetingId(
+  meetingId: string
+): Promise<Pick<Page, "id" | "title"> | null> {
   return firstOrNull(
     await db
       .selectFrom("pages")
@@ -118,7 +130,7 @@ export async function createMeeting(input: {
   scheduledAt?: Date | null;
   googleCalendarEventId?: string | null;
   createdAt: Date;
-}) {
+}): Promise<Meeting | null> {
   return firstOrNull(
     await db
       .insertInto("meetings")
@@ -137,13 +149,16 @@ export async function createMeeting(input: {
   );
 }
 
-export async function updateMeeting(id: string, updateData: Partial<Omit<NewMeeting, "id">>) {
+export async function updateMeeting(
+  id: string,
+  updateData: Partial<Omit<NewMeeting, "id">>
+): Promise<Meeting | null> {
   return firstOrNull(
     await db.updateTable("meetings").set(updateData).where("id", "=", id).returningAll().execute()
   );
 }
 
-export async function deleteMeeting(id: string) {
+export async function deleteMeeting(id: string): Promise<Meeting | null> {
   return firstOrNull(await db.deleteFrom("meetings").where("id", "=", id).returningAll().execute());
 }
 
@@ -154,7 +169,7 @@ export async function createTranscript(input: {
   content: string;
   timestamp: Date;
   createdAt: Date;
-}) {
+}): Promise<Transcript | null> {
   return firstOrNull(
     await db
       .insertInto("transcripts")
@@ -176,7 +191,7 @@ export async function createSummary(input: {
   meetingId: string;
   content: string;
   createdAt: Date;
-}) {
+}): Promise<Summary | null> {
   return firstOrNull(
     await db
       .insertInto("summaries")
@@ -319,7 +334,7 @@ export async function recordParticipantJoin(input: {
   displayName: string;
   role: string;
   joinedAt: Date;
-}) {
+}): Promise<MeetingParticipant | null> {
   // Upsert: if participant already has an active session (no leftAt), skip insert
   let query = db
     .selectFrom("meeting_participants")
@@ -358,7 +373,7 @@ export async function recordParticipantLeave(
   meetingId: string,
   participantIdentity: string,
   leftAt: Date
-) {
+): Promise<MeetingParticipant | null> {
   const result = await db
     .updateTable("meeting_participants")
     .set({ leftAt: leftAt })
@@ -389,7 +404,7 @@ export async function getActiveParticipantCounts(
   return new Map(rows.map((r) => [r.meetingId, r.count]));
 }
 
-export async function listMeetingParticipants(meetingId: string) {
+export async function listMeetingParticipants(meetingId: string): Promise<MeetingParticipant[]> {
   return db
     .selectFrom("meeting_participants")
     .selectAll()
@@ -398,8 +413,8 @@ export async function listMeetingParticipants(meetingId: string) {
     .execute();
 }
 
-export async function closeAllParticipantSessions(meetingId: string, leftAt: Date) {
-  return db
+export async function closeAllParticipantSessions(meetingId: string, leftAt: Date): Promise<void> {
+  await db
     .updateTable("meeting_participants")
     .set({ leftAt: leftAt })
     .where("meetingId", "=", meetingId)
@@ -407,7 +422,7 @@ export async function closeAllParticipantSessions(meetingId: string, leftAt: Dat
     .execute();
 }
 
-export async function getMeetingRoomName(meetingId: string) {
+export async function getMeetingRoomName(meetingId: string): Promise<string | null> {
   const meeting = await db
     .selectFrom("meetings")
     .select("roomName")

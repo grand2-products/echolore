@@ -1,6 +1,13 @@
 import { db } from "../../db/index.js";
+import type { GoogleCalendarToken } from "../../db/schema.js";
 
-export async function getCalendarToken(userId: string) {
+export interface UpdateCalendarTokenInput {
+  accessTokenEnc?: string;
+  refreshTokenEnc?: string;
+  expiresAt?: Date;
+}
+
+export async function getCalendarToken(userId: string): Promise<GoogleCalendarToken | null> {
   return (
     (await db
       .selectFrom("google_calendar_tokens")
@@ -19,7 +26,7 @@ export async function upsertCalendarToken(
     scope: string;
     calendarId?: string;
   }
-) {
+): Promise<void> {
   const now = new Date();
   const existing = await getCalendarToken(userId);
 
@@ -54,7 +61,10 @@ export async function upsertCalendarToken(
   }
 }
 
-export async function updateCalendarToken(userId: string, values: Record<string, unknown>) {
+export async function updateCalendarToken(
+  userId: string,
+  values: UpdateCalendarTokenInput
+): Promise<void> {
   await db
     .updateTable("google_calendar_tokens")
     .set({ ...values, updatedAt: new Date() })
@@ -62,11 +72,11 @@ export async function updateCalendarToken(userId: string, values: Record<string,
     .execute();
 }
 
-export async function deleteCalendarToken(userId: string) {
+export async function deleteCalendarToken(userId: string): Promise<void> {
   await db.deleteFrom("google_calendar_tokens").where("userId", "=", userId).execute();
 }
 
-export async function hasCalendarToken(userId: string) {
+export async function hasCalendarToken(userId: string): Promise<boolean> {
   const row = await db
     .selectFrom("google_calendar_tokens")
     .select("id")

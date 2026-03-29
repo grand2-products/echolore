@@ -1,9 +1,17 @@
 import { UserRole } from "@echolore/shared/contracts";
 import { sql } from "kysely";
 import { db } from "../../db/index.js";
-import type { User } from "../../db/schema.js";
+import type {
+  AuthIdentity,
+  AuthRefreshToken,
+  EmailVerificationToken,
+  User,
+} from "../../db/schema.js";
 
-export async function findUserByEmailWithPasswordIdentity(email: string) {
+export async function findUserByEmailWithPasswordIdentity(email: string): Promise<{
+  user: User;
+  identity: AuthIdentity;
+} | null> {
   const normalizedEmail = email.trim().toLowerCase();
   const rows = await db
     .selectFrom("auth_identities")
@@ -62,7 +70,7 @@ export async function findUserByEmailWithPasswordIdentity(email: string) {
   };
 }
 
-export async function findPasswordIdentityByUserId(userId: string) {
+export async function findPasswordIdentityByUserId(userId: string): Promise<AuthIdentity | null> {
   return (
     (await db
       .selectFrom("auth_identities")
@@ -169,7 +177,7 @@ export async function createEmailVerificationToken(input: {
     .execute();
 }
 
-export async function listAuthRefreshTokens(userId: string) {
+export async function listAuthRefreshTokens(userId: string): Promise<AuthRefreshToken[]> {
   const now = new Date();
   return db
     .selectFrom("auth_refresh_tokens")
@@ -181,7 +189,7 @@ export async function listAuthRefreshTokens(userId: string) {
     .execute();
 }
 
-export async function findAuthRefreshToken(tokenHash: string) {
+export async function findAuthRefreshToken(tokenHash: string): Promise<AuthRefreshToken | null> {
   const now = new Date();
   return (
     (await db
@@ -232,7 +240,9 @@ export async function revokeAuthRefreshToken(tokenId: string, revokedAt: Date): 
     .execute();
 }
 
-export async function findSuccessorRefreshToken(rotatedFromId: string) {
+export async function findSuccessorRefreshToken(
+  rotatedFromId: string
+): Promise<AuthRefreshToken | null> {
   return (
     (await db
       .selectFrom("auth_refresh_tokens")
@@ -243,7 +253,7 @@ export async function findSuccessorRefreshToken(rotatedFromId: string) {
   );
 }
 
-export async function getAuthRefreshTokenById(tokenId: string) {
+export async function getAuthRefreshTokenById(tokenId: string): Promise<AuthRefreshToken | null> {
   return (
     (await db
       .selectFrom("auth_refresh_tokens")
@@ -257,7 +267,10 @@ export async function getAuthRefreshTokenById(tokenId: string) {
 // Graced refresh token (for concurrent-request tolerance)
 // ---------------------------------------------------------------------------
 
-export async function findGracedRefreshToken(tokenHash: string, graceThreshold: Date) {
+export async function findGracedRefreshToken(
+  tokenHash: string,
+  graceThreshold: Date
+): Promise<AuthRefreshToken | null> {
   const now = new Date();
   return (
     (await db
@@ -360,7 +373,9 @@ export async function reconcileOAuthIdentity(input: {
 // Email verification token
 // ---------------------------------------------------------------------------
 
-export async function findValidEmailVerificationToken(tokenHash: string) {
+export async function findValidEmailVerificationToken(
+  tokenHash: string
+): Promise<EmailVerificationToken | null> {
   const now = new Date();
   return (
     (await db

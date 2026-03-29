@@ -3,9 +3,9 @@ import { UserRole } from "@echolore/shared/contracts";
 import type { Context, MiddlewareHandler } from "hono";
 import { getUserById } from "../repositories/user/user-repository.js";
 import { resolveAllowedDomain } from "../services/admin/auth-settings-service.js";
+import { resolveAccessTokenSession } from "../services/auth/session-service.js";
 import { jsonError } from "./api-error.js";
 import { writeAuditLog } from "./audit.js";
-import { resolveAccessTokenSession } from "./local-auth.js";
 
 // Cache of user IDs confirmed to exist in DB. Avoids a DB query on every request.
 const verifiedUserIds = new Set<string>();
@@ -15,14 +15,9 @@ export function invalidateVerifiedUser(userId: string) {
   verifiedUserIds.delete(userId);
 }
 
-const AUTH_SECRET = process.env.AUTH_SECRET || process.env.AUTH_SESSION_SECRET;
+const AUTH_SECRET = process.env.AUTH_SECRET;
 if (!AUTH_SECRET) {
-  throw new Error("AUTH_SECRET (or AUTH_SESSION_SECRET) must be set");
-}
-if (!process.env.AUTH_SECRET && process.env.AUTH_SESSION_SECRET) {
-  console.warn(
-    "[auth] WARNING: Using deprecated AUTH_SESSION_SECRET. Please set AUTH_SECRET instead."
-  );
+  throw new Error("AUTH_SECRET must be set");
 }
 
 export type SessionUser = {

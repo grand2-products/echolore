@@ -10,7 +10,7 @@ import {
   getFileById,
   listFiles,
   listFilesByUploader,
-} from "../services/file/file-service.js";
+} from "../repositories/file/file-repository.js";
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 

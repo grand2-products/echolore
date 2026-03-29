@@ -14,7 +14,7 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import BackgroundEffectButton from "@/components/livekit/BackgroundEffectButton";
 import MediaToggle from "@/components/livekit/MediaToggle";
-import { apiFetch } from "@/lib/api";
+import { fetchApi } from "@/lib/api";
 import { fetchText } from "@/lib/api/fetch";
 import { useAuthContext } from "@/lib/auth-context";
 import {
@@ -211,7 +211,7 @@ function CoworkingMcuBody() {
     async (signal: AbortSignal) => {
       // Ensure composite is running
       try {
-        await apiFetch("/livekit/coworking/start-composite", { method: "POST" });
+        await fetchApi("/livekit/coworking/start-composite", { method: "POST" });
       } catch (err) {
         console.warn("[coworking-mcu] Failed to start composite:", err);
       }

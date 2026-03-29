@@ -9,6 +9,3 @@ export function escapeXmlTags(input: string): string {
   if (!input) return "";
   return input.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-
-/** @deprecated Use {@link escapeXmlTags} instead. */
-export const sanitizePromptInput = escapeXmlTags;
