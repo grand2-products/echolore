@@ -542,13 +542,13 @@ export async function searchByVector(
 
   return (
     results.rows as Array<{
-      pageId: string;
+      page_id: string;
       page_title: string;
       chunk_text: string;
       similarity: number;
     }>
   ).map((row) => ({
-    pageId: row.pageId,
+    pageId: row.page_id,
     pageTitle: row.page_title,
     chunkText: row.chunk_text,
     similarity: Number(row.similarity),
@@ -728,13 +728,13 @@ export async function searchPagesByIlike(
 
   return (
     results.rows as Array<{
-      pageId: string;
+      page_id: string;
       page_title: string;
       chunk_text: string;
       similarity: number;
     }>
   ).map((row) => ({
-    pageId: row.pageId,
+    pageId: row.page_id,
     pageTitle: row.page_title,
     chunkText: row.chunk_text || "",
     similarity: Number(row.similarity),
