@@ -19,7 +19,7 @@ meetingRecordingRoutes.get(
     const meeting = await getMeetingById(id);
     if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "read");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
     if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     const recordings = await getRecordingStatus(id);
@@ -28,13 +28,13 @@ meetingRecordingRoutes.get(
       recordings: recordings.map((r) => ({
         id: r.id,
         status: r.status,
-        storagePath: r.storage_path,
-        fileSize: r.file_size,
-        durationMs: r.duration_ms,
-        contentType: r.content_type,
-        startedAt: toIso(r.started_at),
-        endedAt: toIso(r.ended_at),
-        createdAt: r.created_at.toISOString(),
+        storagePath: r.storagePath,
+        fileSize: r.fileSize,
+        durationMs: r.durationMs,
+        contentType: r.contentType,
+        startedAt: toIso(r.startedAt),
+        endedAt: toIso(r.endedAt),
+        createdAt: r.createdAt.toISOString(),
       })),
     });
   }
@@ -50,22 +50,22 @@ meetingRecordingRoutes.get(
     const meeting = await getMeetingById(id);
     if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "read");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
     if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
 
     const recordings = await getRecordingStatus(id);
     const recording = recordings.find((r) => r.id === recordingId);
 
-    if (!recording || recording.status !== "completed" || !recording.storage_path) {
+    if (!recording || recording.status !== "completed" || !recording.storagePath) {
       return jsonError(c, 404, "RECORDING_NOT_FOUND", "Recording not found or not completed");
     }
 
-    if (recording.storage_path.includes("..")) {
+    if (recording.storagePath.includes("..")) {
       return jsonError(c, 400, "INVALID_PATH", "Invalid recording path");
     }
 
-    const fileBuffer = await loadFile(recording.storage_path);
-    const contentType = recording.content_type || "video/mp4";
+    const fileBuffer = await loadFile(recording.storagePath);
+    const contentType = recording.contentType || "video/mp4";
     const safeId = recordingId.replace(/[^a-z0-9-]/gi, "");
     const filename = `recording-${safeId}.mp4`;
 

@@ -31,10 +31,10 @@ export async function createGroup(input: {
         id: input.id,
         name: input.name,
         description: input.description,
-        is_system: input.isSystem,
+        isSystem: input.isSystem,
         permissions: input.permissions,
-        created_at: input.createdAt,
-        updated_at: input.updatedAt,
+        createdAt: input.createdAt,
+        updatedAt: input.updatedAt,
       })
       .returningAll()
       .execute()
@@ -57,7 +57,7 @@ export async function updateGroup(
         name: input.name,
         description: input.description,
         permissions: input.permissions,
-        updated_at: input.updatedAt,
+        updatedAt: input.updatedAt,
       })
       .where("id", "=", id)
       .returningAll()
@@ -66,7 +66,7 @@ export async function updateGroup(
 }
 
 export async function deleteGroup(id: string) {
-  await db.deleteFrom("user_group_memberships").where("group_id", "=", id).execute();
+  await db.deleteFrom("user_group_memberships").where("groupId", "=", id).execute();
   await db.deleteFrom("user_groups").where("id", "=", id).execute();
 }
 
@@ -78,21 +78,17 @@ export async function listMembershipsByGroup(groupId: string) {
   return db
     .selectFrom("user_group_memberships")
     .selectAll()
-    .where("group_id", "=", groupId)
+    .where("groupId", "=", groupId)
     .execute();
 }
 
 export async function listMembershipsByUser(userId: string) {
-  return db
-    .selectFrom("user_group_memberships")
-    .selectAll()
-    .where("user_id", "=", userId)
-    .execute();
+  return db.selectFrom("user_group_memberships").selectAll().where("userId", "=", userId).execute();
 }
 
 export async function listSpacePermissionsByGroupIds(groupIds: string[]) {
   if (groupIds.length === 0) return [];
-  return db.selectFrom("space_permissions").selectAll().where("group_id", "in", groupIds).execute();
+  return db.selectFrom("space_permissions").selectAll().where("groupId", "in", groupIds).execute();
 }
 
 export async function listSpacePermissionsForSpace(spaceId: string, groupIds: string[]) {
@@ -100,8 +96,8 @@ export async function listSpacePermissionsForSpace(spaceId: string, groupIds: st
   return db
     .selectFrom("space_permissions")
     .selectAll()
-    .where("space_id", "=", spaceId)
-    .where("group_id", "in", groupIds)
+    .where("spaceId", "=", spaceId)
+    .where("groupId", "in", groupIds)
     .execute();
 }
 
@@ -109,8 +105,8 @@ export async function deleteMembership(groupId: string, userId: string) {
   return firstOrNull(
     await db
       .deleteFrom("user_group_memberships")
-      .where("group_id", "=", groupId)
-      .where("user_id", "=", userId)
+      .where("groupId", "=", groupId)
+      .where("userId", "=", userId)
       .returningAll()
       .execute()
   );
@@ -126,12 +122,12 @@ export async function listUsersForAdmin() {
 }
 
 export async function listPagePermissions(pageId: string) {
-  return db.selectFrom("page_permissions").selectAll().where("page_id", "=", pageId).execute();
+  return db.selectFrom("page_permissions").selectAll().where("pageId", "=", pageId).execute();
 }
 
 export async function getPageInheritance(pageId: string) {
   return firstOrNull(
-    await db.selectFrom("page_inheritance").selectAll().where("page_id", "=", pageId).execute()
+    await db.selectFrom("page_inheritance").selectAll().where("pageId", "=", pageId).execute()
   );
 }
 
@@ -139,8 +135,8 @@ export async function deletePagePermission(pageId: string, groupId: string) {
   return firstOrNull(
     await db
       .deleteFrom("page_permissions")
-      .where("page_id", "=", pageId)
-      .where("group_id", "=", groupId)
+      .where("pageId", "=", pageId)
+      .where("groupId", "=", groupId)
       .returningAll()
       .execute()
   );
@@ -156,7 +152,7 @@ export async function updateUserRole(userId: string, role: string) {
   return firstOrNull(
     await db
       .updateTable("users")
-      .set({ role, updated_at: new Date() })
+      .set({ role, updatedAt: new Date() })
       .where("id", "=", userId)
       .returningAll()
       .execute()
@@ -168,8 +164,8 @@ export async function upsertSiteSetting(key: string, value: string) {
   return firstOrNull(
     await db
       .insertInto("site_settings")
-      .values({ key, value, updated_at: now })
-      .onConflict((oc) => oc.column("key").doUpdateSet({ value, updated_at: now }))
+      .values({ key, value, updatedAt: now })
+      .onConflict((oc) => oc.column("key").doUpdateSet({ value, updatedAt: now }))
       .returningAll()
       .execute()
   );
@@ -202,8 +198,8 @@ export async function addGroupMembers(
       const exists = await trx
         .selectFrom("user_group_memberships")
         .selectAll()
-        .where("group_id", "=", groupId)
-        .where("user_id", "=", userId)
+        .where("groupId", "=", groupId)
+        .where("userId", "=", userId)
         .executeTakeFirst();
       if (exists) continue;
 
@@ -211,10 +207,10 @@ export async function addGroupMembers(
         .insertInto("user_group_memberships")
         .values({
           id: `membership_${nanoid(12)}`,
-          user_id: userId,
-          group_id: groupId,
-          added_by: null,
-          created_at: now,
+          userId: userId,
+          groupId: groupId,
+          addedBy: null,
+          createdAt: now,
         })
         .returningAll()
         .executeTakeFirst();
@@ -222,10 +218,10 @@ export async function addGroupMembers(
       if (record) {
         records.push({
           id: record.id,
-          userId: record.user_id,
-          groupId: record.group_id,
-          addedBy: record.added_by,
-          createdAt: record.created_at,
+          userId: record.userId,
+          groupId: record.groupId,
+          addedBy: record.addedBy,
+          createdAt: record.createdAt,
         });
       }
     }
@@ -238,7 +234,7 @@ export async function replaceUserGroups(userId: string, groupIds: string[]): Pro
   const { nanoid } = await import("nanoid");
 
   await db.transaction().execute(async (trx) => {
-    await trx.deleteFrom("user_group_memberships").where("user_id", "=", userId).execute();
+    await trx.deleteFrom("user_group_memberships").where("userId", "=", userId).execute();
     const now = new Date();
 
     for (const groupId of groupIds) {
@@ -246,10 +242,10 @@ export async function replaceUserGroups(userId: string, groupIds: string[]): Pro
         .insertInto("user_group_memberships")
         .values({
           id: `membership_${nanoid(12)}`,
-          user_id: userId,
-          group_id: groupId,
-          added_by: null,
-          created_at: now,
+          userId: userId,
+          groupId: groupId,
+          addedBy: null,
+          createdAt: now,
         })
         .execute();
     }
@@ -270,16 +266,16 @@ export async function replacePagePermissions(
   const now = new Date();
 
   await db.transaction().execute(async (trx) => {
-    await trx.deleteFrom("page_permissions").where("page_id", "=", pageId).execute();
-    await trx.deleteFrom("page_inheritance").where("page_id", "=", pageId).execute();
+    await trx.deleteFrom("page_permissions").where("pageId", "=", pageId).execute();
+    await trx.deleteFrom("page_inheritance").where("pageId", "=", pageId).execute();
 
     await trx
       .insertInto("page_inheritance")
       .values({
         id: `inherit_${nanoid(12)}`,
-        page_id: pageId,
-        inherit_from_parent: inheritFromParent,
-        created_at: now,
+        pageId: pageId,
+        inheritFromParent: inheritFromParent,
+        createdAt: now,
       })
       .execute();
 
@@ -288,13 +284,13 @@ export async function replacePagePermissions(
         .insertInto("page_permissions")
         .values({
           id: `perm_${nanoid(12)}`,
-          page_id: pageId,
-          group_id: permission.groupId,
-          can_read: permission.canRead,
-          can_write: permission.canWrite,
-          can_delete: permission.canDelete,
-          created_at: now,
-          updated_at: now,
+          pageId: pageId,
+          groupId: permission.groupId,
+          canRead: permission.canRead,
+          canWrite: permission.canWrite,
+          canDelete: permission.canDelete,
+          createdAt: now,
+          updatedAt: now,
         })
         .execute();
     }
@@ -308,21 +304,21 @@ export async function replacePageInheritance(
   const { nanoid } = await import("nanoid");
 
   await db.transaction().execute(async (trx) => {
-    await trx.deleteFrom("page_inheritance").where("page_id", "=", pageId).execute();
+    await trx.deleteFrom("page_inheritance").where("pageId", "=", pageId).execute();
     await trx
       .insertInto("page_inheritance")
       .values({
         id: `inherit_${nanoid(12)}`,
-        page_id: pageId,
-        inherit_from_parent: inheritFromParent,
-        created_at: new Date(),
+        pageId: pageId,
+        inheritFromParent: inheritFromParent,
+        createdAt: new Date(),
       })
       .execute();
   });
 }
 
 export async function listSpacePermissions(spaceId: string) {
-  return db.selectFrom("space_permissions").selectAll().where("space_id", "=", spaceId).execute();
+  return db.selectFrom("space_permissions").selectAll().where("spaceId", "=", spaceId).execute();
 }
 
 export async function replaceSpacePermissions(
@@ -338,20 +334,20 @@ export async function replaceSpacePermissions(
   const now = new Date();
 
   await db.transaction().execute(async (trx) => {
-    await trx.deleteFrom("space_permissions").where("space_id", "=", spaceId).execute();
+    await trx.deleteFrom("space_permissions").where("spaceId", "=", spaceId).execute();
 
     for (const permission of permissions) {
       await trx
         .insertInto("space_permissions")
         .values({
           id: `sp_${nanoid(12)}`,
-          space_id: spaceId,
-          group_id: permission.groupId,
-          can_read: permission.canRead,
-          can_write: permission.canWrite,
-          can_delete: permission.canDelete,
-          created_at: now,
-          updated_at: now,
+          spaceId: spaceId,
+          groupId: permission.groupId,
+          canRead: permission.canRead,
+          canWrite: permission.canWrite,
+          canDelete: permission.canDelete,
+          createdAt: now,
+          updatedAt: now,
         })
         .execute();
     }
@@ -364,8 +360,8 @@ export async function deleteSpacePermissionForGroup(
 ): Promise<boolean> {
   const result = await db
     .deleteFrom("space_permissions")
-    .where("space_id", "=", spaceId)
-    .where("group_id", "=", groupId)
+    .where("spaceId", "=", spaceId)
+    .where("groupId", "=", groupId)
     .returningAll()
     .execute();
   return result.length > 0;

@@ -34,7 +34,7 @@ export async function reconcileGoogleIdentity(input: { email: string; name: stri
     provider: GOOGLE_PROVIDER,
   });
 
-  if (user.suspended_at || user.deleted_at) {
+  if (user.suspendedAt || user.deletedAt) {
     throw new Error("Account is suspended or deleted");
   }
 
@@ -74,7 +74,7 @@ export async function issueMobileTokenPair(input: { userId: string; deviceName?:
   if (!user) {
     throw new Error("User not found");
   }
-  if (user.suspended_at || user.deleted_at) {
+  if (user.suspendedAt || user.deletedAt) {
     throw new Error("Account is suspended or deleted");
   }
 
@@ -104,7 +104,7 @@ export async function exchangeGoogleIdToken(input: {
   if (!persistedUser) {
     throw new Error("User not found after Google identity reconciliation");
   }
-  if (persistedUser.suspended_at || persistedUser.deleted_at) {
+  if (persistedUser.suspendedAt || persistedUser.deletedAt) {
     throw new Error("Account is suspended or deleted");
   }
   const { accessToken, expiresAt } = buildAccessToken(persistedUser, "sso");

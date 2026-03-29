@@ -60,9 +60,9 @@ export async function getAuthedClient(userId: string) {
 
   const client = await getOAuth2Client();
   client.setCredentials({
-    access_token: decrypt(row.access_token_enc),
-    refresh_token: decrypt(row.refresh_token_enc),
-    expiry_date: row.expires_at.getTime(),
+    access_token: decrypt(row.accessTokenEnc),
+    refresh_token: decrypt(row.refreshTokenEnc),
+    expiry_date: row.expiresAt.getTime(),
   });
 
   // Auto-refresh handler
@@ -80,7 +80,7 @@ export async function getAuthedClient(userId: string) {
     await updateCalendarToken(userId, updateValues);
   });
 
-  return { client, calendarId: row.calendar_id };
+  return { client, calendarId: row.calendarId };
 }
 
 export async function disconnect(userId: string): Promise<void> {
@@ -89,7 +89,7 @@ export async function disconnect(userId: string): Promise<void> {
   if (row) {
     try {
       const client = await getOAuth2Client();
-      await client.revokeToken(decrypt(row.access_token_enc));
+      await client.revokeToken(decrypt(row.accessTokenEnc));
     } catch {
       // Best-effort revoke
     }

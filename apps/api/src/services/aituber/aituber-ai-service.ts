@@ -147,8 +147,8 @@ async function processNextMessage(
       for (const sentence of sentences) {
         const ttsResult = await ttsService.synthesizeSpeech(
           sentence,
-          character.language_code,
-          character.voice_name
+          character.languageCode,
+          character.voiceName
         );
         // Send audio + visemes via data channel for client-side playback and lip sync
         await livekitService.sendDataToRoom(roomName, {
@@ -190,9 +190,9 @@ async function generateStreamingResponse(
     ...history.map((msg) =>
       msg.role === "assistant"
         ? new AIMessage(msg.content)
-        : new HumanMessage(`[${msg.sender_name}] ${msg.content}`)
+        : new HumanMessage(`[${msg.senderName}] ${msg.content}`)
     ),
-    new HumanMessage(`[${viewerMessage.sender_name}] ${viewerMessage.content}`),
+    new HumanMessage(`[${viewerMessage.senderName}] ${viewerMessage.content}`),
   ];
 
   // Stream tokens
@@ -211,11 +211,11 @@ async function generateStreamingResponse(
 }
 
 function buildSystemPrompt(character: AituberCharacter): string {
-  let prompt = character.system_prompt;
+  let prompt = character.systemPrompt;
   prompt += `\n\nキャラクター名: ${escapeXmlTags(character.name)}`;
   prompt += `\n性格: ${escapeXmlTags(character.personality)}`;
-  if (character.speaking_style) {
-    prompt += `\n話し方: ${escapeXmlTags(character.speaking_style)}`;
+  if (character.speakingStyle) {
+    prompt += `\n話し方: ${escapeXmlTags(character.speakingStyle)}`;
   }
   prompt += "\n\n視聴者からのメッセージに対して、キャラクターとして自然に応答してください。";
   prompt += "\n応答は簡潔にし、1-3文程度で返してください。";

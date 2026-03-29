@@ -25,13 +25,13 @@ type InvitationRaw = {
   id: string;
   email: string;
   role: string;
-  group_ids: string[];
-  invited_by_user_id: string | null;
+  groupIds: string[];
+  invitedByUserId: string | null;
   invitedByEmail?: string | null;
-  expires_at: Date;
-  used_at: Date | null;
-  revoked_at: Date | null;
-  created_at: Date;
+  expiresAt: Date;
+  usedAt: Date | null;
+  revokedAt: Date | null;
+  createdAt: Date;
 };
 
 function toInvitationDto(inv: InvitationRaw): UserInvitationDto {
@@ -39,13 +39,13 @@ function toInvitationDto(inv: InvitationRaw): UserInvitationDto {
     id: inv.id,
     email: inv.email,
     role: inv.role === "admin" ? "admin" : "member",
-    groupIds: inv.group_ids,
-    invitedByUserId: inv.invited_by_user_id,
+    groupIds: inv.groupIds,
+    invitedByUserId: inv.invitedByUserId,
     invitedByEmail: inv.invitedByEmail ?? null,
-    expiresAt: inv.expires_at.toISOString(),
-    usedAt: inv.used_at?.toISOString() ?? null,
-    revokedAt: inv.revoked_at?.toISOString() ?? null,
-    createdAt: inv.created_at.toISOString(),
+    expiresAt: inv.expiresAt.toISOString(),
+    usedAt: inv.usedAt?.toISOString() ?? null,
+    revokedAt: inv.revokedAt?.toISOString() ?? null,
+    createdAt: inv.createdAt.toISOString(),
   };
 }
 
@@ -75,7 +75,7 @@ adminInvitationRoutes.post(
         emailSent = await sendInviteEmail({
           email: invitation.email,
           inviteUrl,
-          expiresAt: invitation.expires_at,
+          expiresAt: invitation.expiresAt,
         });
       } catch (emailError) {
         console.error("[INVITE_EMAIL_ERROR]", emailError);

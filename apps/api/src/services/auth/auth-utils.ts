@@ -84,7 +84,7 @@ export function toSessionUser(user: {
   email: string;
   name: string;
   role: string;
-  avatar_url: string | null;
+  avatarUrl: string | null;
 }): SessionUser {
   return {
     id: user.id,

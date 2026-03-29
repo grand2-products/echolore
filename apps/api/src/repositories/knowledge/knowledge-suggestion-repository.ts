@@ -14,13 +14,13 @@ export async function listSuggestions(filters?: {
     baseQuery = baseQuery.where("status", "=", filters.status);
   }
   if (filters?.sourceType) {
-    baseQuery = baseQuery.where("source_type", "=", filters.sourceType);
+    baseQuery = baseQuery.where("sourceType", "=", filters.sourceType);
   }
 
   const [rows, countRow] = await Promise.all([
     baseQuery
       .selectAll()
-      .orderBy("created_at", "desc")
+      .orderBy("createdAt", "desc")
       .limit(filters?.limit ?? 50)
       .offset(filters?.offset ?? 0)
       .execute(),
@@ -58,11 +58,11 @@ export async function updateSuggestion(
     Pick<
       KnowledgeSuggestion,
       | "status"
-      | "reviewed_by_user_id"
-      | "reviewed_at"
-      | "rejection_reason"
-      | "result_page_id"
-      | "updated_at"
+      | "reviewedByUserId"
+      | "reviewedAt"
+      | "rejectionReason"
+      | "resultPageId"
+      | "updatedAt"
     >
   >
 ): Promise<KnowledgeSuggestion | null> {

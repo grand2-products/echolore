@@ -51,7 +51,7 @@ describe("ai-chat-service", () => {
     });
 
     it("allows the creator to read their own conversation", async () => {
-      const conversation = { id: "conv-1", creator_id: "member-1", visibility: "private" };
+      const conversation = { id: "conv-1", creatorId: "member-1", visibility: "private" };
       getConversationByIdMock.mockResolvedValue(conversation);
 
       const { canAccessConversation } = await import("./ai-chat-service.js");
@@ -62,7 +62,7 @@ describe("ai-chat-service", () => {
     });
 
     it("allows the creator to write to their own conversation", async () => {
-      const conversation = { id: "conv-1", creator_id: "member-1", visibility: "private" };
+      const conversation = { id: "conv-1", creatorId: "member-1", visibility: "private" };
       getConversationByIdMock.mockResolvedValue(conversation);
 
       const { canAccessConversation } = await import("./ai-chat-service.js");
@@ -72,7 +72,7 @@ describe("ai-chat-service", () => {
     });
 
     it("allows the creator to delete their own conversation", async () => {
-      const conversation = { id: "conv-1", creator_id: "member-1", visibility: "private" };
+      const conversation = { id: "conv-1", creatorId: "member-1", visibility: "private" };
       getConversationByIdMock.mockResolvedValue(conversation);
 
       const { canAccessConversation } = await import("./ai-chat-service.js");
@@ -82,7 +82,7 @@ describe("ai-chat-service", () => {
     });
 
     it("allows admin full access to team-visible conversations", async () => {
-      const conversation = { id: "conv-1", creator_id: "member-1", visibility: "team" };
+      const conversation = { id: "conv-1", creatorId: "member-1", visibility: "team" };
       getConversationByIdMock.mockResolvedValue(conversation);
 
       const { canAccessConversation } = await import("./ai-chat-service.js");
@@ -100,7 +100,7 @@ describe("ai-chat-service", () => {
     });
 
     it("allows admin to read and delete private conversations, but not write", async () => {
-      const conversation = { id: "conv-1", creator_id: "member-1", visibility: "private" };
+      const conversation = { id: "conv-1", creatorId: "member-1", visibility: "private" };
       getConversationByIdMock.mockResolvedValue(conversation);
 
       const { canAccessConversation } = await import("./ai-chat-service.js");
@@ -118,7 +118,7 @@ describe("ai-chat-service", () => {
     });
 
     it("allows any member to read and write to team-visible conversations", async () => {
-      const conversation = { id: "conv-1", creator_id: "member-1", visibility: "team" };
+      const conversation = { id: "conv-1", creatorId: "member-1", visibility: "team" };
       getConversationByIdMock.mockResolvedValue(conversation);
 
       const { canAccessConversation } = await import("./ai-chat-service.js");
@@ -132,7 +132,7 @@ describe("ai-chat-service", () => {
     });
 
     it("denies member delete access to team conversations they did not create", async () => {
-      const conversation = { id: "conv-1", creator_id: "member-1", visibility: "team" };
+      const conversation = { id: "conv-1", creatorId: "member-1", visibility: "team" };
       getConversationByIdMock.mockResolvedValue(conversation);
 
       const { canAccessConversation } = await import("./ai-chat-service.js");
@@ -142,7 +142,7 @@ describe("ai-chat-service", () => {
     });
 
     it("denies any access to private conversations for non-creator members", async () => {
-      const conversation = { id: "conv-1", creator_id: "member-1", visibility: "private" };
+      const conversation = { id: "conv-1", creatorId: "member-1", visibility: "private" };
       getConversationByIdMock.mockResolvedValue(conversation);
 
       const { canAccessConversation } = await import("./ai-chat-service.js");

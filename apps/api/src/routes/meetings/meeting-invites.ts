@@ -32,7 +32,7 @@ async function requireMeetingAccess(
   if (!meeting) {
     return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
   }
-  const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, action);
+  const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, action);
   if (!authz.allowed) {
     return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
   }
@@ -209,28 +209,28 @@ meetingInviteRoutes.post(
 function toInviteDto(invite: MeetingInvite) {
   return {
     id: invite.id,
-    meetingId: invite.meeting_id,
+    meetingId: invite.meetingId,
     token: invite.token,
-    createdByUserId: invite.created_by_user_id,
+    createdByUserId: invite.createdByUserId,
     label: invite.label,
-    maxUses: invite.max_uses,
-    useCount: invite.use_count,
-    expiresAt: invite.expires_at.toISOString(),
-    revokedAt: invite.revoked_at?.toISOString() ?? null,
-    createdAt: invite.created_at.toISOString(),
+    maxUses: invite.maxUses,
+    useCount: invite.useCount,
+    expiresAt: invite.expiresAt.toISOString(),
+    revokedAt: invite.revokedAt?.toISOString() ?? null,
+    createdAt: invite.createdAt.toISOString(),
   };
 }
 
 function toGuestRequestDto(request: MeetingGuestRequest) {
   return {
     id: request.id,
-    inviteId: request.invite_id,
-    meetingId: request.meeting_id,
-    guestName: request.guest_name,
-    guestIdentity: request.guest_identity,
+    inviteId: request.inviteId,
+    meetingId: request.meetingId,
+    guestName: request.guestName,
+    guestIdentity: request.guestIdentity,
     status: request.status,
-    approvedByUserId: request.approved_by_user_id,
-    createdAt: request.created_at.toISOString(),
-    resolvedAt: request.resolved_at?.toISOString() ?? null,
+    approvedByUserId: request.approvedByUserId,
+    createdAt: request.createdAt.toISOString(),
+    resolvedAt: request.resolvedAt?.toISOString() ?? null,
   };
 }

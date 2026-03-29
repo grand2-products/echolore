@@ -5,11 +5,11 @@ import { initLlmWithSettings } from "./llm/index.js";
 const clip = (value: string, max = 12000) => value.slice(0, max);
 
 function fallbackSummary(
-  transcripts: Array<Pick<Transcript, "speaker_id" | "content" | "timestamp">>
+  transcripts: Array<Pick<Transcript, "speakerId" | "content" | "timestamp">>
 ) {
   const firstLines = transcripts
     .slice(0, 8)
-    .map((t) => `- ${t.speaker_id ?? "speaker"}: ${t.content}`)
+    .map((t) => `- ${t.speakerId ?? "speaker"}: ${t.content}`)
     .join("\n");
 
   return [
@@ -26,7 +26,7 @@ function fallbackSummary(
 
 export async function generateMeetingSummary(
   meetingTitle: string,
-  transcripts: Array<Pick<Transcript, "speaker_id" | "content" | "timestamp">>
+  transcripts: Array<Pick<Transcript, "speakerId" | "content" | "timestamp">>
 ): Promise<string> {
   const result = await initLlmWithSettings({ temperature: 0.2 });
 
@@ -38,7 +38,7 @@ export async function generateMeetingSummary(
     transcripts
       .map((t) => {
         const at = t.timestamp instanceof Date ? t.timestamp.toISOString() : String(t.timestamp);
-        return `[${at}] ${t.speaker_id ?? "speaker"}: ${t.content}`;
+        return `[${at}] ${t.speakerId ?? "speaker"}: ${t.content}`;
       })
       .join("\n")
   );

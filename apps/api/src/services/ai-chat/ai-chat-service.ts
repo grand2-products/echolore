@@ -25,7 +25,7 @@ export async function canAccessConversation(
   }
 
   // Creator can always do anything
-  if (conversation.creator_id === user.id) {
+  if (conversation.creatorId === user.id) {
     return { allowed: true, conversation };
   }
 

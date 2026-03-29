@@ -24,7 +24,7 @@ export async function listGroupsWithMemberCounts() {
 
   return groups.map((group) => ({
     ...group,
-    memberCount: memberships.filter((membership) => membership.group_id === group.id).length,
+    memberCount: memberships.filter((membership) => membership.groupId === group.id).length,
   }));
 }
 
@@ -37,13 +37,13 @@ export async function getGroupDetail(groupId: string) {
   const memberships = await listMembershipsByGroup(groupId);
   return {
     ...group,
-    members: memberships.map((membership) => membership.user_id),
+    members: memberships.map((membership) => membership.userId),
   };
 }
 
 export async function listGroupMembers(groupId: string) {
   const memberships = await listMembershipsByGroup(groupId);
-  const userIds = memberships.map((membership) => membership.user_id);
+  const userIds = memberships.map((membership) => membership.userId);
   if (userIds.length === 0) {
     return [];
   }
@@ -51,7 +51,7 @@ export async function listGroupMembers(groupId: string) {
   const members = await listUsersWithIds(userIds);
   return members.map((user) => ({
     ...user,
-    membership: memberships.find((membership) => membership.user_id === user.id) ?? null,
+    membership: memberships.find((membership) => membership.userId === user.id) ?? null,
   }));
 }
 
@@ -65,8 +65,8 @@ export async function listUsersWithGroups() {
   return users.map((user) => ({
     ...user,
     groups: memberships
-      .filter((membership) => membership.user_id === user.id)
-      .map((membership) => groups.find((group) => group.id === membership.group_id))
+      .filter((membership) => membership.userId === user.id)
+      .map((membership) => groups.find((group) => group.id === membership.groupId))
       .filter((group): group is (typeof groups)[number] => Boolean(group))
       .map((group) => ({ id: group.id, name: group.name })),
   }));

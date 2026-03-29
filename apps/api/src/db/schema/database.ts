@@ -21,426 +21,426 @@ export interface UsersTable {
   id: string;
   email: string;
   name: string;
-  avatar_url: string | null;
-  email_verified_at: Date | null;
-  token_version: Generated<number>;
+  avatarUrl: string | null;
+  emailVerifiedAt: Date | null;
+  tokenVersion: Generated<number>;
   role: Generated<string>;
-  suspended_at: Date | null;
-  deleted_at: Date | null;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  suspendedAt: Date | null;
+  deletedAt: Date | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface AuthIdentitiesTable {
   id: string;
-  user_id: string;
+  userId: string;
   provider: string;
-  provider_user_id: string | null;
-  password_hash: string | null;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  providerUserId: string | null;
+  passwordHash: string | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface EmailVerificationTokensTable {
   id: string;
-  user_id: string | null;
+  userId: string | null;
   email: string;
-  token_hash: string;
+  tokenHash: string;
   purpose: string;
-  pending_name: string | null;
-  pending_password_hash: string | null;
-  expires_at: Date;
-  used_at: Date | null;
-  created_at: Generated<Date>;
+  pendingName: string | null;
+  pendingPasswordHash: string | null;
+  expiresAt: Date;
+  usedAt: Date | null;
+  createdAt: Generated<Date>;
 }
 
 export interface AuthRefreshTokensTable {
   id: string;
-  user_id: string;
-  client_type: string;
-  auth_mode: string;
-  device_name: string | null;
-  token_hash: string;
-  expires_at: Date;
-  rotated_from_id: string | null;
-  revoked_at: Date | null;
-  last_seen_at: Date | null;
-  created_at: Generated<Date>;
+  userId: string;
+  clientType: string;
+  authMode: string;
+  deviceName: string | null;
+  tokenHash: string;
+  expiresAt: Date;
+  rotatedFromId: string | null;
+  revokedAt: Date | null;
+  lastSeenAt: Date | null;
+  createdAt: Generated<Date>;
 }
 
 export interface UserInvitationsTable {
   id: string;
   email: string;
-  token_hash: string;
+  tokenHash: string;
   role: Generated<string>;
-  group_ids: string[];
-  invited_by_user_id: string | null;
-  expires_at: Date;
-  used_at: Date | null;
-  revoked_at: Date | null;
-  created_at: Generated<Date>;
+  groupIds: string[];
+  invitedByUserId: string | null;
+  expiresAt: Date;
+  usedAt: Date | null;
+  revokedAt: Date | null;
+  createdAt: Generated<Date>;
 }
 
 export interface UserGroupsTable {
   id: string;
   name: string;
   description: string | null;
-  is_system: Generated<boolean>;
+  isSystem: Generated<boolean>;
   permissions: string[];
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface UserGroupMembershipsTable {
   id: string;
-  user_id: string;
-  group_id: string;
-  added_by: string | null;
-  created_at: Generated<Date>;
+  userId: string;
+  groupId: string;
+  addedBy: string | null;
+  createdAt: Generated<Date>;
 }
 
 export interface SpacesTable {
   id: string;
   name: string;
   type: string;
-  owner_user_id: string | null;
-  group_id: string | null;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  ownerUserId: string | null;
+  groupId: string | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface PagesTable {
   id: string;
   title: string;
-  space_id: string;
-  parent_id: string | null;
-  author_id: string;
-  deleted_at: Date | null;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  spaceId: string;
+  parentId: string | null;
+  authorId: string;
+  deletedAt: Date | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface BlocksTable {
   id: string;
-  page_id: string;
+  pageId: string;
   type: string;
   content: string | null;
   properties: Record<string, unknown> | null;
-  sort_order: number;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  sortOrder: number;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface PageRevisionsTable {
   id: string;
-  page_id: string;
-  revision_number: number;
+  pageId: string;
+  revisionNumber: number;
   title: string;
   blocks: BlockJson[];
-  author_id: string;
-  created_at: Generated<Date>;
+  authorId: string;
+  createdAt: Generated<Date>;
 }
 
 export interface PagePermissionsTable {
   id: string;
-  page_id: string;
-  group_id: string | null;
-  can_read: Generated<boolean>;
-  can_write: Generated<boolean>;
-  can_delete: Generated<boolean>;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  pageId: string;
+  groupId: string | null;
+  canRead: Generated<boolean>;
+  canWrite: Generated<boolean>;
+  canDelete: Generated<boolean>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface SpacePermissionsTable {
   id: string;
-  space_id: string;
-  group_id: string;
-  can_read: Generated<boolean>;
-  can_write: Generated<boolean>;
-  can_delete: Generated<boolean>;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  spaceId: string;
+  groupId: string;
+  canRead: Generated<boolean>;
+  canWrite: Generated<boolean>;
+  canDelete: Generated<boolean>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface PageInheritanceTable {
   id: string;
-  page_id: string;
-  inherit_from_parent: Generated<boolean>;
-  created_at: Generated<Date>;
+  pageId: string;
+  inheritFromParent: Generated<boolean>;
+  createdAt: Generated<Date>;
 }
 
 export interface MeetingsTable {
   id: string;
   title: string;
-  creator_id: string;
-  room_name: string;
+  creatorId: string;
+  roomName: string;
   status: Generated<string>;
-  started_at: Date | null;
-  ended_at: Date | null;
-  scheduled_at: Date | null;
-  google_calendar_event_id: string | null;
-  created_at: Generated<Date>;
+  startedAt: Date | null;
+  endedAt: Date | null;
+  scheduledAt: Date | null;
+  googleCalendarEventId: string | null;
+  createdAt: Generated<Date>;
 }
 
 export interface MeetingParticipantsTable {
   id: string;
-  meeting_id: string;
-  user_id: string | null;
-  guest_identity: string | null;
-  display_name: string;
+  meetingId: string;
+  userId: string | null;
+  guestIdentity: string | null;
+  displayName: string;
   role: Generated<string>;
-  joined_at: Date;
-  left_at: Date | null;
-  created_at: Generated<Date>;
+  joinedAt: Date;
+  leftAt: Date | null;
+  createdAt: Generated<Date>;
 }
 
 export interface MeetingInvitesTable {
   id: string;
-  meeting_id: string;
+  meetingId: string;
   token: string;
-  created_by_user_id: string;
+  createdByUserId: string;
   label: string | null;
-  max_uses: number | null;
-  use_count: Generated<number>;
-  expires_at: Date;
-  revoked_at: Date | null;
-  created_at: Generated<Date>;
+  maxUses: number | null;
+  useCount: Generated<number>;
+  expiresAt: Date;
+  revokedAt: Date | null;
+  createdAt: Generated<Date>;
 }
 
 export interface MeetingGuestRequestsTable {
   id: string;
-  invite_id: string;
-  meeting_id: string;
-  guest_name: string;
-  guest_identity: string;
+  inviteId: string;
+  meetingId: string;
+  guestName: string;
+  guestIdentity: string;
   status: Generated<string>;
-  approved_by_user_id: string | null;
-  ip_address: string | null;
-  user_agent: string | null;
-  created_at: Generated<Date>;
-  resolved_at: Date | null;
+  approvedByUserId: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: Generated<Date>;
+  resolvedAt: Date | null;
 }
 
 export interface MeetingRecordingsTable {
   id: string;
-  meeting_id: string;
-  egress_id: string;
+  meetingId: string;
+  egressId: string;
   status: string;
-  initiated_by: string | null;
-  storage_path: string | null;
-  file_size: number | null;
-  duration_ms: number | null;
-  content_type: string | null;
-  started_at: Date | null;
-  ended_at: Date | null;
-  error_message: string | null;
-  created_at: Generated<Date>;
+  initiatedBy: string | null;
+  storagePath: string | null;
+  fileSize: number | null;
+  durationMs: number | null;
+  contentType: string | null;
+  startedAt: Date | null;
+  endedAt: Date | null;
+  errorMessage: string | null;
+  createdAt: Generated<Date>;
 }
 
 export interface GoogleCalendarTokensTable {
   id: string;
-  user_id: string;
-  access_token_enc: string;
-  refresh_token_enc: string;
-  expires_at: Date;
+  userId: string;
+  accessTokenEnc: string;
+  refreshTokenEnc: string;
+  expiresAt: Date;
   scope: string;
-  calendar_id: Generated<string>;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  calendarId: Generated<string>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface TranscriptsTable {
   id: string;
-  meeting_id: string;
-  speaker_id: string | null;
+  meetingId: string;
+  speakerId: string | null;
   content: string;
   timestamp: Date;
-  created_at: Generated<Date>;
+  createdAt: Generated<Date>;
 }
 
 export interface SummariesTable {
   id: string;
-  meeting_id: string;
+  meetingId: string;
   content: string;
-  created_at: Generated<Date>;
+  createdAt: Generated<Date>;
 }
 
 export interface MeetingTranscriptSegmentsTable {
   id: string;
-  meeting_id: string;
-  participant_identity: string;
-  speaker_user_id: string | null;
-  speaker_label: string;
+  meetingId: string;
+  participantIdentity: string;
+  speakerUserId: string | null;
+  speakerLabel: string;
   content: string;
-  is_partial: Generated<boolean>;
-  segment_key: string;
+  isPartial: Generated<boolean>;
+  segmentKey: string;
   provider: string;
   confidence: number | null;
-  started_at: Date;
-  finalized_at: Date | null;
-  created_at: Generated<Date>;
+  startedAt: Date;
+  finalizedAt: Date | null;
+  createdAt: Generated<Date>;
 }
 
 export interface AgentsTable {
   id: string;
   name: string;
   description: string | null;
-  system_prompt: string;
-  voice_profile: string | null;
-  intervention_style: string;
-  default_provider: string;
-  is_active: Generated<boolean>;
-  autonomous_enabled: Generated<boolean>;
-  autonomous_cooldown_sec: Generated<number>;
-  created_by: string;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  systemPrompt: string;
+  voiceProfile: string | null;
+  interventionStyle: string;
+  defaultProvider: string;
+  isActive: Generated<boolean>;
+  autonomousEnabled: Generated<boolean>;
+  autonomousCooldownSec: Generated<number>;
+  createdBy: string;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface MeetingAgentSessionsTable {
   id: string;
-  meeting_id: string;
-  agent_id: string;
+  meetingId: string;
+  agentId: string;
   state: string;
-  invoked_by_user_id: string;
-  last_auto_eval_segment_id: string | null;
-  joined_at: Date | null;
-  left_at: Date | null;
-  created_at: Generated<Date>;
+  invokedByUserId: string;
+  lastAutoEvalSegmentId: string | null;
+  joinedAt: Date | null;
+  leftAt: Date | null;
+  createdAt: Generated<Date>;
 }
 
 export interface MeetingAgentEventsTable {
   id: string;
-  meeting_id: string;
-  agent_id: string;
-  event_type: string;
+  meetingId: string;
+  agentId: string;
+  eventType: string;
   payload: Record<string, unknown>;
-  triggered_by_user_id: string | null;
-  created_at: Generated<Date>;
+  triggeredByUserId: string | null;
+  createdAt: Generated<Date>;
 }
 
 export interface FilesTable {
   id: string;
   filename: string;
-  content_type: string | null;
+  contentType: string | null;
   size: number | null;
-  storage_path: string;
-  uploader_id: string;
-  created_at: Generated<Date>;
+  storagePath: string;
+  uploaderId: string;
+  createdAt: Generated<Date>;
 }
 
 export interface AuditLogsTable {
   id: string;
-  actor_user_id: string | null;
-  actor_email: string | null;
+  actorUserId: string | null;
+  actorEmail: string | null;
   action: string;
-  resource_type: string;
-  resource_id: string | null;
+  resourceType: string;
+  resourceId: string | null;
   metadata: Record<string, unknown> | null;
-  ip_address: string | null;
-  user_agent: string | null;
-  created_at: Generated<Date>;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: Generated<Date>;
 }
 
 export interface AiChatConversationsTable {
   id: string;
   title: string;
-  creator_id: string;
+  creatorId: string;
   visibility: Generated<string>;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface AiChatMessagesTable {
   id: string;
-  conversation_id: string;
+  conversationId: string;
   role: string;
   content: string;
   citations: CitationJson[] | null;
-  created_at: Generated<Date>;
+  createdAt: Generated<Date>;
 }
 
 export interface YjsDocumentsTable {
-  page_id: string;
+  pageId: string;
   state: string;
-  updated_at: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface PageEmbeddingsTable {
   id: string;
-  page_id: string;
-  chunk_index: Generated<number>;
-  plain_text: string;
+  pageId: string;
+  chunkIndex: Generated<number>;
+  plainText: string;
   embedding: string; // pgvector — serialized as '[0.1,0.2,...]'
-  model_id: Generated<string>;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  modelId: Generated<string>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface AituberCharactersTable {
   id: string;
   name: string;
   personality: string;
-  system_prompt: string;
-  speaking_style: string | null;
-  language_code: Generated<string>;
-  voice_name: string | null;
-  avatar_url: string | null;
-  avatar_file_id: string | null;
-  created_by: string;
-  is_public: Generated<boolean>;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  systemPrompt: string;
+  speakingStyle: string | null;
+  languageCode: Generated<string>;
+  voiceName: string | null;
+  avatarUrl: string | null;
+  avatarFileId: string | null;
+  createdBy: string;
+  isPublic: Generated<boolean>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface AituberSessionsTable {
   id: string;
-  character_id: string;
-  creator_id: string;
+  characterId: string;
+  creatorId: string;
   title: string;
   status: Generated<string>;
-  room_name: string;
-  started_at: Date | null;
-  ended_at: Date | null;
-  created_at: Generated<Date>;
+  roomName: string;
+  startedAt: Date | null;
+  endedAt: Date | null;
+  createdAt: Generated<Date>;
 }
 
 export interface AituberMessagesTable {
   id: string;
-  session_id: string;
+  sessionId: string;
   role: string;
-  sender_user_id: string | null;
-  sender_name: string;
+  senderUserId: string | null;
+  senderName: string;
   content: string;
-  processed_at: Date | null;
-  created_at: Generated<Date>;
+  processedAt: Date | null;
+  createdAt: Generated<Date>;
 }
 
 export interface KnowledgeSuggestionsTable {
   id: string;
-  source_type: string;
-  source_id: string | null;
-  source_summary: string | null;
-  target_type: string;
-  target_page_id: string | null;
-  target_space_id: string;
-  proposed_title: string;
-  proposed_blocks: BlockJson[];
-  ai_reasoning: string;
+  sourceType: string;
+  sourceId: string | null;
+  sourceSummary: string | null;
+  targetType: string;
+  targetPageId: string | null;
+  targetSpaceId: string;
+  proposedTitle: string;
+  proposedBlocks: BlockJson[];
+  aiReasoning: string;
   status: Generated<string>;
-  reviewed_by_user_id: string | null;
-  reviewed_at: Date | null;
-  rejection_reason: string | null;
-  result_page_id: string | null;
-  created_at: Generated<Date>;
-  updated_at: Generated<Date>;
+  reviewedByUserId: string | null;
+  reviewedAt: Date | null;
+  rejectionReason: string | null;
+  resultPageId: string | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 export interface SiteSettingsTable {
   key: string;
   value: string;
-  updated_at: Generated<Date>;
+  updatedAt: Generated<Date>;
 }
 
 // ─── Database interface ──────────────────────────────────────────

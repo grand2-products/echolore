@@ -337,7 +337,7 @@ authRoutes.get("/invite/:token", async (c) => {
   return c.json({
     valid: true,
     email: invitation.email,
-    expiresAt: invitation.expires_at.toISOString(),
+    expiresAt: invitation.expiresAt.toISOString(),
   });
 });
 

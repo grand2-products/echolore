@@ -25,7 +25,7 @@ export const usersRoutes = new Hono<AppEnv>();
 // ---------------------------------------------------------------------------
 
 /** Map a DB user row to a response DTO, resolving the avatar storage path. */
-function toUserResponse(user: { id: string; avatar_url: string | null; [key: string]: unknown }) {
+function toUserResponse(user: { id: string; avatarUrl: string | null; [key: string]: unknown }) {
   return { ...user, avatarUrl: resolveUserAvatarUrl(user) };
 }
 
@@ -215,9 +215,9 @@ usersRoutes.delete(
     }
 
     // If the stored value is a storage path, remove the file
-    if (currentUser.avatar_url?.startsWith("avatars/")) {
+    if (currentUser.avatarUrl?.startsWith("avatars/")) {
       try {
-        await removeFile(currentUser.avatar_url);
+        await removeFile(currentUser.avatarUrl);
       } catch {
         // File may already be gone
       }
@@ -291,14 +291,14 @@ usersRoutes.get(
     const targetUser = await getUserById(id);
 
     // Only serve if the stored value is a storage path (not an external URL)
-    if (!targetUser?.avatar_url?.startsWith("avatars/")) {
+    if (!targetUser?.avatarUrl?.startsWith("avatars/")) {
       return jsonError(c, 404, "AVATAR_NOT_FOUND", "No avatar set");
     }
 
-    const buffer = await loadFile(targetUser.avatar_url);
+    const buffer = await loadFile(targetUser.avatarUrl);
     return new Response(new Uint8Array(buffer), {
       headers: {
-        "Content-Type": mimeFromPath(targetUser.avatar_url),
+        "Content-Type": mimeFromPath(targetUser.avatarUrl),
         "Cache-Control": "private, max-age=3600",
       },
     });

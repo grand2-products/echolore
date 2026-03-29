@@ -9,21 +9,21 @@ export function sanitizeText(input: string): string {
 }
 
 export const resolveCharacterAvatarUrl = (character: {
-  avatar_file_id: string | null;
-  avatar_url: string | null;
+  avatarFileId: string | null;
+  avatarUrl: string | null;
 }) => {
-  if (character.avatar_file_id) {
-    return `/api/files/${character.avatar_file_id}/download`;
+  if (character.avatarFileId) {
+    return `/api/files/${character.avatarFileId}/download`;
   }
-  return character.avatar_url;
+  return character.avatarUrl;
 };
 
 export const toCharacterResponse = (
   character: {
-    avatar_file_id: string | null;
-    avatar_url: string | null;
+    avatarFileId: string | null;
+    avatarUrl: string | null;
   } & Record<string, unknown>
 ) => {
-  const { avatar_file_id: _omit, ...rest } = character;
+  const { avatarFileId: _omit, ...rest } = character;
   return { ...rest, avatarUrl: resolveCharacterAvatarUrl(character) };
 };

@@ -290,11 +290,11 @@ describe("wikiRoutes", () => {
     getFileByIdMock.mockResolvedValue({
       id: "file_1",
       filename: "design.pdf",
-      content_type: "application/pdf",
+      contentType: "application/pdf",
       size: 1234,
-      storage_path: "uploads/file_1-design.pdf",
-      uploader_id: "user_1",
-      created_at: new Date("2026-03-11T09:01:00.000Z"),
+      storagePath: "uploads/file_1-design.pdf",
+      uploaderId: "user_1",
+      createdAt: new Date("2026-03-11T09:01:00.000Z"),
     });
     loadFileMock.mockResolvedValue(Buffer.from("pdf-content"));
 

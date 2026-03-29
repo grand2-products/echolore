@@ -24,14 +24,14 @@ export async function createCharacter(input: {
         id: crypto.randomUUID(),
         name: input.name,
         personality: input.personality,
-        system_prompt: input.systemPrompt,
-        speaking_style: input.speakingStyle ?? null,
-        language_code: input.languageCode ?? "ja-JP",
-        voice_name: input.voiceName ?? null,
-        avatar_url: input.avatarUrl ?? null,
-        avatar_file_id: input.avatarFileId ?? null,
-        is_public: input.isPublic ?? false,
-        created_by: input.createdBy,
+        systemPrompt: input.systemPrompt,
+        speakingStyle: input.speakingStyle ?? null,
+        languageCode: input.languageCode ?? "ja-JP",
+        voiceName: input.voiceName ?? null,
+        avatarUrl: input.avatarUrl ?? null,
+        avatarFileId: input.avatarFileId ?? null,
+        isPublic: input.isPublic ?? false,
+        createdBy: input.createdBy,
       }),
     "Failed to create character"
   );
@@ -82,11 +82,11 @@ export async function createSession(input: {
     () =>
       repo.createSession({
         id: crypto.randomUUID(),
-        character_id: input.characterId,
-        creator_id: input.creatorId,
+        characterId: input.characterId,
+        creatorId: input.creatorId,
         title: input.title,
         status: "created",
-        room_name: roomName,
+        roomName: roomName,
       }),
     "Failed to create session"
   );
@@ -132,10 +132,10 @@ export async function sendViewerMessage(input: {
     () =>
       repo.createMessage({
         id: crypto.randomUUID(),
-        session_id: input.sessionId,
+        sessionId: input.sessionId,
         role: "viewer",
-        sender_user_id: input.senderUserId ?? null,
-        sender_name: input.senderName,
+        senderUserId: input.senderUserId ?? null,
+        senderName: input.senderName,
         content: input.content,
       }),
     "Failed to send message"
@@ -151,12 +151,12 @@ export async function saveAssistantMessage(input: {
     () =>
       repo.createMessage({
         id: crypto.randomUUID(),
-        session_id: input.sessionId,
+        sessionId: input.sessionId,
         role: "assistant",
-        sender_user_id: null,
-        sender_name: input.characterName,
+        senderUserId: null,
+        senderName: input.characterName,
         content: input.content,
-        processed_at: new Date(),
+        processedAt: new Date(),
       }),
     "Failed to save assistant message"
   );

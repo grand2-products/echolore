@@ -50,17 +50,17 @@ describe("meeting-service", () => {
   it("creates summary, wiki page, and blocks in a single transaction", async () => {
     const summaryRecord = {
       id: "summary_1",
-      meeting_id: "meeting_1",
+      meetingId: "meeting_1",
       content: "Summary body",
-      created_at: new Date("2026-03-11T00:00:00.000Z"),
+      createdAt: new Date("2026-03-11T00:00:00.000Z"),
     };
     const pageRecord = {
       id: "page_1",
       title: "Planning - AI Summary",
-      parent_id: MEETING_NOTES_PAGE_ID,
-      author_id: "user_1",
-      created_at: new Date("2026-03-11T00:00:00.000Z"),
-      updated_at: new Date("2026-03-11T00:00:00.000Z"),
+      parentId: MEETING_NOTES_PAGE_ID,
+      authorId: "user_1",
+      createdAt: new Date("2026-03-11T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-11T00:00:00.000Z"),
     };
 
     const insertedTables: string[] = [];
@@ -103,14 +103,14 @@ describe("meeting-service", () => {
     const meeting: Meeting = {
       id: "meeting_1",
       title: "Planning",
-      creator_id: "user_1",
-      room_name: "room-a",
+      creatorId: "user_1",
+      roomName: "room-a",
       status: "ended",
-      started_at: null,
-      ended_at: null,
-      scheduled_at: null,
-      google_calendar_event_id: null,
-      created_at: new Date("2026-03-11T00:00:00.000Z"),
+      startedAt: null,
+      endedAt: null,
+      scheduledAt: null,
+      googleCalendarEventId: null,
+      createdAt: new Date("2026-03-11T00:00:00.000Z"),
     };
 
     const result = await createMeetingSummaryWikiArtifacts(meeting, "Summary body");
@@ -159,14 +159,14 @@ describe("meeting-service", () => {
     const meeting: Meeting = {
       id: "meeting_1",
       title: "Planning",
-      creator_id: "user_1",
-      room_name: "room-a",
+      creatorId: "user_1",
+      roomName: "room-a",
       status: "ended",
-      started_at: null,
-      ended_at: null,
-      scheduled_at: null,
-      google_calendar_event_id: null,
-      created_at: new Date("2026-03-11T00:00:00.000Z"),
+      startedAt: null,
+      endedAt: null,
+      scheduledAt: null,
+      googleCalendarEventId: null,
+      createdAt: new Date("2026-03-11T00:00:00.000Z"),
     };
 
     await expect(createMeetingSummaryWikiArtifacts(meeting, "Summary body")).rejects.toThrow(

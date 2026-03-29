@@ -6,7 +6,7 @@ export async function getUserCount() {
   const row = await db
     .selectFrom("users")
     .select(sql<number>`count(*)::int`.as("value"))
-    .where("deleted_at", "is", null)
+    .where("deletedAt", "is", null)
     .executeTakeFirst();
   return row?.value ?? 0;
 }
@@ -41,10 +41,10 @@ export async function createUser(input: {
         id: input.id,
         email: input.email,
         name: input.name,
-        avatar_url: input.avatarUrl,
+        avatarUrl: input.avatarUrl,
         role: input.role,
-        created_at: input.createdAt,
-        updated_at: input.updatedAt,
+        createdAt: input.createdAt,
+        updatedAt: input.updatedAt,
       })
       .returningAll()
       .executeTakeFirst()) ?? null
@@ -64,8 +64,8 @@ export async function updateUser(
       .updateTable("users")
       .set({
         ...(input.name !== undefined ? { name: input.name } : {}),
-        ...(input.avatarUrl !== undefined ? { avatar_url: input.avatarUrl } : {}),
-        updated_at: input.updatedAt,
+        ...(input.avatarUrl !== undefined ? { avatarUrl: input.avatarUrl } : {}),
+        updatedAt: input.updatedAt,
       })
       .where("id", "=", id)
       .returningAll()
@@ -85,12 +85,12 @@ export async function suspendUser(id: string) {
     (await db
       .updateTable("users")
       .set({
-        suspended_at: now,
-        token_version: sql`token_version + 1`,
-        updated_at: now,
+        suspendedAt: now,
+        tokenVersion: sql`token_version + 1`,
+        updatedAt: now,
       })
       .where("id", "=", id)
-      .where("suspended_at", "is", null)
+      .where("suspendedAt", "is", null)
       .returningAll()
       .executeTakeFirst()) ?? null
   );
@@ -100,7 +100,7 @@ export async function unsuspendUser(id: string) {
   return (
     (await db
       .updateTable("users")
-      .set({ suspended_at: null, updated_at: new Date() })
+      .set({ suspendedAt: null, updatedAt: new Date() })
       .where("id", "=", id)
       .returningAll()
       .executeTakeFirst()) ?? null
@@ -113,12 +113,12 @@ export async function softDeleteUser(id: string) {
     (await db
       .updateTable("users")
       .set({
-        deleted_at: now,
-        token_version: sql`token_version + 1`,
-        updated_at: now,
+        deletedAt: now,
+        tokenVersion: sql`token_version + 1`,
+        updatedAt: now,
       })
       .where("id", "=", id)
-      .where("deleted_at", "is", null)
+      .where("deletedAt", "is", null)
       .returningAll()
       .executeTakeFirst()) ?? null
   );
@@ -128,7 +128,7 @@ export async function restoreUser(id: string) {
   return (
     (await db
       .updateTable("users")
-      .set({ deleted_at: null, suspended_at: null, updated_at: new Date() })
+      .set({ deletedAt: null, suspendedAt: null, updatedAt: new Date() })
       .where("id", "=", id)
       .returningAll()
       .executeTakeFirst()) ?? null

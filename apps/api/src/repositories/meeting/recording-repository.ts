@@ -12,11 +12,11 @@ export async function createRecording(input: {
     .insertInto("meeting_recordings")
     .values({
       id: input.id,
-      meeting_id: input.meetingId,
-      egress_id: input.egressId,
+      meetingId: input.meetingId,
+      egressId: input.egressId,
       status: input.status,
-      initiated_by: input.initiatedBy,
-      content_type: input.contentType,
+      initiatedBy: input.initiatedBy,
+      contentType: input.contentType,
     })
     .returningAll()
     .executeTakeFirst();
@@ -24,15 +24,15 @@ export async function createRecording(input: {
 }
 
 export async function updateRecordingByEgressId(egressId: string, data: Record<string, unknown>) {
-  await db.updateTable("meeting_recordings").set(data).where("egress_id", "=", egressId).execute();
+  await db.updateTable("meeting_recordings").set(data).where("egressId", "=", egressId).execute();
 }
 
 export async function listRecordingsByMeeting(meetingId: string) {
   return db
     .selectFrom("meeting_recordings")
     .selectAll()
-    .where("meeting_id", "=", meetingId)
-    .orderBy("created_at", "desc")
+    .where("meetingId", "=", meetingId)
+    .orderBy("createdAt", "desc")
     .execute();
 }
 
@@ -41,7 +41,7 @@ export async function findActiveRecording(meetingId: string) {
     (await db
       .selectFrom("meeting_recordings")
       .selectAll()
-      .where("meeting_id", "=", meetingId)
+      .where("meetingId", "=", meetingId)
       .where("status", "in", ["starting", "recording"])
       .executeTakeFirst()) ?? null
   );
@@ -52,7 +52,7 @@ export async function getRecordingByEgressId(egressId: string) {
     (await db
       .selectFrom("meeting_recordings")
       .selectAll()
-      .where("egress_id", "=", egressId)
+      .where("egressId", "=", egressId)
       .executeTakeFirst()) ?? null
   );
 }

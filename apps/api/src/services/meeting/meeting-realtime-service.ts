@@ -34,30 +34,30 @@ export async function upsertTranscriptSegment(input: {
   if (!existing) {
     return createTranscriptSegment({
       id: crypto.randomUUID(),
-      meeting_id: input.meetingId,
-      participant_identity: input.participantIdentity,
-      speaker_user_id: input.speakerUserId ?? null,
-      speaker_label: input.speakerLabel,
+      meetingId: input.meetingId,
+      participantIdentity: input.participantIdentity,
+      speakerUserId: input.speakerUserId ?? null,
+      speakerLabel: input.speakerLabel,
       content: input.content,
-      is_partial: input.isPartial,
-      segment_key: input.segmentKey,
+      isPartial: input.isPartial,
+      segmentKey: input.segmentKey,
       provider: input.provider,
       confidence: input.confidence ?? null,
-      started_at: input.startedAt,
-      finalized_at: input.finalizedAt ?? null,
-      created_at: new Date(),
+      startedAt: input.startedAt,
+      finalizedAt: input.finalizedAt ?? null,
+      createdAt: new Date(),
     });
   }
 
   return updateTranscriptSegment(existing.id, {
-    speaker_user_id: input.speakerUserId ?? existing.speaker_user_id,
-    speaker_label: input.speakerLabel,
+    speakerUserId: input.speakerUserId ?? existing.speakerUserId,
+    speakerLabel: input.speakerLabel,
     content: input.content,
-    is_partial: input.isPartial,
+    isPartial: input.isPartial,
     provider: input.provider,
     confidence: input.confidence ?? existing.confidence,
-    started_at: input.startedAt,
-    finalized_at: input.finalizedAt ?? existing.finalized_at,
+    startedAt: input.startedAt,
+    finalizedAt: input.finalizedAt ?? existing.finalizedAt,
   });
 }
 
@@ -126,14 +126,14 @@ export async function createAgentDefinition(input: {
     id: crypto.randomUUID(),
     name: input.name,
     description: input.description ?? null,
-    system_prompt: input.systemPrompt,
-    voice_profile: input.voiceProfile ?? null,
-    intervention_style: input.interventionStyle,
-    default_provider: input.defaultProvider,
-    is_active: input.isActive ?? true,
-    created_by: input.createdBy,
-    created_at: now,
-    updated_at: now,
+    systemPrompt: input.systemPrompt,
+    voiceProfile: input.voiceProfile ?? null,
+    interventionStyle: input.interventionStyle,
+    defaultProvider: input.defaultProvider,
+    isActive: input.isActive ?? true,
+    createdBy: input.createdBy,
+    createdAt: now,
+    updatedAt: now,
   });
 }
 
@@ -152,14 +152,14 @@ export async function updateAgentDefinition(
   return updateAgent(id, {
     ...(input.name !== undefined ? { name: input.name } : {}),
     ...(input.description !== undefined ? { description: input.description } : {}),
-    ...(input.systemPrompt !== undefined ? { system_prompt: input.systemPrompt } : {}),
-    ...(input.voiceProfile !== undefined ? { voice_profile: input.voiceProfile } : {}),
+    ...(input.systemPrompt !== undefined ? { systemPrompt: input.systemPrompt } : {}),
+    ...(input.voiceProfile !== undefined ? { voiceProfile: input.voiceProfile } : {}),
     ...(input.interventionStyle !== undefined
-      ? { intervention_style: input.interventionStyle }
+      ? { interventionStyle: input.interventionStyle }
       : {}),
-    ...(input.defaultProvider !== undefined ? { default_provider: input.defaultProvider } : {}),
-    ...(input.isActive !== undefined ? { is_active: input.isActive } : {}),
-    updated_at: new Date(),
+    ...(input.defaultProvider !== undefined ? { defaultProvider: input.defaultProvider } : {}),
+    ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+    updatedAt: new Date(),
   });
 }
 
@@ -169,7 +169,7 @@ export async function invokeMeetingAgent(input: {
   invokedByUserId: string;
 }) {
   const agent = await getAgentById(input.agentId);
-  if (!agent || !agent.is_active) {
+  if (!agent || !agent.isActive) {
     return null;
   }
 
@@ -185,13 +185,13 @@ export async function invokeMeetingAgent(input: {
   const now = new Date();
   const session = await createMeetingAgentSession({
     id: crypto.randomUUID(),
-    meeting_id: input.meetingId,
-    agent_id: input.agentId,
+    meetingId: input.meetingId,
+    agentId: input.agentId,
     state: "active",
-    invoked_by_user_id: input.invokedByUserId,
-    joined_at: now,
-    left_at: null,
-    created_at: now,
+    invokedByUserId: input.invokedByUserId,
+    joinedAt: now,
+    leftAt: null,
+    createdAt: now,
   });
 
   if (!session) {
@@ -200,12 +200,12 @@ export async function invokeMeetingAgent(input: {
 
   await createMeetingAgentEvent({
     id: crypto.randomUUID(),
-    meeting_id: input.meetingId,
-    agent_id: input.agentId,
-    event_type: "invoked",
+    meetingId: input.meetingId,
+    agentId: input.agentId,
+    eventType: "invoked",
     payload: { sessionId: session.id },
-    triggered_by_user_id: input.invokedByUserId,
-    created_at: now,
+    triggeredByUserId: input.invokedByUserId,
+    createdAt: now,
   });
 
   return {
@@ -228,17 +228,17 @@ export async function leaveMeetingAgent(input: {
   const now = new Date();
   const updatedSession = await updateMeetingAgentSession(session.id, {
     state: "ended",
-    left_at: now,
+    leftAt: now,
   });
 
   await createMeetingAgentEvent({
     id: crypto.randomUUID(),
-    meeting_id: input.meetingId,
-    agent_id: input.agentId,
-    event_type: "left",
+    meetingId: input.meetingId,
+    agentId: input.agentId,
+    eventType: "left",
     payload: { sessionId: session.id },
-    triggered_by_user_id: input.triggeredByUserId,
-    created_at: now,
+    triggeredByUserId: input.triggeredByUserId,
+    createdAt: now,
   });
 
   return updatedSession;

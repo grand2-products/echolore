@@ -5,7 +5,7 @@ export async function listFiles() {
 }
 
 export async function listFilesByUploader(uploaderId: string) {
-  return db.selectFrom("files").selectAll().where("uploader_id", "=", uploaderId).execute();
+  return db.selectFrom("files").selectAll().where("uploaderId", "=", uploaderId).execute();
 }
 
 export async function getFileById(id: string) {
@@ -27,11 +27,11 @@ export async function createFile(input: {
       .values({
         id: input.id,
         filename: input.filename,
-        content_type: input.contentType,
+        contentType: input.contentType,
         size: input.size,
-        storage_path: input.storagePath,
-        uploader_id: input.uploaderId,
-        created_at: input.createdAt,
+        storagePath: input.storagePath,
+        uploaderId: input.uploaderId,
+        createdAt: input.createdAt,
       })
       .returningAll()
       .executeTakeFirst()) ?? null

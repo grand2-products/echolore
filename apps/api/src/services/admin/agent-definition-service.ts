@@ -26,16 +26,16 @@ export async function createAgentDefinition(input: {
     id: crypto.randomUUID(),
     name: input.name,
     description: input.description ?? null,
-    system_prompt: input.systemPrompt,
-    voice_profile: input.voiceProfile ?? null,
-    intervention_style: input.interventionStyle,
-    default_provider: input.defaultProvider,
-    is_active: input.isActive ?? true,
-    autonomous_enabled: input.autonomousEnabled ?? false,
-    autonomous_cooldown_sec: input.autonomousCooldownSec ?? 120,
-    created_by: input.createdBy,
-    created_at: now,
-    updated_at: now,
+    systemPrompt: input.systemPrompt,
+    voiceProfile: input.voiceProfile ?? null,
+    interventionStyle: input.interventionStyle,
+    defaultProvider: input.defaultProvider,
+    isActive: input.isActive ?? true,
+    autonomousEnabled: input.autonomousEnabled ?? false,
+    autonomousCooldownSec: input.autonomousCooldownSec ?? 120,
+    createdBy: input.createdBy,
+    createdAt: now,
+    updatedAt: now,
   });
 }
 
@@ -61,19 +61,19 @@ export async function updateAgentDefinition(
   return updateAgent(id, {
     ...(input.name !== undefined ? { name: input.name } : {}),
     ...(input.description !== undefined ? { description: input.description } : {}),
-    ...(input.systemPrompt !== undefined ? { system_prompt: input.systemPrompt } : {}),
-    ...(input.voiceProfile !== undefined ? { voice_profile: input.voiceProfile } : {}),
+    ...(input.systemPrompt !== undefined ? { systemPrompt: input.systemPrompt } : {}),
+    ...(input.voiceProfile !== undefined ? { voiceProfile: input.voiceProfile } : {}),
     ...(input.interventionStyle !== undefined
-      ? { intervention_style: input.interventionStyle }
+      ? { interventionStyle: input.interventionStyle }
       : {}),
-    ...(input.defaultProvider !== undefined ? { default_provider: input.defaultProvider } : {}),
-    ...(input.isActive !== undefined ? { is_active: input.isActive } : {}),
+    ...(input.defaultProvider !== undefined ? { defaultProvider: input.defaultProvider } : {}),
+    ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
     ...(input.autonomousEnabled !== undefined
-      ? { autonomous_enabled: input.autonomousEnabled }
+      ? { autonomousEnabled: input.autonomousEnabled }
       : {}),
     ...(input.autonomousCooldownSec !== undefined
-      ? { autonomous_cooldown_sec: input.autonomousCooldownSec }
+      ? { autonomousCooldownSec: input.autonomousCooldownSec }
       : {}),
-    updated_at: new Date(),
+    updatedAt: new Date(),
   });
 }

@@ -33,7 +33,7 @@ wikiPageRoutes.get(
     const spaceId = c.req.query("spaceId");
 
     const visiblePages = await listVisiblePages(user);
-    const filtered = spaceId ? visiblePages.filter((p) => p.space_id === spaceId) : visiblePages;
+    const filtered = spaceId ? visiblePages.filter((p) => p.spaceId === spaceId) : visiblePages;
     return c.json({ pages: filtered });
   }
 );
@@ -193,12 +193,12 @@ wikiPageRoutes.put(
       }
     }
 
-    const updatePayload: { title?: string; parent_id?: string | null; updated_at: Date } = {
-      updated_at: new Date(),
+    const updatePayload: { title?: string; parentId?: string | null; updatedAt: Date } = {
+      updatedAt: new Date(),
     };
 
     if (data.title !== undefined) updatePayload.title = data.title;
-    if (data.parentId !== undefined) updatePayload.parent_id = data.parentId;
+    if (data.parentId !== undefined) updatePayload.parentId = data.parentId;
 
     const updatedPage = await updatePage(id, updatePayload);
 

@@ -43,7 +43,7 @@ describe("knowledge-scan-service", () => {
 
   it("runs scan on interval and processes pages with sufficient content", async () => {
     listRecentUpdatedPagesMock.mockResolvedValueOnce([
-      { id: "p1", title: "Page One", space_id: "s1" },
+      { id: "p1", title: "Page One", spaceId: "s1" },
     ]);
     listPageBlockContentsMock.mockResolvedValueOnce([
       { content: "A".repeat(110), type: "paragraph" },
@@ -70,7 +70,7 @@ describe("knowledge-scan-service", () => {
 
   it("skips pages with insufficient content (< 100 chars)", async () => {
     listRecentUpdatedPagesMock.mockResolvedValueOnce([
-      { id: "p1", title: "Short Page", space_id: "s1" },
+      { id: "p1", title: "Short Page", spaceId: "s1" },
     ]);
     listPageBlockContentsMock.mockResolvedValueOnce([{ content: "Short", type: "paragraph" }]);
 

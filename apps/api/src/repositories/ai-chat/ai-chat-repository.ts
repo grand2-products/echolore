@@ -18,14 +18,14 @@ export async function getConversationById(id: string) {
 export async function listConversations(opts: { userId?: string; query?: string }) {
   let query = db
     .selectFrom("ai_chat_conversations")
-    .leftJoin("users", "ai_chat_conversations.creator_id", "users.id")
+    .leftJoin("users", "ai_chat_conversations.creatorId", "users.id")
     .select([
       "ai_chat_conversations.id",
       "ai_chat_conversations.title",
-      "ai_chat_conversations.creator_id",
+      "ai_chat_conversations.creatorId",
       "ai_chat_conversations.visibility",
-      "ai_chat_conversations.created_at",
-      "ai_chat_conversations.updated_at",
+      "ai_chat_conversations.createdAt",
+      "ai_chat_conversations.updatedAt",
       "users.name as creator_name",
     ]);
 
@@ -33,7 +33,7 @@ export async function listConversations(opts: { userId?: string; query?: string 
     query = query.where((eb) =>
       eb.or([
         eb("ai_chat_conversations.visibility", "=", "team"),
-        eb("ai_chat_conversations.creator_id", "=", opts.userId as string),
+        eb("ai_chat_conversations.creatorId", "=", opts.userId as string),
       ])
     );
   } else {
@@ -49,7 +49,7 @@ export async function listConversations(opts: { userId?: string; query?: string 
     );
   }
 
-  return query.orderBy("ai_chat_conversations.updated_at", "desc").execute();
+  return query.orderBy("ai_chat_conversations.updatedAt", "desc").execute();
 }
 
 export async function updateConversation(
@@ -60,7 +60,7 @@ export async function updateConversation(
   return firstOrNull(
     await db
       .updateTable("ai_chat_conversations")
-      .set({ ...rest, updated_at: updatedAt })
+      .set({ ...rest, updatedAt: updatedAt })
       .where("id", "=", id)
       .returningAll()
       .execute()
@@ -81,8 +81,8 @@ export async function listMessagesByConversationId(conversationId: string) {
   return db
     .selectFrom("ai_chat_messages")
     .selectAll()
-    .where("conversation_id", "=", conversationId)
-    .orderBy("created_at")
+    .where("conversationId", "=", conversationId)
+    .orderBy("createdAt")
     .execute();
 }
 
@@ -90,8 +90,8 @@ export async function listRecentMessages(conversationId: string, limit = 20) {
   const rows = await db
     .selectFrom("ai_chat_messages")
     .selectAll()
-    .where("conversation_id", "=", conversationId)
-    .orderBy("created_at", "desc")
+    .where("conversationId", "=", conversationId)
+    .orderBy("createdAt", "desc")
     .limit(limit)
     .execute();
   return rows.reverse();
@@ -105,29 +105,29 @@ export async function getConversationStats(conversationIds: string[]) {
   const [counts, lastMessages] = await Promise.all([
     db
       .selectFrom("ai_chat_messages")
-      .select(["conversation_id", sql<number>`count(*)::int`.as("count")])
-      .where("conversation_id", "in", conversationIds)
-      .groupBy("conversation_id")
+      .select(["conversationId", sql<number>`count(*)::int`.as("count")])
+      .where("conversationId", "in", conversationIds)
+      .groupBy("conversationId")
       .execute(),
     (() => {
       const maxCreatedAt = db
         .selectFrom("ai_chat_messages")
-        .select(["conversation_id", sql`max(${sql.ref("created_at")})`.as("max_created_at")])
-        .where("conversation_id", "in", conversationIds)
-        .groupBy("conversation_id")
+        .select(["conversationId", sql`max(${sql.ref("created_at")})`.as("max_created_at")])
+        .where("conversationId", "in", conversationIds)
+        .groupBy("conversationId")
         .as("last_msg");
 
       return db
         .selectFrom("ai_chat_messages")
         .innerJoin(maxCreatedAt, (join) =>
           join
-            .onRef("ai_chat_messages.conversation_id", "=", "last_msg.conversation_id")
-            .onRef("ai_chat_messages.created_at", "=", "last_msg.max_created_at")
+            .onRef("ai_chat_messages.conversationId", "=", "last_msg.conversationId")
+            .onRef("ai_chat_messages.createdAt", "=", "last_msg.max_created_at")
         )
         .select([
-          "ai_chat_messages.conversation_id",
+          "ai_chat_messages.conversationId",
           "ai_chat_messages.content",
-          "ai_chat_messages.created_at",
+          "ai_chat_messages.createdAt",
         ])
         .execute();
     })(),
@@ -138,11 +138,11 @@ export async function getConversationStats(conversationIds: string[]) {
     result.set(id, { count: 0, lastContent: null });
   }
   for (const row of counts) {
-    const entry = result.get(row.conversation_id);
+    const entry = result.get(row.conversationId);
     if (entry) entry.count = row.count;
   }
   for (const row of lastMessages) {
-    const entry = result.get(row.conversation_id);
+    const entry = result.get(row.conversationId);
     if (entry) entry.lastContent = row.content?.slice(0, 100) ?? null;
   }
 

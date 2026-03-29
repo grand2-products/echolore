@@ -12,8 +12,8 @@ export async function listRevisionsByPageId(pageId: string) {
   return db
     .selectFrom("page_revisions")
     .selectAll()
-    .where("page_id", "=", pageId)
-    .orderBy("revision_number", "desc")
+    .where("pageId", "=", pageId)
+    .orderBy("revisionNumber", "desc")
     .execute();
 }
 
@@ -28,7 +28,7 @@ export async function getNextRevisionNumber(pageId: string) {
   const result = await db
     .selectFrom("page_revisions")
     .select(sql<number>`coalesce(max(revision_number), 0) + 1`.as("next"))
-    .where("page_id", "=", pageId)
+    .where("pageId", "=", pageId)
     .executeTakeFirst();
   return result?.next ?? 1;
 }

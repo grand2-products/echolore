@@ -32,19 +32,19 @@ export async function syncBlocksFromYDoc(pageId: string, doc: Y.Doc): Promise<vo
   }));
 
   await db.transaction().execute(async (trx) => {
-    await trx.deleteFrom("blocks").where("page_id", "=", pageId).execute();
+    await trx.deleteFrom("blocks").where("pageId", "=", pageId).execute();
     if (blockValues.length > 0) {
       await trx
         .insertInto("blocks")
         .values(
           blockValues.map((b) => ({
             id: b.id,
-            page_id: b.pageId,
+            pageId: b.pageId,
             type: b.type,
             content: b.content,
-            sort_order: b.sortOrder,
-            created_at: b.createdAt,
-            updated_at: b.updatedAt,
+            sortOrder: b.sortOrder,
+            createdAt: b.createdAt,
+            updatedAt: b.updatedAt,
           }))
         )
         .execute();
@@ -123,12 +123,12 @@ export async function resyncAllYjsBlocks(): Promise<{ synced: number; errors: nu
     try {
       const doc = new Y.Doc();
       Y.applyUpdate(doc, new Uint8Array(Buffer.from(row.state, "base64")));
-      await syncBlocksFromYDoc(row.page_id, doc);
+      await syncBlocksFromYDoc(row.pageId, doc);
       doc.destroy();
       synced++;
     } catch (err) {
       errors++;
-      console.error(`[yjs-block-sync] Failed to sync page ${row.page_id}:`, err);
+      console.error(`[yjs-block-sync] Failed to sync page ${row.pageId}:`, err);
     }
   }
 

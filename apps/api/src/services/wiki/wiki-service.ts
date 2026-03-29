@@ -82,7 +82,7 @@ export async function filterReadablePages(user: SessionUser, items: Page[]): Pro
   }
 
   const readablePages = await Promise.all(
-    items.map(async (page) => ((await canReadPage(user, page.id, page.author_id)) ? page : null))
+    items.map(async (page) => ((await canReadPage(user, page.id, page.authorId)) ? page : null))
   );
 
   return readablePages.filter((page): page is Page => Boolean(page));
@@ -128,9 +128,9 @@ export async function searchVisiblePages(
 
   const blockMap = new Map<string, string[]>();
   for (const block of allBlocks) {
-    const items = blockMap.get(block.page_id) ?? [];
+    const items = blockMap.get(block.pageId) ?? [];
     if (block.content) items.push(stripHtml(block.content));
-    blockMap.set(block.page_id, items);
+    blockMap.set(block.pageId, items);
   }
 
   // Build snippets from the shared block map
@@ -224,17 +224,17 @@ export async function createPageRevision(pageId: string, authorId: string) {
     type: block.type,
     content: block.content,
     properties: block.properties as Record<string, unknown> | null,
-    sortOrder: block.sort_order,
+    sortOrder: block.sortOrder,
   }));
 
   return createRevision({
     id: `rev_${nanoid(12)}`,
-    page_id: pageId,
-    revision_number: revisionNumber,
+    pageId: pageId,
+    revisionNumber: revisionNumber,
     title: page.title,
     blocks: blocksSnapshot,
-    author_id: authorId,
-    created_at: new Date(),
+    authorId: authorId,
+    createdAt: new Date(),
   });
 }
 
@@ -248,7 +248,7 @@ export async function restoreRevision(pageId: string, revisionId: string, actorU
   if (!revision) {
     throw new Error(`Revision not found: ${revisionId}`);
   }
-  if (revision.page_id !== pageId) {
+  if (revision.pageId !== pageId) {
     throw new Error("Revision does not belong to this page");
   }
 
@@ -258,7 +258,7 @@ export async function restoreRevision(pageId: string, revisionId: string, actorU
   return restorePageRevisionRepo({
     pageId,
     revision: {
-      pageId: revision.page_id,
+      pageId: revision.pageId,
       title: revision.title,
       blocks: revision.blocks,
     },
@@ -267,7 +267,7 @@ export async function restoreRevision(pageId: string, revisionId: string, actorU
       type: b.type,
       content: b.content,
       properties: b.properties,
-      sortOrder: b.sort_order,
+      sortOrder: b.sortOrder,
     })),
     revisionNumber,
     actorUserId,

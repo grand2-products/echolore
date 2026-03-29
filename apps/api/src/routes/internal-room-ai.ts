@@ -213,9 +213,9 @@ internalRoomAiRoutes.patch(
 
     const nextMeeting = await updateMeeting(id, {
       status: nextStatus,
-      started_at:
-        meeting.started_at ?? (data.startedAt ? new Date(data.startedAt) : meeting.started_at),
-      ended_at: data.endedAt ? new Date(data.endedAt) : nextStatus === "ended" ? now : null,
+      startedAt:
+        meeting.startedAt ?? (data.startedAt ? new Date(data.startedAt) : meeting.startedAt),
+      endedAt: data.endedAt ? new Date(data.endedAt) : nextStatus === "ended" ? now : null,
     });
 
     // When meeting ends, close all open participant sessions

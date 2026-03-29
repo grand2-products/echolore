@@ -55,11 +55,11 @@ meetingGuestRoutes.get(
       return jsonError(c, 404, "INVITE_NOT_FOUND", "Invite not found or expired");
     }
 
-    if (invite.max_uses !== null && invite.use_count >= invite.max_uses) {
+    if (invite.maxUses !== null && invite.useCount >= invite.maxUses) {
       return jsonError(c, 410, "INVITE_EXHAUSTED", "Invite has reached its usage limit");
     }
 
-    const meeting = await getMeetingById(invite.meeting_id);
+    const meeting = await getMeetingById(invite.meetingId);
 
     if (!meeting) {
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
@@ -70,7 +70,7 @@ meetingGuestRoutes.get(
       invite: {
         id: invite.id,
         label: invite.label,
-        expiresAt: invite.expires_at.toISOString(),
+        expiresAt: invite.expiresAt.toISOString(),
       },
     });
   }
@@ -115,7 +115,7 @@ meetingGuestRoutes.post(
 
     // Notify room participants via LiveKit DataChannel
     try {
-      const roomName = await getMeetingRoomName(invite.meeting_id);
+      const roomName = await getMeetingRoomName(invite.meetingId);
 
       if (roomName) {
         const msg = {
@@ -134,7 +134,7 @@ meetingGuestRoutes.post(
       // Best-effort notification — don't fail the request
     }
 
-    return c.json({ requestId: guestRequest.id, guestIdentity: guestRequest.guest_identity }, 201);
+    return c.json({ requestId: guestRequest.id, guestIdentity: guestRequest.guestIdentity }, 201);
   }
 );
 
@@ -187,20 +187,20 @@ meetingGuestRoutes.get(
       }
     }
 
-    const meeting = await getMeetingById(request.meeting_id);
+    const meeting = await getMeetingById(request.meetingId);
 
     if (!meeting) {
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
     const at = new AccessToken(livekitApiKey, livekitApiSecret, {
-      identity: request.guest_identity,
-      name: request.guest_name,
+      identity: request.guestIdentity,
+      name: request.guestName,
     });
 
     at.addGrant({
       roomJoin: true,
-      room: meeting.room_name,
+      room: meeting.roomName,
       canPublish: true,
       canSubscribe: true,
       canPublishData: true,
@@ -213,7 +213,7 @@ meetingGuestRoutes.get(
       try {
         await valkey.set(
           cacheKey,
-          JSON.stringify({ token: livekitToken, roomName: meeting.room_name }),
+          JSON.stringify({ token: livekitToken, roomName: meeting.roomName }),
           "EX",
           300
         );
@@ -225,7 +225,7 @@ meetingGuestRoutes.get(
     return c.json({
       status: "approved" as const,
       token: livekitToken,
-      roomName: meeting.room_name,
+      roomName: meeting.roomName,
     });
   }
 );

@@ -58,7 +58,7 @@ function extractTitle(
 
 export interface ImportResult {
   page: Page;
-  blocks: Pick<Block, "id" | "page_id" | "type" | "content" | "properties" | "sort_order">[];
+  blocks: Pick<Block, "id" | "pageId" | "type" | "content" | "properties" | "sortOrder">[];
 }
 
 export async function importFile(

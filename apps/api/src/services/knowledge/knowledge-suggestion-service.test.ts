@@ -140,10 +140,10 @@ describe("knowledge-suggestion-service", () => {
       expect(createSuggestionMock).toHaveBeenCalledTimes(1);
       expect(createSuggestionMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          source_type: "transcription",
-          source_id: "meeting_1",
-          target_type: "new_page",
-          proposed_title: "Roadmap Summary",
+          sourceType: "transcription",
+          sourceId: "meeting_1",
+          targetType: "new_page",
+          proposedTitle: "Roadmap Summary",
           status: "pending",
         })
       );
@@ -212,7 +212,7 @@ describe("knowledge-suggestion-service", () => {
       // Only the valid item should be created
       expect(createSuggestionMock).toHaveBeenCalledTimes(1);
       expect(createSuggestionMock).toHaveBeenCalledWith(
-        expect.objectContaining({ proposed_title: "Good Page" })
+        expect.objectContaining({ proposedTitle: "Good Page" })
       );
     });
 
@@ -270,16 +270,16 @@ describe("knowledge-suggestion-service", () => {
     it("creates a new page for new_page suggestions", async () => {
       const suggestion = {
         id: "sug_1",
-        source_type: "transcription",
+        sourceType: "transcription",
         status: "pending",
-        target_type: "new_page",
-        target_page_id: null,
-        target_space_id: "space_1",
-        proposed_title: "New Page Title",
-        proposed_blocks: [
+        targetType: "new_page",
+        targetPageId: null,
+        targetSpaceId: "space_1",
+        proposedTitle: "New Page Title",
+        proposedBlocks: [
           { type: "paragraph", content: "Block content", properties: null, sortOrder: 0 },
         ],
-        ai_reasoning: "test",
+        aiReasoning: "test",
       };
 
       getSuggestionByIdMock.mockResolvedValue(suggestion);
@@ -307,8 +307,8 @@ describe("knowledge-suggestion-service", () => {
         "sug_1",
         expect.objectContaining({
           status: "approved",
-          reviewed_by_user_id: "reviewer_1",
-          result_page_id: "page_new",
+          reviewedByUserId: "reviewer_1",
+          resultPageId: "page_new",
         })
       );
     });
@@ -317,11 +317,11 @@ describe("knowledge-suggestion-service", () => {
       const suggestion = {
         id: "sug_2",
         status: "pending",
-        target_type: "update_page",
-        target_page_id: "existing_page",
-        target_space_id: "space_1",
-        proposed_title: "Updated Title",
-        proposed_blocks: [
+        targetType: "update_page",
+        targetPageId: "existing_page",
+        targetSpaceId: "space_1",
+        proposedTitle: "Updated Title",
+        proposedBlocks: [
           { type: "paragraph", content: "Updated content", properties: null, sortOrder: 0 },
         ],
       };
@@ -362,9 +362,9 @@ describe("knowledge-suggestion-service", () => {
       getSuggestionByIdMock.mockResolvedValue({
         id: "sug_1",
         status: "pending",
-        target_type: "update_page",
-        target_page_id: null,
-        proposed_blocks: [],
+        targetType: "update_page",
+        targetPageId: null,
+        proposedBlocks: [],
       });
 
       await expect(approveSuggestion("sug_1", "reviewer_1")).rejects.toThrow(
@@ -387,8 +387,8 @@ describe("knowledge-suggestion-service", () => {
         "sug_1",
         expect.objectContaining({
           status: "rejected",
-          reviewed_by_user_id: "reviewer_1",
-          rejection_reason: "Not relevant",
+          reviewedByUserId: "reviewer_1",
+          rejectionReason: "Not relevant",
         })
       );
     });

@@ -10,12 +10,12 @@ describe("wiki-service", () => {
     const pageRecord = {
       id: "page_1",
       title: "Root",
-      space_id: "00000000-0000-0000-0000-000000000001",
-      parent_id: null,
-      author_id: "user_1",
-      created_at: new Date("2026-03-12T00:00:00.000Z"),
-      updated_at: new Date("2026-03-12T00:00:00.000Z"),
-      deleted_at: null,
+      spaceId: "00000000-0000-0000-0000-000000000001",
+      parentId: null,
+      authorId: "user_1",
+      createdAt: new Date("2026-03-12T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-12T00:00:00.000Z"),
+      deletedAt: null,
     };
 
     const insertedTables: string[] = [];
@@ -43,7 +43,7 @@ describe("wiki-service", () => {
       selectFrom: vi.fn(() => ({
         select: vi.fn(() => ({
           where: vi.fn(() => ({
-            execute: vi.fn(async () => [{ group_id: "group_eng" }, { group_id: "group_ops" }]),
+            execute: vi.fn(async () => [{ groupId: "group_eng" }, { groupId: "group_ops" }]),
           })),
         })),
       })),
@@ -64,24 +64,24 @@ describe("wiki-service", () => {
     expect(insertedTables[2]).toBe("page_permissions");
     expect(insertedValues[1]).toEqual(
       expect.objectContaining({
-        page_id: "page_1",
-        inherit_from_parent: false,
+        pageId: "page_1",
+        inheritFromParent: false,
       })
     );
     expect(insertedValues[2]).toEqual([
       expect.objectContaining({
-        page_id: "page_1",
-        group_id: "group_eng",
-        can_read: true,
-        can_write: true,
-        can_delete: false,
+        pageId: "page_1",
+        groupId: "group_eng",
+        canRead: true,
+        canWrite: true,
+        canDelete: false,
       }),
       expect.objectContaining({
-        page_id: "page_1",
-        group_id: "group_ops",
-        can_read: true,
-        can_write: true,
-        can_delete: false,
+        pageId: "page_1",
+        groupId: "group_ops",
+        canRead: true,
+        canWrite: true,
+        canDelete: false,
       }),
     ]);
   });
@@ -90,12 +90,12 @@ describe("wiki-service", () => {
     const pageRecord = {
       id: "page_child",
       title: "Child",
-      space_id: "00000000-0000-0000-0000-000000000001",
-      parent_id: "page_parent",
-      author_id: "user_1",
-      created_at: new Date("2026-03-12T00:00:00.000Z"),
-      updated_at: new Date("2026-03-12T00:00:00.000Z"),
-      deleted_at: null,
+      spaceId: "00000000-0000-0000-0000-000000000001",
+      parentId: "page_parent",
+      authorId: "user_1",
+      createdAt: new Date("2026-03-12T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-12T00:00:00.000Z"),
+      deletedAt: null,
     };
 
     const insertedTables: string[] = [];
@@ -138,8 +138,8 @@ describe("wiki-service", () => {
     expect(insertedTables).not.toContain("page_permissions");
     expect(insertedValues[1]).toEqual(
       expect.objectContaining({
-        page_id: "page_child",
-        inherit_from_parent: true,
+        pageId: "page_child",
+        inheritFromParent: true,
       })
     );
     expect(trx.selectFrom).not.toHaveBeenCalled();

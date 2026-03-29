@@ -65,7 +65,7 @@ export function buildAccessToken(user: User, authMode: SupportedAuthMode) {
   const expiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000);
   const accessToken = createSignedAccessToken({
     sub: user.id,
-    ver: user.token_version,
+    ver: user.tokenVersion,
     am: authMode,
     exp: Math.floor(expiresAt.getTime() / 1000),
   });
@@ -116,21 +116,21 @@ export async function refreshAccessToken(input: {
   deviceName?: string | null;
 }): Promise<RefreshResult | null> {
   const refreshRecord = await findActiveRefreshToken(input.refreshToken);
-  if (!refreshRecord || refreshRecord.client_type !== input.clientType) {
+  if (!refreshRecord || refreshRecord.clientType !== input.clientType) {
     return null;
   }
 
-  const user = await findUserById(refreshRecord.user_id);
-  if (!user || user.suspended_at || user.deleted_at) {
+  const user = await findUserById(refreshRecord.userId);
+  if (!user || user.suspendedAt || user.deletedAt) {
     return null;
   }
 
-  const authMode = refreshRecord.auth_mode as SupportedAuthMode;
+  const authMode = refreshRecord.authMode as SupportedAuthMode;
 
   // Grace period hit: token was already revoked and rotated.
   // Return a fresh access token but reuse the already-issued successor
   // refresh token instead of creating another one.
-  if (refreshRecord.revoked_at) {
+  if (refreshRecord.revokedAt) {
     const { accessToken, expiresAt } = buildAccessToken(user, authMode);
     const successor = await findSuccessorRefreshToken(refreshRecord.id);
     // If successor was already revoked/missing, reject — the chain moved on
@@ -154,7 +154,7 @@ export async function refreshAccessToken(input: {
     userId: user.id,
     clientType: input.clientType,
     authMode,
-    deviceName: input.deviceName ?? refreshRecord.device_name ?? null,
+    deviceName: input.deviceName ?? refreshRecord.deviceName ?? null,
     rotatedFromId: refreshRecord.id,
   });
 
@@ -173,7 +173,7 @@ export async function revokeRefreshToken(rawRefreshToken: string | null | undefi
   }
 
   const refreshRecord = await findActiveRefreshToken(rawRefreshToken);
-  if (!refreshRecord || refreshRecord.revoked_at) {
+  if (!refreshRecord || refreshRecord.revokedAt) {
     return;
   }
 

@@ -11,8 +11,8 @@ export async function findValidInviteByToken(token: string) {
       .selectFrom("meeting_invites")
       .selectAll()
       .where("token", "=", token)
-      .where("revoked_at", "is", null)
-      .where("expires_at", ">", new Date())
+      .where("revokedAt", "is", null)
+      .where("expiresAt", ">", new Date())
       .executeTakeFirst()) ?? null
   );
 }
@@ -43,14 +43,14 @@ export async function createInvite(input: {
       .insertInto("meeting_invites")
       .values({
         id: input.id,
-        meeting_id: input.meetingId,
+        meetingId: input.meetingId,
         token: input.token,
-        created_by_user_id: input.createdByUserId,
+        createdByUserId: input.createdByUserId,
         label: input.label,
-        max_uses: input.maxUses,
-        use_count: input.useCount,
-        expires_at: input.expiresAt,
-        created_at: input.createdAt,
+        maxUses: input.maxUses,
+        useCount: input.useCount,
+        expiresAt: input.expiresAt,
+        createdAt: input.createdAt,
       })
       .returningAll()
       .executeTakeFirst()) ?? null
@@ -61,8 +61,8 @@ export async function listInvitesByMeeting(meetingId: string) {
   return db
     .selectFrom("meeting_invites")
     .selectAll()
-    .where("meeting_id", "=", meetingId)
-    .orderBy("created_at", "desc")
+    .where("meetingId", "=", meetingId)
+    .orderBy("createdAt", "desc")
     .execute();
 }
 
@@ -70,10 +70,10 @@ export async function revokeInvite(inviteId: string, meetingId: string) {
   return (
     (await db
       .updateTable("meeting_invites")
-      .set({ revoked_at: new Date() })
+      .set({ revokedAt: new Date() })
       .where("id", "=", inviteId)
-      .where("meeting_id", "=", meetingId)
-      .where("revoked_at", "is", null)
+      .where("meetingId", "=", meetingId)
+      .where("revokedAt", "is", null)
       .returningAll()
       .executeTakeFirst()) ?? null
   );
@@ -96,10 +96,10 @@ export async function incrementUseCountAndCreateGuestRequest(
   return db.transaction().execute(async (trx) => {
     const invite = await trx
       .updateTable("meeting_invites")
-      .set({ use_count: sql`use_count + 1` })
+      .set({ useCount: sql`use_count + 1` })
       .where("token", "=", token)
-      .where("revoked_at", "is", null)
-      .where("expires_at", ">", new Date())
+      .where("revokedAt", "is", null)
+      .where("expiresAt", ">", new Date())
       .where(sql`(max_uses IS NULL OR use_count < max_uses)`, "=", sql`true`)
       .returningAll()
       .executeTakeFirst();
@@ -110,14 +110,14 @@ export async function incrementUseCountAndCreateGuestRequest(
       .insertInto("meeting_guest_requests")
       .values({
         id: guestRequest.id,
-        invite_id: invite.id,
-        meeting_id: invite.meeting_id,
-        guest_name: guestRequest.guestName,
-        guest_identity: guestRequest.guestIdentity,
+        inviteId: invite.id,
+        meetingId: invite.meetingId,
+        guestName: guestRequest.guestName,
+        guestIdentity: guestRequest.guestIdentity,
         status: "pending",
-        ip_address: guestRequest.ipAddress,
-        user_agent: guestRequest.userAgent,
-        created_at: new Date(),
+        ipAddress: guestRequest.ipAddress,
+        userAgent: guestRequest.userAgent,
+        createdAt: new Date(),
       })
       .returningAll()
       .executeTakeFirst();
@@ -132,7 +132,7 @@ export async function getGuestRequestByIdAndInvite(requestId: string, inviteId: 
       .selectFrom("meeting_guest_requests")
       .selectAll()
       .where("id", "=", requestId)
-      .where("invite_id", "=", inviteId)
+      .where("inviteId", "=", inviteId)
       .executeTakeFirst()) ?? null
   );
 }
@@ -141,8 +141,8 @@ export async function listGuestRequestsByMeeting(meetingId: string) {
   return db
     .selectFrom("meeting_guest_requests")
     .selectAll()
-    .where("meeting_id", "=", meetingId)
-    .orderBy("created_at", "desc")
+    .where("meetingId", "=", meetingId)
+    .orderBy("createdAt", "desc")
     .execute();
 }
 
@@ -157,11 +157,11 @@ export async function resolveGuestRequest(
       .updateTable("meeting_guest_requests")
       .set({
         status,
-        approved_by_user_id: userId,
-        resolved_at: new Date(),
+        approvedByUserId: userId,
+        resolvedAt: new Date(),
       })
       .where("id", "=", requestId)
-      .where("meeting_id", "=", meetingId)
+      .where("meetingId", "=", meetingId)
       .where("status", "=", "pending")
       .returningAll()
       .executeTakeFirst()) ?? null

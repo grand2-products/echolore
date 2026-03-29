@@ -160,11 +160,11 @@ export async function maybeTranscribeCompletedRecording(meetingId: string): Prom
   // Import here to avoid circular dependency
   const { getRecordingStatus } = await import("./recording-service.js");
   const recordings = await getRecordingStatus(meetingId);
-  const completed = recordings.find((r) => r.status === "completed" && r.storage_path);
+  const completed = recordings.find((r) => r.status === "completed" && r.storagePath);
 
-  if (!completed?.storage_path) {
+  if (!completed?.storagePath) {
     return;
   }
 
-  await transcribeRecording(meetingId, completed.storage_path);
+  await transcribeRecording(meetingId, completed.storagePath);
 }

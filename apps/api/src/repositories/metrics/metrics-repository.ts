@@ -4,9 +4,9 @@ import { db } from "../../db/index.js";
 export async function countActiveUsers(since: Date) {
   const row = await db
     .selectFrom("audit_logs")
-    .select(sql<number>`count(distinct ${sql.ref("actor_user_id")})`.as("value"))
+    .select(sql<number>`count(distinct ${sql.ref("actorUserId")})`.as("value"))
     .where("action", "=", "auth.authenticated")
-    .where("created_at", ">=", since)
+    .where("createdAt", ">=", since)
     .executeTakeFirst();
 
   return row;
@@ -22,7 +22,7 @@ export async function getSearchStats(since: Date) {
       ),
     ])
     .where("action", "=", "search.query")
-    .where("created_at", ">=", since)
+    .where("createdAt", ">=", since)
     .executeTakeFirst();
 
   return row;
@@ -34,12 +34,12 @@ export async function getMeetingStats(since: Date) {
     .select([
       sql<number>`count(*)`.as("total"),
       sql<number>`sum(case when exists(
-        select 1 from transcripts where transcripts.meeting_id = meetings.id
+        select 1 from transcripts where transcripts.meetingId = meetings.id
       ) or exists(
-        select 1 from summaries where summaries.meeting_id = meetings.id
+        select 1 from summaries where summaries.meetingId = meetings.id
       ) then 1 else 0 end)`.as("withMinutes"),
     ])
-    .where("created_at", ">=", since)
+    .where("createdAt", ">=", since)
     .executeTakeFirst();
 
   return row;
@@ -56,7 +56,7 @@ export async function getSecurityStats(since: Date) {
         "authzDeniedTotal"
       ),
     ])
-    .where("created_at", ">=", since)
+    .where("createdAt", ">=", since)
     .where((eb) => eb(sql.ref("action"), "in", ["auth.rejected", "authz.denied"]))
     .executeTakeFirst();
 

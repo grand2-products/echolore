@@ -1,4 +1,4 @@
-import { Kysely, PostgresDialect, type Transaction } from "kysely";
+import { CamelCasePlugin, Kysely, PostgresDialect, type Transaction } from "kysely";
 import { Pool } from "pg";
 import type { Database } from "./schema/database.js";
 
@@ -13,6 +13,7 @@ const pool = new Pool({
 
 export const db = new Kysely<Database>({
   dialect: new PostgresDialect({ pool }),
+  plugins: [new CamelCasePlugin()],
 });
 
 export type DbTransaction = Transaction<Database>;

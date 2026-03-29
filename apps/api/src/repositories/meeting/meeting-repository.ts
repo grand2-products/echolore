@@ -11,8 +11,8 @@ export async function listMeetingsByUser(
   let query = db
     .selectFrom("meetings")
     .selectAll()
-    .where("creator_id", "=", userId)
-    .orderBy("created_at", "desc");
+    .where("creatorId", "=", userId)
+    .orderBy("createdAt", "desc");
   if (opts?.limit != null) query = query.limit(opts.limit);
   if (opts?.offset != null) query = query.offset(opts.offset);
   return query.execute();
@@ -22,13 +22,13 @@ export async function countMeetingsByUser(userId: string): Promise<number> {
   const result = await db
     .selectFrom("meetings")
     .select(sql<number>`count(*)::int`.as("count"))
-    .where("creator_id", "=", userId)
+    .where("creatorId", "=", userId)
     .executeTakeFirst();
   return result?.count ?? 0;
 }
 
 export async function listAllMeetings(opts?: { limit?: number; offset?: number }) {
-  let query = db.selectFrom("meetings").selectAll().orderBy("created_at", "desc");
+  let query = db.selectFrom("meetings").selectAll().orderBy("createdAt", "desc");
   if (opts?.limit != null) query = query.limit(opts.limit);
   if (opts?.offset != null) query = query.offset(opts.offset);
   return query.execute();
@@ -47,7 +47,7 @@ export async function listMeetingsByStatus(status: string) {
     .selectFrom("meetings")
     .selectAll()
     .where("status", "=", status)
-    .orderBy("created_at", "desc")
+    .orderBy("createdAt", "desc")
     .execute();
 }
 
@@ -57,7 +57,7 @@ export async function getMeetingById(id: string) {
 
 export async function getMeetingByRoomName(roomName: string) {
   return firstOrNull(
-    await db.selectFrom("meetings").selectAll().where("room_name", "=", roomName).execute()
+    await db.selectFrom("meetings").selectAll().where("roomName", "=", roomName).execute()
   );
 }
 
@@ -65,7 +65,7 @@ export async function getMeetingTranscripts(meetingId: string) {
   return db
     .selectFrom("transcripts")
     .selectAll()
-    .where("meeting_id", "=", meetingId)
+    .where("meetingId", "=", meetingId)
     .orderBy("timestamp")
     .execute();
 }
@@ -74,8 +74,8 @@ export async function getMeetingSummaries(meetingId: string) {
   return db
     .selectFrom("summaries")
     .selectAll()
-    .where("meeting_id", "=", meetingId)
-    .orderBy("created_at", "desc")
+    .where("meetingId", "=", meetingId)
+    .orderBy("createdAt", "desc")
     .execute();
 }
 
@@ -84,8 +84,8 @@ export async function getLatestMeetingSummary(meetingId: string) {
     await db
       .selectFrom("summaries")
       .selectAll()
-      .where("meeting_id", "=", meetingId)
-      .orderBy("created_at", "desc")
+      .where("meetingId", "=", meetingId)
+      .orderBy("createdAt", "desc")
       .limit(1)
       .execute()
   );
@@ -97,7 +97,7 @@ export async function getRoomAiWikiPageByMeetingId(meetingId: string) {
       .selectFrom("pages")
       .innerJoin("blocks", (join) =>
         join
-          .onRef("blocks.page_id", "=", "pages.id")
+          .onRef("blocks.pageId", "=", "pages.id")
           .on(sql`${sql.ref("blocks.properties")} ->> 'sourceMeetingId'`, "=", meetingId)
           .on(sql`${sql.ref("blocks.properties")} ->> 'source'`, "=", "room-ai-mvp")
       )
@@ -123,12 +123,12 @@ export async function createMeeting(input: {
       .values({
         id: input.id,
         title: input.title,
-        creator_id: input.creatorId,
-        room_name: input.roomName,
+        creatorId: input.creatorId,
+        roomName: input.roomName,
         status: input.status,
-        scheduled_at: input.scheduledAt ?? null,
-        google_calendar_event_id: input.googleCalendarEventId ?? null,
-        created_at: input.createdAt,
+        scheduledAt: input.scheduledAt ?? null,
+        googleCalendarEventId: input.googleCalendarEventId ?? null,
+        createdAt: input.createdAt,
       })
       .returningAll()
       .execute()
@@ -158,11 +158,11 @@ export async function createTranscript(input: {
       .insertInto("transcripts")
       .values({
         id: input.id,
-        meeting_id: input.meetingId,
-        speaker_id: input.speakerId,
+        meetingId: input.meetingId,
+        speakerId: input.speakerId,
         content: input.content,
         timestamp: input.timestamp,
-        created_at: input.createdAt,
+        createdAt: input.createdAt,
       })
       .returningAll()
       .execute()
@@ -180,9 +180,9 @@ export async function createSummary(input: {
       .insertInto("summaries")
       .values({
         id: input.id,
-        meeting_id: input.meetingId,
+        meetingId: input.meetingId,
         content: input.content,
-        created_at: input.createdAt,
+        createdAt: input.createdAt,
       })
       .returningAll()
       .execute()
@@ -213,11 +213,11 @@ export async function ensureMeetingNotesPage(
       .values({
         id: pageId,
         title: "Meeting Notes",
-        space_id: spaceId,
-        parent_id: null,
-        author_id: authorId,
-        created_at: now,
-        updated_at: now,
+        spaceId: spaceId,
+        parentId: null,
+        authorId: authorId,
+        createdAt: now,
+        updatedAt: now,
       })
       .execute();
     return pageId;
@@ -253,9 +253,9 @@ export async function createMeetingSummaryArtifactsTx(input: {
       .insertInto("summaries")
       .values({
         id: input.summaryId,
-        meeting_id: input.meetingId,
+        meetingId: input.meetingId,
         content: input.summaryContent,
-        created_at: input.now,
+        createdAt: input.now,
       })
       .returningAll()
       .executeTakeFirst();
@@ -279,23 +279,23 @@ export async function createMeetingSummaryArtifactsTx(input: {
       .values([
         {
           id: crypto.randomUUID(),
-          page_id: input.pageId,
+          pageId: input.pageId,
           type: "heading1",
           content: input.pageTitle,
           properties: null,
-          sort_order: 0,
-          created_at: input.now,
-          updated_at: input.now,
+          sortOrder: 0,
+          createdAt: input.now,
+          updatedAt: input.now,
         },
         {
           id: crypto.randomUUID(),
-          page_id: input.pageId,
+          pageId: input.pageId,
           type: "text",
           content: input.summaryContent,
           properties: { sourceMeetingId: input.meetingId, source: "room-ai-mvp" },
-          sort_order: 1,
-          created_at: input.now,
-          updated_at: input.now,
+          sortOrder: 1,
+          createdAt: input.now,
+          updatedAt: input.now,
         },
       ])
       .execute();
@@ -319,14 +319,14 @@ export async function recordParticipantJoin(input: {
   let query = db
     .selectFrom("meeting_participants")
     .select("id")
-    .where("meeting_id", "=", input.meetingId)
-    .where("left_at", "is", null)
+    .where("meetingId", "=", input.meetingId)
+    .where("leftAt", "is", null)
     .limit(1);
 
   if (input.userId) {
-    query = query.where("user_id", "=", input.userId);
+    query = query.where("userId", "=", input.userId);
   } else {
-    query = query.where("guest_identity", "=", input.guestIdentity ?? "");
+    query = query.where("guestIdentity", "=", input.guestIdentity ?? "");
   }
 
   const existing = await query.execute();
@@ -337,12 +337,12 @@ export async function recordParticipantJoin(input: {
       .insertInto("meeting_participants")
       .values({
         id: input.id,
-        meeting_id: input.meetingId,
-        user_id: input.userId,
-        guest_identity: input.guestIdentity,
-        display_name: input.displayName,
+        meetingId: input.meetingId,
+        userId: input.userId,
+        guestIdentity: input.guestIdentity,
+        displayName: input.displayName,
         role: input.role,
-        joined_at: input.joinedAt,
+        joinedAt: input.joinedAt,
       })
       .returningAll()
       .execute()
@@ -356,14 +356,11 @@ export async function recordParticipantLeave(
 ) {
   const result = await db
     .updateTable("meeting_participants")
-    .set({ left_at: leftAt })
-    .where("meeting_id", "=", meetingId)
-    .where("left_at", "is", null)
+    .set({ leftAt: leftAt })
+    .where("meetingId", "=", meetingId)
+    .where("leftAt", "is", null)
     .where((eb) =>
-      eb.or([
-        eb("user_id", "=", participantIdentity),
-        eb("guest_identity", "=", participantIdentity),
-      ])
+      eb.or([eb("userId", "=", participantIdentity), eb("guestIdentity", "=", participantIdentity)])
     )
     .returningAll()
     .execute();
@@ -378,38 +375,38 @@ export async function getActiveParticipantCounts(
 
   const rows = await db
     .selectFrom("meeting_participants")
-    .select(["meeting_id", sql<number>`count(*)::int`.as("count")])
-    .where("meeting_id", "in", meetingIds)
-    .where("left_at", "is", null)
-    .groupBy("meeting_id")
+    .select(["meetingId", sql<number>`count(*)::int`.as("count")])
+    .where("meetingId", "in", meetingIds)
+    .where("leftAt", "is", null)
+    .groupBy("meetingId")
     .execute();
 
-  return new Map(rows.map((r) => [r.meeting_id, r.count]));
+  return new Map(rows.map((r) => [r.meetingId, r.count]));
 }
 
 export async function listMeetingParticipants(meetingId: string) {
   return db
     .selectFrom("meeting_participants")
     .selectAll()
-    .where("meeting_id", "=", meetingId)
-    .orderBy("joined_at")
+    .where("meetingId", "=", meetingId)
+    .orderBy("joinedAt")
     .execute();
 }
 
 export async function closeAllParticipantSessions(meetingId: string, leftAt: Date) {
   return db
     .updateTable("meeting_participants")
-    .set({ left_at: leftAt })
-    .where("meeting_id", "=", meetingId)
-    .where("left_at", "is", null)
+    .set({ leftAt: leftAt })
+    .where("meetingId", "=", meetingId)
+    .where("leftAt", "is", null)
     .execute();
 }
 
 export async function getMeetingRoomName(meetingId: string) {
   const meeting = await db
     .selectFrom("meetings")
-    .select("room_name")
+    .select("roomName")
     .where("id", "=", meetingId)
     .executeTakeFirst();
-  return meeting?.room_name ?? null;
+  return meeting?.roomName ?? null;
 }

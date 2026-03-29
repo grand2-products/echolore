@@ -89,22 +89,22 @@ export async function generateSuggestions(input: SuggestionInput): Promise<void>
       const now = new Date();
       await createSuggestion({
         id: crypto.randomUUID(),
-        source_type: input.sourceType,
-        source_id: input.sourceId ?? null,
-        source_summary: input.sourceSummary ?? null,
-        target_type: suggestion.targetType,
-        target_page_id: suggestion.targetPageId ?? null,
-        target_space_id: input.targetSpaceId,
-        proposed_title: suggestion.proposedTitle,
-        proposed_blocks: suggestion.blocks,
-        ai_reasoning: suggestion.reasoning,
+        sourceType: input.sourceType,
+        sourceId: input.sourceId ?? null,
+        sourceSummary: input.sourceSummary ?? null,
+        targetType: suggestion.targetType,
+        targetPageId: suggestion.targetPageId ?? null,
+        targetSpaceId: input.targetSpaceId,
+        proposedTitle: suggestion.proposedTitle,
+        proposedBlocks: suggestion.blocks,
+        aiReasoning: suggestion.reasoning,
         status: "pending",
-        reviewed_by_user_id: null,
-        reviewed_at: null,
-        rejection_reason: null,
-        result_page_id: null,
-        created_at: now,
-        updated_at: now,
+        reviewedByUserId: null,
+        reviewedAt: null,
+        rejectionReason: null,
+        resultPageId: null,
+        createdAt: now,
+        updatedAt: now,
       });
     }
 
@@ -169,12 +169,12 @@ export async function approveSuggestion(
   const now = new Date();
   let pageId: string;
 
-  if (suggestion.target_type === "new_page") {
+  if (suggestion.targetType === "new_page") {
     pageId = crypto.randomUUID();
     const page = await createPageWithAccessDefaults({
       id: pageId,
-      title: suggestion.proposed_title,
-      spaceId: suggestion.target_space_id,
+      title: suggestion.proposedTitle,
+      spaceId: suggestion.targetSpaceId,
       parentId: null,
       authorId: reviewerUserId,
       createdAt: now,
@@ -182,9 +182,9 @@ export async function approveSuggestion(
     });
 
     // Insert proposed blocks
-    if (suggestion.proposed_blocks.length > 0) {
+    if (suggestion.proposedBlocks.length > 0) {
       await insertBlocks(
-        suggestion.proposed_blocks.map(
+        suggestion.proposedBlocks.map(
           (block: {
             type: string;
             content: string | null;
@@ -205,8 +205,8 @@ export async function approveSuggestion(
     }
   } else {
     // update_page: save current revision, then replace content in a transaction
-    if (!suggestion.target_page_id) throw new Error("Target page ID required for update");
-    pageId = suggestion.target_page_id;
+    if (!suggestion.targetPageId) throw new Error("Target page ID required for update");
+    pageId = suggestion.targetPageId;
 
     // Snapshot current state before modifying
     await createPageRevision(pageId, reviewerUserId);
@@ -214,8 +214,8 @@ export async function approveSuggestion(
     // Apply changes atomically
     await updatePageTitleAndReplaceBlocks({
       pageId,
-      title: suggestion.proposed_title,
-      blocks: suggestion.proposed_blocks.map(
+      title: suggestion.proposedTitle,
+      blocks: suggestion.proposedBlocks.map(
         (block: {
           type: string;
           content: string | null;
@@ -238,10 +238,10 @@ export async function approveSuggestion(
   // Update suggestion status
   await updateSuggestion(suggestionId, {
     status: "approved",
-    reviewed_by_user_id: reviewerUserId,
-    reviewed_at: now,
-    result_page_id: pageId,
-    updated_at: now,
+    reviewedByUserId: reviewerUserId,
+    reviewedAt: now,
+    resultPageId: pageId,
+    updatedAt: now,
   });
 
   // Re-index embeddings (fire-and-forget)
@@ -264,9 +264,9 @@ export async function rejectSuggestion(
   const now = new Date();
   await updateSuggestion(suggestionId, {
     status: "rejected",
-    reviewed_by_user_id: reviewerUserId,
-    reviewed_at: now,
-    rejection_reason: reason,
-    updated_at: now,
+    reviewedByUserId: reviewerUserId,
+    reviewedAt: now,
+    rejectionReason: reason,
+    updatedAt: now,
   });
 }

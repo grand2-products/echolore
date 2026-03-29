@@ -56,10 +56,10 @@ function makeSpace(overrides: Record<string, unknown> = {}) {
     id: "space_default",
     name: "Test",
     type: "general",
-    owner_user_id: null,
-    group_id: null,
-    created_at: new Date(),
-    updated_at: new Date(),
+    ownerUserId: null,
+    groupId: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
     ...overrides,
   };
 }
@@ -134,13 +134,13 @@ describe("space-service", () => {
   describe("listVisibleSpaces", () => {
     it("returns all spaces including other users personal spaces for admin", async () => {
       const admin = makeUser({ id: "admin_1", role: UserRole.Admin });
-      const ownPersonal = makeSpace({ id: "s_own", type: "personal", owner_user_id: "admin_1" });
-      const otherPersonal = makeSpace({ id: "s_other", type: "personal", owner_user_id: "other" });
+      const ownPersonal = makeSpace({ id: "s_own", type: "personal", ownerUserId: "admin_1" });
+      const otherPersonal = makeSpace({ id: "s_other", type: "personal", ownerUserId: "other" });
       const spaces = [
         makeSpace({ id: "s1", type: "general" }),
         ownPersonal,
         otherPersonal,
-        makeSpace({ id: "s3", type: "team", group_id: "g1" }),
+        makeSpace({ id: "s3", type: "team", groupId: "g1" }),
       ];
 
       mockFindGeneralSpace.mockResolvedValue(spaces[0]);
@@ -158,16 +158,16 @@ describe("space-service", () => {
     it("filters spaces for non-admin users based on permissions", async () => {
       const user = makeUser({ id: "user_1", role: UserRole.Member });
       const generalSpace = makeSpace({ id: "s1", type: "general" });
-      const ownPersonal = makeSpace({ id: "s2", type: "personal", owner_user_id: "user_1" });
-      const otherPersonal = makeSpace({ id: "s3", type: "personal", owner_user_id: "other" });
-      const teamSpace = makeSpace({ id: "s4", type: "team", group_id: "g1" });
+      const ownPersonal = makeSpace({ id: "s2", type: "personal", ownerUserId: "user_1" });
+      const otherPersonal = makeSpace({ id: "s3", type: "personal", ownerUserId: "other" });
+      const teamSpace = makeSpace({ id: "s4", type: "team", groupId: "g1" });
 
       mockFindGeneralSpace.mockResolvedValue(generalSpace);
       mockFindPersonalSpaceByUserId.mockResolvedValue(ownPersonal);
       mockListSpaces.mockResolvedValue([generalSpace, ownPersonal, otherPersonal, teamSpace]);
 
       // User is in group g1
-      mockListMembershipsByUser.mockResolvedValue([{ group_id: "g1", user_id: "user_1" }]);
+      mockListMembershipsByUser.mockResolvedValue([{ groupId: "g1", userId: "user_1" }]);
       // No explicit space permissions
       mockListSpacePermissionsByGroupIds.mockResolvedValue([]);
 
@@ -184,7 +184,7 @@ describe("space-service", () => {
   describe("getOrCreatePersonalSpace", () => {
     it("returns existing personal space", async () => {
       const user = makeUser();
-      const existing = makeSpace({ type: "personal", owner_user_id: user.id });
+      const existing = makeSpace({ type: "personal", ownerUserId: user.id });
       mockFindPersonalSpaceByUserId.mockResolvedValue(existing);
 
       const result = await getOrCreatePersonalSpace(user);
@@ -196,7 +196,7 @@ describe("space-service", () => {
     it("creates personal space when none exists", async () => {
       const user = makeUser({ id: "user_1", name: "Alice" });
       mockFindPersonalSpaceByUserId.mockResolvedValue(null);
-      const created = makeSpace({ type: "personal", owner_user_id: user.id, name: "Alice" });
+      const created = makeSpace({ type: "personal", ownerUserId: user.id, name: "Alice" });
       mockCreateSpace.mockResolvedValue(created);
 
       const result = await getOrCreatePersonalSpace(user);
@@ -206,7 +206,7 @@ describe("space-service", () => {
         expect.objectContaining({
           name: "Alice",
           type: "personal",
-          owner_user_id: "user_1",
+          ownerUserId: "user_1",
         })
       );
     });
@@ -215,7 +215,7 @@ describe("space-service", () => {
       const user = makeUser();
       mockFindPersonalSpaceByUserId.mockResolvedValueOnce(null);
       mockCreateSpace.mockRejectedValue(new Error("unique constraint"));
-      const existing = makeSpace({ type: "personal", owner_user_id: user.id });
+      const existing = makeSpace({ type: "personal", ownerUserId: user.id });
       mockFindPersonalSpaceByUserId.mockResolvedValueOnce(existing);
 
       const result = await getOrCreatePersonalSpace(user);
@@ -227,7 +227,7 @@ describe("space-service", () => {
   describe("canAccessSpace", () => {
     it("grants admin access to any space", async () => {
       const admin = makeUser({ role: UserRole.Admin });
-      const space = makeSpace({ type: "team", group_id: "g1" });
+      const space = makeSpace({ type: "team", groupId: "g1" });
 
       const result = await canAccessSpace(admin, space as never);
 
@@ -237,7 +237,7 @@ describe("space-service", () => {
     it("grants personal space read access to everyone", async () => {
       const owner = makeUser({ id: "user_owner" });
       const otherUser = makeUser({ id: "user_other" });
-      const space = makeSpace({ type: "personal", owner_user_id: "user_owner" });
+      const space = makeSpace({ type: "personal", ownerUserId: "user_owner" });
 
       expect(await canAccessSpace(owner, space as never, "read")).toBe(true);
       expect(await canAccessSpace(otherUser, space as never, "read")).toBe(true);
@@ -247,7 +247,7 @@ describe("space-service", () => {
       const owner = makeUser({ id: "user_owner" });
       const otherUser = makeUser({ id: "user_other" });
       const admin = makeUser({ id: "admin_1", role: UserRole.Admin });
-      const space = makeSpace({ type: "personal", owner_user_id: "user_owner" });
+      const space = makeSpace({ type: "personal", ownerUserId: "user_owner" });
 
       expect(await canAccessSpace(owner, space as never, "write")).toBe(true);
       expect(await canAccessSpace(owner, space as never, "delete")).toBe(true);
@@ -269,13 +269,13 @@ describe("space-service", () => {
 
     it("uses space permissions when defined for user groups", async () => {
       const user = makeUser();
-      const space = makeSpace({ id: "s1", type: "team", group_id: "g1" });
+      const space = makeSpace({ id: "s1", type: "team", groupId: "g1" });
 
       // User is in group g1
-      mockListMembershipsByUser.mockResolvedValue([{ group_id: "g1", user_id: "user_1" }]);
+      mockListMembershipsByUser.mockResolvedValue([{ groupId: "g1", userId: "user_1" }]);
       // Space permissions allow read
       mockListSpacePermissionsForSpace.mockResolvedValue([
-        { can_read: true, can_write: false, can_delete: false },
+        { canRead: true, canWrite: false, canDelete: false },
       ]);
 
       const result = await canAccessSpace(user, space as never, "read");
@@ -285,13 +285,13 @@ describe("space-service", () => {
 
     it("denies write access when permission is false", async () => {
       const user = makeUser();
-      const space = makeSpace({ id: "s1", type: "team", group_id: "g1" });
+      const space = makeSpace({ id: "s1", type: "team", groupId: "g1" });
 
       // User is in group g1
-      mockListMembershipsByUser.mockResolvedValue([{ group_id: "g1", user_id: "user_1" }]);
+      mockListMembershipsByUser.mockResolvedValue([{ groupId: "g1", userId: "user_1" }]);
       // Space permissions deny write
       mockListSpacePermissionsForSpace.mockResolvedValue([
-        { can_read: true, can_write: false, can_delete: false },
+        { canRead: true, canWrite: false, canDelete: false },
       ]);
 
       const result = await canAccessSpace(user, space as never, "write");

@@ -31,11 +31,11 @@ export async function sendMessageAndGetResponse(
   // Save user message
   const userMessage = await createMessage({
     id: nanoid(),
-    conversation_id: conversationId,
+    conversationId: conversationId,
     role: "user",
     content,
     citations: null,
-    created_at: new Date(),
+    createdAt: new Date(),
   });
 
   if (!userMessage) {
@@ -60,11 +60,11 @@ export async function sendMessageAndGetResponse(
   // Save assistant message
   const assistantMessage = await createMessage({
     id: nanoid(),
-    conversation_id: conversationId,
+    conversationId: conversationId,
     role: "assistant",
     content: responseContent,
     citations: citations.length > 0 ? citations : null,
-    created_at: new Date(),
+    createdAt: new Date(),
   });
 
   // Update conversation timestamp

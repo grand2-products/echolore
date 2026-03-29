@@ -7,26 +7,26 @@ export async function findUserByEmailWithPasswordIdentity(email: string) {
   const normalizedEmail = email.trim().toLowerCase();
   const rows = await db
     .selectFrom("auth_identities")
-    .innerJoin("users", "auth_identities.user_id", "users.id")
+    .innerJoin("users", "auth_identities.userId", "users.id")
     .select([
-      "users.id as user_id",
+      "users.id as userId",
       "users.email",
       "users.name",
-      "users.avatar_url",
-      "users.email_verified_at",
-      "users.token_version",
+      "users.avatarUrl",
+      "users.emailVerifiedAt",
+      "users.tokenVersion",
       "users.role",
-      "users.suspended_at",
-      "users.deleted_at as user_deleted_at",
-      "users.created_at as user_created_at",
-      "users.updated_at as user_updated_at",
+      "users.suspendedAt",
+      "users.deletedAt as user_deleted_at",
+      "users.createdAt as user_created_at",
+      "users.updatedAt as user_updated_at",
       "auth_identities.id as identity_id",
-      "auth_identities.user_id as identity_user_id",
+      "auth_identities.userId as identity_user_id",
       "auth_identities.provider",
-      "auth_identities.provider_user_id",
-      "auth_identities.password_hash",
-      "auth_identities.created_at as identity_created_at",
-      "auth_identities.updated_at as identity_updated_at",
+      "auth_identities.providerUserId",
+      "auth_identities.passwordHash",
+      "auth_identities.createdAt as identity_created_at",
+      "auth_identities.updatedAt as identity_updated_at",
     ])
     .where("users.email", "=", normalizedEmail)
     .where("auth_identities.provider", "=", "password")
@@ -38,26 +38,26 @@ export async function findUserByEmailWithPasswordIdentity(email: string) {
   const row = rows[0]!;
   return {
     user: {
-      id: row.user_id,
+      id: row.userId,
       email: row.email,
       name: row.name,
-      avatar_url: row.avatar_url,
-      email_verified_at: row.email_verified_at,
-      token_version: row.token_version,
+      avatarUrl: row.avatarUrl,
+      emailVerifiedAt: row.emailVerifiedAt,
+      tokenVersion: row.tokenVersion,
       role: row.role,
-      suspended_at: row.suspended_at,
-      deleted_at: row.user_deleted_at,
-      created_at: row.user_created_at,
-      updated_at: row.user_updated_at,
+      suspendedAt: row.suspendedAt,
+      deletedAt: row.user_deleted_at,
+      createdAt: row.user_created_at,
+      updatedAt: row.user_updated_at,
     },
     identity: {
       id: row.identity_id,
-      user_id: row.identity_user_id,
+      userId: row.identity_user_id,
       provider: row.provider,
-      provider_user_id: row.provider_user_id,
-      password_hash: row.password_hash,
-      created_at: row.identity_created_at,
-      updated_at: row.identity_updated_at,
+      providerUserId: row.providerUserId,
+      passwordHash: row.passwordHash,
+      createdAt: row.identity_created_at,
+      updatedAt: row.identity_updated_at,
     },
   };
 }
@@ -67,7 +67,7 @@ export async function findPasswordIdentityByUserId(userId: string) {
     (await db
       .selectFrom("auth_identities")
       .selectAll()
-      .where("user_id", "=", userId)
+      .where("userId", "=", userId)
       .where("provider", "=", "password")
       .executeTakeFirst()) ?? null
   );
@@ -87,12 +87,12 @@ export async function createUserWithPasswordIdentity(input: {
         id: input.id,
         email: input.email,
         name: input.name,
-        avatar_url: null,
-        email_verified_at: input.createdAt,
-        token_version: 1,
+        avatarUrl: null,
+        emailVerifiedAt: input.createdAt,
+        tokenVersion: 1,
         role: "admin",
-        created_at: input.createdAt,
-        updated_at: input.createdAt,
+        createdAt: input.createdAt,
+        updatedAt: input.createdAt,
       })
       .returningAll()
       .executeTakeFirst();
@@ -103,12 +103,12 @@ export async function createUserWithPasswordIdentity(input: {
       .insertInto("auth_identities")
       .values({
         id: `auth_${crypto.randomUUID()}`,
-        user_id: created.id,
+        userId: created.id,
         provider: "password",
-        provider_user_id: input.email,
-        password_hash: input.passwordHash,
-        created_at: input.createdAt,
-        updated_at: input.createdAt,
+        providerUserId: input.email,
+        passwordHash: input.passwordHash,
+        createdAt: input.createdAt,
+        updatedAt: input.createdAt,
       })
       .execute();
 
@@ -126,8 +126,8 @@ export async function verifyEmailAndUpdatePassword(input: {
     await trx
       .updateTable("users")
       .set({
-        email_verified_at: input.emailVerifiedAt,
-        updated_at: input.updatedAt,
+        emailVerifiedAt: input.emailVerifiedAt,
+        updatedAt: input.updatedAt,
       })
       .where("id", "=", input.userId)
       .execute();
@@ -135,10 +135,10 @@ export async function verifyEmailAndUpdatePassword(input: {
     await trx
       .updateTable("auth_identities")
       .set({
-        password_hash: input.passwordHash,
-        updated_at: input.updatedAt,
+        passwordHash: input.passwordHash,
+        updatedAt: input.updatedAt,
       })
-      .where("user_id", "=", input.userId)
+      .where("userId", "=", input.userId)
       .execute();
   });
 }
@@ -157,14 +157,14 @@ export async function createEmailVerificationToken(input: {
     .insertInto("email_verification_tokens")
     .values({
       id: input.id,
-      user_id: input.userId,
+      userId: input.userId,
       email: input.email,
-      token_hash: input.tokenHash,
+      tokenHash: input.tokenHash,
       purpose: input.purpose,
-      pending_password_hash: input.pendingPasswordHash,
-      expires_at: input.expiresAt,
-      used_at: null,
-      created_at: input.createdAt,
+      pendingPasswordHash: input.pendingPasswordHash,
+      expiresAt: input.expiresAt,
+      usedAt: null,
+      createdAt: input.createdAt,
     })
     .execute();
 }
@@ -174,10 +174,10 @@ export async function listAuthRefreshTokens(userId: string) {
   return db
     .selectFrom("auth_refresh_tokens")
     .selectAll()
-    .where("user_id", "=", userId)
-    .where("revoked_at", "is", null)
-    .where("expires_at", ">", now)
-    .orderBy("created_at")
+    .where("userId", "=", userId)
+    .where("revokedAt", "is", null)
+    .where("expiresAt", ">", now)
+    .orderBy("createdAt")
     .execute();
 }
 
@@ -187,9 +187,9 @@ export async function findAuthRefreshToken(tokenHash: string) {
     (await db
       .selectFrom("auth_refresh_tokens")
       .selectAll()
-      .where("token_hash", "=", tokenHash)
-      .where("revoked_at", "is", null)
-      .where("expires_at", ">", now)
+      .where("tokenHash", "=", tokenHash)
+      .where("revokedAt", "is", null)
+      .where("expiresAt", ">", now)
       .executeTakeFirst()) ?? null
   );
 }
@@ -210,16 +210,16 @@ export async function createAuthRefreshToken(input: {
     .insertInto("auth_refresh_tokens")
     .values({
       id: input.id,
-      user_id: input.userId,
-      client_type: input.clientType,
-      auth_mode: input.authMode,
-      device_name: input.deviceName,
-      token_hash: input.tokenHash,
-      expires_at: input.expiresAt,
-      rotated_from_id: input.rotatedFromId,
-      revoked_at: null,
-      last_seen_at: input.lastSeenAt,
-      created_at: input.createdAt,
+      userId: input.userId,
+      clientType: input.clientType,
+      authMode: input.authMode,
+      deviceName: input.deviceName,
+      tokenHash: input.tokenHash,
+      expiresAt: input.expiresAt,
+      rotatedFromId: input.rotatedFromId,
+      revokedAt: null,
+      lastSeenAt: input.lastSeenAt,
+      createdAt: input.createdAt,
     })
     .execute();
 }
@@ -227,7 +227,7 @@ export async function createAuthRefreshToken(input: {
 export async function revokeAuthRefreshToken(tokenId: string, revokedAt: Date): Promise<void> {
   await db
     .updateTable("auth_refresh_tokens")
-    .set({ revoked_at: revokedAt, last_seen_at: revokedAt })
+    .set({ revokedAt: revokedAt, lastSeenAt: revokedAt })
     .where("id", "=", tokenId)
     .execute();
 }
@@ -237,8 +237,8 @@ export async function findSuccessorRefreshToken(rotatedFromId: string) {
     (await db
       .selectFrom("auth_refresh_tokens")
       .selectAll()
-      .where("rotated_from_id", "=", rotatedFromId)
-      .where("revoked_at", "is", null)
+      .where("rotatedFromId", "=", rotatedFromId)
+      .where("revokedAt", "is", null)
       .executeTakeFirst()) ?? null
   );
 }
@@ -263,9 +263,9 @@ export async function findGracedRefreshToken(tokenHash: string, graceThreshold: 
     (await db
       .selectFrom("auth_refresh_tokens")
       .selectAll()
-      .where("token_hash", "=", tokenHash)
-      .where("revoked_at", ">", graceThreshold)
-      .where("expires_at", ">", now)
+      .where("tokenHash", "=", tokenHash)
+      .where("revokedAt", ">", graceThreshold)
+      .where("expiresAt", ">", now)
       .executeTakeFirst()) ?? null
   );
 }
@@ -302,12 +302,12 @@ export async function reconcileOAuthIdentity(input: {
           id: `user_${crypto.randomUUID()}`,
           email: input.email,
           name: input.name,
-          avatar_url: null,
-          email_verified_at: now,
-          token_version: 1,
+          avatarUrl: null,
+          emailVerifiedAt: now,
+          tokenVersion: 1,
           role: UserRole.Admin,
-          created_at: now,
-          updated_at: now,
+          createdAt: now,
+          updatedAt: now,
         })
         .returningAll()
         .executeTakeFirst();
@@ -317,8 +317,8 @@ export async function reconcileOAuthIdentity(input: {
         .updateTable("users")
         .set({
           name: nextName,
-          email_verified_at: user.email_verified_at ?? now,
-          updated_at: now,
+          emailVerifiedAt: user.emailVerifiedAt ?? now,
+          updatedAt: now,
         })
         .where("id", "=", user.id)
         .returningAll()
@@ -334,7 +334,7 @@ export async function reconcileOAuthIdentity(input: {
       .selectFrom("auth_identities")
       .selectAll()
       .where("provider", "=", input.provider)
-      .where("provider_user_id", "=", input.email)
+      .where("providerUserId", "=", input.email)
       .executeTakeFirst();
 
     if (!existingIdentity) {
@@ -342,12 +342,12 @@ export async function reconcileOAuthIdentity(input: {
         .insertInto("auth_identities")
         .values({
           id: `auth_${crypto.randomUUID()}`,
-          user_id: user.id,
+          userId: user.id,
           provider: input.provider,
-          provider_user_id: input.email,
-          password_hash: null,
-          created_at: now,
-          updated_at: now,
+          providerUserId: input.email,
+          passwordHash: null,
+          createdAt: now,
+          updatedAt: now,
         })
         .execute();
     }
@@ -366,10 +366,10 @@ export async function findValidEmailVerificationToken(tokenHash: string) {
     (await db
       .selectFrom("email_verification_tokens")
       .selectAll()
-      .where("token_hash", "=", tokenHash)
+      .where("tokenHash", "=", tokenHash)
       .where("purpose", "=", "password-registration")
-      .where("used_at", "is", null)
-      .where("expires_at", ">", now)
+      .where("usedAt", "is", null)
+      .where("expiresAt", ">", now)
       .executeTakeFirst()) ?? null
   );
 }
@@ -420,12 +420,12 @@ export async function processEmailVerification(verification: {
           id: `user_${crypto.randomUUID()}`,
           email: verification.email,
           name: verification.pendingName || verification.email.split("@")[0] || "User",
-          avatar_url: null,
-          email_verified_at: now,
-          token_version: 1,
+          avatarUrl: null,
+          emailVerifiedAt: now,
+          tokenVersion: 1,
           role: UserRole.Admin,
-          created_at: now,
-          updated_at: now,
+          createdAt: now,
+          updatedAt: now,
         })
         .returningAll()
         .executeTakeFirst();
@@ -434,8 +434,8 @@ export async function processEmailVerification(verification: {
       const updatedUser = await trx
         .updateTable("users")
         .set({
-          email_verified_at: user.email_verified_at ?? now,
-          updated_at: now,
+          emailVerifiedAt: user.emailVerifiedAt ?? now,
+          updatedAt: now,
         })
         .where("id", "=", user.id)
         .returningAll()
@@ -450,7 +450,7 @@ export async function processEmailVerification(verification: {
     const passwordIdentity = await trx
       .selectFrom("auth_identities")
       .selectAll()
-      .where("user_id", "=", user.id)
+      .where("userId", "=", user.id)
       .where("provider", "=", "password")
       .executeTakeFirst();
 
@@ -458,8 +458,8 @@ export async function processEmailVerification(verification: {
       await trx
         .updateTable("auth_identities")
         .set({
-          password_hash: verification.pendingPasswordHash,
-          updated_at: now,
+          passwordHash: verification.pendingPasswordHash,
+          updatedAt: now,
         })
         .where("id", "=", passwordIdentity.id)
         .execute();
@@ -468,19 +468,19 @@ export async function processEmailVerification(verification: {
         .insertInto("auth_identities")
         .values({
           id: `auth_${crypto.randomUUID()}`,
-          user_id: user.id,
+          userId: user.id,
           provider: "password",
-          provider_user_id: user.email,
-          password_hash: verification.pendingPasswordHash,
-          created_at: now,
-          updated_at: now,
+          providerUserId: user.email,
+          passwordHash: verification.pendingPasswordHash,
+          createdAt: now,
+          updatedAt: now,
         })
         .execute();
     }
 
     await trx
       .updateTable("email_verification_tokens")
-      .set({ used_at: now })
+      .set({ usedAt: now })
       .where("id", "=", verification.id)
       .execute();
 

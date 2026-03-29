@@ -21,7 +21,7 @@ export async function findPersonalSpaceByUserId(userId: string) {
       .selectFrom("spaces")
       .selectAll()
       .where("type", "=", "personal")
-      .where("owner_user_id", "=", userId)
+      .where("ownerUserId", "=", userId)
       .executeTakeFirst()) ?? null
   );
 }
@@ -32,7 +32,7 @@ export async function findTeamSpaceByGroupId(groupId: string) {
       .selectFrom("spaces")
       .selectAll()
       .where("type", "=", "team")
-      .where("group_id", "=", groupId)
+      .where("groupId", "=", groupId)
       .executeTakeFirst()) ?? null
   );
 }

@@ -21,9 +21,9 @@ export async function getCharacterById(id: string) {
 export async function listCharacters(opts?: { createdBy?: string }) {
   let query = db.selectFrom("aituber_characters").selectAll();
   if (opts?.createdBy) {
-    query = query.where("created_by", "=", opts.createdBy);
+    query = query.where("createdBy", "=", opts.createdBy);
   }
-  return query.orderBy("created_at", "desc").execute();
+  return query.orderBy("createdAt", "desc").execute();
 }
 
 export async function updateCharacter(
@@ -44,14 +44,14 @@ export async function updateCharacter(
   const mapped: Record<string, unknown> = {};
   if (payload.name !== undefined) mapped.name = payload.name;
   if (payload.personality !== undefined) mapped.personality = payload.personality;
-  if (payload.systemPrompt !== undefined) mapped.system_prompt = payload.systemPrompt;
-  if (payload.speakingStyle !== undefined) mapped.speaking_style = payload.speakingStyle;
-  if (payload.languageCode !== undefined) mapped.language_code = payload.languageCode;
-  if (payload.voiceName !== undefined) mapped.voice_name = payload.voiceName;
-  if (payload.avatarUrl !== undefined) mapped.avatar_url = payload.avatarUrl;
-  if (payload.avatarFileId !== undefined) mapped.avatar_file_id = payload.avatarFileId;
-  if (payload.isPublic !== undefined) mapped.is_public = payload.isPublic;
-  if (payload.updatedAt !== undefined) mapped.updated_at = payload.updatedAt;
+  if (payload.systemPrompt !== undefined) mapped.systemPrompt = payload.systemPrompt;
+  if (payload.speakingStyle !== undefined) mapped.speakingStyle = payload.speakingStyle;
+  if (payload.languageCode !== undefined) mapped.languageCode = payload.languageCode;
+  if (payload.voiceName !== undefined) mapped.voiceName = payload.voiceName;
+  if (payload.avatarUrl !== undefined) mapped.avatarUrl = payload.avatarUrl;
+  if (payload.avatarFileId !== undefined) mapped.avatarFileId = payload.avatarFileId;
+  if (payload.isPublic !== undefined) mapped.isPublic = payload.isPublic;
+  if (payload.updatedAt !== undefined) mapped.updatedAt = payload.updatedAt;
 
   return (
     (await db
@@ -86,9 +86,9 @@ export async function listSessions(opts?: { status?: string; creatorId?: string 
     query = query.where("status", "=", opts.status);
   }
   if (opts?.creatorId) {
-    query = query.where("creator_id", "=", opts.creatorId);
+    query = query.where("creatorId", "=", opts.creatorId);
   }
-  return query.orderBy("created_at", "desc").execute();
+  return query.orderBy("createdAt", "desc").execute();
 }
 
 export async function updateSession(
@@ -101,8 +101,8 @@ export async function updateSession(
 ) {
   const mapped: Record<string, unknown> = {};
   if (payload.status !== undefined) mapped.status = payload.status;
-  if (payload.startedAt !== undefined) mapped.started_at = payload.startedAt;
-  if (payload.endedAt !== undefined) mapped.ended_at = payload.endedAt;
+  if (payload.startedAt !== undefined) mapped.startedAt = payload.startedAt;
+  if (payload.endedAt !== undefined) mapped.endedAt = payload.endedAt;
 
   return (
     (await db
@@ -126,8 +126,8 @@ export async function updateSessionWithStatus(
 ) {
   const mapped: Record<string, unknown> = {};
   if (payload.status !== undefined) mapped.status = payload.status;
-  if (payload.startedAt !== undefined) mapped.started_at = payload.startedAt;
-  if (payload.endedAt !== undefined) mapped.ended_at = payload.endedAt;
+  if (payload.startedAt !== undefined) mapped.startedAt = payload.startedAt;
+  if (payload.endedAt !== undefined) mapped.endedAt = payload.endedAt;
 
   return (
     (await db
@@ -153,10 +153,10 @@ export async function listUnprocessedMessages(sessionId: string, limit = 10) {
   return db
     .selectFrom("aituber_messages")
     .selectAll()
-    .where("session_id", "=", sessionId)
+    .where("sessionId", "=", sessionId)
     .where("role", "=", "viewer")
-    .where("processed_at", "is", null)
-    .orderBy("created_at", "asc")
+    .where("processedAt", "is", null)
+    .orderBy("createdAt", "asc")
     .limit(limit)
     .execute();
 }
@@ -165,7 +165,7 @@ export async function markMessageProcessed(id: string) {
   return (
     (await db
       .updateTable("aituber_messages")
-      .set({ processed_at: new Date() })
+      .set({ processedAt: new Date() })
       .where("id", "=", id)
       .returningAll()
       .executeTakeFirst()) ?? null
@@ -176,8 +176,8 @@ export async function listMessagesBySession(sessionId: string, limit = 50) {
   return db
     .selectFrom("aituber_messages")
     .selectAll()
-    .where("session_id", "=", sessionId)
-    .orderBy("created_at", "desc")
+    .where("sessionId", "=", sessionId)
+    .orderBy("createdAt", "desc")
     .limit(limit)
     .execute();
 }
@@ -186,8 +186,8 @@ export async function listRecentMessages(sessionId: string, limit = 20) {
   const rows = await db
     .selectFrom("aituber_messages")
     .selectAll()
-    .where("session_id", "=", sessionId)
-    .orderBy("created_at", "desc")
+    .where("sessionId", "=", sessionId)
+    .orderBy("createdAt", "desc")
     .limit(limit)
     .execute();
   return rows.reverse();

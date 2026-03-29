@@ -78,7 +78,7 @@ async function getEffectivePagePermissions(pageId: string, visited = new Set<str
     getPageParentId(pageId),
   ]);
 
-  const shouldInherit = inheritance?.inherit_from_parent ?? true;
+  const shouldInherit = inheritance?.inheritFromParent ?? true;
   if (shouldInherit && parentId) {
     return getEffectivePagePermissions(parentId, visited);
   }
@@ -113,26 +113,26 @@ async function evaluatePageAccess(
   }
 
   const spaceId = spaceInfo?.spaceId ?? null;
-  const groupIds = memberships.map((membership) => membership.group_id);
+  const groupIds = memberships.map((membership) => membership.groupId);
   const groupIdSet = new Set(groupIds);
 
   // Layer 2: Check page permissions
   const matchedPermission = permissions.find((permission) => {
-    if (!permission.group_id || !groupIdSet.has(permission.group_id)) return false;
+    if (!permission.groupId || !groupIdSet.has(permission.groupId)) return false;
 
-    if (action === "read") return permission.can_read;
-    if (action === "write") return permission.can_write;
-    return permission.can_delete;
+    if (action === "read") return permission.canRead;
+    if (action === "write") return permission.canWrite;
+    return permission.canDelete;
   });
 
-  if (matchedPermission?.group_id) {
-    return { allowed: true, reason: `group:${matchedPermission.group_id}` };
+  if (matchedPermission?.groupId) {
+    return { allowed: true, reason: `group:${matchedPermission.groupId}` };
   }
 
   // If there are explicit page permissions for any of the user's groups, deny
   // (page permissions were set but didn't grant the requested action)
   const hasExplicitPagePermissions = permissions.some(
-    (permission) => permission.group_id && groupIdSet.has(permission.group_id)
+    (permission) => permission.groupId && groupIdSet.has(permission.groupId)
   );
   if (hasExplicitPagePermissions) {
     return { allowed: false, reason: "page-permission-denied" };
@@ -142,13 +142,13 @@ async function evaluatePageAccess(
   if (spaceId) {
     const spacePerms = await listSpacePermissionsForSpace(spaceId, groupIds);
     const matchedSpacePerm = spacePerms.find((sp) => {
-      if (action === "read") return sp.can_read;
-      if (action === "write") return sp.can_write;
-      return sp.can_delete;
+      if (action === "read") return sp.canRead;
+      if (action === "write") return sp.canWrite;
+      return sp.canDelete;
     });
 
     if (matchedSpacePerm) {
-      return { allowed: true, reason: `space-group:${matchedSpacePerm.group_id}` };
+      return { allowed: true, reason: `space-group:${matchedSpacePerm.groupId}` };
     }
   }
 
@@ -239,7 +239,7 @@ export async function canApproveKnowledge(user: SessionUser): Promise<boolean> {
   const memberships = await listMembershipsByUser(user.id);
   if (memberships.length === 0) return false;
 
-  const groupIds = memberships.map((m) => m.group_id);
+  const groupIds = memberships.map((m) => m.groupId);
   const groups = await getGroupPermissionsByIds(groupIds);
 
   return groups.some(

@@ -7,22 +7,22 @@ import { escapeLikePattern, firstOrNull, getRecordById } from "../../lib/db-util
 export async function listPagesOrderedByUpdatedAt() {
   const rows = await db
     .selectFrom("pages")
-    .leftJoin("users", "pages.author_id", "users.id")
-    .leftJoin("spaces", "pages.space_id", "spaces.id")
+    .leftJoin("users", "pages.authorId", "users.id")
+    .leftJoin("spaces", "pages.spaceId", "spaces.id")
     .select([
       "pages.id",
       "pages.title",
-      "pages.space_id",
-      "pages.parent_id",
-      "pages.author_id",
-      "pages.deleted_at",
-      "pages.created_at",
-      "pages.updated_at",
+      "pages.spaceId",
+      "pages.parentId",
+      "pages.authorId",
+      "pages.deletedAt",
+      "pages.createdAt",
+      "pages.updatedAt",
       "users.name as author_name",
       "spaces.name as space_name",
     ])
-    .where("pages.deleted_at", "is", null)
-    .orderBy("pages.updated_at", "desc")
+    .where("pages.deletedAt", "is", null)
+    .orderBy("pages.updatedAt", "desc")
     .execute();
 
   return rows.map((r) => ({
@@ -39,18 +39,18 @@ export async function getPageById(id: string) {
 export async function getPageParentId(id: string) {
   const page = await db
     .selectFrom("pages")
-    .select("parent_id")
+    .select("parentId")
     .where("id", "=", id)
     .executeTakeFirst();
-  return page?.parent_id ?? null;
+  return page?.parentId ?? null;
 }
 
 export async function getPageBlocks(pageId: string) {
   return db
     .selectFrom("blocks")
     .selectAll()
-    .where("page_id", "=", pageId)
-    .orderBy("sort_order")
+    .where("pageId", "=", pageId)
+    .orderBy("sortOrder")
     .execute();
 }
 
@@ -60,7 +60,7 @@ export async function searchPagesLexically(query: string) {
   return db
     .selectFrom("pages")
     .selectAll()
-    .where("deleted_at", "is", null)
+    .where("deletedAt", "is", null)
     .where((eb) =>
       eb.or([
         eb(
@@ -72,7 +72,7 @@ export async function searchPagesLexically(query: string) {
           db
             .selectFrom("blocks")
             .select(sql`1`.as("one"))
-            .where(sql<boolean>`blocks.page_id = pages.id`)
+            .where(sql<boolean>`blocks.pageId = pages.id`)
             .where(
               sql`to_tsvector('simple', coalesce(${sql.ref("blocks.content")}, ''))`,
               "@@",
@@ -84,12 +84,12 @@ export async function searchPagesLexically(query: string) {
           db
             .selectFrom("blocks")
             .select(sql`1`.as("one"))
-            .where(sql<boolean>`blocks.page_id = pages.id`)
+            .where(sql<boolean>`blocks.pageId = pages.id`)
             .where(sql`coalesce(${sql.ref("blocks.content")}, '')`, "ilike", escaped)
         ),
       ])
     )
-    .orderBy("updated_at", "desc")
+    .orderBy("updatedAt", "desc")
     .execute();
 }
 
@@ -100,8 +100,8 @@ export async function listBlockContentsByPageIds(pageIds: string[]) {
 
   return db
     .selectFrom("blocks")
-    .select(["page_id", "content"])
-    .where("page_id", "in", pageIds)
+    .select(["pageId", "content"])
+    .where("pageId", "in", pageIds)
     .execute();
 }
 
@@ -111,7 +111,7 @@ export async function createPage(newPage: NewPage) {
 
 export async function updatePage(
   id: string,
-  updatePayload: { title?: string; parent_id?: string | null; updated_at: Date }
+  updatePayload: { title?: string; parent_id?: string | null; updatedAt: Date }
 ) {
   return firstOrNull(
     await db.updateTable("pages").set(updatePayload).where("id", "=", id).returningAll().execute()
@@ -137,7 +137,7 @@ export async function updateBlock(
     content?: string | null;
     properties?: Record<string, unknown> | null;
     sort_order?: number;
-    updated_at: Date;
+    updatedAt: Date;
   }
 ) {
   return firstOrNull(
@@ -153,7 +153,7 @@ export async function softDeletePage(id: string) {
   return firstOrNull(
     await db
       .updateTable("pages")
-      .set({ deleted_at: new Date() })
+      .set({ deletedAt: new Date() })
       .where("id", "=", id)
       .returningAll()
       .execute()
@@ -164,7 +164,7 @@ export async function restorePage(id: string) {
   return firstOrNull(
     await db
       .updateTable("pages")
-      .set({ deleted_at: null })
+      .set({ deletedAt: null })
       .where("id", "=", id)
       .returningAll()
       .execute()
@@ -175,8 +175,8 @@ export async function listDeletedPages() {
   return db
     .selectFrom("pages")
     .selectAll()
-    .where("deleted_at", "is not", null)
-    .orderBy("deleted_at", "desc")
+    .where("deletedAt", "is not", null)
+    .orderBy("deletedAt", "desc")
     .execute();
 }
 
@@ -185,11 +185,11 @@ export async function permanentDeletePage(id: string) {
 }
 
 export async function listNonDeletedPageIds(): Promise<{ id: string }[]> {
-  return db.selectFrom("pages").select("id").where("deleted_at", "is", null).execute();
+  return db.selectFrom("pages").select("id").where("deletedAt", "is", null).execute();
 }
 
 export async function deletePageEmbeddingsByPageId(pageId: string): Promise<void> {
-  await db.deleteFrom("page_embeddings").where("page_id", "=", pageId).execute();
+  await db.deleteFrom("page_embeddings").where("pageId", "=", pageId).execute();
 }
 
 export async function replacePageEmbeddings(
@@ -204,21 +204,21 @@ export async function replacePageEmbeddings(
   }>
 ): Promise<void> {
   await db.transaction().execute(async (trx) => {
-    await trx.deleteFrom("page_embeddings").where("page_id", "=", pageId).execute();
+    await trx.deleteFrom("page_embeddings").where("pageId", "=", pageId).execute();
     if (embeddings.length > 0) {
       await trx
         .insertInto("page_embeddings")
         .values(
           embeddings.map((e) => ({
             id: `emb_${nanoid(12)}`,
-            page_id: pageId,
-            chunk_index: e.chunkIndex,
-            plain_text: e.plainText,
+            pageId: pageId,
+            chunkIndex: e.chunkIndex,
+            plainText: e.plainText,
             // biome-ignore lint/suspicious/noExplicitAny: pgvector string passed to raw column
             embedding: e.embedding as any,
-            model_id: e.modelId,
-            created_at: e.createdAt,
-            updated_at: e.updatedAt,
+            modelId: e.modelId,
+            createdAt: e.createdAt,
+            updatedAt: e.updatedAt,
           }))
         )
         .execute();
@@ -229,10 +229,10 @@ export async function replacePageEmbeddings(
 export async function listUserGroupIdsByUserId(userId: string): Promise<string[]> {
   const memberships = await db
     .selectFrom("user_group_memberships")
-    .select("group_id")
-    .where("user_id", "=", userId)
+    .select("groupId")
+    .where("userId", "=", userId)
     .execute();
-  return [...new Set(memberships.map((m) => m.group_id))];
+  return [...new Set(memberships.map((m) => m.groupId))];
 }
 
 export async function createPageWithAccessDefaults(input: {
@@ -246,12 +246,12 @@ export async function createPageWithAccessDefaults(input: {
 }): Promise<{
   id: string;
   title: string;
-  space_id: string;
-  parent_id: string | null;
-  author_id: string;
-  created_at: Date;
-  updated_at: Date;
-  deleted_at: Date | null;
+  spaceId: string;
+  parentId: string | null;
+  authorId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
 }> {
   return db.transaction().execute(async (trx) => createPageWithAccessDefaultsTx(trx, input));
 }
@@ -270,23 +270,23 @@ export async function createPageWithAccessDefaultsTx(
 ): Promise<{
   id: string;
   title: string;
-  space_id: string;
-  parent_id: string | null;
-  author_id: string;
-  created_at: Date;
-  updated_at: Date;
-  deleted_at: Date | null;
+  spaceId: string;
+  parentId: string | null;
+  authorId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
 }> {
   const page = await trx
     .insertInto("pages")
     .values({
       id: input.id,
       title: input.title,
-      space_id: input.spaceId,
-      parent_id: input.parentId,
-      author_id: input.authorId,
-      created_at: input.createdAt,
-      updated_at: input.updatedAt,
+      spaceId: input.spaceId,
+      parentId: input.parentId,
+      authorId: input.authorId,
+      createdAt: input.createdAt,
+      updatedAt: input.updatedAt,
     })
     .returningAll()
     .executeTakeFirst();
@@ -299,20 +299,20 @@ export async function createPageWithAccessDefaultsTx(
     .insertInto("page_inheritance")
     .values({
       id: `inherit_${nanoid(12)}`,
-      page_id: page.id,
-      inherit_from_parent: Boolean(page.parent_id),
-      created_at: input.createdAt,
+      pageId: page.id,
+      inheritFromParent: Boolean(page.parentId),
+      createdAt: input.createdAt,
     })
     .execute();
 
-  if (!page.parent_id) {
+  if (!page.parentId) {
     const memberships = await trx
       .selectFrom("user_group_memberships")
-      .select("group_id")
-      .where("user_id", "=", input.authorId)
+      .select("groupId")
+      .where("userId", "=", input.authorId)
       .execute();
 
-    const uniqueGroupIds = [...new Set(memberships.map((m) => m.group_id))];
+    const uniqueGroupIds = [...new Set(memberships.map((m) => m.groupId))];
 
     if (uniqueGroupIds.length > 0) {
       await trx
@@ -320,13 +320,13 @@ export async function createPageWithAccessDefaultsTx(
         .values(
           uniqueGroupIds.map((groupId) => ({
             id: `perm_${nanoid(12)}`,
-            page_id: page.id,
-            group_id: groupId,
-            can_read: true,
-            can_write: true,
-            can_delete: false,
-            created_at: input.createdAt,
-            updated_at: input.updatedAt,
+            pageId: page.id,
+            groupId: groupId,
+            canRead: true,
+            canWrite: true,
+            canDelete: false,
+            createdAt: input.createdAt,
+            updatedAt: input.updatedAt,
           }))
         )
         .execute();
@@ -355,7 +355,7 @@ export async function restorePageRevision(input: {
   }>;
   revisionNumber: number;
   actorUserId: string;
-}): Promise<{ id: string; title: string; updated_at: Date } | null> {
+}): Promise<{ id: string; title: string; updatedAt: Date } | null> {
   const now = new Date();
 
   return db.transaction().execute(async (trx) => {
@@ -363,8 +363,8 @@ export async function restorePageRevision(input: {
       .insertInto("page_revisions")
       .values({
         id: `rev_${crypto.randomUUID().slice(0, 12)}`,
-        page_id: input.pageId,
-        revision_number: input.revisionNumber,
+        pageId: input.pageId,
+        revisionNumber: input.revisionNumber,
         title: input.currentTitle,
         blocks: input.currentBlocks.map((b) => ({
           type: b.type,
@@ -372,19 +372,19 @@ export async function restorePageRevision(input: {
           properties: b.properties as Record<string, unknown> | null,
           sortOrder: b.sortOrder,
         })),
-        author_id: input.actorUserId,
-        created_at: now,
+        authorId: input.actorUserId,
+        createdAt: now,
       })
       .execute();
 
     const updatedPage = await trx
       .updateTable("pages")
-      .set({ title: input.revision.title, updated_at: now })
+      .set({ title: input.revision.title, updatedAt: now })
       .where("id", "=", input.pageId)
       .returningAll()
       .executeTakeFirst();
 
-    await trx.deleteFrom("blocks").where("page_id", "=", input.pageId).execute();
+    await trx.deleteFrom("blocks").where("pageId", "=", input.pageId).execute();
 
     if (input.revision.blocks.length > 0) {
       await trx
@@ -392,13 +392,13 @@ export async function restorePageRevision(input: {
         .values(
           input.revision.blocks.map((block) => ({
             id: crypto.randomUUID(),
-            page_id: input.pageId,
+            pageId: input.pageId,
             type: block.type,
             content: block.content,
             properties: block.properties,
-            sort_order: block.sortOrder,
-            created_at: now,
-            updated_at: now,
+            sortOrder: block.sortOrder,
+            createdAt: now,
+            updatedAt: now,
           }))
         )
         .execute();
@@ -426,20 +426,20 @@ export async function importPageWithBlocks(input: {
   page: {
     id: string;
     title: string;
-    space_id: string;
-    parent_id: string | null;
-    author_id: string;
-    created_at: Date;
-    updated_at: Date;
-    deleted_at: Date | null;
+    spaceId: string;
+    parentId: string | null;
+    authorId: string;
+    createdAt: Date;
+    updatedAt: Date;
+    deletedAt: Date | null;
   };
   blocks: Array<{
     id: string;
-    page_id: string;
+    pageId: string;
     type: string;
     content: string | null;
     properties: Record<string, unknown> | null;
-    sort_order: number;
+    sortOrder: number;
   }>;
 }> {
   return db.transaction().execute(async (trx) => {
@@ -459,26 +459,26 @@ export async function importPageWithBlocks(input: {
 
     const blockValues = input.blockDrafts.map((draft, index) => ({
       id: crypto.randomUUID(),
-      page_id: page.id,
+      pageId: page.id,
       type: draft.type,
       content: draft.content,
       properties: draft.properties,
-      sort_order: index,
-      created_at: input.now,
-      updated_at: input.now,
+      sortOrder: index,
+      createdAt: input.now,
+      updatedAt: input.now,
     }));
 
     await trx.insertInto("blocks").values(blockValues).execute();
 
     return {
       page,
-      blocks: blockValues.map(({ id, page_id, type, content, properties, sort_order }) => ({
+      blocks: blockValues.map(({ id, pageId, type, content, properties, sortOrder }) => ({
         id,
-        page_id,
+        pageId,
         type,
         content,
         properties,
-        sort_order,
+        sortOrder,
       })),
     };
   });
@@ -513,13 +513,13 @@ export async function searchByVector(
 
   return (
     results.rows as Array<{
-      page_id: string;
+      pageId: string;
       page_title: string;
       chunk_text: string;
       similarity: number;
     }>
   ).map((row) => ({
-    pageId: row.page_id,
+    pageId: row.pageId,
     pageTitle: row.page_title,
     chunkText: row.chunk_text,
     similarity: Number(row.similarity),
@@ -533,10 +533,10 @@ export async function searchByVector(
 export async function listRecentUpdatedPages(since: Date, limit: number) {
   return db
     .selectFrom("pages")
-    .select(["id", "title", "space_id"])
-    .where("deleted_at", "is", null)
-    .where("updated_at", ">", since)
-    .orderBy("updated_at", "desc")
+    .select(["id", "title", "spaceId"])
+    .where("deletedAt", "is", null)
+    .where("updatedAt", ">", since)
+    .orderBy("updatedAt", "desc")
     .limit(limit)
     .execute();
 }
@@ -545,8 +545,8 @@ export async function listPageBlockContents(pageId: string, limit: number) {
   return db
     .selectFrom("blocks")
     .select(["content", "type"])
-    .where("page_id", "=", pageId)
-    .orderBy("sort_order")
+    .where("pageId", "=", pageId)
+    .orderBy("sortOrder")
     .limit(limit)
     .execute();
 }
@@ -555,8 +555,8 @@ export async function listActivePageTitles(limit: number) {
   return db
     .selectFrom("pages")
     .select(["id", "title"])
-    .where("deleted_at", "is", null)
-    .orderBy("updated_at", "desc")
+    .where("deletedAt", "is", null)
+    .orderBy("updatedAt", "desc")
     .limit(limit)
     .execute();
 }
@@ -565,8 +565,8 @@ export async function listBlockContentSnippets(pageId: string, limit: number) {
   return db
     .selectFrom("blocks")
     .select("content")
-    .where("page_id", "=", pageId)
-    .orderBy("sort_order")
+    .where("pageId", "=", pageId)
+    .orderBy("sortOrder")
     .limit(limit)
     .execute();
 }
@@ -589,13 +589,13 @@ export async function insertBlocks(
     .values(
       blocksData.map((b) => ({
         id: b.id,
-        page_id: b.pageId,
+        pageId: b.pageId,
         type: b.type,
         content: b.content,
         properties: b.properties,
-        sort_order: b.sortOrder,
-        created_at: b.createdAt,
-        updated_at: b.updatedAt,
+        sortOrder: b.sortOrder,
+        createdAt: b.createdAt,
+        updatedAt: b.updatedAt,
       }))
     )
     .execute();
@@ -618,11 +618,11 @@ export async function updatePageTitleAndReplaceBlocks(input: {
   return db.transaction().execute(async (trx) => {
     await trx
       .updateTable("pages")
-      .set({ title: input.title, updated_at: input.now })
+      .set({ title: input.title, updatedAt: input.now })
       .where("id", "=", input.pageId)
       .execute();
 
-    await trx.deleteFrom("blocks").where("page_id", "=", input.pageId).execute();
+    await trx.deleteFrom("blocks").where("pageId", "=", input.pageId).execute();
 
     if (input.blocks.length > 0) {
       await trx
@@ -630,13 +630,13 @@ export async function updatePageTitleAndReplaceBlocks(input: {
         .values(
           input.blocks.map((block) => ({
             id: block.id,
-            page_id: input.pageId,
+            pageId: input.pageId,
             type: block.type,
             content: block.content,
             properties: block.properties,
-            sort_order: block.sortOrder,
-            created_at: block.createdAt,
-            updated_at: block.updatedAt,
+            sortOrder: block.sortOrder,
+            createdAt: block.createdAt,
+            updatedAt: block.updatedAt,
           }))
         )
         .execute();
@@ -647,10 +647,10 @@ export async function updatePageTitleAndReplaceBlocks(input: {
 export async function getPageSpaceId(id: string) {
   const page = await db
     .selectFrom("pages")
-    .select("space_id")
+    .select("spaceId")
     .where("id", "=", id)
     .executeTakeFirst();
-  return page?.space_id ?? null;
+  return page?.spaceId ?? null;
 }
 
 export async function getPageSpaceType(pageId: string): Promise<{
@@ -661,22 +661,17 @@ export async function getPageSpaceType(pageId: string): Promise<{
 } | null> {
   const row = await db
     .selectFrom("pages")
-    .innerJoin("spaces", "pages.space_id", "spaces.id")
-    .select([
-      "pages.space_id",
-      "spaces.type as space_type",
-      "spaces.owner_user_id",
-      "spaces.group_id",
-    ])
+    .innerJoin("spaces", "pages.spaceId", "spaces.id")
+    .select(["pages.spaceId", "spaces.type as space_type", "spaces.ownerUserId", "spaces.groupId"])
     .where("pages.id", "=", pageId)
     .executeTakeFirst();
 
   if (!row) return null;
   return {
-    spaceId: row.space_id,
+    spaceId: row.spaceId,
     spaceType: row.space_type,
-    ownerUserId: row.owner_user_id,
-    groupId: row.group_id,
+    ownerUserId: row.ownerUserId,
+    groupId: row.groupId,
   };
 }
 
@@ -704,13 +699,13 @@ export async function searchPagesByIlike(
 
   return (
     results.rows as Array<{
-      page_id: string;
+      pageId: string;
       page_title: string;
       chunk_text: string;
       similarity: number;
     }>
   ).map((row) => ({
-    pageId: row.page_id,
+    pageId: row.pageId,
     pageTitle: row.page_title,
     chunkText: row.chunk_text || "",
     similarity: Number(row.similarity),

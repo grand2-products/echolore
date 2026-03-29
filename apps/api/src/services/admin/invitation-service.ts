@@ -34,9 +34,9 @@ export async function createInvitation(input: {
     .selectFrom("user_invitations")
     .select("id")
     .where("email", "=", email)
-    .where("used_at", "is", null)
-    .where("revoked_at", "is", null)
-    .where("expires_at", ">", now)
+    .where("usedAt", "is", null)
+    .where("revokedAt", "is", null)
+    .where("expiresAt", ">", now)
     .executeTakeFirst();
   if (existingInvite) {
     throw new Error("An active invitation already exists for this email");
@@ -53,12 +53,12 @@ export async function createInvitation(input: {
     .values({
       id,
       email,
-      token_hash: tokenHash,
+      tokenHash: tokenHash,
       role,
-      group_ids: groupIds,
-      invited_by_user_id: input.invitedByUserId,
-      expires_at: expiresAt,
-      created_at: now,
+      groupIds: groupIds,
+      invitedByUserId: input.invitedByUserId,
+      expiresAt: expiresAt,
+      createdAt: now,
     })
     .returningAll()
     .executeTakeFirst();
@@ -71,10 +71,10 @@ export async function createInvitation(input: {
 export async function listInvitations() {
   const invitations = await db
     .selectFrom("user_invitations")
-    .leftJoin("users", "user_invitations.invited_by_user_id", "users.id")
+    .leftJoin("users", "user_invitations.invitedByUserId", "users.id")
     .selectAll("user_invitations")
     .select("users.email as inviter_email")
-    .orderBy("user_invitations.created_at")
+    .orderBy("user_invitations.createdAt")
     .execute();
 
   return invitations.map((row) => ({
@@ -86,10 +86,10 @@ export async function listInvitations() {
 export async function revokeInvitation(invitationId: string) {
   const updated = await db
     .updateTable("user_invitations")
-    .set({ revoked_at: new Date() })
+    .set({ revokedAt: new Date() })
     .where("id", "=", invitationId)
-    .where("used_at", "is", null)
-    .where("revoked_at", "is", null)
+    .where("usedAt", "is", null)
+    .where("revokedAt", "is", null)
     .returningAll()
     .executeTakeFirst();
 
@@ -101,13 +101,13 @@ export async function validateInviteToken(token: string) {
   const row = await db
     .selectFrom("user_invitations")
     .selectAll()
-    .where("token_hash", "=", tokenHash)
-    .where("used_at", "is", null)
-    .where("revoked_at", "is", null)
+    .where("tokenHash", "=", tokenHash)
+    .where("usedAt", "is", null)
+    .where("revokedAt", "is", null)
     .executeTakeFirst();
 
   if (!row) return null;
-  if (row.expires_at < new Date()) return null;
+  if (row.expiresAt < new Date()) return null;
 
   return row;
 }
@@ -133,21 +133,21 @@ export async function acceptInvitation(token: string, input: { name: string; pas
     const invitation = await trx
       .selectFrom("user_invitations")
       .selectAll()
-      .where("token_hash", "=", tokenHash)
-      .where("used_at", "is", null)
-      .where("revoked_at", "is", null)
+      .where("tokenHash", "=", tokenHash)
+      .where("usedAt", "is", null)
+      .where("revokedAt", "is", null)
       .executeTakeFirst();
 
-    if (!invitation || invitation.expires_at < now) {
+    if (!invitation || invitation.expiresAt < now) {
       throw new Error("Invalid or expired invitation");
     }
 
     // Mark invitation as used first (prevents concurrent accepts)
     const marked = await trx
       .updateTable("user_invitations")
-      .set({ used_at: now })
+      .set({ usedAt: now })
       .where("id", "=", invitation.id)
-      .where("used_at", "is", null)
+      .where("usedAt", "is", null)
       .returningAll()
       .executeTakeFirst();
 
@@ -162,12 +162,12 @@ export async function acceptInvitation(token: string, input: { name: string; pas
         id: userId,
         email: invitation.email,
         name,
-        avatar_url: null,
-        email_verified_at: now,
-        token_version: 1,
+        avatarUrl: null,
+        emailVerifiedAt: now,
+        tokenVersion: 1,
         role: invitation.role,
-        created_at: now,
-        updated_at: now,
+        createdAt: now,
+        updatedAt: now,
       })
       .returningAll()
       .executeTakeFirst();
@@ -179,26 +179,26 @@ export async function acceptInvitation(token: string, input: { name: string; pas
       .insertInto("auth_identities")
       .values({
         id: `auth_${crypto.randomUUID()}`,
-        user_id: created.id,
+        userId: created.id,
         provider: "password",
-        provider_user_id: created.email,
-        password_hash: passwordHash,
-        created_at: now,
-        updated_at: now,
+        providerUserId: created.email,
+        passwordHash: passwordHash,
+        createdAt: now,
+        updatedAt: now,
       })
       .execute();
 
     // Add group memberships
-    if (invitation.group_ids.length > 0) {
+    if (invitation.groupIds.length > 0) {
       await trx
         .insertInto("user_group_memberships")
         .values(
-          invitation.group_ids.map((groupId) => ({
+          invitation.groupIds.map((groupId) => ({
             id: `ugm_${crypto.randomUUID()}`,
-            user_id: created.id,
-            group_id: groupId,
-            added_by: invitation.invited_by_user_id,
-            created_at: now,
+            userId: created.id,
+            groupId: groupId,
+            addedBy: invitation.invitedByUserId,
+            createdAt: now,
           }))
         )
         .execute();

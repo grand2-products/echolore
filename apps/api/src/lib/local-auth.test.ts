@@ -77,11 +77,11 @@ describe("local-auth identity linking", () => {
       id: "user_existing",
       email: "member@example.com",
       name: "Member",
-      avatar_url: null,
-      email_verified_at: new Date("2026-03-12T00:00:00.000Z"),
+      avatarUrl: null,
+      emailVerifiedAt: new Date("2026-03-12T00:00:00.000Z"),
       role: UserRole.Member,
-      created_at: new Date("2026-03-12T00:00:00.000Z"),
-      updated_at: new Date("2026-03-12T00:00:00.000Z"),
+      createdAt: new Date("2026-03-12T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-12T00:00:00.000Z"),
     };
     const { tx, inserts } = createTx({
       selectQueue: [[existingUser], []],
@@ -101,9 +101,9 @@ describe("local-auth identity linking", () => {
     expect(inserts).toHaveLength(1);
     expect(inserts[0]?.table).toBe("auth_identities");
     expect(inserts[0]?.values).toMatchObject({
-      user_id: existingUser.id,
+      userId: existingUser.id,
       provider: "google",
-      provider_user_id: existingUser.email,
+      providerUserId: existingUser.email,
     });
     expect(tx.insertInto).not.toHaveBeenCalledWith("users");
   });
@@ -113,23 +113,23 @@ describe("local-auth identity linking", () => {
       id: "user_existing",
       email: "member@example.com",
       name: "Member",
-      avatar_url: null,
-      email_verified_at: new Date("2026-03-12T00:00:00.000Z"),
+      avatarUrl: null,
+      emailVerifiedAt: new Date("2026-03-12T00:00:00.000Z"),
       role: UserRole.Member,
-      created_at: new Date("2026-03-12T00:00:00.000Z"),
-      updated_at: new Date("2026-03-12T00:00:00.000Z"),
+      createdAt: new Date("2026-03-12T00:00:00.000Z"),
+      updatedAt: new Date("2026-03-12T00:00:00.000Z"),
     };
     const verification = {
       id: "evt_1",
-      user_id: null,
+      userId: null,
       email: existingUser.email,
-      token_hash: "hashed",
+      tokenHash: "hashed",
       purpose: "password-registration",
-      pending_name: null,
-      pending_password_hash: "salt:hash",
-      expires_at: new Date("2099-03-12T00:30:00.000Z"),
-      used_at: null,
-      created_at: new Date("2026-03-12T00:00:00.000Z"),
+      pendingName: null,
+      pendingPasswordHash: "salt:hash",
+      expiresAt: new Date("2099-03-12T00:30:00.000Z"),
+      usedAt: null,
+      createdAt: new Date("2026-03-12T00:00:00.000Z"),
     };
     const { tx, inserts } = createTx({
       selectQueue: [[existingUser], []],
@@ -161,10 +161,10 @@ describe("local-auth identity linking", () => {
     expect(inserts).toHaveLength(1);
     expect(inserts[0]?.table).toBe("auth_identities");
     expect(inserts[0]?.values).toMatchObject({
-      user_id: existingUser.id,
+      userId: existingUser.id,
       provider: "password",
-      provider_user_id: existingUser.email,
-      password_hash: verification.pending_password_hash,
+      providerUserId: existingUser.email,
+      passwordHash: verification.pendingPasswordHash,
     });
     expect(tx.insertInto).not.toHaveBeenCalledWith("users");
   });

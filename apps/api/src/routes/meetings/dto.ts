@@ -18,59 +18,59 @@ export const toIso = (value: Date | null): string | null => (value ? value.toISO
 export const toMeetingDto = (meeting: Meeting): MeetingDto => ({
   id: meeting.id,
   title: meeting.title,
-  creatorId: meeting.creator_id,
-  roomName: meeting.room_name,
+  creatorId: meeting.creatorId,
+  roomName: meeting.roomName,
   status: meeting.status as MeetingDto["status"],
-  startedAt: toIso(meeting.started_at),
-  endedAt: toIso(meeting.ended_at),
-  scheduledAt: toIso(meeting.scheduled_at),
-  googleCalendarEventId: meeting.google_calendar_event_id,
-  createdAt: meeting.created_at.toISOString(),
+  startedAt: toIso(meeting.startedAt),
+  endedAt: toIso(meeting.endedAt),
+  scheduledAt: toIso(meeting.scheduledAt),
+  googleCalendarEventId: meeting.googleCalendarEventId,
+  createdAt: meeting.createdAt.toISOString(),
 });
 
 export const toTranscriptDto = (transcript: Transcript): TranscriptDto => ({
   id: transcript.id,
-  meetingId: transcript.meeting_id,
-  speakerId: transcript.speaker_id,
+  meetingId: transcript.meetingId,
+  speakerId: transcript.speakerId,
   content: transcript.content,
   timestamp: transcript.timestamp.toISOString(),
-  createdAt: transcript.created_at.toISOString(),
+  createdAt: transcript.createdAt.toISOString(),
 });
 
 export const toSummaryDto = (summary: Summary): SummaryDto => ({
   id: summary.id,
-  meetingId: summary.meeting_id,
+  meetingId: summary.meetingId,
   content: summary.content,
-  createdAt: summary.created_at.toISOString(),
+  createdAt: summary.createdAt.toISOString(),
 });
 
 export const toMeetingParticipantDto = (
   participant: MeetingParticipant
 ): MeetingParticipantDto => ({
   id: participant.id,
-  meetingId: participant.meeting_id,
-  userId: participant.user_id,
-  guestIdentity: participant.guest_identity,
-  displayName: participant.display_name,
+  meetingId: participant.meetingId,
+  userId: participant.userId,
+  guestIdentity: participant.guestIdentity,
+  displayName: participant.displayName,
   role: participant.role as MeetingParticipantDto["role"],
-  joinedAt: participant.joined_at.toISOString(),
-  leftAt: toIso(participant.left_at),
+  joinedAt: participant.joinedAt.toISOString(),
+  leftAt: toIso(participant.leftAt),
 });
 
 export const toRealtimeTranscriptSegmentDto = (
   segment: MeetingTranscriptSegment
 ): RealtimeTranscriptSegmentDto => ({
   id: segment.id,
-  meetingId: segment.meeting_id,
-  participantIdentity: segment.participant_identity,
-  speakerUserId: segment.speaker_user_id,
-  speakerLabel: segment.speaker_label,
+  meetingId: segment.meetingId,
+  participantIdentity: segment.participantIdentity,
+  speakerUserId: segment.speakerUserId,
+  speakerLabel: segment.speakerLabel,
   content: segment.content,
-  isPartial: segment.is_partial,
-  segmentKey: segment.segment_key,
+  isPartial: segment.isPartial,
+  segmentKey: segment.segmentKey,
   provider: segment.provider,
   confidence: segment.confidence,
-  startedAt: segment.started_at.toISOString(),
-  finalizedAt: segment.finalized_at?.toISOString() ?? null,
-  createdAt: segment.created_at.toISOString(),
+  startedAt: segment.startedAt.toISOString(),
+  finalizedAt: segment.finalizedAt?.toISOString() ?? null,
+  createdAt: segment.createdAt.toISOString(),
 });

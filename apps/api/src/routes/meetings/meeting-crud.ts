@@ -75,7 +75,7 @@ meetingCrudRoutes.get(
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "read");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
     if (!authz.allowed) {
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
@@ -110,7 +110,7 @@ meetingCrudRoutes.get(
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "read");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "read");
     if (!authz.allowed) {
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
@@ -182,7 +182,7 @@ meetingCrudRoutes.put(
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "write");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
     if (!authz.allowed) {
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
@@ -229,7 +229,7 @@ meetingCrudRoutes.delete(
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "delete");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "delete");
     if (!authz.allowed) {
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
@@ -263,7 +263,7 @@ meetingCrudRoutes.post(
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
-    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creator_id, "write");
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
     if (!authz.allowed) {
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
@@ -276,7 +276,7 @@ meetingCrudRoutes.post(
 
     // Update meeting + close participant sessions concurrently
     const [updatedMeeting] = await Promise.all([
-      updateMeeting(id, { status: "ended", ended_at: now }),
+      updateMeeting(id, { status: "ended", endedAt: now }),
       closeAllParticipantSessions(id, now),
     ]);
 

@@ -17,15 +17,15 @@ export async function insertAuditLog(payload: {
     .insertInto("audit_logs")
     .values({
       id: payload.id,
-      actor_user_id: payload.actorUserId,
-      actor_email: payload.actorEmail,
+      actorUserId: payload.actorUserId,
+      actorEmail: payload.actorEmail,
       action: payload.action,
-      resource_type: payload.resourceType,
-      resource_id: payload.resourceId,
+      resourceType: payload.resourceType,
+      resourceId: payload.resourceId,
       metadata: payload.metadata,
-      ip_address: payload.ipAddress,
-      user_agent: payload.userAgent,
-      created_at: payload.createdAt,
+      ipAddress: payload.ipAddress,
+      userAgent: payload.userAgent,
+      createdAt: payload.createdAt,
     })
     .execute();
 }
@@ -39,8 +39,8 @@ export async function countAuditLogsByActionAndIp(
     .selectFrom("audit_logs")
     .select(sql<number>`count(*)`.as("count"))
     .where("action", "=", action)
-    .where("created_at", ">", since)
-    .where("ip_address", "=", ipAddress)
+    .where("createdAt", ">", since)
+    .where("ipAddress", "=", ipAddress)
     .executeTakeFirst();
   return Number(result?.count ?? 0);
 }
@@ -51,11 +51,11 @@ export async function countAuditLogsByActionAndIdentity(
   identity: { email?: string | null; ipAddress?: string | null }
 ): Promise<number> {
   const identityConditions: Array<{
-    col: "actor_email" | "ip_address";
+    col: "actorEmail" | "ipAddress";
     val: string;
   }> = [];
-  if (identity.email) identityConditions.push({ col: "actor_email", val: identity.email });
-  if (identity.ipAddress) identityConditions.push({ col: "ip_address", val: identity.ipAddress });
+  if (identity.email) identityConditions.push({ col: "actorEmail", val: identity.email });
+  if (identity.ipAddress) identityConditions.push({ col: "ipAddress", val: identity.ipAddress });
 
   if (identityConditions.length === 0) {
     return 0;
@@ -65,7 +65,7 @@ export async function countAuditLogsByActionAndIdentity(
     .selectFrom("audit_logs")
     .select(sql<number>`count(*)`.as("count"))
     .where("action", "=", action)
-    .where("created_at", ">", since)
+    .where("createdAt", ">", since)
     .where((eb) => eb.or(identityConditions.map((c) => eb(c.col, "=", c.val))))
     .executeTakeFirst();
 
