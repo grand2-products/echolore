@@ -224,29 +224,50 @@ if (process.env.NODE_ENV !== "test") {
     } catch {
       // __drizzle_migrations does not exist — fresh install or already migrated
     }
-    // For existing DBs without any migration tracking: seed _migrations with all
-    // migrations whose tables already exist (prevents re-running CREATE TABLE)
-    const { rows: existingTables } = await migrationPool.query(
-      "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'users'"
+    // For existing DBs upgraded from Drizzle without migration tracking:
+    // detect which migrations are already applied by checking landmark tables
+    const { rows: tracked } = await migrationPool.query(
+      "SELECT count(*)::int as cnt FROM _migrations"
     );
-    if (existingTables.length > 0) {
-      const { rows: tracked } = await migrationPool.query(
+    if ((tracked[0]?.cnt ?? 0) === 0) {
+      // Check landmark tables to determine how far the DB has been migrated
+      const landmarks: Array<{ migration: string; table: string }> = [
+        { migration: "0000_far_katie_power", table: "users" },
+        { migration: "0001_tough_ma_gnuci", table: "meeting_invites" },
+        { migration: "0002_amusing_gamora", table: "ai_chat_messages" },
+        { migration: "0003_young_northstar", table: "meeting_participants" },
+      ];
+      for (const { migration, table } of landmarks) {
+        const { rows } = await migrationPool.query(
+          "SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = $1",
+          [table]
+        );
+        if (rows.length === 0) break;
+        await migrationPool.query(
+          "INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT DO NOTHING",
+          [migration]
+        );
+      }
+      // 0004 and 0005 are ALTER/INDEX only — check if 0004's constraint exists
+      const { rows: fkCheck } = await migrationPool.query(
+        "SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'agents_created_by_users_id_fk' AND constraint_type = 'FOREIGN KEY'"
+      );
+      if (fkCheck.length > 0) {
+        await migrationPool.query(
+          "INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT DO NOTHING",
+          ["0004_glamorous_rhodey"]
+        );
+        // 0005 was always applied together with 0004 in the Drizzle era
+        await migrationPool.query(
+          "INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT DO NOTHING",
+          ["0005_daily_slayback"]
+        );
+      }
+      const { rows: seeded } = await migrationPool.query(
         "SELECT count(*)::int as cnt FROM _migrations"
       );
-      if ((tracked[0]?.cnt ?? 0) === 0) {
-        // DB has tables but no migration history — mark all existing migrations as applied
-        const migrationsDir2 = path.resolve(import.meta.dirname, "db/migrations");
-        const allFiles = (await fs.readdir(migrationsDir2))
-          .filter((f: string) => f.endsWith(".sql"))
-          .sort();
-        for (const f of allFiles) {
-          const n = f.replace(/\.sql$/, "");
-          await migrationPool.query(
-            "INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT DO NOTHING",
-            [n]
-          );
-        }
-        console.log("Seeded _migrations for existing database");
+      if ((seeded[0]?.cnt ?? 0) > 0) {
+        console.log(`Seeded _migrations with ${seeded[0]?.cnt} existing entries`);
       }
     }
     const migrationsDir = path.resolve(import.meta.dirname, "db/migrations");

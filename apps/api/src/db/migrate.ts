@@ -39,19 +39,39 @@ try {
 // Read migration files
 const migrationsDir = path.resolve(import.meta.dirname, "migrations");
 
-// For existing DBs without any migration tracking: seed all as applied
-const { rows: existingTables } = await pool.query(
-  "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'users'"
-);
-if (existingTables.length > 0) {
-  const { rows: tracked } = await pool.query("SELECT count(*)::int as cnt FROM _migrations");
-  if ((tracked[0]?.cnt ?? 0) === 0) {
-    const allFiles = (await fs.readdir(migrationsDir)).filter((f) => f.endsWith(".sql")).sort();
-    for (const f of allFiles) {
-      const n = f.replace(/\.sql$/, "");
-      await pool.query("INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT DO NOTHING", [n]);
-    }
-    console.log("Seeded _migrations for existing database");
+// For existing DBs upgraded from Drizzle without migration tracking
+const { rows: tracked } = await pool.query("SELECT count(*)::int as cnt FROM _migrations");
+if ((tracked[0]?.cnt ?? 0) === 0) {
+  const landmarks: Array<{ migration: string; table: string }> = [
+    { migration: "0000_far_katie_power", table: "users" },
+    { migration: "0001_tough_ma_gnuci", table: "meeting_invites" },
+    { migration: "0002_amusing_gamora", table: "ai_chat_messages" },
+    { migration: "0003_young_northstar", table: "meeting_participants" },
+  ];
+  for (const { migration, table } of landmarks) {
+    const { rows } = await pool.query(
+      "SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = $1",
+      [table]
+    );
+    if (rows.length === 0) break;
+    await pool.query("INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT DO NOTHING", [
+      migration,
+    ]);
+  }
+  const { rows: fkCheck } = await pool.query(
+    "SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'agents_created_by_users_id_fk' AND constraint_type = 'FOREIGN KEY'"
+  );
+  if (fkCheck.length > 0) {
+    await pool.query("INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT DO NOTHING", [
+      "0004_glamorous_rhodey",
+    ]);
+    await pool.query("INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT DO NOTHING", [
+      "0005_daily_slayback",
+    ]);
+  }
+  const { rows: seeded } = await pool.query("SELECT count(*)::int as cnt FROM _migrations");
+  if ((seeded[0]?.cnt ?? 0) > 0) {
+    console.log(`Seeded _migrations with ${seeded[0]?.cnt} existing entries`);
   }
 }
 
