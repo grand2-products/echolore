@@ -196,101 +196,10 @@ app.onError((err, c) => {
 // Run database migrations on startup (idempotent — skips already-applied)
 if (process.env.NODE_ENV !== "test") {
   const { Pool: MigrationPool } = await import("pg");
-  const { promises: fs } = await import("node:fs");
-  const path = await import("node:path");
+  const { runMigrations } = await import("./db/run-migrations.js");
   const migrationPool = new MigrationPool({ connectionString: process.env.DATABASE_URL });
   try {
-    await migrationPool.query("CREATE EXTENSION IF NOT EXISTS vector;");
-    await migrationPool.query(`
-      CREATE TABLE IF NOT EXISTS _migrations (
-        name TEXT PRIMARY KEY,
-        applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      );
-    `);
-    // Migrate history from Drizzle's __drizzle_migrations if it exists.
-    // This is one-time bootstrap code that is harmless to keep — it handles
-    // the transition from Drizzle to Kysely migrations and no-ops once the
-    // table has been dropped.
-    try {
-      const { rows: drizzleTable } = await migrationPool.query(
-        "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '__drizzle_migrations'"
-      );
-      if (drizzleTable.length > 0) {
-        await migrationPool.query(`
-          INSERT INTO _migrations (name, applied_at)
-          SELECT tag, to_timestamp(created_at / 1000.0) FROM "__drizzle_migrations"
-          ON CONFLICT (name) DO NOTHING
-        `);
-        await migrationPool.query('DROP TABLE "__drizzle_migrations"');
-        console.log("Migrated history from __drizzle_migrations");
-      }
-    } catch {
-      // __drizzle_migrations does not exist — fresh install or already migrated
-    }
-    // For existing DBs upgraded from Drizzle without migration tracking:
-    // detect which migrations are already applied by checking landmark tables.
-    // TODO(cleanup): This landmark-based seeding can be removed after all
-    // environments have been upgraded past v0.1.24 (i.e. _migrations is
-    // already populated). It is harmless to keep but adds startup complexity.
-    const { rows: tracked } = await migrationPool.query(
-      "SELECT count(*)::int as cnt FROM _migrations"
-    );
-    if ((tracked[0]?.cnt ?? 0) === 0) {
-      // Check landmark tables to determine how far the DB has been migrated
-      const landmarks: Array<{ migration: string; table: string }> = [
-        { migration: "0000_far_katie_power", table: "users" },
-        { migration: "0001_tough_ma_gnuci", table: "meeting_invites" },
-        { migration: "0002_amusing_gamora", table: "ai_chat_messages" },
-        { migration: "0003_young_northstar", table: "meeting_participants" },
-      ];
-      for (const { migration, table } of landmarks) {
-        const { rows } = await migrationPool.query(
-          "SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = $1",
-          [table]
-        );
-        if (rows.length === 0) break;
-        await migrationPool.query(
-          "INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT DO NOTHING",
-          [migration]
-        );
-      }
-      // 0004 and 0005 are ALTER/INDEX only — check if 0004's constraint exists
-      const { rows: fkCheck } = await migrationPool.query(
-        "SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'agents_created_by_users_id_fk' AND constraint_type = 'FOREIGN KEY'"
-      );
-      if (fkCheck.length > 0) {
-        await migrationPool.query(
-          "INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT DO NOTHING",
-          ["0004_glamorous_rhodey"]
-        );
-        // 0005 was always applied together with 0004 in the Drizzle era
-        await migrationPool.query(
-          "INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT DO NOTHING",
-          ["0005_daily_slayback"]
-        );
-      }
-      const { rows: seeded } = await migrationPool.query(
-        "SELECT count(*)::int as cnt FROM _migrations"
-      );
-      if ((seeded[0]?.cnt ?? 0) > 0) {
-        console.log(`Seeded _migrations with ${seeded[0]?.cnt} existing entries`);
-      }
-    }
-    const migrationsDir = path.resolve(import.meta.dirname, "db/migrations");
-    const files = (await fs.readdir(migrationsDir))
-      .filter((f: string) => f.endsWith(".sql"))
-      .sort();
-    for (const file of files) {
-      const name = file.replace(/\.sql$/, "");
-      const { rows } = await migrationPool.query("SELECT 1 FROM _migrations WHERE name = $1", [
-        name,
-      ]);
-      if (rows.length > 0) continue;
-      console.log(`Applying migration: ${file}`);
-      const sqlText = await fs.readFile(path.join(migrationsDir, file), "utf-8");
-      await migrationPool.query(sqlText);
-      await migrationPool.query("INSERT INTO _migrations (name) VALUES ($1)", [name]);
-    }
+    await runMigrations(migrationPool);
     console.log("Database migrations applied successfully");
   } catch (err) {
     console.error("Database migration failed:", err);

@@ -111,7 +111,7 @@ export async function createPage(newPage: NewPage) {
 
 export async function updatePage(
   id: string,
-  updatePayload: { title?: string; parent_id?: string | null; updatedAt: Date }
+  updatePayload: { title?: string; parentId?: string | null; updatedAt: Date }
 ) {
   return firstOrNull(
     await db.updateTable("pages").set(updatePayload).where("id", "=", id).returningAll().execute()
@@ -147,7 +147,7 @@ export async function updateBlock(
     type?: string;
     content?: string | null;
     properties?: Record<string, unknown> | null;
-    sort_order?: number;
+    sortOrder?: number;
     updatedAt: Date;
   }
 ) {
@@ -226,8 +226,7 @@ export async function replacePageEmbeddings(
             pageId: pageId,
             chunkIndex: e.chunkIndex,
             plainText: e.plainText,
-            // biome-ignore lint/suspicious/noExplicitAny: pgvector string passed to raw column
-            embedding: e.embedding as any,
+            embedding: `[${e.embedding.join(",")}]`,
             modelId: e.modelId,
             createdAt: e.createdAt,
             updatedAt: e.updatedAt,
