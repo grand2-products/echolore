@@ -19,21 +19,42 @@ await pool.query(`
 `);
 
 // Migrate history from Drizzle's __drizzle_migrations if it exists
-const { rows: drizzleTable } = await pool.query(
-  "SELECT 1 FROM information_schema.tables WHERE table_name = '__drizzle_migrations'"
-);
-if (drizzleTable.length > 0) {
-  await pool.query(`
-    INSERT INTO _migrations (name, applied_at)
-    SELECT tag, to_timestamp(created_at / 1000.0) FROM __drizzle_migrations
-    ON CONFLICT (name) DO NOTHING
-  `);
-  await pool.query("DROP TABLE __drizzle_migrations");
-  console.log("Migrated history from __drizzle_migrations");
+try {
+  const { rows: drizzleTable } = await pool.query(
+    "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '__drizzle_migrations'"
+  );
+  if (drizzleTable.length > 0) {
+    await pool.query(`
+      INSERT INTO _migrations (name, applied_at)
+      SELECT tag, to_timestamp(created_at / 1000.0) FROM "__drizzle_migrations"
+      ON CONFLICT (name) DO NOTHING
+    `);
+    await pool.query('DROP TABLE "__drizzle_migrations"');
+    console.log("Migrated history from __drizzle_migrations");
+  }
+} catch {
+  // __drizzle_migrations does not exist — fresh install or already migrated
 }
 
 // Read migration files
 const migrationsDir = path.resolve(import.meta.dirname, "migrations");
+
+// For existing DBs without any migration tracking: seed all as applied
+const { rows: existingTables } = await pool.query(
+  "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'users'"
+);
+if (existingTables.length > 0) {
+  const { rows: tracked } = await pool.query("SELECT count(*)::int as cnt FROM _migrations");
+  if ((tracked[0]?.cnt ?? 0) === 0) {
+    const allFiles = (await fs.readdir(migrationsDir)).filter((f) => f.endsWith(".sql")).sort();
+    for (const f of allFiles) {
+      const n = f.replace(/\.sql$/, "");
+      await pool.query("INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT DO NOTHING", [n]);
+    }
+    console.log("Seeded _migrations for existing database");
+  }
+}
+
 const files = (await fs.readdir(migrationsDir)).filter((f) => f.endsWith(".sql")).sort();
 
 // Apply pending migrations

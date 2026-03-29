@@ -208,17 +208,46 @@ if (process.env.NODE_ENV !== "test") {
       );
     `);
     // Migrate history from Drizzle's __drizzle_migrations if it exists
-    const { rows: drizzleTable } = await migrationPool.query(
-      "SELECT 1 FROM information_schema.tables WHERE table_name = '__drizzle_migrations'"
+    try {
+      const { rows: drizzleTable } = await migrationPool.query(
+        "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '__drizzle_migrations'"
+      );
+      if (drizzleTable.length > 0) {
+        await migrationPool.query(`
+          INSERT INTO _migrations (name, applied_at)
+          SELECT tag, to_timestamp(created_at / 1000.0) FROM "__drizzle_migrations"
+          ON CONFLICT (name) DO NOTHING
+        `);
+        await migrationPool.query('DROP TABLE "__drizzle_migrations"');
+        console.log("Migrated history from __drizzle_migrations");
+      }
+    } catch {
+      // __drizzle_migrations does not exist — fresh install or already migrated
+    }
+    // For existing DBs without any migration tracking: seed _migrations with all
+    // migrations whose tables already exist (prevents re-running CREATE TABLE)
+    const { rows: existingTables } = await migrationPool.query(
+      "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = 'users'"
     );
-    if (drizzleTable.length > 0) {
-      await migrationPool.query(`
-        INSERT INTO _migrations (name, applied_at)
-        SELECT tag, to_timestamp(created_at / 1000.0) FROM __drizzle_migrations
-        ON CONFLICT (name) DO NOTHING
-      `);
-      await migrationPool.query("DROP TABLE __drizzle_migrations");
-      console.log("Migrated history from __drizzle_migrations");
+    if (existingTables.length > 0) {
+      const { rows: tracked } = await migrationPool.query(
+        "SELECT count(*)::int as cnt FROM _migrations"
+      );
+      if ((tracked[0]?.cnt ?? 0) === 0) {
+        // DB has tables but no migration history — mark all existing migrations as applied
+        const migrationsDir2 = path.resolve(import.meta.dirname, "db/migrations");
+        const allFiles = (await fs.readdir(migrationsDir2))
+          .filter((f: string) => f.endsWith(".sql"))
+          .sort();
+        for (const f of allFiles) {
+          const n = f.replace(/\.sql$/, "");
+          await migrationPool.query(
+            "INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT DO NOTHING",
+            [n]
+          );
+        }
+        console.log("Seeded _migrations for existing database");
+      }
     }
     const migrationsDir = path.resolve(import.meta.dirname, "db/migrations");
     const files = (await fs.readdir(migrationsDir))
