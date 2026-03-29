@@ -292,7 +292,10 @@ export async function createMeetingSummaryArtifactsTx(input: {
           pageId: input.pageId,
           type: "text",
           content: input.summaryContent,
-          properties: { sourceMeetingId: input.meetingId, source: "room-ai-mvp" },
+          properties: JSON.stringify({
+            sourceMeetingId: input.meetingId,
+            source: "room-ai-mvp",
+          }) as any,
           sortOrder: 1,
           createdAt: input.now,
           updatedAt: input.now,

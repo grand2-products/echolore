@@ -4,7 +4,14 @@ import type { NewPageRevision } from "../../db/schema.js";
 
 export async function createRevision(data: NewPageRevision) {
   return (
-    (await db.insertInto("page_revisions").values(data).returningAll().executeTakeFirst()) ?? null
+    (await db
+      .insertInto("page_revisions")
+      .values({
+        ...data,
+        blocks: JSON.stringify(data.blocks) as any,
+      })
+      .returningAll()
+      .executeTakeFirst()) ?? null
   );
 }
 

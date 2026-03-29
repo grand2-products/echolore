@@ -127,7 +127,16 @@ export async function getBlockById(id: string) {
 }
 
 export async function createBlock(newBlock: NewBlock) {
-  return firstOrNull(await db.insertInto("blocks").values(newBlock).returningAll().execute());
+  return firstOrNull(
+    await db
+      .insertInto("blocks")
+      .values({
+        ...newBlock,
+        properties: (newBlock.properties ? JSON.stringify(newBlock.properties) : null) as any,
+      })
+      .returningAll()
+      .execute()
+  );
 }
 
 export async function updateBlock(
@@ -140,8 +149,18 @@ export async function updateBlock(
     updatedAt: Date;
   }
 ) {
+  const setPayload = {
+    ...updatePayload,
+    ...(updatePayload.properties !== undefined
+      ? {
+          properties: (updatePayload.properties
+            ? JSON.stringify(updatePayload.properties)
+            : null) as any,
+        }
+      : {}),
+  };
   return firstOrNull(
-    await db.updateTable("blocks").set(updatePayload).where("id", "=", id).returningAll().execute()
+    await db.updateTable("blocks").set(setPayload).where("id", "=", id).returningAll().execute()
   );
 }
 
@@ -366,12 +385,14 @@ export async function restorePageRevision(input: {
         pageId: input.pageId,
         revisionNumber: input.revisionNumber,
         title: input.currentTitle,
-        blocks: input.currentBlocks.map((b) => ({
-          type: b.type,
-          content: b.content,
-          properties: b.properties as Record<string, unknown> | null,
-          sortOrder: b.sortOrder,
-        })),
+        blocks: JSON.stringify(
+          input.currentBlocks.map((b) => ({
+            type: b.type,
+            content: b.content,
+            properties: b.properties as Record<string, unknown> | null,
+            sortOrder: b.sortOrder,
+          }))
+        ) as any,
         authorId: input.actorUserId,
         createdAt: now,
       })
@@ -395,7 +416,7 @@ export async function restorePageRevision(input: {
             pageId: input.pageId,
             type: block.type,
             content: block.content,
-            properties: block.properties,
+            properties: (block.properties ? JSON.stringify(block.properties) : null) as any,
             sortOrder: block.sortOrder,
             createdAt: now,
             updatedAt: now,
@@ -468,7 +489,15 @@ export async function importPageWithBlocks(input: {
       updatedAt: input.now,
     }));
 
-    await trx.insertInto("blocks").values(blockValues).execute();
+    await trx
+      .insertInto("blocks")
+      .values(
+        blockValues.map((b) => ({
+          ...b,
+          properties: (b.properties ? JSON.stringify(b.properties) : null) as any,
+        }))
+      )
+      .execute();
 
     return {
       page,
@@ -592,7 +621,7 @@ export async function insertBlocks(
         pageId: b.pageId,
         type: b.type,
         content: b.content,
-        properties: b.properties,
+        properties: (b.properties ? JSON.stringify(b.properties) : null) as any,
         sortOrder: b.sortOrder,
         createdAt: b.createdAt,
         updatedAt: b.updatedAt,
@@ -633,7 +662,7 @@ export async function updatePageTitleAndReplaceBlocks(input: {
             pageId: input.pageId,
             type: block.type,
             content: block.content,
-            properties: block.properties,
+            properties: (block.properties ? JSON.stringify(block.properties) : null) as any,
             sortOrder: block.sortOrder,
             createdAt: block.createdAt,
             updatedAt: block.updatedAt,

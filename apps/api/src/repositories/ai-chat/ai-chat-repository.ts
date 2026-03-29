@@ -73,7 +73,14 @@ export async function deleteConversation(id: string) {
 
 export async function createMessage(message: NewAiChatMessage) {
   return firstOrNull(
-    await db.insertInto("ai_chat_messages").values(message).returningAll().execute()
+    await db
+      .insertInto("ai_chat_messages")
+      .values({
+        ...message,
+        citations: message.citations ? JSON.stringify(message.citations) : null,
+      } as NewAiChatMessage)
+      .returningAll()
+      .execute()
   );
 }
 

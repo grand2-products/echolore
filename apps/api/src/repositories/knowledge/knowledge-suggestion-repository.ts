@@ -45,7 +45,10 @@ export async function createSuggestion(
 ): Promise<KnowledgeSuggestion> {
   const row = await db
     .insertInto("knowledge_suggestions")
-    .values(input)
+    .values({
+      ...input,
+      proposedBlocks: JSON.stringify(input.proposedBlocks) as any,
+    })
     .returningAll()
     .executeTakeFirst();
   if (!row) throw new Error("Failed to create knowledge suggestion");

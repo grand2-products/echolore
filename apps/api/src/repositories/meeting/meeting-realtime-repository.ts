@@ -154,8 +154,14 @@ export async function listMeetingAgentEvents(meetingId: string) {
 
 export async function createMeetingAgentEvent(input: NewMeetingAgentEvent) {
   return (
-    (await db.insertInto("meeting_agent_events").values(input).returningAll().executeTakeFirst()) ??
-    null
+    (await db
+      .insertInto("meeting_agent_events")
+      .values({
+        ...input,
+        payload: JSON.stringify(input.payload) as any,
+      })
+      .returningAll()
+      .executeTakeFirst()) ?? null
   );
 }
 

@@ -32,7 +32,7 @@ export async function createGroup(input: {
         name: input.name,
         description: input.description,
         isSystem: input.isSystem,
-        permissions: input.permissions,
+        permissions: JSON.stringify(input.permissions) as any,
         createdAt: input.createdAt,
         updatedAt: input.updatedAt,
       })
@@ -56,7 +56,7 @@ export async function updateGroup(
       .set({
         name: input.name,
         description: input.description,
-        permissions: input.permissions,
+        permissions: JSON.stringify(input.permissions) as any,
         updatedAt: input.updatedAt,
       })
       .where("id", "=", id)
