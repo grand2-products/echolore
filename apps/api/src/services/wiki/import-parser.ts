@@ -67,6 +67,7 @@ class BlockCollector {
   }
 
   image(src: string, filename: string | null) {
+    if (!isSafeUrl(src)) return; // Drop images with dangerous schemes
     this.push({ type: "image", content: null, properties: { src, filename } });
   }
 
@@ -101,6 +102,18 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Returns true if the URL uses a safe scheme (http, https, mailto) or is a relative path. */
+function isSafeUrl(url: string): boolean {
+  const trimmed = url.trim();
+  // Relative paths and fragment-only URLs are safe
+  if (trimmed.startsWith("/") || trimmed.startsWith("#") || trimmed.startsWith("?")) return true;
+  // Check for an explicit scheme
+  const schemeMatch = trimmed.match(/^([a-z][a-z0-9+.-]*)\s*:/i);
+  if (!schemeMatch) return true; // No scheme → relative URL
+  const scheme = schemeMatch[1]?.toLowerCase();
+  return scheme === "http" || scheme === "https" || scheme === "mailto";
+}
+
 function phrasingToHtml(nodes: PhrasingContent[]): string {
   return nodes.map(phrasingNodeToHtml).join("");
 }
@@ -118,8 +131,10 @@ function phrasingNodeToHtml(node: PhrasingContent): string {
     case "inlineCode":
       return `<code>${escapeHtml(node.value)}</code>`;
     case "link":
+      if (!isSafeUrl(node.url)) return phrasingToHtml(node.children);
       return `<a href="${escapeHtml(node.url)}">${phrasingToHtml(node.children)}</a>`;
     case "image":
+      if (!isSafeUrl(node.url)) return "";
       return `<img src="${escapeHtml(node.url)}" alt="${escapeHtml(node.alt ?? "")}" />`;
     case "break":
       return "<br />";
@@ -178,12 +193,21 @@ function collectInline(
       for (const child of node.children) {
         collectInline(child, {}, linkContent);
       }
-      out.push({
-        type: "link",
-        href: node.url,
-        content:
-          linkContent.length > 0 ? linkContent : [{ type: "text", text: node.url, styles: {} }],
-      });
+      if (!isSafeUrl(node.url)) {
+        // Unsafe scheme — emit children as plain text, drop the link
+        out.push(
+          ...(linkContent.length > 0
+            ? linkContent
+            : [{ type: "text" as const, text: node.url, styles: {} }])
+        );
+      } else {
+        out.push({
+          type: "link",
+          href: node.url,
+          content:
+            linkContent.length > 0 ? linkContent : [{ type: "text", text: node.url, styles: {} }],
+        });
+      }
       break;
     }
     case "break":

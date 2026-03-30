@@ -7,8 +7,13 @@ import { resolveAccessTokenSession } from "../services/auth/session-service.js";
 import { jsonError } from "./api-error.js";
 import { writeAuditLog } from "./audit.js";
 
-// Cache of user IDs confirmed to exist in DB. Avoids a DB query on every request.
-const verifiedUserIds = new Set<string>();
+/**
+ * Cache of user IDs confirmed to exist in DB. Avoids a DB query on every request.
+ * Entries expire after VERIFIED_USER_TTL_MS to pick up role changes and suspensions.
+ */
+const VERIFIED_USER_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_VERIFIED_USERS = 10_000;
+const verifiedUserIds = new Map<string, { role: UserRole; expiresAt: number }>();
 
 /** Remove a user from the verified-user cache so the next request re-checks the DB. */
 export function invalidateVerifiedUser(userId: string) {
@@ -119,8 +124,9 @@ export const authGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
   // 2. Auth.js JWT session (browser)
   const authjsResult = await resolveAuthjsSession(c);
   if (authjsResult) {
-    // Verify user still exists in DB (cached after first check)
-    if (!verifiedUserIds.has(authjsResult.user.id)) {
+    // Verify user still exists in DB (cached with TTL after first check)
+    const cached = verifiedUserIds.get(authjsResult.user.id);
+    if (!cached || cached.expiresAt < Date.now()) {
       const dbUser = await getUserById(authjsResult.user.id);
       if (!dbUser) {
         return jsonError(c, 401, "SESSION_INVALID", "User no longer exists");
@@ -128,7 +134,21 @@ export const authGuard: MiddlewareHandler<AppEnv> = async (c, next) => {
       if (dbUser.suspendedAt || dbUser.deletedAt) {
         return jsonError(c, 403, "ACCOUNT_SUSPENDED", "Account is suspended or deleted");
       }
-      verifiedUserIds.add(authjsResult.user.id);
+      // Evict oldest entries when cache is full
+      if (verifiedUserIds.size >= MAX_VERIFIED_USERS) {
+        const firstKey = verifiedUserIds.keys().next().value;
+        if (firstKey) verifiedUserIds.delete(firstKey);
+      }
+      const dbRole = dbUser.role === UserRole.Admin ? UserRole.Admin : UserRole.Member;
+      verifiedUserIds.set(authjsResult.user.id, {
+        role: dbRole,
+        expiresAt: Date.now() + VERIFIED_USER_TTL_MS,
+      });
+      // Sync role from DB into session (overrides stale JWT value)
+      authjsResult.user.role = dbRole;
+    } else {
+      // Use cached role (fresher than JWT)
+      authjsResult.user.role = cached.role;
     }
     c.set("user", authjsResult.user);
     c.set("authMode", authjsResult.authMode);

@@ -12,6 +12,7 @@ import { isOwnerOrAdmin } from "../lib/route-helpers.js";
 import * as coworkingMcu from "../services/coworking/coworking-mcu-service.js";
 import { getMeetingById } from "../services/meeting/meeting-service.js";
 import * as recordingService from "../services/meeting/recording-service.js";
+import { generateHlsToken } from "./coworking-hls.js";
 
 export const livekitRoutes = new Hono<AppEnv>();
 
@@ -229,3 +230,9 @@ livekitRoutes.get(
     return c.json(coworkingMcu.getCoworkingCompositeStatus());
   }
 );
+
+// GET /api/livekit/coworking/hls-token - Issue a signed HLS access token
+livekitRoutes.get("/coworking/hls-token", async (c) => {
+  const { token, expires } = generateHlsToken();
+  return c.json({ token, expires });
+});
