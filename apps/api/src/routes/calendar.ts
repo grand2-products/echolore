@@ -57,6 +57,13 @@ calendarRoutes.get("/callback", async (c) => {
     return c.redirect(`${webBaseUrl}/settings?calendar=error&reason=missing_params`);
   }
 
+  // Verify the OAuth state matches the authenticated user to prevent
+  // cross-user token association attacks
+  const sessionUser = c.get("user");
+  if (state !== sessionUser.id) {
+    return c.redirect(`${webBaseUrl}/settings?calendar=error&reason=state_mismatch`);
+  }
+
   try {
     await handleCallback(code, state);
     await writeAuditLog({

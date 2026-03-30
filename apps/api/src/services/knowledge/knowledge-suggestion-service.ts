@@ -5,6 +5,11 @@ import { z } from "zod";
 import { buildKnowledgeSuggestionPrompt } from "../../ai/agent/knowledge-suggestion-prompt.js";
 import { initLlmWithSettings } from "../../ai/llm/index.js";
 import {
+  sanitizeBlockContent,
+  sanitizeBlockProperties,
+  sanitizeBlockType,
+} from "../../lib/sanitize-block.js";
+import {
   createSuggestion,
   getSuggestionById,
   updateSuggestion,
@@ -193,9 +198,9 @@ export async function approveSuggestion(
           }) => ({
             id: crypto.randomUUID(),
             pageId: page.id,
-            type: block.type,
-            content: block.content,
-            properties: block.properties,
+            type: sanitizeBlockType(block.type),
+            content: sanitizeBlockContent(block.content),
+            properties: sanitizeBlockProperties(block.properties),
             sortOrder: block.sortOrder,
             createdAt: now,
             updatedAt: now,

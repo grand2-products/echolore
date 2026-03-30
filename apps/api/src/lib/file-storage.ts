@@ -78,6 +78,20 @@ class LocalStorageProvider implements StorageProvider {
   }
 }
 
+/** Validate that a cloud storage key does not contain path traversal sequences. */
+function validateCloudKey(key: string): void {
+  // Normalize using POSIX separator (cloud keys use forward slashes)
+  const normalized = key.replace(/\\/g, "/");
+  if (
+    normalized.startsWith("/") ||
+    normalized.startsWith("../") ||
+    normalized.includes("/../") ||
+    normalized === ".."
+  ) {
+    throw new Error("Path traversal is not allowed");
+  }
+}
+
 // ---------------------------------------------------------------------------
 // S3-compatible provider (lazy-loaded)
 // ---------------------------------------------------------------------------
@@ -107,6 +121,7 @@ class S3StorageProvider implements StorageProvider {
   }
 
   async save(relativePath: string, data: Buffer, contentType?: string): Promise<void> {
+    validateCloudKey(relativePath);
     const { PutObjectCommand } = await import("@aws-sdk/client-s3");
     const { client, bucket } = await this.clientPromise;
     await client.send(
@@ -120,6 +135,7 @@ class S3StorageProvider implements StorageProvider {
   }
 
   async load(relativePath: string): Promise<Buffer> {
+    validateCloudKey(relativePath);
     const { GetObjectCommand } = await import("@aws-sdk/client-s3");
     const { client, bucket } = await this.clientPromise;
     const res = await client.send(new GetObjectCommand({ Bucket: bucket, Key: relativePath }));
@@ -129,6 +145,7 @@ class S3StorageProvider implements StorageProvider {
   }
 
   async remove(relativePath: string): Promise<void> {
+    validateCloudKey(relativePath);
     const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
     const { client, bucket } = await this.clientPromise;
     try {
@@ -166,18 +183,21 @@ class GcsStorageProvider implements StorageProvider {
   }
 
   async save(relativePath: string, data: Buffer, contentType?: string): Promise<void> {
+    validateCloudKey(relativePath);
     const bucket = await this.bucketPromise;
     const file = bucket.file(relativePath);
     await file.save(data, { contentType });
   }
 
   async load(relativePath: string): Promise<Buffer> {
+    validateCloudKey(relativePath);
     const bucket = await this.bucketPromise;
     const [buffer] = await bucket.file(relativePath).download();
     return buffer;
   }
 
   async remove(relativePath: string): Promise<void> {
+    validateCloudKey(relativePath);
     const bucket = await this.bucketPromise;
     try {
       await bucket.file(relativePath).delete();

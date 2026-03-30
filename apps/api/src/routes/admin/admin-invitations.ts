@@ -63,10 +63,20 @@ adminInvitationRoutes.post(
         invitedByUserId: sessionUser.id,
       });
 
-      // Build invite URL using configured base URL or request origin
-      const proto = c.req.header("x-forwarded-proto") ?? "http";
-      const host = c.req.header("x-forwarded-host") ?? c.req.header("host") ?? "localhost";
-      const origin = process.env.APP_BASE_URL || `${proto}://${host}`;
+      // Build invite URL using configured base URL (never trust request headers
+      // for URL construction — they can be spoofed for phishing)
+      const origin =
+        process.env.APP_BASE_URL ||
+        process.env.CORS_ORIGIN ||
+        (process.env.NODE_ENV === "production" ? null : "http://localhost:3000");
+      if (!origin) {
+        return jsonError(
+          c,
+          500,
+          "APP_BASE_URL_REQUIRED",
+          "APP_BASE_URL must be configured to send invitations"
+        );
+      }
       const inviteUrl = `${origin}/invite/${token}`;
 
       // Try to send email

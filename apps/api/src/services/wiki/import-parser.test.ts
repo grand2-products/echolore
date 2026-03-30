@@ -130,6 +130,47 @@ describe("parseMarkdown", () => {
     expect(blocks[0]?.content).toContain("&amp;");
   });
 
+  it("strips javascript: URLs from links", () => {
+    const md = "[click](javascript:alert(1))";
+    const blocks = parseMarkdown(md);
+    expect(blocks[0]?.content).not.toContain("javascript:");
+    // Link text should be preserved
+    expect(blocks[0]?.content).toContain("click");
+  });
+
+  it("strips javascript: URLs from images", () => {
+    const md = "![xss](javascript:alert(1))";
+    const blocks = parseMarkdown(md);
+    // Image should be dropped entirely
+    expect(blocks).toHaveLength(0);
+  });
+
+  it("strips data: URLs from links", () => {
+    const md = "[click](data:text/html,<script>alert(1)</script>)";
+    const blocks = parseMarkdown(md);
+    expect(blocks[0]?.content).not.toContain("data:");
+  });
+
+  it("strips javascript: URLs from links inside table cells", () => {
+    const md = "| Col |\n| --- |\n| [xss](javascript:alert(1)) |";
+    const blocks = parseMarkdown(md);
+    const parsed = JSON.parse(blocks[0]?.content ?? "");
+    const cell = parsed.content.rows[1].cells[0];
+    // Should not contain a link item
+    const linkItem = cell.find((i: Record<string, unknown>) => i.type === "link");
+    expect(linkItem).toBeUndefined();
+    // But text should be preserved
+    const textItem = cell.find((i: Record<string, unknown>) => i.text === "xss");
+    expect(textItem).toBeDefined();
+  });
+
+  it("preserves safe links", () => {
+    const md = "[ok](https://example.com) and [mail](mailto:a@b.com)";
+    const blocks = parseMarkdown(md);
+    expect(blocks[0]?.content).toContain("https://example.com");
+    expect(blocks[0]?.content).toContain("mailto:a@b.com");
+  });
+
   it("parses GFM tables", () => {
     const md = "| Name | Age |\n| --- | --- |\n| Alice | 30 |\n| Bob | 25 |";
     const blocks = parseMarkdown(md);
@@ -284,5 +325,13 @@ describe("parseTypst", () => {
     const lines = Array.from({ length: 600 }, (_, i) => `= Heading ${i}`).join("\n");
     const blocks = parseTypst(lines);
     expect(blocks.length).toBe(500);
+  });
+
+  it("strips javascript: URLs from images", () => {
+    const src = '#image("javascript:alert(1)")';
+    const blocks = parseTypst(src);
+    // Image with dangerous scheme should be dropped
+    const imageBlock = blocks.find((b) => b.type === "image");
+    expect(imageBlock).toBeUndefined();
   });
 });

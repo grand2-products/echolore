@@ -6,6 +6,24 @@ import { authorizePageResource } from "../../policies/authorization-policy.js";
 import { getFileById } from "../../repositories/file/file-repository.js";
 import { getPageById } from "../../services/wiki/wiki-service.js";
 
+/** MIME types safe to serve inline (no script execution risk). */
+const SAFE_INLINE_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+  "image/avif",
+  "application/pdf",
+  "audio/mpeg",
+  "audio/ogg",
+  "audio/wav",
+  "audio/webm",
+  "video/mp4",
+  "video/webm",
+  "video/ogg",
+]);
+
 export const wikiFileRoutes = new Hono<AppEnv>();
 
 wikiFileRoutes.get(
@@ -30,11 +48,13 @@ wikiFileRoutes.get(
     }
 
     const buffer = await loadFile(fileRecord.storagePath);
+    const ct = fileRecord.contentType || "application/octet-stream";
+    const disposition = SAFE_INLINE_TYPES.has(ct) ? "inline" : "attachment";
 
     return new Response(new Uint8Array(buffer), {
       headers: {
-        "Content-Type": fileRecord.contentType || "application/octet-stream",
-        "Content-Disposition": `inline; filename="${encodeURIComponent(fileRecord.filename)}"`,
+        "Content-Type": ct,
+        "Content-Disposition": `${disposition}; filename="${encodeURIComponent(fileRecord.filename)}"`,
         "Cache-Control": "private, max-age=3600",
       },
     });

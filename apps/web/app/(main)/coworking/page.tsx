@@ -168,7 +168,7 @@ function CoworkingBody() {
 }
 
 async function waitForHls(signal: AbortSignal, maxAttempts = 45): Promise<boolean> {
-  const url = getHlsStreamUrl();
+  const url = await getHlsStreamUrl();
   for (let i = 0; i < maxAttempts; i++) {
     if (signal.aborted) return false;
     try {
@@ -187,9 +187,16 @@ async function waitForHls(signal: AbortSignal, maxAttempts = 45): Promise<boolea
   return false;
 }
 
-function getHlsStreamUrl() {
+async function getHlsStreamUrl() {
   const origin = new URL(getPublicApiUrl()).origin;
-  return `${origin}/api/coworking-hls/live.m3u8`;
+  // Fetch a signed token for HLS access
+  try {
+    const data = await fetchApi<{ token: string }>("/livekit/coworking/hls-token");
+    return `${origin}/api/coworking-hls/live.m3u8?token=${encodeURIComponent(data.token)}`;
+  } catch {
+    // Fallback without token (will fail with 401)
+    return `${origin}/api/coworking-hls/live.m3u8`;
+  }
 }
 
 function CoworkingMcuBody() {
@@ -233,7 +240,7 @@ function CoworkingMcuBody() {
           liveSyncDurationCount: 3,
         });
 
-        hls.loadSource(getHlsStreamUrl());
+        hls.loadSource(await getHlsStreamUrl());
         hls.attachMedia(videoRef.current);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -267,7 +274,7 @@ function CoworkingMcuBody() {
           setHlsLoading(false);
           video.play().catch(() => {});
         };
-        video.src = getHlsStreamUrl();
+        video.src = await getHlsStreamUrl();
         video.addEventListener("loadedmetadata", onMeta);
         return () => {
           video.removeEventListener("loadedmetadata", onMeta);

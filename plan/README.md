@@ -14,6 +14,7 @@ Temporary planning artifacts. Implemented behavior belongs in `docs/`.
 
 ## Retained Files
 
+- `security-vulnerability-review.md` — 脆弱性レビュー 2026-03-30 (High 3 / Medium 10 / Low 10)
 - `meeting-data-model-refactoring.md` — ミーティング参加者トラッキング・ライフサイクル・スキーマ整合性の As-Is / To-Be
 - `aituber-motion-sota.md` — VRMA モーションクリップ生成 (Batch 4-B/4-C)
 - `backup-strategy.md` — バックアップ失敗通知のみ残

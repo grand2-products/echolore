@@ -26,15 +26,19 @@ const RATE_LIMIT_WINDOW_SECONDS = 60;
 
 async function checkRateLimit(ip: string): Promise<boolean> {
   const valkey = getValkey();
-  if (!valkey) return true; // allow if Valkey unavailable
+  if (!valkey) {
+    console.warn("[meeting-guest] Rate limiting disabled: Valkey unavailable");
+    return true;
+  }
 
   const key = `rate:guest-request:${ip}`;
   try {
     const count = await valkey.incr(key);
     if (count === 1) await valkey.expire(key, RATE_LIMIT_WINDOW_SECONDS);
     return count <= RATE_LIMIT_MAX;
-  } catch {
-    return true; // allow if Valkey errors
+  } catch (err) {
+    console.warn("[meeting-guest] Rate limiting disabled: Valkey error", err);
+    return true;
   }
 }
 
@@ -196,6 +200,7 @@ meetingGuestRoutes.get(
     const at = new AccessToken(livekitApiKey, livekitApiSecret, {
       identity: request.guestIdentity,
       name: request.guestName,
+      ttl: "1h",
     });
 
     at.addGrant({

@@ -2,6 +2,7 @@ import { AIMessage, type BaseMessage, HumanMessage } from "@langchain/core/messa
 import { nanoid } from "nanoid";
 import { createAiChatAgent } from "../../ai/agent/create-ai-chat-agent.js";
 import { defaultLlmProvider, type LlmProvider } from "../../ai/providers/index.js";
+import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
 import {
   type AiChatToolResult,
   createAiChatReadPageTool,
@@ -46,8 +47,10 @@ export async function sendMessageAndGetResponse(
   const recentMessages = await listRecentMessages(conversationId, 20);
   const messageHistory = recentMessages
     .filter((m) => m.id !== userMessage.id)
-    .map((m) => (m.role === "user" ? new HumanMessage(m.content) : new AIMessage(m.content)));
-  messageHistory.push(new HumanMessage(content));
+    .map((m) =>
+      m.role === "user" ? new HumanMessage(escapeXmlTags(m.content)) : new AIMessage(m.content)
+    );
+  messageHistory.push(new HumanMessage(escapeXmlTags(content)));
 
   // Run RAG + Agent
   const { responseContent, citations } = await invokeAgent(
@@ -115,11 +118,14 @@ async function invokeAgent(
     })
   );
 
-  // Step 2: Build RAG context string
+  // Step 2: Build RAG context string (sanitize wiki content to prevent prompt injection)
   const ragContext =
     ragResults.length > 0
       ? ragResults
-          .map((r, i) => `### Source ${i + 1}: ${r.pageTitle} (id: ${r.pageId})\n${r.chunkText}`)
+          .map(
+            (r, i) =>
+              `### Source ${i + 1}: ${escapeXmlTags(r.pageTitle)} (id: ${r.pageId})\n${escapeXmlTags(r.chunkText)}`
+          )
           .join("\n\n")
       : "No relevant wiki content was found for this query.";
 

@@ -13,15 +13,15 @@ export const updatePageSchema = z.object({
 
 export const createBlockSchema = z.object({
   pageId: z.string(),
-  type: z.string(),
-  content: z.string().optional(),
+  type: z.string().max(50),
+  content: z.string().max(500_000).optional(),
   properties: z.record(z.string(), z.unknown()).optional(),
   sortOrder: z.number(),
 });
 
 export const updateBlockSchema = z.object({
-  type: z.string().optional(),
-  content: z.string().nullable().optional(),
+  type: z.string().max(50).optional(),
+  content: z.string().max(500_000).nullable().optional(),
   properties: z.record(z.string(), z.unknown()).nullable().optional(),
   sortOrder: z.number().optional(),
 });

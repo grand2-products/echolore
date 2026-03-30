@@ -30,16 +30,15 @@ export async function isRateLimited(input: RateLimitInput) {
     }
   }
 
-  // Per-email+IP check
+  // Per-email+IP check — use "unknown" as fallback when both are absent
+  // so rate limiting is never fully bypassed
   const email = input.email ? normalizeEmail(input.email) : null;
-  if (!email && !ipAddress) {
-    return false;
-  }
+  const effectiveIp = ipAddress ?? "unknown";
 
   const since = new Date(Date.now() - input.windowMs);
   const count = await countAuditLogsByActionAndIdentity(input.action, since, {
     email,
-    ipAddress,
+    ipAddress: effectiveIp,
   });
 
   return count >= input.maxAttempts;

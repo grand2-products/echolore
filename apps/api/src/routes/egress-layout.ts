@@ -22,6 +22,7 @@ const LAYOUT_HTML = /* html */ `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net; style-src 'unsafe-inline'; connect-src wss: ws:; media-src blob:">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {

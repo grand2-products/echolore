@@ -2,6 +2,11 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
+import {
+  sanitizeBlockContent,
+  sanitizeBlockProperties,
+  sanitizeBlockType,
+} from "../../lib/sanitize-block.js";
 import { authorizePageResource } from "../../policies/authorization-policy.js";
 import { indexPage } from "../../services/wiki/embedding-service.js";
 import type { NewBlock } from "../../services/wiki/wiki-service.js";
@@ -37,9 +42,9 @@ wikiBlockRoutes.post(
     const newBlock: NewBlock = {
       id: crypto.randomUUID(),
       pageId: data.pageId,
-      type: data.type,
-      content: data.content || null,
-      properties: data.properties || null,
+      type: sanitizeBlockType(data.type),
+      content: sanitizeBlockContent(data.content),
+      properties: sanitizeBlockProperties(data.properties) || null,
       sortOrder: data.sortOrder,
       createdAt: now,
       updatedAt: now,
@@ -116,9 +121,10 @@ wikiBlockRoutes.put(
       updatedAt: new Date(),
     };
 
-    if (data.type !== undefined) updatePayload.type = data.type;
-    if (data.content !== undefined) updatePayload.content = data.content;
-    if (data.properties !== undefined) updatePayload.properties = data.properties;
+    if (data.type !== undefined) updatePayload.type = sanitizeBlockType(data.type);
+    if (data.content !== undefined) updatePayload.content = sanitizeBlockContent(data.content);
+    if (data.properties !== undefined)
+      updatePayload.properties = sanitizeBlockProperties(data.properties);
     if (data.sortOrder !== undefined) updatePayload.sortOrder = data.sortOrder;
 
     const updatedBlock = await updateBlock(id, updatePayload);
