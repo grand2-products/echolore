@@ -64,15 +64,29 @@ const nextConfig: NextConfig = {
   async headers() {
     const apiUrl = process.env.ECHOLORE_PUBLIC_API_URL;
     const livekitUrl = process.env.ECHOLORE_PUBLIC_LIVEKIT_URL;
-    const extraConnectSrc = [
-      apiUrl,
-      livekitUrl,
-      // Allow ws:// WebSocket connections to the API server (derived from http:// URL)
-      apiUrl?.replace(/^http:/, "ws:"),
-      apiUrl?.replace(/^https:/, "wss:"),
-    ]
-      .filter(Boolean)
-      .join(" ");
+    // Build CSP connect-src entries for configured URLs and their LAN-IP equivalents
+    const lanUrls = (url: string | undefined) => {
+      if (!url) return [];
+      const entries = [url, url.replace(/^http:/, "ws:"), url.replace(/^https:/, "wss:")];
+      try {
+        const parsed = new URL(url);
+        if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+          for (const ip of getLocalIPs()) {
+            const lanUrl = new URL(url);
+            lanUrl.hostname = ip;
+            entries.push(lanUrl.toString().replace(/\/$/, ""));
+            entries.push(
+              lanUrl
+                .toString()
+                .replace(/\/$/, "")
+                .replace(/^http:/, "ws:")
+            );
+          }
+        }
+      } catch {}
+      return entries;
+    };
+    const extraConnectSrc = [...lanUrls(apiUrl), ...lanUrls(livekitUrl)].filter(Boolean).join(" ");
 
     return [
       {
@@ -86,7 +100,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              `connect-src 'self' blob: wss: ws: https: http:${extraConnectSrc ? ` ${extraConnectSrc}` : ""}`,
+              `connect-src 'self' blob: wss: https:${extraConnectSrc ? ` ${extraConnectSrc}` : ""}`,
               "media-src 'self' blob:",
               "frame-src 'self'",
             ].join("; "),
