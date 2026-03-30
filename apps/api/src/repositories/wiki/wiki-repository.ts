@@ -549,6 +549,97 @@ export async function searchByVector(
   }));
 }
 
+/**
+ * Vector search with space-level permission filtering baked into the query.
+ * Handles: owner, personal/general (public read), team (group member),
+ * and explicit space_permissions. Page-level permissions are NOT checked here
+ * — callers should post-filter the small subset of pages that have them.
+ */
+export async function searchByVectorForUser(
+  queryEmbedding: number[],
+  userId: string,
+  limit: number
+): Promise<VectorSearchResult[]> {
+  const vectorStr = `[${queryEmbedding.join(",")}]`;
+
+  const results = await sql`
+    SELECT
+      pe.page_id,
+      p.title AS page_title,
+      pe.plain_text AS chunk_text,
+      1 - (pe.embedding <=> ${vectorStr}::vector) AS similarity
+    FROM page_embeddings pe
+    JOIN pages p ON p.id = pe.page_id
+    JOIN spaces s ON s.id = p.space_id
+    WHERE p.deleted_at IS NULL
+      AND (
+        -- Page owner
+        p.author_id = ${userId}
+        -- Public-read spaces
+        OR s.type IN ('personal', 'general')
+        -- Team space: user is a member of the space's group
+        OR (s.type = 'team' AND s.group_id IN (
+          SELECT group_id FROM user_group_memberships WHERE user_id = ${userId}
+        ))
+        -- Explicit space permission grants read
+        OR EXISTS (
+          SELECT 1 FROM space_permissions sp
+          JOIN user_group_memberships ugm ON ugm.group_id = sp.group_id
+          WHERE ugm.user_id = ${userId}
+            AND sp.space_id = s.id
+            AND sp.can_read = true
+        )
+      )
+    ORDER BY pe.embedding <=> ${vectorStr}::vector
+    LIMIT ${limit}
+  `.execute(db);
+
+  return (
+    results.rows as Array<{
+      page_id: string;
+      page_title: string;
+      chunk_text: string;
+      similarity: number;
+    }>
+  ).map((row) => ({
+    pageId: row.page_id,
+    pageTitle: row.page_title,
+    chunkText: row.chunk_text,
+    similarity: Number(row.similarity),
+  }));
+}
+
+/**
+ * Returns page IDs (from the given set) that have explicit page_permissions
+ * denying read access for the given user's groups.
+ */
+export async function findPagesWithExplicitDeny(
+  pageIds: string[],
+  userId: string
+): Promise<Set<string>> {
+  if (pageIds.length === 0) return new Set();
+
+  // Pages where user's groups have page_permissions entries but none grant read
+  const rows = await sql`
+    SELECT DISTINCT pp.page_id
+    FROM page_permissions pp
+    JOIN user_group_memberships ugm ON ugm.group_id = pp.group_id
+    LEFT JOIN page_inheritance pi ON pi.page_id = pp.page_id
+    WHERE ugm.user_id = ${userId}
+      AND pp.page_id IN (${sql.join(pageIds.map((id) => sql`${id}`))})
+      AND (pi.inherit_from_parent IS NULL OR pi.inherit_from_parent = false)
+      AND pp.page_id NOT IN (
+        SELECT pp2.page_id
+        FROM page_permissions pp2
+        JOIN user_group_memberships ugm2 ON ugm2.group_id = pp2.group_id
+        WHERE ugm2.user_id = ${userId}
+          AND pp2.can_read = true
+      )
+  `.execute(db);
+
+  return new Set((rows.rows as Array<{ page_id: string }>).map((r) => r.page_id));
+}
+
 // ---------------------------------------------------------------------------
 // Knowledge scan / suggestion helpers
 // ---------------------------------------------------------------------------

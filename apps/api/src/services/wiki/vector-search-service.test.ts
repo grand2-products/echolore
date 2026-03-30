@@ -6,15 +6,17 @@ const {
   mockIsEmbeddingEnabled,
   mockGetEmbeddingDimensions,
   mockSearchByVectorRepo,
+  mockSearchByVectorForUser,
+  mockFindPagesWithExplicitDeny,
   mockSearchPagesByIlike,
-  mockCanReadPage,
 } = vi.hoisted(() => ({
   mockEmbedText: vi.fn(),
   mockIsEmbeddingEnabled: vi.fn(),
   mockGetEmbeddingDimensions: vi.fn(),
   mockSearchByVectorRepo: vi.fn(),
+  mockSearchByVectorForUser: vi.fn(),
+  mockFindPagesWithExplicitDeny: vi.fn(),
   mockSearchPagesByIlike: vi.fn(),
-  mockCanReadPage: vi.fn(),
 }));
 
 vi.mock("../../ai/embeddings.js", () => ({
@@ -25,11 +27,9 @@ vi.mock("../../ai/embeddings.js", () => ({
 
 vi.mock("../../repositories/wiki/wiki-repository.js", () => ({
   searchByVector: mockSearchByVectorRepo,
+  searchByVectorForUser: mockSearchByVectorForUser,
+  findPagesWithExplicitDeny: mockFindPagesWithExplicitDeny,
   searchPagesByIlike: mockSearchPagesByIlike,
-}));
-
-vi.mock("../../policies/authorization-policy.js", () => ({
-  canReadPage: mockCanReadPage,
 }));
 
 vi.mock("../../lib/auth.js", () => ({}));
@@ -52,6 +52,7 @@ describe("vector-search-service", () => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
     mockGetEmbeddingDimensions.mockResolvedValue(768);
+    mockFindPagesWithExplicitDeny.mockResolvedValue(new Set());
   });
 
   describe("searchByVector", () => {
@@ -135,11 +136,10 @@ describe("vector-search-service", () => {
           similarity: 0.5,
         },
       ]);
-      // Should NOT have called embedText since embeddings are disabled
       expect(mockEmbedText).not.toHaveBeenCalled();
     });
 
-    it("returns all results for admin users without permission checks", async () => {
+    it("returns all results for admin users without per-page permission checks", async () => {
       const admin = makeUser({ role: UserRole.Admin });
       mockIsEmbeddingEnabled.mockResolvedValue(true);
       mockEmbedText.mockResolvedValue([0.1, 0.2]);
@@ -151,23 +151,36 @@ describe("vector-search-service", () => {
       const results = await searchVisibleChunks(admin, "query", 5);
 
       expect(results).toHaveLength(2);
-      expect(mockCanReadPage).not.toHaveBeenCalled();
+      expect(mockSearchByVectorForUser).not.toHaveBeenCalled();
     });
 
-    it("filters results by permission for non-admin users", async () => {
+    it("uses SQL-level permission filter for non-admin users", async () => {
       const user = makeUser({ role: UserRole.Member });
       mockIsEmbeddingEnabled.mockResolvedValue(true);
       mockEmbedText.mockResolvedValue([0.1, 0.2]);
-      mockSearchByVectorRepo.mockResolvedValue([
+      mockSearchByVectorForUser.mockResolvedValue([
         { pageId: "p1", pageTitle: "Allowed", chunkText: "c1", similarity: 0.9 },
-        { pageId: "p2", pageTitle: "Denied", chunkText: "c2", similarity: 0.8 },
         { pageId: "p3", pageTitle: "Also Allowed", chunkText: "c3", similarity: 0.7 },
       ]);
 
-      mockCanReadPage
-        .mockResolvedValueOnce(true) // p1 allowed
-        .mockResolvedValueOnce(false) // p2 denied
-        .mockResolvedValueOnce(true); // p3 allowed
+      const results = await searchVisibleChunks(user, "query", 5);
+
+      expect(results).toHaveLength(2);
+      expect(results[0]?.pageId).toBe("p1");
+      expect(results[1]?.pageId).toBe("p3");
+      expect(mockSearchByVectorForUser).toHaveBeenCalledWith([0.1, 0.2], "user_1", 5);
+    });
+
+    it("excludes pages with explicit page-level deny", async () => {
+      const user = makeUser({ role: UserRole.Member });
+      mockIsEmbeddingEnabled.mockResolvedValue(true);
+      mockEmbedText.mockResolvedValue([0.1, 0.2]);
+      mockSearchByVectorForUser.mockResolvedValue([
+        { pageId: "p1", pageTitle: "Allowed", chunkText: "c1", similarity: 0.9 },
+        { pageId: "p2", pageTitle: "Denied by page perm", chunkText: "c2", similarity: 0.8 },
+        { pageId: "p3", pageTitle: "Also Allowed", chunkText: "c3", similarity: 0.7 },
+      ]);
+      mockFindPagesWithExplicitDeny.mockResolvedValue(new Set(["p2"]));
 
       const results = await searchVisibleChunks(user, "query", 5);
 
@@ -188,24 +201,18 @@ describe("vector-search-service", () => {
 
       const results = await searchVisibleChunks(admin, "query", 5);
 
-      // p1 appears twice but should only be included once
       expect(results).toHaveLength(2);
-      expect(results[0]?.chunkText).toBe("chunk1a"); // highest similarity wins
+      expect(results[0]?.chunkText).toBe("chunk1a");
     });
 
-    it("respects the limit parameter", async () => {
-      const admin = makeUser({ role: UserRole.Admin });
+    it("returns empty when embedding returns null", async () => {
+      const user = makeUser();
       mockIsEmbeddingEnabled.mockResolvedValue(true);
-      mockEmbedText.mockResolvedValue([0.1]);
-      mockSearchByVectorRepo.mockResolvedValue([
-        { pageId: "p1", pageTitle: "P1", chunkText: "c1", similarity: 0.9 },
-        { pageId: "p2", pageTitle: "P2", chunkText: "c2", similarity: 0.8 },
-        { pageId: "p3", pageTitle: "P3", chunkText: "c3", similarity: 0.7 },
-      ]);
+      mockEmbedText.mockResolvedValue(null);
 
-      const results = await searchVisibleChunks(admin, "query", 2);
+      const results = await searchVisibleChunks(user, "query");
 
-      expect(results).toHaveLength(2);
+      expect(results).toEqual([]);
     });
   });
 
@@ -217,7 +224,6 @@ describe("vector-search-service", () => {
 
       await searchVisibleChunks(user, "100% match_test");
 
-      // Verify the function doesn't crash with special LIKE characters
       expect(mockSearchPagesByIlike).toHaveBeenCalled();
     });
 
