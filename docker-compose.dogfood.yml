@@ -1,0 +1,221 @@
+# Dogfooding environment
+#
+# Builds api/web/worker from local source and runs them in production mode
+# on localhost (no Traefik, no TLS, no updater).
+#
+# Usage:
+#   cp .env.dogfood.example .env.dogfood
+#   # Edit .env.dogfood with your API keys (GEMINI_API_KEY etc.)
+#   docker compose -f docker-compose.dogfood.yml --env-file .env.dogfood up --build -d
+#
+# Tear down:
+#   docker compose -f docker-compose.dogfood.yml --env-file .env.dogfood down
+#
+# Tear down + delete data:
+#   docker compose -f docker-compose.dogfood.yml --env-file .env.dogfood down -v
+
+services:
+  # ── Infrastructure ─────────────────────────────────────────────
+
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: echolore-dogfood-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: wiki
+      POSTGRES_USER: wiki
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-dogfood_password}
+    volumes:
+      - dogfood_postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "${DB_PORT:-17724}:5432"
+    networks:
+      - dogfood
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wiki -d wiki"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: echolore-dogfood-valkey
+    restart: unless-stopped
+    volumes:
+      - dogfood_valkey_data:/data
+    ports:
+      - "${VALKEY_PORT:-17725}:6379"
+    networks:
+      - dogfood
+
+  livekit:
+    image: livekit/livekit-server:v1.9
+    container_name: echolore-dogfood-livekit
+    restart: unless-stopped
+    environment:
+      LIVEKIT_CONFIG: |
+        port: 7880
+        rtc:
+          port_range_start: 50000
+          port_range_end: 50020
+          use_external_ip: false
+        keys:
+          ${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secret}
+        room:
+          auto_create: true
+          empty_timeout: 300
+          max_participants: 100
+        redis:
+          address: valkey:6379
+        webhook:
+          urls:
+            - http://api:3001/api/livekit/webhook
+          api_key: ${LIVEKIT_API_KEY:-devkey}
+        turn:
+          enabled: false
+        logging:
+          level: info
+    ports:
+      - "${LIVEKIT_PORT:-17722}:7880"
+      - "${LIVEKIT_RTC_PORT_RANGE:-17730-17750}:50000-50020/udp"
+      - "3478:3478/udp"
+    networks:
+      - dogfood
+    depends_on:
+      - valkey
+
+  livekit-egress:
+    image: livekit/egress:v1.8
+    container_name: echolore-dogfood-livekit-egress
+    restart: unless-stopped
+    environment:
+      EGRESS_CONFIG_BODY: |
+        api_key: ${LIVEKIT_API_KEY:-devkey}
+        api_secret: ${LIVEKIT_API_SECRET:-secret}
+        ws_url: ws://livekit:7880
+        redis:
+          address: valkey:6379
+        file_output:
+          local: true
+          base_directory: /data/files/recordings
+        segment_output:
+          local: true
+          base_directory: /data/files
+        log_level: info
+    volumes:
+      - ./data/files:/data/files
+    networks:
+      - dogfood
+    depends_on:
+      - livekit
+      - valkey
+    cap_add:
+      - SYS_ADMIN
+
+  # ── Application (built from source) ───────────────────────────
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: echolore/api:dogfood
+    container_name: echolore-dogfood-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://wiki:${DB_PASSWORD:-dogfood_password}@db:5432/wiki
+      FILE_STORAGE_PATH: /data/files
+      LIVEKIT_HOST: http://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+      CORS_ORIGIN: http://localhost:${WEB_PORT:-17760}
+      AUTH_SECRET: ${AUTH_SECRET:-dogfood-auth-secret}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      APP_BASE_URL: http://localhost:${WEB_PORT:-17760}
+      ROOM_AI_WORKER_SECRET: ${ROOM_AI_WORKER_SECRET:-dogfood-worker-secret}
+      VALKEY_URL: redis://valkey:6379
+    volumes:
+      - ./data/files:/data/files
+    ports:
+      - "${API_PORT:-17721}:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+      valkey:
+        condition: service_started
+      livekit:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - dogfood
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: echolore/web:dogfood
+    container_name: echolore-dogfood-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      ECHOLORE_PUBLIC_API_URL: http://localhost:${API_PORT:-17721}
+      ECHOLORE_PUBLIC_LIVEKIT_URL: ws://localhost:${LIVEKIT_PORT:-17722}
+    ports:
+      - "${WEB_PORT:-17760}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - dogfood
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    image: echolore/worker:dogfood
+    container_name: echolore-dogfood-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      ROOM_AI_WORKER_MODE: monitor
+      ROOM_AI_API_BASE_URL: http://api:3001
+      ROOM_AI_WORKER_SECRET: ${ROOM_AI_WORKER_SECRET:-dogfood-worker-secret}
+      ROOM_AI_POLL_INTERVAL_MS: ${ROOM_AI_POLL_INTERVAL_MS:-15000}
+      ROOM_AI_HEALTH_PORT: 8788
+      LIVEKIT_HOST: http://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8788/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      api:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+    networks:
+      - dogfood
+
+volumes:
+  dogfood_postgres_data:
+  dogfood_valkey_data:
+
+networks:
+  dogfood:

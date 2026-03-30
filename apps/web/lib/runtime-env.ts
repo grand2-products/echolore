@@ -33,16 +33,30 @@ function read(key: string): string | undefined {
 }
 
 /**
+ * Replace `localhost` in a URL with the browser's hostname so that cookies
+ * and CORS work when accessing the app via LAN IP.
+ */
+function alignHostname(url: string): string {
+  if (typeof window === "undefined") return url;
+  const browserHost = window.location.hostname;
+  if (browserHost === "localhost" || browserHost === "127.0.0.1") return url;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+      parsed.hostname = browserHost;
+      return parsed.toString().replace(/\/$/, "");
+    }
+  } catch {}
+  return url;
+}
+
+/**
  * Resolved API base URL (e.g. `https://example.com`).
  * Falls back to browser origin when unset (same-origin Traefik routing).
  */
 export function getPublicApiUrl(): string {
   const runtime = read("ECHOLORE_PUBLIC_API_URL");
-  if (runtime) return runtime;
-
-  // Build-time value (works in local dev where .env.local is present)
-  const buildTime = process.env.NEXT_PUBLIC_API_URL;
-  if (buildTime) return buildTime;
+  if (runtime) return alignHostname(runtime);
 
   // Same-origin fallback for pre-built images behind a reverse proxy
   if (typeof window !== "undefined") {
@@ -56,10 +70,7 @@ export function getPublicApiUrl(): string {
  */
 export function getPublicLivekitUrl(): string {
   const runtime = read("ECHOLORE_PUBLIC_LIVEKIT_URL");
-  if (runtime) return runtime;
-
-  const buildTime = process.env.NEXT_PUBLIC_LIVEKIT_URL;
-  if (buildTime) return buildTime;
+  if (runtime) return alignHostname(runtime);
 
   return "ws://localhost:7880";
 }

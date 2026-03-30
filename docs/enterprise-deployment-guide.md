@@ -150,8 +150,8 @@ LiveKit と Egress は Fargate では動かせないため、専用の EC2 Capac
       ],
       "environment": [
         { "name": "NODE_ENV", "value": "production" },
-        { "name": "NEXT_PUBLIC_API_URL", "value": "https://echolore.example.com" },
-        { "name": "NEXT_PUBLIC_LIVEKIT_URL", "value": "wss://echolore.example.com" }
+        { "name": "ECHOLORE_PUBLIC_API_URL", "value": "https://echolore.example.com" },
+        { "name": "ECHOLORE_PUBLIC_LIVEKIT_URL", "value": "wss://echolore.example.com" }
       ],
       "healthCheck": {
         "command": ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000"],

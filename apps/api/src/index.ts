@@ -89,9 +89,7 @@ app.use("*", csrfProtection);
 app.use(
   "*",
   cors({
-    origin:
-      process.env.CORS_ORIGIN ??
-      (process.env.NODE_ENV === "production" ? "https://app.example.com" : "http://localhost:3000"),
+    origin: (process.env.CORS_ORIGIN ?? "http://localhost:17760").split(",").map((s) => s.trim()),
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],

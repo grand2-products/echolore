@@ -1,8 +1,21 @@
+import { networkInterfaces } from "node:os";
 import type { NextConfig } from "next";
+
+/** Collect all non-internal IPv4 addresses so LAN clients can use HMR. */
+function getLocalIPs(): string[] {
+  const ips: string[] = [];
+  for (const nets of Object.values(networkInterfaces())) {
+    for (const net of nets ?? []) {
+      if (net.family === "IPv4" && !net.internal) ips.push(net.address);
+    }
+  }
+  return ips;
+}
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: "standalone",
+  allowedDevOrigins: getLocalIPs(),
   turbopack: {
     rules: {
       "*.svg": {
@@ -49,9 +62,8 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
-    const apiUrl = process.env.ECHOLORE_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL;
-    const livekitUrl =
-      process.env.ECHOLORE_PUBLIC_LIVEKIT_URL || process.env.NEXT_PUBLIC_LIVEKIT_URL;
+    const apiUrl = process.env.ECHOLORE_PUBLIC_API_URL;
+    const livekitUrl = process.env.ECHOLORE_PUBLIC_LIVEKIT_URL;
     const extraConnectSrc = [
       apiUrl,
       livekitUrl,
@@ -74,7 +86,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              `connect-src 'self' blob: wss: https:${extraConnectSrc ? ` ${extraConnectSrc}` : ""}`,
+              `connect-src 'self' blob: wss: ws: https: http:${extraConnectSrc ? ` ${extraConnectSrc}` : ""}`,
               "media-src 'self' blob:",
               "frame-src 'self'",
             ].join("; "),
