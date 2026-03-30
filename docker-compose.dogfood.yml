@@ -29,7 +29,7 @@ services:
       - dogfood_postgres_data:/var/lib/postgresql/data
       - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     ports:
-      - "${DB_PORT:-17724}:5432"
+      - "${DB_PORT:-17824}:5432"
     networks:
       - dogfood
     healthcheck:
@@ -45,7 +45,7 @@ services:
     volumes:
       - dogfood_valkey_data:/data
     ports:
-      - "${VALKEY_PORT:-17725}:6379"
+      - "${VALKEY_PORT:-17825}:6379"
     networks:
       - dogfood
 
@@ -77,9 +77,8 @@ services:
         logging:
           level: info
     ports:
-      - "${LIVEKIT_PORT:-17722}:7880"
-      - "${LIVEKIT_RTC_PORT_RANGE:-17730-17750}:50000-50020/udp"
-      - "3478:3478/udp"
+      - "${LIVEKIT_PORT:-17822}:7880"
+      - "${LIVEKIT_RTC_PORT_RANGE:-17830-17850}:50000-50020/udp"
     networks:
       - dogfood
     depends_on:
@@ -130,17 +129,17 @@ services:
       LIVEKIT_HOST: http://livekit:7880
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
-      CORS_ORIGIN: http://localhost:${WEB_PORT:-17760}
+      CORS_ORIGIN: http://localhost:${WEB_PORT:-17860}
       AUTH_SECRET: ${AUTH_SECRET:-dogfood-auth-secret}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
-      APP_BASE_URL: http://localhost:${WEB_PORT:-17760}
+      APP_BASE_URL: http://localhost:${WEB_PORT:-17860}
       ROOM_AI_WORKER_SECRET: ${ROOM_AI_WORKER_SECRET:-dogfood-worker-secret}
       VALKEY_URL: redis://valkey:6379
     volumes:
       - ./data/files:/data/files
     ports:
-      - "${API_PORT:-17721}:3001"
+      - "${API_PORT:-17821}:3001"
     depends_on:
       db:
         condition: service_healthy
@@ -166,10 +165,10 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      ECHOLORE_PUBLIC_API_URL: http://localhost:${API_PORT:-17721}
-      ECHOLORE_PUBLIC_LIVEKIT_URL: ws://localhost:${LIVEKIT_PORT:-17722}
+      ECHOLORE_PUBLIC_API_URL: http://localhost:${API_PORT:-17821}
+      ECHOLORE_PUBLIC_LIVEKIT_URL: ws://localhost:${LIVEKIT_PORT:-17822}
     ports:
-      - "${WEB_PORT:-17760}:3000"
+      - "${WEB_PORT:-17860}:3000"
     depends_on:
       api:
         condition: service_healthy

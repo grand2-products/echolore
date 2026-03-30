@@ -90,19 +90,6 @@ function Test-DockerAvailable {
   return $LASTEXITCODE -eq 0
 }
 
-function Get-PostgresScalar {
-  param(
-    [string]$Sql
-  )
-
-  $result = docker exec echolore-db psql -U wiki -d wiki -t -A -c $Sql 2>$null
-  if ($LASTEXITCODE -ne 0) {
-    return $null
-  }
-
-  return ($result | Out-String).Trim()
-}
-
 function Sync-EnvFile {
   param(
     [string]$ExamplePath,
