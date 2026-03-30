@@ -3,6 +3,7 @@ import {
   OperationNodeTransformer,
   type PluginTransformQueryArgs,
   type PluginTransformResultArgs,
+  type PrimitiveValueListNode,
   type QueryResult,
   type RootOperationNode,
   type UnknownRow,
@@ -32,6 +33,13 @@ class JsonbTransformer extends OperationNodeTransformer {
       return { ...node, value: JSON.stringify(node.value) };
     }
     return node;
+  }
+
+  protected override transformPrimitiveValueList(
+    node: PrimitiveValueListNode
+  ): PrimitiveValueListNode {
+    const values = node.values.map((v) => (shouldStringify(v) ? JSON.stringify(v) : v));
+    return { ...node, values };
   }
 }
 
