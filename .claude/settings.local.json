@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(grep -r \"googleapis\\\\|@google-cloud\\\\|storage\\\\.bucket\\\\|vertex\\\\|embedContent\" c:/lib/github/grand2-products/corp-internal/apps/api/src --include=*.ts -l)",
-      "Bash(grep -i \"zhipu\\\\|glm\" /c/lib/github/grand2-products/corp-internal/apps/web/lib/i18n/locales/*.yaml)"
-    ]
-  }
-}
