@@ -422,12 +422,19 @@ export interface AiChatConversationDto {
   updatedAt: ISODateString;
 }
 
+export interface AiChatToolStepDto {
+  toolName: string;
+  toolArgs: Record<string, unknown>;
+  toolResult: string;
+}
+
 export interface AiChatMessageDto {
   id: string;
   conversationId: string;
   role: AiChatMessageRole;
   content: string;
   citations: AiChatCitationDto[] | null;
+  toolSteps: AiChatToolStepDto[] | null;
   createdAt: ISODateString;
 }
 

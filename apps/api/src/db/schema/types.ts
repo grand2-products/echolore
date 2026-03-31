@@ -2,7 +2,7 @@ import type { Insertable, Selectable, Updateable } from "kysely";
 import type { Database } from "./database.js";
 
 // Re-export database and JSONB types
-export type { BlockJson, CitationJson, Database } from "./database.js";
+export type { BlockJson, CitationJson, Database, ToolStepJson } from "./database.js";
 
 // ─── Users ───────────────────────────────────────────────────────
 export type User = Selectable<Database["users"]>;

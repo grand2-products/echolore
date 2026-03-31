@@ -1,4 +1,9 @@
-import { AIMessage, type BaseMessage, HumanMessage } from "@langchain/core/messages";
+import {
+  AIMessage,
+  type BaseMessage,
+  HumanMessage,
+  type ToolMessage,
+} from "@langchain/core/messages";
 import { nanoid } from "nanoid";
 import { createAiChatAgent } from "../../ai/agent/create-ai-chat-agent.js";
 import { defaultLlmProvider, type LlmProvider } from "../../ai/providers/index.js";
@@ -9,6 +14,7 @@ import {
   createAiChatReadPageTool,
   createAiChatSearchTool,
 } from "../../ai/tools/ai-chat-tools.js";
+import type { ToolStepJson } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import {
   createMessage,
@@ -54,7 +60,7 @@ export async function sendMessageAndGetResponse(
   messageHistory.push(new HumanMessage(escapeXmlTags(content)));
 
   // Run RAG + Agent
-  const { responseContent, citations } = await invokeAgent(
+  const { responseContent, citations, toolSteps } = await invokeAgent(
     user,
     content,
     messageHistory,
@@ -68,6 +74,7 @@ export async function sendMessageAndGetResponse(
     role: "assistant",
     content: responseContent,
     citations: citations.length > 0 ? citations : null,
+    toolSteps: toolSteps.length > 0 ? toolSteps : null,
     createdAt: new Date(),
   });
 
@@ -82,7 +89,7 @@ async function invokeAgent(
   userQuery: string,
   messageHistory: (HumanMessage | AIMessage)[],
   conversationId: string
-): Promise<{ responseContent: string; citations: AiChatToolResult[] }> {
+): Promise<{ responseContent: string; citations: AiChatToolResult[]; toolSteps: ToolStepJson[] }> {
   const llmResult = await llm.init({ temperature: 0.3, maxTokens: 2048 });
 
   if (!llmResult) {
@@ -90,6 +97,7 @@ async function invokeAgent(
       responseContent:
         "I'm sorry, but the AI service is currently unavailable. Please try again later.",
       citations: [],
+      toolSteps: [],
     };
   }
 
@@ -169,6 +177,31 @@ async function invokeAgent(
           : JSON.stringify(lastAiMessage.content);
     }
 
+    // Extract tool steps: pair each AI tool_call with its ToolMessage result
+    const toolSteps: ToolStepJson[] = [];
+    for (const msg of result.messages) {
+      if (msg._getType?.() === "ai" || msg.constructor?.name === "AIMessage") {
+        const aiMsg = msg as AIMessage;
+        if (aiMsg.tool_calls && aiMsg.tool_calls.length > 0) {
+          for (const tc of aiMsg.tool_calls) {
+            const toolResponse = result.messages.find(
+              (m: BaseMessage) =>
+                (m._getType?.() === "tool" || m.constructor?.name === "ToolMessage") &&
+                (m as ToolMessage).tool_call_id === tc.id
+            );
+            toolSteps.push({
+              toolName: tc.name,
+              toolArgs: tc.args as Record<string, unknown>,
+              toolResult:
+                typeof toolResponse?.content === "string"
+                  ? toolResponse.content.slice(0, 500)
+                  : JSON.stringify(toolResponse?.content ?? "").slice(0, 500),
+            });
+          }
+        }
+      }
+    }
+
     const generateDurationMs = Date.now() - generateStart;
 
     // Deduplicate citations: RAG results + tool-referenced pages
@@ -188,7 +221,7 @@ async function invokeAgent(
       })
     );
 
-    return { responseContent, citations };
+    return { responseContent, citations, toolSteps };
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -200,6 +233,7 @@ async function invokeAgent(
     return {
       responseContent: "An error occurred while processing your request. Please try again.",
       citations: ragCitations,
+      toolSteps: [],
     };
   }
 }

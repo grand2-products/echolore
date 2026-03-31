@@ -923,6 +923,7 @@ aiChat:
   notFound: "대화를 찾을 수 없습니다."
   back: "돌아가기"
   citationLabel: "출처"
+  toolStepsLabel: "{count}개의 도구 사용"
   team: "팀"
   private: "비공개"
   createdBy: "{name}"

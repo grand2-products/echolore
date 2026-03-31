@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import type { AiChatMessage } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { MarkdownContent } from "./markdown-content";
@@ -12,6 +13,7 @@ export interface ChatBubbleMessage {
   content: string;
   senderName?: string;
   citations?: AiChatMessage["citations"];
+  toolSteps?: AiChatMessage["toolSteps"];
 }
 
 interface ChatMessageBubbleProps {
@@ -61,10 +63,73 @@ export function ChatMessageBubble({ message, variant = "default" }: ChatMessageB
           </div>
         )}
 
+        {message.toolSteps && message.toolSteps.length > 0 ? (
+          <ToolStepsPanel steps={message.toolSteps} />
+        ) : null}
+
         {message.citations && message.citations.length > 0 ? (
           <CitationChips citations={message.citations} label={t("aiChat.citationLabel")} />
         ) : null}
       </div>
+    </div>
+  );
+}
+
+const TOOL_LABELS: Record<string, string> = {
+  wiki_search: "Wiki Search",
+  wiki_list_pages: "Wiki List Pages",
+  wiki_read_page: "Wiki Read Page",
+};
+
+function ToolStepsPanel({ steps }: { steps: NonNullable<AiChatMessage["toolSteps"]> }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mt-2 border-t border-gray-200 pt-2">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-700"
+      >
+        <svg
+          className={`h-3 w-3 transition-transform ${open ? "rotate-90" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        {t("aiChat.toolStepsLabel", { count: steps.length })}
+      </button>
+      {open && (
+        <div className="mt-1 space-y-1.5">
+          {steps.map((step) => (
+            <div
+              key={`${step.toolName}-${JSON.stringify(step.toolArgs)}`}
+              className="rounded bg-gray-50 px-2 py-1.5 text-xs text-gray-600"
+            >
+              <span className="font-mono font-semibold">
+                {TOOL_LABELS[step.toolName] ?? step.toolName}
+              </span>
+              <span className="ml-1 text-gray-400">
+                (
+                {Object.entries(step.toolArgs)
+                  .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
+                  .join(", ")}
+                )
+              </span>
+              {step.toolResult && (
+                <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap text-gray-500">
+                  {step.toolResult.slice(0, 300)}
+                  {step.toolResult.length > 300 ? "..." : ""}
+                </pre>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
