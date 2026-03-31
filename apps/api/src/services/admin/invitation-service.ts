@@ -73,13 +73,13 @@ export async function listInvitations() {
     .selectFrom("user_invitations")
     .leftJoin("users", "user_invitations.invitedByUserId", "users.id")
     .selectAll("user_invitations")
-    .select("users.email as inviter_email")
+    .select("users.email as inviterEmail")
     .orderBy("user_invitations.createdAt")
     .execute();
 
   return invitations.map((row) => ({
     ...row,
-    invitedByEmail: row.inviter_email,
+    invitedByEmail: row.inviterEmail,
   }));
 }
 

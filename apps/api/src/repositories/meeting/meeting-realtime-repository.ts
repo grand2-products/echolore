@@ -228,10 +228,10 @@ export async function listAutonomousActiveSessions(): Promise<
       "meeting_agent_sessions.state",
       "meeting_agent_sessions.invokedByUserId",
       "meeting_agent_sessions.lastAutoEvalSegmentId",
-      "meeting_agent_sessions.joinedAt as session_joined_at",
-      "meeting_agent_sessions.leftAt as session_left_at",
-      "meeting_agent_sessions.createdAt as session_created_at",
-      "agents.id as agent_table_id",
+      "meeting_agent_sessions.joinedAt as sessionJoinedAt",
+      "meeting_agent_sessions.leftAt as sessionLeftAt",
+      "meeting_agent_sessions.createdAt as sessionCreatedAt",
+      "agents.id as agentTableId",
       "agents.name",
       "agents.description",
       "agents.systemPrompt",
@@ -242,8 +242,8 @@ export async function listAutonomousActiveSessions(): Promise<
       "agents.autonomousEnabled",
       "agents.autonomousCooldownSec",
       "agents.createdBy",
-      "agents.createdAt as agent_created_at",
-      "agents.updatedAt as agent_updated_at",
+      "agents.createdAt as agentCreatedAt",
+      "agents.updatedAt as agentUpdatedAt",
     ])
     .where("meeting_agent_sessions.state", "=", "active")
     .where("agents.autonomousEnabled", "=", true)
@@ -258,12 +258,12 @@ export async function listAutonomousActiveSessions(): Promise<
       state: r.state,
       invokedByUserId: r.invokedByUserId,
       lastAutoEvalSegmentId: r.lastAutoEvalSegmentId,
-      joinedAt: r.session_joined_at,
-      leftAt: r.session_left_at,
-      createdAt: r.session_created_at,
+      joinedAt: r.sessionJoinedAt,
+      leftAt: r.sessionLeftAt,
+      createdAt: r.sessionCreatedAt,
     },
     agent: {
-      id: r.agent_table_id,
+      id: r.agentTableId,
       name: r.name,
       description: r.description,
       systemPrompt: r.systemPrompt,
@@ -274,8 +274,8 @@ export async function listAutonomousActiveSessions(): Promise<
       autonomousEnabled: r.autonomousEnabled,
       autonomousCooldownSec: r.autonomousCooldownSec,
       createdBy: r.createdBy,
-      createdAt: r.agent_created_at,
-      updatedAt: r.agent_updated_at,
+      createdAt: r.agentCreatedAt,
+      updatedAt: r.agentUpdatedAt,
     },
   }));
 }

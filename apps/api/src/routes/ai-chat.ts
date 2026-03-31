@@ -56,7 +56,7 @@ aiChatRoutes.get(
       const stat = stats.get(r.id);
       return {
         ...r,
-        creatorName: r.creator_name,
+        creatorName: r.creatorName,
         messageCount: stat?.count ?? 0,
         lastMessagePreview: stat?.lastContent ?? null,
       };
