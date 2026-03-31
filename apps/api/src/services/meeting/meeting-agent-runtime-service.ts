@@ -138,7 +138,10 @@ export async function generateMeetingAgentResponse(input: {
   let audio: { mimeType: string; base64: string } | null = null;
   if (input.triggerMode !== "autonomous") {
     try {
-      const speechProvider = agent.defaultProvider === "zhipu" ? "google" : agent.defaultProvider;
+      const speechProvider =
+        agent.defaultProvider === "zhipu" || agent.defaultProvider === "openai-compatible"
+          ? "google"
+          : agent.defaultProvider;
       const gateways = createSpeechGatewayBundle(speechProvider);
       const synthesized = await gateways.tts.synthesize({
         text: responseText,

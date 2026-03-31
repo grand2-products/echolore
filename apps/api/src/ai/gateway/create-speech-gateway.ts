@@ -9,7 +9,9 @@ export function resolveSpeechProvider(provider?: string): SpeechProvider {
     return DEFAULT_PROVIDER;
   }
 
-  throw new Error(`Unsupported speech provider: ${provider}`);
+  // Non-speech providers (vertex, zhipu, openai-compatible) fall back to Google
+  // since they don't have their own STT/TTS implementations.
+  return DEFAULT_PROVIDER;
 }
 
 export function createSpeechGatewayBundle(provider?: string): SpeechGatewayBundle {

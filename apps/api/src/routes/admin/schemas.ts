@@ -27,7 +27,7 @@ export const createAgentSchema = z.object({
   systemPrompt: z.string().min(1).max(10000),
   voiceProfile: z.string().nullable().optional(),
   interventionStyle: z.string().min(1).max(1000),
-  defaultProvider: z.enum(["google", "vertex", "zhipu"]).default("google"),
+  defaultProvider: z.enum(["google", "vertex", "zhipu", "openai-compatible"]).default("google"),
   isActive: z.boolean().optional(),
   autonomousEnabled: z.boolean().optional(),
   autonomousCooldownSec: z.number().int().min(10).max(3600).optional(),
@@ -81,7 +81,7 @@ export const updateEmailSettingsSchema = z.object({
 });
 
 export const updateLlmSettingsSchema = z.object({
-  provider: z.enum(["google", "vertex", "zhipu"]).optional(),
+  provider: z.enum(["google", "vertex", "zhipu", "openai-compatible"]).optional(),
   geminiApiKey: z.string().max(500).nullable().optional(),
   geminiTextModel: z.string().max(100).nullable().optional(),
   vertexProject: z.string().max(200).nullable().optional(),
@@ -90,6 +90,9 @@ export const updateLlmSettingsSchema = z.object({
   zhipuApiKey: z.string().max(500).nullable().optional(),
   zhipuTextModel: z.string().max(100).nullable().optional(),
   zhipuUseCodingPlan: z.boolean().optional(),
+  openaiCompatBaseUrl: z.string().url().max(500).nullable().optional(),
+  openaiCompatApiKey: z.string().max(500).nullable().optional(),
+  openaiCompatModel: z.string().max(100).nullable().optional(),
   embeddingEnabled: z.boolean().optional(),
   embeddingProvider: z.enum(["google", "vertex"]).optional(),
   embeddingModel: z.string().max(100).nullable().optional(),

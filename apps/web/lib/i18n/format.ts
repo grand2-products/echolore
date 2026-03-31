@@ -86,6 +86,9 @@ export function formatAgentProvider(value: string, locale: SupportedLocale) {
   if (value === "zhipu") {
     return translateEnum(locale, "common.providerZhipu", value);
   }
+  if (value === "openai-compatible") {
+    return translateEnum(locale, "common.providerOpenaiCompat", value);
+  }
   return value;
 }
 

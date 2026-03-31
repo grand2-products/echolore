@@ -3,7 +3,7 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatVertexAI } from "@langchain/google-vertexai";
 import { ChatOpenAI } from "@langchain/openai";
 
-export type TextProvider = "google" | "vertex" | "zhipu";
+export type TextProvider = "google" | "vertex" | "zhipu" | "openai-compatible";
 
 export interface LlmOverrides {
   geminiApiKey?: string | null;
@@ -14,11 +14,15 @@ export interface LlmOverrides {
   zhipuApiKey?: string | null;
   zhipuTextModel?: string | null;
   zhipuUseCodingPlan?: boolean;
+  openaiCompatBaseUrl?: string | null;
+  openaiCompatApiKey?: string | null;
+  openaiCompatModel?: string | null;
 }
 
 export function resolveTextProvider(provider?: string): TextProvider {
   if (provider === "zhipu") return "zhipu";
   if (provider === "vertex") return "vertex";
+  if (provider === "openai-compatible") return "openai-compatible";
   return "google";
 }
 
@@ -34,6 +38,8 @@ export function isTextGenerationEnabled(
       return Boolean(overrides?.vertexProject);
     case "zhipu":
       return Boolean(overrides?.zhipuApiKey);
+    case "openai-compatible":
+      return Boolean(overrides?.openaiCompatBaseUrl);
     default:
       return false;
   }
@@ -83,6 +89,16 @@ export function createChatModel(opts?: {
         },
       });
     }
+    case "openai-compatible":
+      return new ChatOpenAI({
+        apiKey: overrides?.openaiCompatApiKey || "not-needed",
+        model: overrides?.openaiCompatModel || "default",
+        temperature,
+        ...(maxTokens != null ? { maxTokens } : {}),
+        configuration: {
+          baseURL: overrides?.openaiCompatBaseUrl || undefined,
+        },
+      });
     default:
       throw new Error(`Unsupported text provider: ${provider}`);
   }
