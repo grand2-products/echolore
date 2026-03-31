@@ -1,8 +1,21 @@
+import { networkInterfaces } from "node:os";
 import type { NextConfig } from "next";
+
+/** Collect all non-internal IPv4 addresses so LAN clients can use HMR. */
+function getLocalIPs(): string[] {
+  const ips: string[] = [];
+  for (const nets of Object.values(networkInterfaces())) {
+    for (const net of nets ?? []) {
+      if (net.family === "IPv4" && !net.internal) ips.push(net.address);
+    }
+  }
+  return ips;
+}
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   output: "standalone",
+  allowedDevOrigins: getLocalIPs(),
   turbopack: {
     rules: {
       "*.svg": {
@@ -49,18 +62,31 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
-    const apiUrl = process.env.ECHOLORE_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL;
-    const livekitUrl =
-      process.env.ECHOLORE_PUBLIC_LIVEKIT_URL || process.env.NEXT_PUBLIC_LIVEKIT_URL;
-    const extraConnectSrc = [
-      apiUrl,
-      livekitUrl,
-      // Allow ws:// WebSocket connections to the API server (derived from http:// URL)
-      apiUrl?.replace(/^http:/, "ws:"),
-      apiUrl?.replace(/^https:/, "wss:"),
-    ]
-      .filter(Boolean)
-      .join(" ");
+    const apiUrl = process.env.ECHOLORE_PUBLIC_API_URL;
+    const livekitUrl = process.env.ECHOLORE_PUBLIC_LIVEKIT_URL;
+    // Build CSP connect-src entries for configured URLs and their LAN-IP equivalents
+    const lanUrls = (url: string | undefined) => {
+      if (!url) return [];
+      const entries = [url, url.replace(/^http:/, "ws:"), url.replace(/^https:/, "wss:")];
+      try {
+        const parsed = new URL(url);
+        if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") {
+          for (const ip of getLocalIPs()) {
+            const lanUrl = new URL(url);
+            lanUrl.hostname = ip;
+            entries.push(lanUrl.toString().replace(/\/$/, ""));
+            entries.push(
+              lanUrl
+                .toString()
+                .replace(/\/$/, "")
+                .replace(/^http:/, "ws:")
+            );
+          }
+        }
+      } catch {}
+      return entries;
+    };
+    const extraConnectSrc = [...lanUrls(apiUrl), ...lanUrls(livekitUrl)].filter(Boolean).join(" ");
 
     return [
       {

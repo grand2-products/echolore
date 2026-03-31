@@ -82,42 +82,12 @@ function Wait-ForContainerHealth {
 }
 
 function Test-DockerAvailable {
-  docker info 2>&1 | Out-Null
-  return $LASTEXITCODE -eq 0
-}
-
-function Test-DrizzleMigrationsPresent {
-  param([string]$ApiDir)
-
-  $journalPath = Join-Path $ApiDir "drizzle/meta/_journal.json"
-  return Test-Path $journalPath
-}
-
-function Get-PostgresScalar {
-  param(
-    [string]$Sql
-  )
-
-  $result = docker exec echolore-db psql -U wiki -d wiki -t -A -c $Sql 2>$null
-  if ($LASTEXITCODE -ne 0) {
-    return $null
-  }
-
-  return ($result | Out-String).Trim()
-}
-
-function Test-DrizzleHistoryApplied {
-  $historyTable = Get-PostgresScalar -Sql "select to_regclass('public.__drizzle_migrations');"
-  return -not [string]::IsNullOrWhiteSpace($historyTable)
-}
-
-function Test-PublicTablesPresent {
-  $tableCount = Get-PostgresScalar -Sql "select count(*) from information_schema.tables where table_schema='public' and table_type='BASE TABLE';"
-  if ([string]::IsNullOrWhiteSpace($tableCount)) {
+  try {
+    $null = docker info 2>&1
+  } catch {
     return $false
   }
-
-  return [int]$tableCount -gt 0
+  return $LASTEXITCODE -eq 0
 }
 
 function Sync-EnvFile {
@@ -312,7 +282,11 @@ function Invoke-InstallDependencies {
 
 function Invoke-EnsureDocker {
   if (-not (Test-DockerAvailable)) {
-    throw "Docker daemon is not available. Start Docker Desktop first."
+    Write-Host ""
+    Write-Host "  Docker Desktop is not running." -ForegroundColor Red
+    Write-Host "  Please start Docker Desktop and try again." -ForegroundColor Yellow
+    Write-Host ""
+    exit 1
   }
 
   Write-Step "Starting middleware containers (db, valkey, livekit, livekit-egress)"
@@ -331,23 +305,10 @@ function Invoke-EnsureDocker {
 }
 
 function Invoke-ApplySchema {
-  $apiDir = Join-Path $repoRoot "apps/api"
-  $dbSetupCommand = "pnpm db:migrate"
-  if (-not (Test-DrizzleMigrationsPresent -ApiDir $apiDir)) {
-    $dbSetupCommand = "pnpm db:push"
-  } elseif (-not (Test-DrizzleHistoryApplied) -and (Test-PublicTablesPresent)) {
-    Write-Step "Detected an existing local schema without Drizzle migration history; using pnpm db:push to reconcile"
-    $dbSetupCommand = "pnpm db:push"
-  }
-
-  Write-Step "Applying database schema with $dbSetupCommand"
+  Write-Step "Applying database schema with pnpm db:migrate"
   Push-Location $repoRoot
   try {
-    if ($dbSetupCommand -eq "pnpm db:migrate") {
-      pnpm db:migrate
-    } else {
-      pnpm --filter @echolore/api exec drizzle-kit push --force
-    }
+    pnpm db:migrate
     if ($LASTEXITCODE -ne 0) {
       throw "Failed to apply database schema."
     }

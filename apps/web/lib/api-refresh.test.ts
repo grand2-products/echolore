@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const API_BASE = "http://localhost:3001/api";
 
 // Stub process.env before the module is loaded
-vi.stubEnv("NEXT_PUBLIC_API_URL", API_BASE);
+vi.stubEnv("ECHOLORE_PUBLIC_API_URL", API_BASE);
 
 // We need to mock @tanstack/react-query so the module can be imported in a
 // non-React test environment (it is imported at module scope in api.ts).

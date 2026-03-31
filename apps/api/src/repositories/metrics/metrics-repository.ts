@@ -38,9 +38,9 @@ export async function getMeetingStats(
     .select([
       sql<number>`count(*)`.as("total"),
       sql<number>`sum(case when exists(
-        select 1 from transcripts where transcripts.meetingId = meetings.id
+        select 1 from transcripts where transcripts.meeting_id = meetings.id
       ) or exists(
-        select 1 from summaries where summaries.meetingId = meetings.id
+        select 1 from summaries where summaries.meeting_id = meetings.id
       ) then 1 else 0 end)`.as("withMinutes"),
     ])
     .where("createdAt", ">=", since)

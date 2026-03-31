@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from "hono";
 import { jsonError } from "./api-error.js";
 import type { AppEnv } from "./auth.js";
+import { parseCorsOrigins } from "./cors-origins.js";
 
 /**
  * Middleware that sets common security response headers.
@@ -65,15 +66,12 @@ export const csrfProtection: MiddlewareHandler<AppEnv> = async (c, next) => {
     }
   }
 
-  // Check Origin or Referer against allowed CORS origin
-  const allowedOrigin =
-    process.env.CORS_ORIGIN ??
-    (process.env.NODE_ENV === "production" ? "https://app.example.com" : "http://localhost:3000");
+  const allowedOrigins = parseCorsOrigins();
   const origin = c.req.header("Origin");
   const referer = c.req.header("Referer");
 
   if (origin) {
-    if (origin !== allowedOrigin) {
+    if (!allowedOrigins.has(origin)) {
       return jsonError(c, 403, "CSRF_REJECTED", "Cross-origin request rejected");
     }
     return next();
@@ -82,7 +80,7 @@ export const csrfProtection: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (referer) {
     try {
       const refererOrigin = new URL(referer).origin;
-      if (refererOrigin !== allowedOrigin) {
+      if (!allowedOrigins.has(refererOrigin)) {
         return jsonError(c, 403, "CSRF_REJECTED", "Cross-origin request rejected");
       }
       return next();

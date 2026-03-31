@@ -10,6 +10,7 @@ import { jsonError } from "./lib/api-error.js";
 import { auditAction } from "./lib/audit.js";
 import { type AppEnv, authGuard, requireRole, type SessionUser } from "./lib/auth.js";
 import { getAuthConfig } from "./lib/authjs-config.js";
+import { parseCorsOrigins } from "./lib/cors-origins.js";
 import { createStorageProvider, setStorageProvider } from "./lib/file-storage.js";
 import { csrfProtection, securityHeaders } from "./lib/security-middleware.js";
 import { adminRoutes } from "./routes/admin/index.js";
@@ -89,9 +90,7 @@ app.use("*", csrfProtection);
 app.use(
   "*",
   cors({
-    origin:
-      process.env.CORS_ORIGIN ??
-      (process.env.NODE_ENV === "production" ? "https://app.example.com" : "http://localhost:3000"),
+    origin: [...parseCorsOrigins()],
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],

@@ -75,7 +75,6 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       ROOM_AI_WORKER_SECRET: ${ROOM_AI_WORKER_SECRET:-bootstrap-worker-secret}
       VALKEY_URL: redis://valkey:6379
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
