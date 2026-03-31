@@ -5,7 +5,7 @@
 #
 # Usage:
 #   cp .env.dogfood.example .env.dogfood
-#   # Edit .env.dogfood with your API keys (GEMINI_API_KEY etc.)
+#   # Edit .env.dogfood with your secrets
 #   docker compose -f docker-compose.dogfood.yml --env-file .env.dogfood up --build -d
 #
 # Tear down:
@@ -131,7 +131,6 @@ services:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
       CORS_ORIGIN: http://localhost:${WEB_PORT:-17860}
       AUTH_SECRET: ${AUTH_SECRET:-dogfood-auth-secret}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       APP_BASE_URL: http://localhost:${WEB_PORT:-17860}
       ROOM_AI_WORKER_SECRET: ${ROOM_AI_WORKER_SECRET:-dogfood-worker-secret}
