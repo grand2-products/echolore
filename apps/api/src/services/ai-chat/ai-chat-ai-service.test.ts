@@ -8,6 +8,7 @@ const {
   searchVisibleChunksMock,
   createAiChatAgentMock,
   createAiChatSearchToolMock,
+  createAiChatListPagesToolMock,
   createAiChatReadPageToolMock,
 } = vi.hoisted(() => ({
   createMessageMock: vi.fn(),
@@ -17,6 +18,7 @@ const {
   searchVisibleChunksMock: vi.fn(),
   createAiChatAgentMock: vi.fn(),
   createAiChatSearchToolMock: vi.fn(),
+  createAiChatListPagesToolMock: vi.fn(),
   createAiChatReadPageToolMock: vi.fn(),
 }));
 
@@ -40,6 +42,7 @@ vi.mock("../../ai/agent/create-ai-chat-agent.js", () => ({
 
 vi.mock("../../ai/tools/ai-chat-tools.js", () => ({
   createAiChatSearchTool: createAiChatSearchToolMock,
+  createAiChatListPagesTool: createAiChatListPagesToolMock,
   createAiChatReadPageTool: createAiChatReadPageToolMock,
 }));
 
@@ -64,6 +67,7 @@ describe("ai-chat-ai-service", () => {
     searchVisibleChunksMock.mockReset();
     createAiChatAgentMock.mockReset();
     createAiChatSearchToolMock.mockReset();
+    createAiChatListPagesToolMock.mockReset();
     createAiChatReadPageToolMock.mockReset();
   });
 
@@ -90,6 +94,7 @@ describe("ai-chat-ai-service", () => {
     });
     searchVisibleChunksMock.mockResolvedValue([]);
     createAiChatSearchToolMock.mockReturnValue({ searchTool: {}, referencedPages: [] });
+    createAiChatListPagesToolMock.mockReturnValue({ listPagesTool: {}, referencedPages: [] });
     createAiChatReadPageToolMock.mockReturnValue({ readPageTool: {}, referencedPages: [] });
 
     const fakeAgent = {
@@ -200,6 +205,7 @@ describe("ai-chat-ai-service", () => {
         { pageId: "page-1", pageTitle: "Deploy Guide", chunkText: "Step 1: ...", similarity: 0.9 },
       ]);
       createAiChatSearchToolMock.mockReturnValue({ searchTool: {}, referencedPages: [] });
+      createAiChatListPagesToolMock.mockReturnValue({ listPagesTool: {}, referencedPages: [] });
       createAiChatReadPageToolMock.mockReturnValue({ readPageTool: {}, referencedPages: [] });
       createAiChatAgentMock.mockReturnValue({
         invoke: vi.fn().mockResolvedValue({
@@ -244,6 +250,7 @@ describe("ai-chat-ai-service", () => {
       });
       searchVisibleChunksMock.mockResolvedValue([]);
       createAiChatSearchToolMock.mockReturnValue({ searchTool: {}, referencedPages: [] });
+      createAiChatListPagesToolMock.mockReturnValue({ listPagesTool: {}, referencedPages: [] });
       createAiChatReadPageToolMock.mockReturnValue({ readPageTool: {}, referencedPages: [] });
       createAiChatAgentMock.mockReturnValue({
         invoke: vi.fn().mockRejectedValue(new Error("LLM timeout")),

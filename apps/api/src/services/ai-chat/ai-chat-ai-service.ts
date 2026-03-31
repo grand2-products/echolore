@@ -5,6 +5,7 @@ import { defaultLlmProvider, type LlmProvider } from "../../ai/providers/index.j
 import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
 import {
   type AiChatToolResult,
+  createAiChatListPagesTool,
   createAiChatReadPageTool,
   createAiChatSearchTool,
 } from "../../ai/tools/ai-chat-tools.js";
@@ -138,6 +139,7 @@ async function invokeAgent(
 
   // Step 4: Create tools for additional agent exploration
   const { searchTool, referencedPages: searchRefs } = createAiChatSearchTool(user);
+  const { listPagesTool, referencedPages: listRefs } = createAiChatListPagesTool(user);
   const { readPageTool, referencedPages: readRefs } = createAiChatReadPageTool(user);
 
   try {
@@ -147,7 +149,7 @@ async function invokeAgent(
 
     const agent = createAiChatAgent({
       chatModel,
-      tools: [searchTool, readPageTool],
+      tools: [searchTool, listPagesTool, readPageTool],
       ragContext,
     });
 
@@ -171,7 +173,7 @@ async function invokeAgent(
 
     // Deduplicate citations: RAG results + tool-referenced pages
     const seenPageIds = new Set<string>();
-    const citations = [...ragCitations, ...searchRefs, ...readRefs].filter((ref) => {
+    const citations = [...ragCitations, ...searchRefs, ...listRefs, ...readRefs].filter((ref) => {
       if (seenPageIds.has(ref.pageId)) return false;
       seenPageIds.add(ref.pageId);
       return true;
