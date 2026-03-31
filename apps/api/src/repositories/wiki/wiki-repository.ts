@@ -5,7 +5,7 @@ import type { Block, NewBlock, NewPage, Page } from "../../db/schema.js";
 import { escapeLikePattern, firstOrNull } from "../../lib/db-utils.js";
 
 export async function listPagesOrderedByUpdatedAt(): Promise<
-  Array<Page & { author_name: string | undefined; space_name: string | undefined }>
+  Array<Page & { authorName: string | undefined; spaceName: string | undefined }>
 > {
   const rows = await db
     .selectFrom("pages")
@@ -20,8 +20,8 @@ export async function listPagesOrderedByUpdatedAt(): Promise<
       "pages.deletedAt",
       "pages.createdAt",
       "pages.updatedAt",
-      "users.name as author_name",
-      "spaces.name as space_name",
+      "users.name as authorName",
+      "spaces.name as spaceName",
     ])
     .where("pages.deletedAt", "is", null)
     .orderBy("pages.updatedAt", "desc")
@@ -29,8 +29,8 @@ export async function listPagesOrderedByUpdatedAt(): Promise<
 
   return rows.map((r) => ({
     ...r,
-    author_name: r.author_name ?? undefined,
-    space_name: r.space_name ?? undefined,
+    authorName: r.authorName ?? undefined,
+    spaceName: r.spaceName ?? undefined,
   }));
 }
 
@@ -536,15 +536,15 @@ export async function searchByVector(
 
   return (
     results.rows as Array<{
-      page_id: string;
-      page_title: string;
-      chunk_text: string;
+      pageId: string;
+      pageTitle: string;
+      chunkText: string;
       similarity: number;
     }>
   ).map((row) => ({
-    pageId: row.page_id,
-    pageTitle: row.page_title,
-    chunkText: row.chunk_text,
+    pageId: row.pageId,
+    pageTitle: row.pageTitle,
+    chunkText: row.chunkText,
     similarity: Number(row.similarity),
   }));
 }
@@ -596,15 +596,15 @@ export async function searchByVectorForUser(
 
   return (
     results.rows as Array<{
-      page_id: string;
-      page_title: string;
-      chunk_text: string;
+      pageId: string;
+      pageTitle: string;
+      chunkText: string;
       similarity: number;
     }>
   ).map((row) => ({
-    pageId: row.page_id,
-    pageTitle: row.page_title,
-    chunkText: row.chunk_text,
+    pageId: row.pageId,
+    pageTitle: row.pageTitle,
+    chunkText: row.chunkText,
     similarity: Number(row.similarity),
   }));
 }
@@ -785,14 +785,14 @@ export async function getPageSpaceType(pageId: string): Promise<{
   const row = await db
     .selectFrom("pages")
     .innerJoin("spaces", "pages.spaceId", "spaces.id")
-    .select(["pages.spaceId", "spaces.type as space_type", "spaces.ownerUserId", "spaces.groupId"])
+    .select(["pages.spaceId", "spaces.type as spaceType", "spaces.ownerUserId", "spaces.groupId"])
     .where("pages.id", "=", pageId)
     .executeTakeFirst();
 
   if (!row) return null;
   return {
     spaceId: row.spaceId,
-    spaceType: row.space_type,
+    spaceType: row.spaceType,
     ownerUserId: row.ownerUserId,
     groupId: row.groupId,
   };
@@ -822,15 +822,15 @@ export async function searchPagesByIlike(
 
   return (
     results.rows as Array<{
-      page_id: string;
-      page_title: string;
-      chunk_text: string;
+      pageId: string;
+      pageTitle: string;
+      chunkText: string;
       similarity: number;
     }>
   ).map((row) => ({
-    pageId: row.page_id,
-    pageTitle: row.page_title,
-    chunkText: row.chunk_text || "",
+    pageId: row.pageId,
+    pageTitle: row.pageTitle,
+    chunkText: row.chunkText || "",
     similarity: Number(row.similarity),
   }));
 }

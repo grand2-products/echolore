@@ -30,7 +30,7 @@ export async function listConversations(opts: {
     Pick<
       AiChatConversation,
       "id" | "title" | "creatorId" | "visibility" | "createdAt" | "updatedAt"
-    > & { creator_name: string | null }
+    > & { creatorName: string | null }
   >
 > {
   let query = db
@@ -43,7 +43,7 @@ export async function listConversations(opts: {
       "ai_chat_conversations.visibility",
       "ai_chat_conversations.createdAt",
       "ai_chat_conversations.updatedAt",
-      "users.name as creator_name",
+      "users.name as creatorName",
     ]);
 
   if (opts.userId) {

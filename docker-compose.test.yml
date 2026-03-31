@@ -1,0 +1,50 @@
+# Lightweight compose for integration tests.
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml run --rm test
+#   docker compose -f docker-compose.test.yml down -v
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: echolore-test-db
+    environment:
+      POSTGRES_DB: wiki
+      POSTGRES_USER: wiki
+      POSTGRES_PASSWORD: test
+    volumes:
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wiki -d wiki"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  test:
+    image: node:22-alpine
+    working_dir: /workspace
+    command:
+      - sh
+      - -c
+      - |
+        corepack enable
+        pnpm install --frozen-lockfile --ignore-scripts
+        pnpm --filter @echolore/api exec vitest run --reporter=verbose \
+          src/repositories/wiki/wiki-repository.integration.test.ts
+    environment:
+      DATABASE_URL: postgresql://wiki:test@db:5432/wiki
+      NODE_ENV: test
+      AUTH_SECRET: test-secret
+    volumes:
+      - .:/workspace
+      - test_pnpm_store:/root/.local/share/pnpm/store
+      - test_node_modules:/workspace/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  test_pnpm_store:
+  test_node_modules:
