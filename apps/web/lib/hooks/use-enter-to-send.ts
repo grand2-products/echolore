@@ -10,7 +10,7 @@ import { useCallback } from "react";
 export function useEnterToSend(onSend: () => void): (e: React.KeyboardEvent) => void {
   return useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault();
         onSend();
       }
