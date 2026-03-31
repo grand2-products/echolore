@@ -34,7 +34,7 @@ export const realtimeTranscriptSchema = z.object({
   content: z.string().min(1),
   isPartial: z.boolean(),
   segmentKey: z.string().min(1),
-  provider: z.enum(["google", "vertex", "zhipu"]),
+  provider: z.enum(["google", "vertex", "zhipu", "openai-compatible"]),
   confidence: z.number().nullable().optional(),
   startedAt: z.string().refine((v) => !Number.isNaN(Date.parse(v)), {
     message: "Invalid ISO timestamp",

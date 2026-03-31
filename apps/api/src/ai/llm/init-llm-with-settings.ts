@@ -26,6 +26,9 @@ export function mapToOverrides(dbSettings: {
   zhipuApiKey: string | null;
   zhipuTextModel: string | null;
   zhipuUseCodingPlan?: boolean;
+  openaiCompatBaseUrl?: string | null;
+  openaiCompatApiKey?: string | null;
+  openaiCompatModel?: string | null;
 }): LlmOverrides {
   return {
     geminiApiKey: dbSettings.geminiApiKey,
@@ -36,6 +39,9 @@ export function mapToOverrides(dbSettings: {
     zhipuApiKey: dbSettings.zhipuApiKey,
     zhipuTextModel: dbSettings.zhipuTextModel,
     zhipuUseCodingPlan: dbSettings.zhipuUseCodingPlan,
+    openaiCompatBaseUrl: dbSettings.openaiCompatBaseUrl,
+    openaiCompatApiKey: dbSettings.openaiCompatApiKey,
+    openaiCompatModel: dbSettings.openaiCompatModel,
   };
 }
 

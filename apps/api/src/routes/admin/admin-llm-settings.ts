@@ -14,7 +14,7 @@ import { updateLlmSettingsSchema } from "./schemas.js";
 
 const settingsRoutes = createAdminSettingsRoutes<LlmSettings>({
   path: "llm-settings",
-  secretFields: ["geminiApiKey", "zhipuApiKey"],
+  secretFields: ["geminiApiKey", "zhipuApiKey", "openaiCompatApiKey"],
   getSettings: getLlmSettings,
   updateSettings: updateLlmSettings,
   validationSchema: updateLlmSettingsSchema,
@@ -38,6 +38,9 @@ adminLlmSettingsRoutes.post("/llm-settings/test", async (c) => {
       zhipuApiKey: settings.zhipuApiKey,
       zhipuTextModel: settings.zhipuTextModel,
       zhipuUseCodingPlan: settings.zhipuUseCodingPlan,
+      openaiCompatBaseUrl: settings.openaiCompatBaseUrl,
+      openaiCompatApiKey: settings.openaiCompatApiKey,
+      openaiCompatModel: settings.openaiCompatModel,
     };
 
     if (!isTextGenerationEnabled(provider, overrides)) {

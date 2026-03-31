@@ -13,7 +13,7 @@ import {
   type TestModalState,
 } from "../settings/_components/TestConnectionModal";
 
-const VALID_PROVIDERS = ["google", "vertex", "zhipu"] as const;
+const VALID_PROVIDERS = ["google", "vertex", "zhipu", "openai-compatible"] as const;
 const VALID_INTERVENTION_STYLES = ["facilitator", "observer", "active"] as const;
 
 const emptyForm: CreateAgentRequest = {
@@ -128,11 +128,11 @@ export default function AdminAgentsPage() {
                       systemPrompt: agent.systemPrompt,
                       voiceProfile: agent.voiceProfile,
                       interventionStyle: agent.interventionStyle,
-                      defaultProvider: (["google", "vertex", "zhipu"].includes(
+                      defaultProvider: (VALID_PROVIDERS as readonly string[]).includes(
                         agent.defaultProvider
                       )
-                        ? agent.defaultProvider
-                        : "google") as CreateAgentRequest["defaultProvider"],
+                        ? (agent.defaultProvider as CreateAgentRequest["defaultProvider"])
+                        : "google",
                       isActive: agent.isActive,
                       autonomousEnabled: agent.autonomousEnabled,
                       autonomousCooldownSec: agent.autonomousCooldownSec,
@@ -296,6 +296,9 @@ export default function AdminAgentsPage() {
                 <option value="google">{formatters.provider("google")}</option>
                 <option value="vertex">{formatters.provider("vertex")}</option>
                 <option value="zhipu">{formatters.provider("zhipu")}</option>
+                <option value="openai-compatible">
+                  {formatters.provider("openai-compatible")}
+                </option>
               </select>
             </label>
 

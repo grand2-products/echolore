@@ -123,7 +123,7 @@ export interface CreateAgentRequest {
   systemPrompt: string;
   voiceProfile?: string | null;
   interventionStyle: string;
-  defaultProvider: "google" | "vertex" | "zhipu";
+  defaultProvider: "google" | "vertex" | "zhipu" | "openai-compatible";
   isActive?: boolean;
   autonomousEnabled?: boolean;
   autonomousCooldownSec?: number;
@@ -266,7 +266,7 @@ export interface UpdateEmailSettingsRequest {
   smtpFrom?: string | null;
 }
 
-export type LlmProvider = "google" | "vertex" | "zhipu";
+export type LlmProvider = "google" | "vertex" | "zhipu" | "openai-compatible";
 export type EmbeddingProvider = "google" | "vertex";
 
 export interface LlmSettings {
@@ -279,6 +279,9 @@ export interface LlmSettings {
   zhipuApiKey: string | null;
   zhipuTextModel: string | null;
   zhipuUseCodingPlan: boolean;
+  openaiCompatBaseUrl: string | null;
+  openaiCompatApiKey: string | null;
+  openaiCompatModel: string | null;
   embeddingEnabled: boolean;
   embeddingProvider: EmbeddingProvider;
   embeddingModel: string | null;
@@ -295,6 +298,9 @@ export interface UpdateLlmSettingsRequest {
   zhipuApiKey?: string | null;
   zhipuTextModel?: string | null;
   zhipuUseCodingPlan?: boolean;
+  openaiCompatBaseUrl?: string | null;
+  openaiCompatApiKey?: string | null;
+  openaiCompatModel?: string | null;
   embeddingEnabled?: boolean;
   embeddingProvider?: EmbeddingProvider;
   embeddingModel?: string | null;

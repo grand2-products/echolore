@@ -24,6 +24,9 @@ export function LlmSettingsSection({ onTestModal }: LlmSettingsSectionProps) {
   const [zhipuApiKey, setZhipuApiKey] = useState("");
   const [zhipuTextModel, setZhipuTextModel] = useState("");
   const [zhipuUseCodingPlan, setZhipuUseCodingPlan] = useState(false);
+  const [openaiCompatBaseUrl, setOpenaiCompatBaseUrl] = useState("");
+  const [openaiCompatApiKey, setOpenaiCompatApiKey] = useState("");
+  const [openaiCompatModel, setOpenaiCompatModel] = useState("");
   const { loading, saving, error, notice, loadSettings, handleSave, setError, setNotice } =
     useSettingsForm({
       load: () => adminApi.getLlmSettings(),
@@ -37,6 +40,9 @@ export function LlmSettingsSection({ onTestModal }: LlmSettingsSectionProps) {
         setZhipuApiKey(data.zhipuApiKey ?? "");
         setZhipuTextModel(data.zhipuTextModel ?? "");
         setZhipuUseCodingPlan(data.zhipuUseCodingPlan ?? false);
+        setOpenaiCompatBaseUrl(data.openaiCompatBaseUrl ?? "");
+        setOpenaiCompatApiKey(data.openaiCompatApiKey ?? "");
+        setOpenaiCompatModel(data.openaiCompatModel ?? "");
       },
       save: async () => {
         const payload: Record<string, unknown> = { provider: llmProvider };
@@ -48,6 +54,10 @@ export function LlmSettingsSection({ onTestModal }: LlmSettingsSectionProps) {
         if (zhipuApiKey && zhipuApiKey !== "••••••••") payload.zhipuApiKey = zhipuApiKey;
         payload.zhipuTextModel = zhipuTextModel || null;
         payload.zhipuUseCodingPlan = zhipuUseCodingPlan;
+        payload.openaiCompatBaseUrl = openaiCompatBaseUrl || null;
+        if (openaiCompatApiKey && openaiCompatApiKey !== "••••••••")
+          payload.openaiCompatApiKey = openaiCompatApiKey;
+        payload.openaiCompatModel = openaiCompatModel || null;
         await adminApi.updateLlmSettings(payload);
       },
     });
@@ -91,6 +101,7 @@ export function LlmSettingsSection({ onTestModal }: LlmSettingsSectionProps) {
             <option value="google">{t("common.providerGoogle")}</option>
             <option value="vertex">{t("common.providerVertex")}</option>
             <option value="zhipu">{t("common.providerZhipu")}</option>
+            <option value="openai-compatible">{t("common.providerOpenaiCompat")}</option>
           </select>
         </label>
 
@@ -182,6 +193,41 @@ export function LlmSettingsSection({ onTestModal }: LlmSettingsSectionProps) {
               />
               {t("admin.settings.llmZhipuCodingPlan")}
             </label>
+          </>
+        )}
+
+        {llmProvider === "openai-compatible" && (
+          <>
+            <label className="block text-sm text-gray-700">
+              {t("admin.settings.llmOpenaiCompatBaseUrl")}
+              <input
+                value={openaiCompatBaseUrl}
+                onChange={(e) => setOpenaiCompatBaseUrl(e.target.value)}
+                placeholder="http://localhost:11434/v1"
+                className={INPUT_CLASS}
+              />
+            </label>
+            <label className="block text-sm text-gray-700">
+              {t("admin.settings.llmOpenaiCompatApiKey")}
+              <input
+                type="password"
+                value={openaiCompatApiKey}
+                onChange={(e) => setOpenaiCompatApiKey(e.target.value)}
+                autoComplete="off"
+                placeholder={t("admin.settings.llmOpenaiCompatApiKeyPlaceholder")}
+                className={INPUT_CLASS}
+              />
+            </label>
+            <label className="block text-sm text-gray-700">
+              {t("admin.settings.llmOpenaiCompatModel")}
+              <input
+                value={openaiCompatModel}
+                onChange={(e) => setOpenaiCompatModel(e.target.value)}
+                placeholder="llama3, qwen2.5, mistral..."
+                className={INPUT_CLASS}
+              />
+            </label>
+            <p className="text-xs text-gray-500">{t("admin.settings.llmOpenaiCompatHint")}</p>
           </>
         )}
 

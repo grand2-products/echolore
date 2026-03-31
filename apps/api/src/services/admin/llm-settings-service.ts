@@ -1,6 +1,6 @@
 import { createTypedSettingsService, FieldCodecs, field } from "./create-settings-cache.js";
 
-export type LlmProvider = "google" | "vertex" | "zhipu";
+export type LlmProvider = "google" | "vertex" | "zhipu" | "openai-compatible";
 export type EmbeddingProvider = "google" | "vertex";
 
 export interface LlmSettings {
@@ -13,6 +13,9 @@ export interface LlmSettings {
   zhipuApiKey: string | null;
   zhipuTextModel: string | null;
   zhipuUseCodingPlan: boolean;
+  openaiCompatBaseUrl: string | null;
+  openaiCompatApiKey: string | null;
+  openaiCompatModel: string | null;
   embeddingEnabled: boolean;
   embeddingProvider: EmbeddingProvider;
   embeddingModel: string | null;
@@ -29,6 +32,9 @@ const cache = createTypedSettingsService({
   zhipuApiKey: field("llmZhipuApiKey", FieldCodecs.nullable),
   zhipuTextModel: field("llmZhipuTextModel", FieldCodecs.nullable),
   zhipuUseCodingPlan: field("llmZhipuUseCodingPlan", FieldCodecs.boolFalse),
+  openaiCompatBaseUrl: field("llmOpenaiCompatBaseUrl", FieldCodecs.nullable),
+  openaiCompatApiKey: field("llmOpenaiCompatApiKey", FieldCodecs.nullable),
+  openaiCompatModel: field("llmOpenaiCompatModel", FieldCodecs.nullable),
   embeddingEnabled: field("llmEmbeddingEnabled", FieldCodecs.boolTrue),
   embeddingProvider: field(
     "llmEmbeddingProvider",

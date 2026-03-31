@@ -16,6 +16,10 @@ describe("resolveTextProvider", () => {
     expect(resolveTextProvider("google")).toBe("google");
   });
 
+  it("returns openai-compatible for explicit argument", () => {
+    expect(resolveTextProvider("openai-compatible")).toBe("openai-compatible");
+  });
+
   it("returns google for unknown provider strings", () => {
     expect(resolveTextProvider("unknown")).toBe("google");
   });
@@ -45,6 +49,18 @@ describe("isTextGenerationEnabled", () => {
   it("returns false for vertex when no override", () => {
     expect(isTextGenerationEnabled("vertex")).toBe(false);
   });
+
+  it("returns true for openai-compatible when baseUrl override is set", () => {
+    expect(
+      isTextGenerationEnabled("openai-compatible", {
+        openaiCompatBaseUrl: "http://localhost:11434/v1",
+      })
+    ).toBe(true);
+  });
+
+  it("returns false for openai-compatible when no override", () => {
+    expect(isTextGenerationEnabled("openai-compatible")).toBe(false);
+  });
 });
 
 describe("createChatModel", () => {
@@ -71,6 +87,24 @@ describe("createChatModel", () => {
       provider: "zhipu",
       temperature: 0.4,
       overrides: { zhipuApiKey: "test-key" },
+    });
+    expect(model).toBeDefined();
+  });
+
+  it("creates an OpenAI-compatible model", () => {
+    const model = createChatModel({
+      provider: "openai-compatible",
+      temperature: 0.5,
+      overrides: { openaiCompatBaseUrl: "http://localhost:11434/v1", openaiCompatModel: "llama3" },
+    });
+    expect(model).toBeDefined();
+  });
+
+  it("creates an OpenAI-compatible model without API key", () => {
+    const model = createChatModel({
+      provider: "openai-compatible",
+      temperature: 0.3,
+      overrides: { openaiCompatBaseUrl: "http://localhost:11434/v1" },
     });
     expect(model).toBeDefined();
   });
