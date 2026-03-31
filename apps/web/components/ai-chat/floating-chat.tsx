@@ -42,6 +42,7 @@ export function FloatingChat() {
       role: "user",
       content,
       citations: null,
+      toolSteps: null,
       createdAt: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimisticMessage]);

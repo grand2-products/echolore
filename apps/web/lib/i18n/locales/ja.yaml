@@ -939,6 +939,7 @@ aiChat:
   notFound: "会話が見つかりません。"
   back: "戻る"
   citationLabel: "参照元"
+  toolStepsLabel: "{count}件のツールを使用"
   team: "チーム"
   private: "プライベート"
   createdBy: "{name}"

@@ -923,6 +923,7 @@ aiChat:
   notFound: "未找到对话。"
   back: "返回"
   citationLabel: "来源"
+  toolStepsLabel: "使用了 {count} 个工具"
   team: "团队"
   private: "私密"
   createdBy: "{name}"

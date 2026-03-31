@@ -940,6 +940,7 @@ aiChat:
   notFound: "Conversation not found."
   back: "Back"
   citationLabel: "Sources"
+  toolStepsLabel: "Used {count} tool(s)"
   team: "Team"
   private: "Private"
   createdBy: "by {name}"

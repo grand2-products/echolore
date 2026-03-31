@@ -15,6 +15,13 @@ export interface CitationJson {
   snippet?: string;
 }
 
+// Tool step type used in ai_chat_messages
+export interface ToolStepJson {
+  toolName: string;
+  toolArgs: Record<string, unknown>;
+  toolResult: string;
+}
+
 // ─── Table interfaces ────────────────────────────────────────────
 
 export interface UsersTable {
@@ -358,6 +365,7 @@ export interface AiChatMessagesTable {
   role: string;
   content: string;
   citations: CitationJson[] | null;
+  toolSteps: ToolStepJson[] | null;
   createdAt: Generated<Date>;
 }
 

@@ -134,6 +134,7 @@ export function useSendAiChatMessageMutation(conversationId: string) {
           role: "user",
           content,
           citations: null,
+          toolSteps: null,
           createdAt: new Date().toISOString(),
         };
         queryClient.setQueryData(queryKeys.aiChatConversation(conversationId), {
