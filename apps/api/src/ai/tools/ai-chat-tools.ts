@@ -1,9 +1,17 @@
+import { UserRole } from "@echolore/shared/contracts";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import type { SessionUser } from "../../lib/auth.js";
 import { stripHtml } from "../../lib/html-utils.js";
 import { canReadPage } from "../../policies/authorization-policy.js";
-import { getPageBlocks, getPageById } from "../../repositories/wiki/wiki-repository.js";
+import {
+  findPagesWithExplicitDeny,
+  getPageBlocks,
+  getPageById,
+  listFirstSnippetsByPageIds,
+  listRecentPagesAdmin,
+  listRecentVisiblePagesForUser,
+} from "../../repositories/wiki/wiki-repository.js";
 import { searchByVector } from "../../services/wiki/vector-search-service.js";
 
 export interface AiChatToolResult {
@@ -54,6 +62,72 @@ export function createAiChatSearchTool(user: SessionUser) {
   });
 
   return { searchTool, referencedPages };
+}
+
+export function createAiChatListPagesTool(user: SessionUser) {
+  // Discovery tool — does NOT track citations.
+  // If the agent wants to cite a specific page it should use wiki_read_page,
+  // which properly records the citation.
+  const referencedPages: AiChatToolResult[] = [];
+
+  const listPagesTool = new DynamicStructuredTool({
+    name: "wiki_list_pages",
+    description:
+      "List wiki pages the user can access, ordered by most recently updated. Use this when the user wants to browse, discover, or be introduced to articles without a specific search topic. To cite a specific page, follow up with wiki_read_page.",
+    schema: z.object({
+      limit: z
+        .number()
+        .min(1)
+        .max(20)
+        .default(10)
+        .describe("Maximum number of pages to return (default 10)"),
+    }),
+    func: async ({ limit }) => {
+      // SQL-level permission filter + LIMIT — no full-table scan.
+      // Over-fetch to compensate for page-level deny post-filter.
+      const overFetchLimit = limit + 5;
+      let pages =
+        user.role === UserRole.Admin
+          ? await listRecentPagesAdmin(overFetchLimit)
+          : await listRecentVisiblePagesForUser(user.id, overFetchLimit);
+
+      // Post-filter: exclude pages with explicit page-level deny
+      if (user.role !== UserRole.Admin && pages.length > 0) {
+        const allIds = pages.map((p) => p.pageId);
+        const denied = await findPagesWithExplicitDeny(allIds, user.id);
+        if (denied.size > 0) {
+          pages = pages.filter((p) => !denied.has(p.pageId));
+        }
+      }
+
+      pages = pages.slice(0, limit);
+
+      if (pages.length === 0) {
+        return "No wiki pages are available.";
+      }
+
+      // DISTINCT ON — one query, one row per page, lowest sortOrder with content
+      const pageIds = pages.map((p) => p.pageId);
+      const snippets = await listFirstSnippetsByPageIds(pageIds);
+      const snippetMap = new Map(
+        snippets.map((s) => [s.pageId, stripHtml(s.snippet).slice(0, 150)])
+      );
+
+      const output: string[] = [];
+      for (const page of pages) {
+        const snippet = snippetMap.get(page.pageId) ?? "";
+        const updatedAt = new Date(page.updatedAt).toISOString().slice(0, 10);
+
+        output.push(
+          `- [${page.pageTitle}] (id: ${page.pageId}, updated: ${updatedAt})${snippet ? `\n  ${snippet}` : ""}`
+        );
+      }
+
+      return output.join("\n");
+    },
+  });
+
+  return { listPagesTool, referencedPages };
 }
 
 export function createAiChatReadPageTool(user: SessionUser) {

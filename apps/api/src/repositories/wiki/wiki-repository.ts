@@ -106,7 +106,97 @@ export async function listBlockContentsByPageIds(
     .selectFrom("blocks")
     .select(["pageId", "content"])
     .where("pageId", "in", pageIds)
+    .orderBy("sortOrder")
     .execute();
+}
+
+/**
+ * List recent pages visible to a non-admin user, with permission filtering
+ * performed in SQL rather than post-hoc per-row checks.
+ * Mirrors the permission logic of {@link searchByVectorForUser}.
+ */
+export async function listRecentVisiblePagesForUser(
+  userId: string,
+  limit: number
+): Promise<Array<{ pageId: string; pageTitle: string; updatedAt: Date }>> {
+  const results = await sql`
+    SELECT p.id AS page_id, p.title AS page_title, p.updated_at
+    FROM pages p
+    JOIN spaces s ON s.id = p.space_id
+    WHERE p.deleted_at IS NULL
+      AND (
+        p.author_id = ${userId}
+        OR s.type IN ('personal', 'general')
+        OR (s.type = 'team' AND s.group_id IN (
+          SELECT group_id FROM user_group_memberships WHERE user_id = ${userId}
+        ))
+        OR EXISTS (
+          SELECT 1 FROM space_permissions sp
+          JOIN user_group_memberships ugm ON ugm.group_id = sp.group_id
+          WHERE ugm.user_id = ${userId}
+            AND sp.space_id = s.id
+            AND sp.can_read = true
+        )
+      )
+    ORDER BY p.updated_at DESC
+    LIMIT ${limit}
+  `.execute(db);
+
+  return (results.rows as Array<{ pageId: string; pageTitle: string; updatedAt: Date }>).map(
+    (row) => ({
+      pageId: row.pageId,
+      pageTitle: row.pageTitle,
+      updatedAt: row.updatedAt,
+    })
+  );
+}
+
+/**
+ * List recent pages (admin — no permission filter).
+ */
+export async function listRecentPagesAdmin(
+  limit: number
+): Promise<Array<{ pageId: string; pageTitle: string; updatedAt: Date }>> {
+  const rows = await db
+    .selectFrom("pages")
+    .select(["id as pageId", "title as pageTitle", "updatedAt"])
+    .where("deletedAt", "is", null)
+    .orderBy("updatedAt", "desc")
+    .limit(limit)
+    .execute();
+
+  return rows.map((r) => ({
+    pageId: r.pageId,
+    pageTitle: r.pageTitle,
+    updatedAt: r.updatedAt,
+  }));
+}
+
+/**
+ * Fetch the first text snippet per page in a single query using DISTINCT ON.
+ * Returns at most one row per pageId, picking the block with the lowest sortOrder
+ * that has non-empty content.
+ */
+export async function listFirstSnippetsByPageIds(
+  pageIds: string[]
+): Promise<Array<{ pageId: string; snippet: string }>> {
+  if (pageIds.length === 0) return [];
+
+  const results = await sql`
+    SELECT DISTINCT ON (b.page_id)
+      b.page_id,
+      b.content AS snippet
+    FROM blocks b
+    WHERE b.page_id IN (${sql.join(pageIds.map((id) => sql`${id}`))})
+      AND b.content IS NOT NULL
+      AND b.content <> ''
+    ORDER BY b.page_id, b.sort_order
+  `.execute(db);
+
+  return (results.rows as Array<{ pageId: string; snippet: string }>).map((row) => ({
+    pageId: row.pageId,
+    snippet: row.snippet,
+  }));
 }
 
 export async function createPage(newPage: NewPage): Promise<Page | null> {
