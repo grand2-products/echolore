@@ -116,9 +116,9 @@ describe("AI Chat search pipeline", () => {
 
     // Verify embedding was generated
     expect(mockEmbedText).toHaveBeenCalled();
-    const embedCall = mockEmbedText.mock.calls[0]!;
-    expect(embedCall[0]).toContain("Company Handbook");
-    expect(embedCall[1]).toEqual(expect.objectContaining({ taskType: "RETRIEVAL_DOCUMENT" }));
+    const embedCall = mockEmbedText.mock.calls[0];
+    expect(embedCall?.[0]).toContain("Company Handbook");
+    expect(embedCall?.[1]).toEqual(expect.objectContaining({ taskType: "RETRIEVAL_DOCUMENT" }));
 
     // Verify embeddings were stored
     expect(mockReplacePageEmbeddings).toHaveBeenCalledWith(
@@ -144,11 +144,15 @@ describe("AI Chat search pipeline", () => {
     ]);
 
     const user = makeUser();
-    const results = await searchVisibleChunks(user, "when was the company founded?");
+    const { results, searchMode } = await searchVisibleChunks(
+      user,
+      "when was the company founded?"
+    );
 
     expect(results).toHaveLength(1);
     expect(results[0]?.pageId).toBe("page_1");
     expect(results[0]?.pageTitle).toBe("Company Handbook");
+    expect(searchMode).toBe("vector");
 
     // Verify query used RETRIEVAL_QUERY task type
     const searchEmbedCall = mockEmbedText.mock.calls.at(-1);
@@ -165,9 +169,10 @@ describe("AI Chat search pipeline", () => {
 
     // searchVisibleChunks should fall back to ILIKE
     mockSearchPagesByIlike.mockResolvedValue([]);
-    const results = await searchVisibleChunks(makeUser(), "test query");
+    const { results, searchMode } = await searchVisibleChunks(makeUser(), "test query");
 
     expect(results).toEqual([]);
+    expect(searchMode).toBe("ilike_disabled");
     expect(mockSearchPagesByIlike).toHaveBeenCalled();
     expect(mockSearchByVectorForUser).not.toHaveBeenCalled();
   });
@@ -186,8 +191,9 @@ describe("AI Chat search pipeline", () => {
     expect(mockReplacePageEmbeddings).not.toHaveBeenCalled();
 
     // Search also gets null embedding
-    const results = await searchVisibleChunks(makeUser(), "query");
+    const { results, searchMode } = await searchVisibleChunks(makeUser(), "query");
     expect(results).toEqual([]);
+    expect(searchMode).toBe("empty_embedding");
   });
 
   it("page-level deny excludes results from search", async () => {
@@ -197,10 +203,11 @@ describe("AI Chat search pipeline", () => {
     ]);
     mockFindPagesWithExplicitDeny.mockResolvedValue(new Set(["page_2"]));
 
-    const results = await searchVisibleChunks(makeUser(), "query");
+    const { results, searchMode } = await searchVisibleChunks(makeUser(), "query");
 
     expect(results).toHaveLength(1);
     expect(results[0]?.pageId).toBe("page_1");
+    expect(searchMode).toBe("vector");
   });
 
   it("admin bypasses permission filter and uses unfiltered search", async () => {
@@ -209,9 +216,10 @@ describe("AI Chat search pipeline", () => {
       { pageId: "page_1", pageTitle: "Secret", chunkText: "c1", similarity: 0.95 },
     ]);
 
-    const results = await searchVisibleChunks(admin, "query");
+    const { results, searchMode } = await searchVisibleChunks(admin, "query");
 
     expect(results).toHaveLength(1);
+    expect(searchMode).toBe("vector");
     expect(mockSearchByVectorRepo).toHaveBeenCalled();
     expect(mockSearchByVectorForUser).not.toHaveBeenCalled();
     expect(mockFindPagesWithExplicitDeny).not.toHaveBeenCalled();
@@ -223,9 +231,10 @@ describe("AI Chat search pipeline", () => {
       { pageId: "page_1", pageTitle: "Fallback", chunkText: "keyword hit", similarity: 0.5 },
     ]);
 
-    const results = await searchVisibleChunks(makeUser(), "query");
+    const { results, searchMode } = await searchVisibleChunks(makeUser(), "query");
 
     expect(results).toHaveLength(1);
     expect(results[0]?.pageTitle).toBe("Fallback");
+    expect(searchMode).toBe("ilike_fallback");
   });
 });

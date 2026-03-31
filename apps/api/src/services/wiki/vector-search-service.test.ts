@@ -126,8 +126,9 @@ describe("vector-search-service", () => {
       ]);
 
       const user = makeUser();
-      const results = await searchVisibleChunks(user, "search term");
+      const { results, searchMode } = await searchVisibleChunks(user, "search term");
 
+      expect(searchMode).toBe("ilike_disabled");
       expect(results).toEqual([
         {
           pageId: "p1",
@@ -148,7 +149,7 @@ describe("vector-search-service", () => {
         { pageId: "p2", pageTitle: "Page 2", chunkText: "chunk2", similarity: 0.8 },
       ]);
 
-      const results = await searchVisibleChunks(admin, "query", 5);
+      const { results } = await searchVisibleChunks(admin, "query", 5);
 
       expect(results).toHaveLength(2);
       expect(mockSearchByVectorForUser).not.toHaveBeenCalled();
@@ -163,7 +164,7 @@ describe("vector-search-service", () => {
         { pageId: "p3", pageTitle: "Also Allowed", chunkText: "c3", similarity: 0.7 },
       ]);
 
-      const results = await searchVisibleChunks(user, "query", 5);
+      const { results } = await searchVisibleChunks(user, "query", 5);
 
       expect(results).toHaveLength(2);
       expect(results[0]?.pageId).toBe("p1");
@@ -182,7 +183,7 @@ describe("vector-search-service", () => {
       ]);
       mockFindPagesWithExplicitDeny.mockResolvedValue(new Set(["p2"]));
 
-      const results = await searchVisibleChunks(user, "query", 5);
+      const { results } = await searchVisibleChunks(user, "query", 5);
 
       expect(results).toHaveLength(2);
       expect(results[0]?.pageId).toBe("p1");
@@ -199,7 +200,7 @@ describe("vector-search-service", () => {
         { pageId: "p2", pageTitle: "Page 2", chunkText: "chunk2", similarity: 0.8 },
       ]);
 
-      const results = await searchVisibleChunks(admin, "query", 5);
+      const { results } = await searchVisibleChunks(admin, "query", 5);
 
       expect(results).toHaveLength(2);
       expect(results[0]?.chunkText).toBe("chunk1a");
@@ -210,9 +211,10 @@ describe("vector-search-service", () => {
       mockIsEmbeddingEnabled.mockResolvedValue(true);
       mockEmbedText.mockResolvedValue(null);
 
-      const results = await searchVisibleChunks(user, "query");
+      const { results, searchMode } = await searchVisibleChunks(user, "query");
 
       expect(results).toEqual([]);
+      expect(searchMode).toBe("empty_embedding");
     });
   });
 

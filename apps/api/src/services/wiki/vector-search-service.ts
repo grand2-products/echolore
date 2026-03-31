@@ -30,13 +30,21 @@ export async function searchByVector(queryText: string, limit = 10): Promise<Vec
   }
 }
 
+export type SearchMode = "vector" | "ilike_fallback" | "ilike_disabled" | "empty_embedding";
+
+export interface VisibleChunksResult {
+  results: VectorSearchResult[];
+  searchMode: SearchMode;
+}
+
 export async function searchVisibleChunks(
   user: SessionUser,
   queryText: string,
   limit = 5
-): Promise<VectorSearchResult[]> {
+): Promise<VisibleChunksResult> {
   if (!(await isEmbeddingEnabled())) {
-    return fallbackIlikeSearch(queryText, limit);
+    const results = await fallbackIlikeSearch(queryText, limit);
+    return { results, searchMode: "ilike_disabled" };
   }
 
   const dimensions = await getEmbeddingDimensions();
@@ -45,25 +53,44 @@ export async function searchVisibleChunks(
     outputDimensionality: dimensions,
   });
 
-  if (!queryEmbedding) return [];
+  if (!queryEmbedding) {
+    console.warn(
+      JSON.stringify({
+        event: "vector-search.embed-failed",
+        query: queryText.slice(0, 100),
+        reason: "embedText returned null despite embedding being enabled",
+      })
+    );
+    return { results: [], searchMode: "empty_embedding" };
+  }
 
   let results: VectorSearchResult[];
 
   if (user.role === UserRole.Admin) {
-    // Admin: no permission filter needed
     try {
       results = await searchByVectorRepo("", queryEmbedding, limit);
     } catch (err) {
-      console.warn("Vector search failed, falling back to keyword search:", err);
-      return searchPagesByIlike(queryText, limit);
+      console.warn(
+        JSON.stringify({
+          event: "vector-search.fallback",
+          reason: "vector_query_failed",
+          error: err instanceof Error ? err.message : "Unknown",
+        })
+      );
+      return { results: await searchPagesByIlike(queryText, limit), searchMode: "ilike_fallback" };
     }
   } else {
-    // Non-admin: space-level permission filter in SQL
     try {
       results = await searchByVectorForUser(queryEmbedding, user.id, limit);
     } catch (err) {
-      console.warn("Vector search failed, falling back to keyword search:", err);
-      return searchPagesByIlike(queryText, limit);
+      console.warn(
+        JSON.stringify({
+          event: "vector-search.fallback",
+          reason: "vector_query_failed",
+          error: err instanceof Error ? err.message : "Unknown",
+        })
+      );
+      return { results: await searchPagesByIlike(queryText, limit), searchMode: "ilike_fallback" };
     }
 
     // Post-filter: exclude pages with explicit page-level deny
@@ -78,11 +105,14 @@ export async function searchVisibleChunks(
 
   // Deduplicate by pageId, keep highest similarity
   const seen = new Set<string>();
-  return results.filter((r) => {
-    if (seen.has(r.pageId)) return false;
-    seen.add(r.pageId);
-    return true;
-  });
+  return {
+    results: results.filter((r) => {
+      if (seen.has(r.pageId)) return false;
+      seen.add(r.pageId);
+      return true;
+    }),
+    searchMode: "vector",
+  };
 }
 
 async function fallbackIlikeSearch(

@@ -21,7 +21,12 @@ import {
   listRecentMessages,
   updateConversation,
 } from "../../repositories/ai-chat/ai-chat-repository.js";
-import { searchVisibleChunks, type VectorSearchResult } from "../wiki/vector-search-service.js";
+import {
+  type SearchMode,
+  searchVisibleChunks,
+  type VectorSearchResult,
+  type VisibleChunksResult,
+} from "../wiki/vector-search-service.js";
 
 // Replaceable for testing
 let llm: LlmProvider = defaultLlmProvider;
@@ -104,8 +109,11 @@ async function invokeAgent(
   // Step 1: Deterministic RAG — always perform vector search
   const searchStart = Date.now();
   let ragResults: VectorSearchResult[] = [];
+  let searchMode: SearchMode = "vector";
   try {
-    ragResults = await searchVisibleChunks(user, userQuery, 5);
+    const searchResult: VisibleChunksResult = await searchVisibleChunks(user, userQuery, 5);
+    ragResults = searchResult.results;
+    searchMode = searchResult.searchMode;
   } catch (err) {
     console.error(
       JSON.stringify({
@@ -121,6 +129,7 @@ async function invokeAgent(
     JSON.stringify({
       event: "ai-chat.search",
       query: userQuery.slice(0, 100),
+      searchMode,
       resultCount: ragResults.length,
       topSimilarity: ragResults[0]?.similarity ?? 0,
       durationMs: searchDurationMs,

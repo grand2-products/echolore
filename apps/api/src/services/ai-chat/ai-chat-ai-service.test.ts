@@ -92,7 +92,7 @@ describe("ai-chat-ai-service", () => {
       provider: "gemini",
       overrides: {},
     });
-    searchVisibleChunksMock.mockResolvedValue([]);
+    searchVisibleChunksMock.mockResolvedValue({ results: [], searchMode: "vector" });
     createAiChatSearchToolMock.mockReturnValue({ searchTool: {}, referencedPages: [] });
     createAiChatListPagesToolMock.mockReturnValue({ listPagesTool: {}, referencedPages: [] });
     createAiChatReadPageToolMock.mockReturnValue({ readPageTool: {}, referencedPages: [] });
@@ -201,9 +201,17 @@ describe("ai-chat-ai-service", () => {
         provider: "gemini",
         overrides: {},
       });
-      searchVisibleChunksMock.mockResolvedValue([
-        { pageId: "page-1", pageTitle: "Deploy Guide", chunkText: "Step 1: ...", similarity: 0.9 },
-      ]);
+      searchVisibleChunksMock.mockResolvedValue({
+        results: [
+          {
+            pageId: "page-1",
+            pageTitle: "Deploy Guide",
+            chunkText: "Step 1: ...",
+            similarity: 0.9,
+          },
+        ],
+        searchMode: "vector",
+      });
       createAiChatSearchToolMock.mockReturnValue({ searchTool: {}, referencedPages: [] });
       createAiChatListPagesToolMock.mockReturnValue({ listPagesTool: {}, referencedPages: [] });
       createAiChatReadPageToolMock.mockReturnValue({ readPageTool: {}, referencedPages: [] });
@@ -248,7 +256,7 @@ describe("ai-chat-ai-service", () => {
         provider: "gemini",
         overrides: {},
       });
-      searchVisibleChunksMock.mockResolvedValue([]);
+      searchVisibleChunksMock.mockResolvedValue({ results: [], searchMode: "vector" });
       createAiChatSearchToolMock.mockReturnValue({ searchTool: {}, referencedPages: [] });
       createAiChatListPagesToolMock.mockReturnValue({ listPagesTool: {}, referencedPages: [] });
       createAiChatReadPageToolMock.mockReturnValue({ readPageTool: {}, referencedPages: [] });
