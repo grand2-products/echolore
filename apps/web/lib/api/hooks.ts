@@ -79,6 +79,16 @@ export function useCreateAiChatConversationMutation() {
   });
 }
 
+export function useDeleteAiChatConversationMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => aiChatApi.deleteConversation(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.aiChatConversations });
+    },
+  });
+}
+
 export function useImportWikiFileMutation() {
   const queryClient = useQueryClient();
   return useMutation({

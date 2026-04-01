@@ -8,6 +8,7 @@ const { repoMock } = vi.hoisted(() => ({
     updateCharacter: vi.fn(),
     deleteCharacter: vi.fn(),
     createSession: vi.fn(),
+    getActiveSession: vi.fn(),
     getSessionById: vi.fn(),
     listSessions: vi.fn(),
     updateSession: vi.fn(),

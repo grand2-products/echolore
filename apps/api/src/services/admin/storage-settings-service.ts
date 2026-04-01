@@ -32,7 +32,7 @@ const cache = createTypedSettingsService(
     gcsProjectId: field("storageGcsProjectId", FieldCodecs.nullable),
     gcsKeyJson: field("storageGcsKeyJson", FieldCodecs.nullable),
   },
-  { cacheTtlMs: false }
+  { cacheTtlMs: false, encryptedKeys: ["storageS3SecretKey", "storageGcsKeyJson"] }
 );
 
 export const getStorageSettings = cache.get;

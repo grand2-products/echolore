@@ -5,10 +5,13 @@ export interface GcpCredentials {
   gcpServiceAccountKeyJson: string | null;
 }
 
-const cache = createTypedSettingsService({
-  gcpProjectId: field("gcpProjectId", FieldCodecs.nullable),
-  gcpServiceAccountKeyJson: field("gcpServiceAccountKeyJson", FieldCodecs.nullable),
-});
+const cache = createTypedSettingsService(
+  {
+    gcpProjectId: field("gcpProjectId", FieldCodecs.nullable),
+    gcpServiceAccountKeyJson: field("gcpServiceAccountKeyJson", FieldCodecs.nullable),
+  },
+  { encryptedKeys: ["gcpServiceAccountKeyJson"] }
+);
 
 export const getGcpCredentials = cache.get;
 export const updateGcpCredentials = cache.update;

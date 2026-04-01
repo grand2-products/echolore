@@ -928,6 +928,19 @@ aiChat:
   back: "返回"
   citationLabel: "来源"
   toolStepsLabel: "使用了 {count} 个工具"
+  sidebar:
+    newChat: "新对话"
+    today: "今天"
+    yesterday: "昨天"
+    previous7Days: "过去7天"
+    previous30Days: "过去30天"
+    older: "更早"
+    noConversations: "还没有对话"
+    deleteTooltip: "删除对话"
+    untitled: "无标题"
+  emptyState:
+    title: "开始新对话"
+    description: "向 Wiki 提问。AI 助手可以搜索、总结并帮助您发现信息。"
 
 invite:
   validating: "正在验证邀请..."

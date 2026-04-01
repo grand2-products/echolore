@@ -295,26 +295,69 @@ aituberRoutes.post(
 
 // --- Session Management ---
 
-const createSessionSchema = z.object({
+// GET /sessions/active — Get the current active session (any authenticated user)
+aituberRoutes.get(
+  "/sessions/active",
+  withErrorHandler("AITUBER_SESSION_ACTIVE_FAILED", "Failed to get active session"),
+  async (c) => {
+    const session = await aituberService.getActiveSession();
+    if (!session) return c.json({ session: null });
+    const character = await aituberService.getCharacter(session.characterId);
+    return c.json({
+      session: {
+        ...session,
+        characterName: character?.name,
+        characterAvatarUrl: character ? resolveCharacterAvatarUrl(character) : null,
+      },
+    });
+  }
+);
+
+// POST /sessions/start-live — Create and immediately start a session (admin only)
+const startLiveSchema = z.object({
   characterId: z.string().min(1),
-  title: z.string().min(1).max(200),
 });
 
 aituberRoutes.post(
-  "/sessions",
-  zValidator("json", createSessionSchema),
-  withErrorHandler("AITUBER_SESSION_CREATE_FAILED", "Failed to create session"),
+  "/sessions/start-live",
+  zValidator("json", startLiveSchema),
+  withErrorHandler("AITUBER_SESSION_START_LIVE_FAILED", "Failed to start live session"),
   async (c) => {
     const user = c.get("user");
+    if (user.role !== UserRole.Admin) {
+      return jsonError(c, 403, "FORBIDDEN", "Only admins can start a live session");
+    }
     const body = c.req.valid("json");
     const character = await aituberService.getCharacter(body.characterId);
     if (!character) return jsonError(c, 404, "NOT_FOUND", "Character not found");
+
+    // Create session
     const session = await aituberService.createSession({
       characterId: body.characterId,
       creatorId: user.id,
-      title: body.title,
+      title: character.name,
     });
-    return c.json({ session }, 201);
+
+    // Create LiveKit room
+    await livekitService.createAituberRoom(session.roomName);
+
+    // Start session
+    const updated = await aituberService.startSession(session.id);
+
+    // Start AI processing loop
+    await aiService.startProcessingLoop(session.id, character, session.roomName);
+
+    const avatarUrl = resolveCharacterAvatarUrl(character);
+    return c.json(
+      {
+        session: {
+          ...updated,
+          characterName: character.name,
+          characterAvatarUrl: avatarUrl,
+        },
+      },
+      201
+    );
   }
 );
 
@@ -324,7 +367,6 @@ aituberRoutes.get(
   async (c) => {
     const user = c.get("user");
     const status = c.req.query("status");
-    // Live sessions are publicly viewable; non-live sessions are restricted to creator/admin
     if (status === "live") {
       const sessions = await aituberService.listSessions({ status });
       return c.json({ sessions });
@@ -356,44 +398,16 @@ aituberRoutes.get(
 );
 
 aituberRoutes.post(
-  "/sessions/:id/start",
-  withErrorHandler("AITUBER_SESSION_START_FAILED", "Failed to start session"),
-  async (c) => {
-    const { id } = c.req.param();
-    const user = c.get("user");
-    const session = await aituberService.getSession(id);
-    if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
-    if (!isOwnerOrAdmin(user, session.creatorId)) {
-      return jsonError(c, 403, "FORBIDDEN", "Not authorized to start this session");
-    }
-
-    // Create LiveKit room
-    await livekitService.createAituberRoom(session.roomName);
-
-    // Start session
-    const updated = await aituberService.startSession(id);
-
-    // Get character and start AI processing loop
-    const character = await aituberService.getCharacter(session.characterId);
-    if (character) {
-      await aiService.startProcessingLoop(id, character, session.roomName);
-    }
-
-    return c.json({ session: updated });
-  }
-);
-
-aituberRoutes.post(
   "/sessions/:id/stop",
   withErrorHandler("AITUBER_SESSION_STOP_FAILED", "Failed to stop session"),
   async (c) => {
     const { id } = c.req.param();
     const user = c.get("user");
+    if (user.role !== UserRole.Admin) {
+      return jsonError(c, 403, "FORBIDDEN", "Only admins can stop a session");
+    }
     const session = await aituberService.getSession(id);
     if (!session) return jsonError(c, 404, "NOT_FOUND", "Session not found");
-    if (!isOwnerOrAdmin(user, session.creatorId)) {
-      return jsonError(c, 403, "FORBIDDEN", "Not authorized to stop this session");
-    }
 
     // Stop AI processing loop
     aiService.stopProcessingLoop(id);

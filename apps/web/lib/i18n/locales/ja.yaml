@@ -944,6 +944,19 @@ aiChat:
   back: "戻る"
   citationLabel: "参照元"
   toolStepsLabel: "{count}件のツールを使用"
+  sidebar:
+    newChat: "新しいチャット"
+    today: "今日"
+    yesterday: "昨日"
+    previous7Days: "過去7日間"
+    previous30Days: "過去30日間"
+    older: "それ以前"
+    noConversations: "会話はまだありません"
+    deleteTooltip: "会話を削除"
+    untitled: "無題"
+  emptyState:
+    title: "新しい会話を始めましょう"
+    description: "Wikiについて質問できます。AIアシスタントが検索、要約、情報の発見をお手伝いします。"
 aituber:
   title: "AITuber"
   description: "AIキャラクターが視聴者のメッセージにリアルタイムで応答する配信モードです。"
@@ -1070,6 +1083,8 @@ aituber:
     stopError: "配信の停止に失敗しました。"
     loadError: "セッションの読み込みに失敗しました。"
     empty: "まだセッションはありません。"
+    startLive: "配信を開始"
+    noLiveStream: "現在配信中のストリームはありません。"
     status:
       created: "準備中"
       live: "配信中"

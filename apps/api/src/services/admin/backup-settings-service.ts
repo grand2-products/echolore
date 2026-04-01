@@ -48,7 +48,7 @@ const cache = createTypedSettingsService(
     gcsKeyJson: field("backupGcsKeyJson", FieldCodecs.nullable),
     slackWebhookUrl: field("backupSlackWebhookUrl", FieldCodecs.nullable),
   },
-  { cacheTtlMs: 10_000 }
+  { cacheTtlMs: 10_000, encryptedKeys: ["backupS3SecretKey", "backupGcsKeyJson"] }
 );
 
 export const getBackupSettings: () => Promise<BackupSettings> = cache.get;

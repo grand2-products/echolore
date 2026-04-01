@@ -72,11 +72,20 @@ export async function deleteCharacter(id: string) {
 
 // --- Session Management ---
 
+export async function getActiveSession(): Promise<AituberSession | null> {
+  return repo.getActiveSession();
+}
+
 export async function createSession(input: {
   characterId: string;
   creatorId: string;
   title: string;
 }): Promise<AituberSession> {
+  // Enforce single-session constraint
+  const active = await repo.getActiveSession();
+  if (active) {
+    throw new Error("Another session is already active");
+  }
   const roomName = `aituber-${nanoid(12)}`;
   return createOrThrow(
     () =>

@@ -90,6 +90,17 @@ export async function createSession(session: NewAituberSession): Promise<Aituber
   );
 }
 
+export async function getActiveSession(): Promise<AituberSession | null> {
+  return (
+    (await db
+      .selectFrom("aituber_sessions")
+      .selectAll()
+      .where("status", "in", ["created", "live"])
+      .orderBy("createdAt", "desc")
+      .executeTakeFirst()) ?? null
+  );
+}
+
 export async function getSessionById(id: string): Promise<AituberSession | null> {
   return (
     (await db.selectFrom("aituber_sessions").selectAll().where("id", "=", id).executeTakeFirst()) ??
