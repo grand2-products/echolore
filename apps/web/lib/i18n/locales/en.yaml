@@ -945,6 +945,19 @@ aiChat:
   back: "Back"
   citationLabel: "Sources"
   toolStepsLabel: "Used {count} tool(s)"
+  sidebar:
+    newChat: "New Chat"
+    today: "Today"
+    yesterday: "Yesterday"
+    previous7Days: "Previous 7 Days"
+    previous30Days: "Previous 30 Days"
+    older: "Older"
+    noConversations: "No conversations yet"
+    deleteTooltip: "Delete conversation"
+    untitled: "Untitled"
+  emptyState:
+    title: "Start a new conversation"
+    description: "Ask questions about your wiki. The AI assistant can search, summarize, and help you discover information."
 aituber:
   title: "AITuber"
   description: "A streaming mode where AI characters respond to viewers in real-time with text, voice, and VRM avatars."

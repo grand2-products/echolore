@@ -1,109 +1,75 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { ErrorBanner, LoadingState } from "@/components/ui";
-import {
-  type AiChatConversation,
-  useAiChatConversationsQuery,
-  useCreateAiChatConversationMutation,
-} from "@/lib/api";
-import { useApiErrorMessage } from "@/lib/api-error-message";
-import { useFormatters, useT } from "@/lib/i18n";
+import { useChatSidebar } from "@/components/ai-chat/chat-sidebar-context";
+import { useCreateAiChatConversationMutation } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
-export default function AiChatListPage() {
+export default function AiChatEmptyPage() {
   const t = useT();
-  const getApiErrorMessage = useApiErrorMessage();
-  const { dateTime } = useFormatters();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const { data, isLoading, error } = useAiChatConversationsQuery({
-    query: searchQuery || undefined,
-  });
-
   const createMutation = useCreateAiChatConversationMutation();
-
-  const conversations: AiChatConversation[] = data?.conversations ?? [];
+  const { setIsMobileOpen } = useChatSidebar();
 
   const handleNewChat = async () => {
-    try {
-      const result = await createMutation.mutateAsync({});
-      if (result.conversation) {
-        router.push(`/ai-chat/${result.conversation.id}`);
-      }
-    } catch {
-      // Error handled by mutation
+    const result = await createMutation.mutateAsync({});
+    if (result.conversation) {
+      router.push(`/ai-chat/${result.conversation.id}`);
     }
   };
 
   return (
-    <div className="flex-1 p-8">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">{t("aiChat.title")}</h1>
-            <p className="mt-1 text-gray-600">{t("aiChat.description")}</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleNewChat}
-            disabled={createMutation.isPending}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {t("aiChat.newChat")}
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="mb-6">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t("aiChat.searchPlaceholder")}
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+    <div className="flex flex-1 flex-col items-center justify-center p-8">
+      {/* Mobile sidebar toggle */}
+      <button
+        type="button"
+        onClick={() => setIsMobileOpen(true)}
+        className="absolute left-3 top-3 rounded-lg p-2 text-gray-500 hover:bg-gray-200 md:hidden"
+      >
+        <svg
+          className="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 6h16M4 12h16M4 18h16"
           />
-        </div>
+        </svg>
+      </button>
 
-        {/* Conversation list */}
-        {isLoading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorBanner
-            message={getApiErrorMessage(error, t("aiChat.loadError"))}
-            onRetry={() =>
-              void queryClient.invalidateQueries({ queryKey: ["ai-chat", "conversations"] })
-            }
+      <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+        <svg
+          className="h-8 w-8 text-blue-600"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
           />
-        ) : conversations.length === 0 ? (
-          <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-            <p className="text-gray-500">{t("aiChat.noConversations")}</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {conversations.map((conv) => (
-              <Link
-                key={conv.id}
-                href={`/ai-chat/${conv.id}`}
-                className="block rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition hover:border-blue-300 hover:shadow-md"
-              >
-                <h3 className="truncate font-medium text-gray-900">{conv.title}</h3>
-                {conv.lastMessagePreview ? (
-                  <p className="mt-1 truncate text-sm text-gray-500">{conv.lastMessagePreview}</p>
-                ) : null}
-                <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
-                  <span>{dateTime(new Date(conv.updatedAt))}</span>
-                  {conv.messageCount != null ? <span>{conv.messageCount} messages</span> : null}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+        </svg>
       </div>
+      <h2 className="text-xl font-semibold text-gray-900">{t("aiChat.emptyState.title")}</h2>
+      <p className="mt-2 max-w-md text-center text-sm text-gray-500">
+        {t("aiChat.emptyState.description")}
+      </p>
+      <button
+        type="button"
+        onClick={() => void handleNewChat()}
+        disabled={createMutation.isPending}
+        className="mt-6 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+      >
+        {t("aiChat.sidebar.newChat")}
+      </button>
     </div>
   );
 }

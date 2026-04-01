@@ -1,15 +1,15 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { ChatInput, ChatMessageBubble, TypingIndicator } from "@/components/ai-chat";
+import { useChatSidebar } from "@/components/ai-chat/chat-sidebar-context";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   type AiChatMessage,
-  aiChatApi,
   useAiChatConversationQuery,
+  useDeleteAiChatConversationMutation,
   useSendAiChatMessageMutation,
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
@@ -21,11 +21,12 @@ export default function AiChatPage() {
   const router = useRouter();
   const t = useT();
   const getApiErrorMessage = useApiErrorMessage();
-  const queryClient = useQueryClient();
   const id = params.id as string;
+  const { setIsMobileOpen } = useChatSidebar();
 
   const { data, isLoading, error } = useAiChatConversationQuery(id);
   const sendMutation = useSendAiChatMessageMutation(id);
+  const deleteMutation = useDeleteAiChatConversationMutation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -40,13 +41,8 @@ export default function AiChatPage() {
 
   const handleDeleteConfirmed = async () => {
     setShowDeleteConfirm(false);
-    try {
-      await aiChatApi.deleteConversation(id);
-      void queryClient.invalidateQueries({ queryKey: ["ai-chat", "conversations"] });
-      router.push("/ai-chat");
-    } catch {
-      // Ignore
-    }
+    await deleteMutation.mutateAsync(id);
+    router.push("/ai-chat");
   };
 
   if (isLoading) {
@@ -76,10 +72,11 @@ export default function AiChatPage() {
   return (
     <div className="flex flex-1 flex-col">
       {/* Top bar */}
-      <div className="flex items-center gap-3 border-b border-gray-200 px-6 py-3">
-        <Link
-          href="/ai-chat"
-          className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+      <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3">
+        <button
+          type="button"
+          onClick={() => setIsMobileOpen(true)}
+          className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 md:hidden"
         >
           <svg
             className="h-5 w-5"
@@ -92,10 +89,10 @@ export default function AiChatPage() {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M15 19l-7-7 7-7"
+              d="M4 6h16M4 12h16M4 18h16"
             />
           </svg>
-        </Link>
+        </button>
         <h1 className="flex-1 truncate text-lg font-semibold text-gray-900">
           {conversation.title}
         </h1>
@@ -103,7 +100,7 @@ export default function AiChatPage() {
           type="button"
           onClick={() => setShowDeleteConfirm(true)}
           className="rounded-lg p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
-          title="Delete"
+          title={t("aiChat.sidebar.deleteTooltip")}
         >
           <svg
             className="h-5 w-5"
@@ -123,7 +120,7 @@ export default function AiChatPage() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4">
         <div className="mx-auto max-w-3xl space-y-4">
           {messages.map((msg) => (
             <ChatMessageBubble key={msg.id} message={msg} />
