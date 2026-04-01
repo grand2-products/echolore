@@ -3,7 +3,6 @@ import type {
   AituberMessageDto,
   AituberSessionDto,
   CreateAituberCharacterRequest,
-  CreateAituberSessionRequest,
   SendAituberMessageRequest,
   UpdateAituberCharacterRequest,
   VisemeEntry,
@@ -59,28 +58,21 @@ export const aituberApi = {
     ),
 
   // Sessions
-  listSessions: (status?: string) =>
-    fetchApi<{ sessions: AituberSessionDto[] }>(
-      `/aituber/sessions${status ? `?status=${status}` : ""}`
-    ),
+  getActiveSession: () =>
+    fetchApi<{ session: AituberSessionDto | null }>("/aituber/sessions/active"),
 
-  getSession: (id: string) => fetchApi<{ session: AituberSessionDto }>(`/aituber/sessions/${id}`),
-
-  createSession: (data: CreateAituberSessionRequest) =>
-    fetchApi<{ session: AituberSessionDto }>("/aituber/sessions", {
+  startLive: (characterId: string) =>
+    fetchApi<{ session: AituberSessionDto }>("/aituber/sessions/start-live", {
       method: "POST",
-      body: JSON.stringify(data),
-    }),
-
-  startSession: (id: string) =>
-    fetchApi<{ session: AituberSessionDto }>(`/aituber/sessions/${id}/start`, {
-      method: "POST",
+      body: JSON.stringify({ characterId }),
     }),
 
   stopSession: (id: string) =>
     fetchApi<{ session: AituberSessionDto }>(`/aituber/sessions/${id}/stop`, {
       method: "POST",
     }),
+
+  getSession: (id: string) => fetchApi<{ session: AituberSessionDto }>(`/aituber/sessions/${id}`),
 
   // Messages
   listMessages: (sessionId: string) =>

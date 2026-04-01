@@ -1083,6 +1083,8 @@ aituber:
     stopError: "配信の停止に失敗しました。"
     loadError: "セッションの読み込みに失敗しました。"
     empty: "まだセッションはありません。"
+    startLive: "配信を開始"
+    noLiveStream: "現在配信中のストリームはありません。"
     status:
       created: "準備中"
       live: "配信中"

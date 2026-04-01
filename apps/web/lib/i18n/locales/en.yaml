@@ -1084,6 +1084,8 @@ aituber:
     stopError: "Failed to stop stream."
     loadError: "Failed to load sessions."
     empty: "No sessions yet."
+    startLive: "Go Live"
+    noLiveStream: "No stream is currently live."
     status:
       created: "Ready"
       live: "Live"
