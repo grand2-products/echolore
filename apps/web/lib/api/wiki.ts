@@ -163,15 +163,14 @@ export const wikiApi = {
 };
 
 export const aiChatApi = {
-  listConversations: (opts?: { mine?: boolean; query?: string }) => {
+  listConversations: (opts?: { query?: string }) => {
     const params = new URLSearchParams();
-    if (opts?.mine) params.set("mine", "1");
     if (opts?.query) params.set("q", opts.query);
     const qs = params.toString();
     return fetchApi<{ conversations: AiChatConversation[] }>(`/ai-chat${qs ? `?${qs}` : ""}`);
   },
 
-  createConversation: (data?: { title?: string; visibility?: "team" | "private" }) =>
+  createConversation: (data?: { title?: string }) =>
     fetchApi<{ conversation: AiChatConversation }>("/ai-chat", {
       method: "POST",
       body: JSON.stringify(data ?? {}),
@@ -180,7 +179,7 @@ export const aiChatApi = {
   getConversation: (id: string) =>
     fetchApi<{ conversation: AiChatConversation; messages: AiChatMessage[] }>(`/ai-chat/${id}`),
 
-  updateConversation: (id: string, data: { title?: string; visibility?: "team" | "private" }) =>
+  updateConversation: (id: string, data: { title?: string }) =>
     fetchApi<{ conversation: AiChatConversation }>(`/ai-chat/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),

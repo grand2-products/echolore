@@ -354,7 +354,6 @@ export interface AiChatConversationsTable {
   id: string;
   title: string;
   creatorId: string;
-  visibility: Generated<string>;
   createdAt: Generated<Date>;
   updatedAt: Generated<Date>;
 }

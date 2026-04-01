@@ -915,8 +915,6 @@ aiChat:
   description: "向 Wiki 知识库提问并获取答案。"
   newChat: "+ 新建聊天"
   searchPlaceholder: "搜索对话..."
-  allTab: "全部"
-  myTab: "我的"
   noConversations: "还没有对话。"
   loadError: "加载对话失败。"
   deleteConfirm: "确认删除此对话？"
@@ -930,9 +928,6 @@ aiChat:
   back: "返回"
   citationLabel: "来源"
   toolStepsLabel: "使用了 {count} 个工具"
-  team: "团队"
-  private: "私密"
-  createdBy: "{name}"
 
 invite:
   validating: "正在验证邀请..."

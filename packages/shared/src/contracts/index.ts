@@ -401,7 +401,6 @@ export interface GetFileDownloadUrlResponse {
 }
 
 // AI Chat
-export type AiChatVisibility = "team" | "private";
 export type AiChatMessageRole = "user" | "assistant";
 
 export interface AiChatCitationDto {
@@ -415,7 +414,6 @@ export interface AiChatConversationDto {
   title: string;
   creatorId: string;
   creatorName?: string | null;
-  visibility: AiChatVisibility;
   messageCount?: number;
   lastMessagePreview?: string | null;
   createdAt: ISODateString;
@@ -440,12 +438,10 @@ export interface AiChatMessageDto {
 
 export interface CreateAiChatConversationRequest {
   title?: string;
-  visibility?: AiChatVisibility;
 }
 
 export interface UpdateAiChatConversationRequest {
   title?: string;
-  visibility?: AiChatVisibility;
 }
 
 export interface SendAiChatMessageRequest {

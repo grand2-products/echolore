@@ -22,15 +22,11 @@ export async function getConversationById(id: string): Promise<AiChatConversatio
   );
 }
 
-export async function listConversations(opts: {
-  userId?: string;
-  query?: string;
-}): Promise<
+export async function listConversations(opts: { userId: string; query?: string }): Promise<
   Array<
-    Pick<
-      AiChatConversation,
-      "id" | "title" | "creatorId" | "visibility" | "createdAt" | "updatedAt"
-    > & { creatorName: string | null }
+    Pick<AiChatConversation, "id" | "title" | "creatorId" | "createdAt" | "updatedAt"> & {
+      creatorName: string | null;
+    }
   >
 > {
   let query = db
@@ -40,22 +36,11 @@ export async function listConversations(opts: {
       "ai_chat_conversations.id",
       "ai_chat_conversations.title",
       "ai_chat_conversations.creatorId",
-      "ai_chat_conversations.visibility",
       "ai_chat_conversations.createdAt",
       "ai_chat_conversations.updatedAt",
       "users.name as creatorName",
-    ]);
-
-  if (opts.userId) {
-    query = query.where((eb) =>
-      eb.or([
-        eb("ai_chat_conversations.visibility", "=", "team"),
-        eb("ai_chat_conversations.creatorId", "=", opts.userId as string),
-      ])
-    );
-  } else {
-    query = query.where("ai_chat_conversations.visibility", "=", "team");
-  }
+    ])
+    .where("ai_chat_conversations.creatorId", "=", opts.userId);
 
   if (opts.query) {
     const pattern = `%${escapeLikePattern(opts.query)}%`;
@@ -71,7 +56,7 @@ export async function listConversations(opts: {
 
 export async function updateConversation(
   id: string,
-  payload: { title?: string; visibility?: string; updatedAt: Date }
+  payload: { title?: string; updatedAt: Date }
 ): Promise<AiChatConversation | null> {
   const { updatedAt, ...rest } = payload;
   return firstOrNull(

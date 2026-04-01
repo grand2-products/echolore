@@ -931,8 +931,6 @@ aiChat:
   description: "Wikiのナレッジベースに質問して回答を得ましょう。"
   newChat: "+ 新規チャット"
   searchPlaceholder: "会話を検索..."
-  allTab: "すべて"
-  myTab: "自分の"
   noConversations: "まだ会話はありません。"
   loadError: "会話の読み込みに失敗しました。"
   deleteConfirm: "この会話を削除しますか？"
@@ -946,9 +944,6 @@ aiChat:
   back: "戻る"
   citationLabel: "参照元"
   toolStepsLabel: "{count}件のツールを使用"
-  team: "チーム"
-  private: "プライベート"
-  createdBy: "{name}"
 aituber:
   title: "AITuber"
   description: "AIキャラクターが視聴者のメッセージにリアルタイムで応答する配信モードです。"

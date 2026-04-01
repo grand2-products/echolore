@@ -124,7 +124,6 @@ describe.skipIf(!hasDb)("CamelCasePlugin integration (real DB)", () => {
         id: ID.conversation,
         title: "CamelCase Integration Chat",
         creatorId: ID.user,
-        visibility: "team",
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -252,7 +251,7 @@ describe.skipIf(!hasDb)("CamelCasePlugin integration (real DB)", () => {
 
   describe("listConversations", () => {
     it("returns creatorName (not creator_name) as a string", async () => {
-      const conversations = await listConversations({});
+      const conversations = await listConversations({ userId: ID.user });
       const match = conversations.find((c) => c.id === ID.conversation);
       expect(match).toBeDefined();
       // The field is accessed as creatorName in the route handler

@@ -51,7 +51,7 @@ export function FloatingChat() {
       let activeConversationId = conversationId;
 
       if (!activeConversationId) {
-        const res = await aiChatApi.createConversation({ visibility: "private" });
+        const res = await aiChatApi.createConversation();
         activeConversationId = res.conversation.id;
         setConversationId(activeConversationId);
       }

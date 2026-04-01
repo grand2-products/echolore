@@ -54,7 +54,7 @@ export function useWikiPageQuery(id: string) {
   });
 }
 
-export function useAiChatConversationsQuery(opts?: { mine?: boolean; query?: string }) {
+export function useAiChatConversationsQuery(opts?: { query?: string }) {
   return useQuery({
     queryKey: [...queryKeys.aiChatConversations, opts],
     queryFn: () => aiChatApi.listConversations(opts),
