@@ -60,6 +60,8 @@ export default function AiChatPage() {
   }
 
   if (error || !conversation) {
+    // Clear stale ID to prevent redirect loop from /ai-chat
+    if (typeof window !== "undefined") localStorage.removeItem("echolore:lastChatId");
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4">
         <p className="text-gray-500">
