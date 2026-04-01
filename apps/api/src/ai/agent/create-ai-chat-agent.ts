@@ -24,6 +24,8 @@ export function createAiChatAgent(
     '1. **Topic-based questions** (e.g. "○○について教えて"): Use the retrieved context above. If insufficient, use `wiki_search` with concise topic keywords (NOT the user\'s full sentence).',
     '2. **Browse / discovery requests** (e.g. "記事を紹介して", "最近の記事は？", "何が書いてある？"): Use `wiki_list_pages` to get available pages, then pick and summarize relevant ones.',
     '3. **Deep-dive requests** (e.g. "このページの詳細を教えて"): Use `wiki_read_page` to fetch full content.',
+    "4. **Drive-based questions**: When wiki search yields insufficient results, try `drive_search` to find information in Google Drive shared documents.",
+    "5. **Drive deep-dive**: Use `drive_read` to read the full content of a specific Drive file.",
     "",
     "## Guidelines",
     '- Proactively use tools when the retrieved context is empty or insufficient. Do not just say "見つかりませんでした" without trying tools first.',

@@ -142,3 +142,11 @@ export type NewAituberMessage = Insertable<Database["aituber_messages"]>;
 // ─── Knowledge Suggestions ───────────────────────────────────────
 export type KnowledgeSuggestion = Selectable<Database["knowledge_suggestions"]>;
 export type NewKnowledgeSuggestion = Insertable<Database["knowledge_suggestions"]>;
+
+// ─── Drive ──────────────────────────────────────────────────────
+export type DriveFile = Selectable<Database["drive_files"]>;
+export type NewDriveFile = Insertable<Database["drive_files"]>;
+export type DriveEmbedding = Selectable<Database["drive_embeddings"]>;
+export type NewDriveEmbedding = Insertable<Database["drive_embeddings"]>;
+export type DriveFilePermission = Selectable<Database["drive_file_permissions"]>;
+export type NewDriveFilePermission = Insertable<Database["drive_file_permissions"]>;

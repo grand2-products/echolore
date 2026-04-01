@@ -407,6 +407,10 @@ export interface AiChatCitationDto {
   pageId: string;
   pageTitle: string;
   snippet?: string;
+  driveFileId?: string;
+  driveFileName?: string;
+  driveLink?: string;
+  source?: "wiki" | "drive";
 }
 
 export interface AiChatConversationDto {
@@ -446,6 +450,23 @@ export interface UpdateAiChatConversationRequest {
 
 export interface SendAiChatMessageRequest {
   content: string;
+}
+
+// Drive Settings
+export interface DriveSettingsDto {
+  driveEnabled: boolean;
+  sharedDriveIds: string | null;
+  syncIntervalMinutes: number | null;
+  includeMimeTypes: string | null;
+  excludeFolderIds: string | null;
+  maxFileSizeBytes: number | null;
+}
+
+export interface DriveSyncStatusDto {
+  syncInProgress: boolean;
+  lastSyncAt: ISODateString | null;
+  lastSyncResult: { indexed: number; skipped: number; errors: number } | null;
+  files: { total: number; indexed: number; pending: number; error: number; skipped: number };
 }
 
 export interface SpacePermissionDto {

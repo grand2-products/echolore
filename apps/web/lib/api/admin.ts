@@ -21,6 +21,8 @@ import type {
   BackupSettings,
   CreateAdminGroupRequest,
   CreateAgentRequest,
+  DriveSettings,
+  DriveSyncStatus,
   EmailSettings,
   GcpCredentials,
   KpiOverviewResponse,
@@ -31,6 +33,7 @@ import type {
   UpdateAgentRequest,
   UpdateAuthSettingsRequest,
   UpdateBackupSettingsRequest,
+  UpdateDriveSettingsRequest,
   UpdateEmailSettingsRequest,
   UpdateGcpCredentialsRequest,
   UpdateLlmSettingsRequest,
@@ -244,6 +247,22 @@ export const adminApi = {
     fetchApi<{ success: boolean }>("/admin/site-icon", {
       method: "DELETE",
     }),
+
+  // Drive settings
+  getDriveSettings: () => fetchApi<DriveSettings>("/admin/drive-settings"),
+
+  updateDriveSettings: (data: UpdateDriveSettingsRequest) =>
+    fetchApi<DriveSettings>("/admin/drive-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  triggerDriveSync: () =>
+    fetchApi<{ started: boolean; message: string }>("/admin/drive-sync/trigger", {
+      method: "POST",
+    }),
+
+  getDriveSyncStatus: () => fetchApi<DriveSyncStatus>("/admin/drive-sync/status"),
 
   // System update
   getSystemStatus: () => fetchApi<SystemStatusResponse>("/admin/system/status"),

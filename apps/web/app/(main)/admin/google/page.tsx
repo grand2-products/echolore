@@ -2,6 +2,7 @@
 
 import { useT } from "@/lib/i18n";
 import { AuthSettingsSection } from "../settings/_components/AuthSettingsSection";
+import { DriveSettingsSection } from "../settings/_components/DriveSettingsSection";
 import { EmbeddingSettingsSection } from "../settings/_components/EmbeddingSettingsSection";
 import { GcpCredentialsSection } from "../settings/_components/GcpCredentialsSection";
 
@@ -18,6 +19,7 @@ export default function AdminGooglePage() {
       <GcpCredentialsSection />
       <AuthSettingsSection />
       <EmbeddingSettingsSection />
+      <DriveSettingsSection />
     </div>
   );
 }

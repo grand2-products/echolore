@@ -13,6 +13,11 @@ export interface CitationJson {
   pageId: string;
   pageTitle: string;
   snippet?: string;
+  // Drive-specific fields (present when source === "drive")
+  driveFileId?: string;
+  driveFileName?: string;
+  driveLink?: string;
+  source?: "wiki" | "drive";
 }
 
 // Tool step type used in ai_chat_messages
@@ -444,6 +449,43 @@ export interface KnowledgeSuggestionsTable {
   updatedAt: Generated<Date>;
 }
 
+export interface DriveFilesTable {
+  id: string;
+  name: string;
+  mimeType: string;
+  driveId: string | null;
+  parentFolderId: string | null;
+  webViewLink: string | null;
+  modifiedAt: Date | null;
+  contentHash: string | null;
+  lastIndexedAt: Date | null;
+  indexStatus: Generated<string>; // 'pending' | 'indexed' | 'error' | 'skipped'
+  indexError: string | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface DriveEmbeddingsTable {
+  id: string;
+  fileId: string;
+  chunkIndex: Generated<number>;
+  plainText: string;
+  embedding: string; // pgvector — serialized as '[0.1,0.2,...]'
+  modelId: Generated<string>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface DriveFilePermissionsTable {
+  id: string;
+  fileId: string;
+  permissionType: string; // 'user' | 'group' | 'domain' | 'anyone'
+  email: string | null;
+  domain: string | null;
+  role: string; // 'reader' | 'writer' | 'owner' etc.
+  createdAt: Generated<Date>;
+}
+
 export interface SiteSettingsTable {
   key: string;
   value: string;
@@ -489,5 +531,8 @@ export interface Database {
   aituber_sessions: AituberSessionsTable;
   aituber_messages: AituberMessagesTable;
   knowledge_suggestions: KnowledgeSuggestionsTable;
+  drive_files: DriveFilesTable;
+  drive_embeddings: DriveEmbeddingsTable;
+  drive_file_permissions: DriveFilePermissionsTable;
   site_settings: SiteSettingsTable;
 }
