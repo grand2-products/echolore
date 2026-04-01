@@ -28,11 +28,11 @@ import {
   updateConversation,
 } from "../../repositories/ai-chat/ai-chat-repository.js";
 import { getResolvedDriveSettings } from "../admin/drive-settings-service.js";
+import { searchDriveForUser } from "../drive/drive-vector-search-service.js";
 import {
   type SearchMode,
   searchVisibleChunks,
   type VectorSearchResult,
-  type VisibleChunksResult,
 } from "../wiki/vector-search-service.js";
 
 // Replaceable for testing
@@ -113,23 +113,37 @@ async function invokeAgent(
     };
   }
 
-  // Step 1: Deterministic RAG — always perform vector search
+  // Step 1: Deterministic RAG — search Wiki and Drive in parallel
   const searchStart = Date.now();
   let ragResults: VectorSearchResult[] = [];
   let searchMode: SearchMode = "vector";
-  try {
-    const searchResult: VisibleChunksResult = await searchVisibleChunks(user, userQuery, 5);
-    ragResults = searchResult.results;
-    searchMode = searchResult.searchMode;
-  } catch (err) {
-    console.error(
-      JSON.stringify({
-        event: "ai-chat.search.error",
-        query: userQuery.slice(0, 100),
-        error: err instanceof Error ? err.message : "Unknown",
-      })
-    );
-  }
+  let driveRagResults: import("../drive/drive-vector-search-service.js").DriveVectorSearchResult[] =
+    [];
+
+  const wikiSearchPromise = searchVisibleChunks(user, userQuery, 5)
+    .then((r) => {
+      ragResults = r.results;
+      searchMode = r.searchMode;
+    })
+    .catch((err) => {
+      console.error(
+        JSON.stringify({
+          event: "ai-chat.search.error",
+          query: userQuery.slice(0, 100),
+          error: err instanceof Error ? err.message : "Unknown",
+        })
+      );
+    });
+
+  const driveSearchPromise = searchDriveForUser(user.email, userQuery, 3)
+    .then((r) => {
+      driveRagResults = r;
+    })
+    .catch(() => {
+      // Drive not available or not configured — silently skip
+    });
+
+  await Promise.all([wikiSearchPromise, driveSearchPromise]);
   const searchDurationMs = Date.now() - searchStart;
 
   console.log(
@@ -137,29 +151,46 @@ async function invokeAgent(
       event: "ai-chat.search",
       query: userQuery.slice(0, 100),
       searchMode,
-      resultCount: ragResults.length,
+      wikiResultCount: ragResults.length,
+      driveResultCount: driveRagResults.length,
       topSimilarity: ragResults[0]?.similarity ?? 0,
       durationMs: searchDurationMs,
     })
   );
 
-  // Step 2: Build RAG context string (sanitize wiki content to prevent prompt injection)
+  // Step 2: Build unified RAG context (Wiki + Drive)
+  const wikiContextParts = ragResults.map(
+    (r, i) =>
+      `### Wiki Source ${i + 1}: ${escapeXmlTags(r.pageTitle)} (id: ${r.pageId})\n${escapeXmlTags(r.chunkText)}`
+  );
+  const driveContextParts = driveRagResults.map(
+    (r, i) =>
+      `### Drive Source ${i + 1}: ${escapeXmlTags(r.fileName)} (id: ${r.fileId})\n${escapeXmlTags(r.chunkText)}`
+  );
+  const allContextParts = [...wikiContextParts, ...driveContextParts];
   const ragContext =
-    ragResults.length > 0
-      ? ragResults
-          .map(
-            (r, i) =>
-              `### Source ${i + 1}: ${escapeXmlTags(r.pageTitle)} (id: ${r.pageId})\n${escapeXmlTags(r.chunkText)}`
-          )
-          .join("\n\n")
-      : "No relevant wiki content was found for this query.";
+    allContextParts.length > 0
+      ? allContextParts.join("\n\n")
+      : "No relevant content was found for this query in either Wiki or Drive.";
 
-  // Step 3: RAG citations from search
-  const ragCitations: AiChatToolResult[] = ragResults.map((r) => ({
-    pageId: r.pageId,
-    pageTitle: r.pageTitle,
-    snippet: r.chunkText.slice(0, 200),
-  }));
+  // Step 3: RAG citations from both searches
+  const ragCitations: AiChatToolResult[] = [
+    ...ragResults.map((r) => ({
+      pageId: r.pageId,
+      pageTitle: r.pageTitle,
+      snippet: r.chunkText.slice(0, 200),
+      source: "wiki" as const,
+    })),
+    ...driveRagResults.map((r) => ({
+      pageId: r.fileId,
+      pageTitle: r.fileName,
+      snippet: r.chunkText.slice(0, 200),
+      driveFileId: r.fileId,
+      driveFileName: r.fileName,
+      driveLink: r.webViewLink ?? undefined,
+      source: "drive" as const,
+    })),
+  ];
 
   // Step 4: Create tools for additional agent exploration
   const { searchTool, referencedPages: searchRefs } = createAiChatSearchTool(user);
