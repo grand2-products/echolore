@@ -930,7 +930,7 @@ aiChat:
   back: "返回"
   citationLabel: "来源"
   toolStepsLabel: "使用了 {count} 个工具"
-  team: "团队"
+  public: "公开"
   private: "私密"
   createdBy: "{name}"
 

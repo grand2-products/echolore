@@ -930,7 +930,7 @@ aiChat:
   back: "돌아가기"
   citationLabel: "출처"
   toolStepsLabel: "{count}개의 도구 사용"
-  team: "팀"
+  public: "공개"
   private: "비공개"
   createdBy: "{name}"
 

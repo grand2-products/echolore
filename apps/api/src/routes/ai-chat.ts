@@ -19,12 +19,12 @@ export const aiChatRoutes = new Hono<AppEnv>();
 
 const createConversationSchema = z.object({
   title: z.string().min(1).max(500).optional(),
-  visibility: z.enum(["team", "private"]).optional(),
+  visibility: z.enum(["public", "private"]).optional(),
 });
 
 const updateConversationSchema = z.object({
   title: z.string().min(1).max(500).optional(),
-  visibility: z.enum(["team", "private"]).optional(),
+  visibility: z.enum(["public", "private"]).optional(),
 });
 
 const sendMessageSchema = z.object({
@@ -84,7 +84,7 @@ aiChatRoutes.post("/", zValidator("json", createConversationSchema), async (c) =
         id: nanoid(),
         title: data.title || "New Chat",
         creatorId: user.id,
-        visibility: data.visibility || "team",
+        visibility: data.visibility || "public",
         createdAt: now,
         updatedAt: now,
       });

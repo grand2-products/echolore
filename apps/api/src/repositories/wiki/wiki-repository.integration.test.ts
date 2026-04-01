@@ -124,7 +124,7 @@ describe.skipIf(!hasDb)("CamelCasePlugin integration (real DB)", () => {
         id: ID.conversation,
         title: "CamelCase Integration Chat",
         creatorId: ID.user,
-        visibility: "team",
+        visibility: "public",
         createdAt: new Date(),
         updatedAt: new Date(),
       })

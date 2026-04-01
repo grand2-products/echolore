@@ -49,12 +49,12 @@ export async function listConversations(opts: {
   if (opts.userId) {
     query = query.where((eb) =>
       eb.or([
-        eb("ai_chat_conversations.visibility", "=", "team"),
+        eb("ai_chat_conversations.visibility", "=", "public"),
         eb("ai_chat_conversations.creatorId", "=", opts.userId as string),
       ])
     );
   } else {
-    query = query.where("ai_chat_conversations.visibility", "=", "team");
+    query = query.where("ai_chat_conversations.visibility", "=", "public");
   }
 
   if (opts.query) {

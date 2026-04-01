@@ -31,7 +31,7 @@ export async function canAccessConversation(
 
   // Admin access
   if (user.role === UserRole.Admin) {
-    if (conversation.visibility === "team") {
+    if (conversation.visibility === "public") {
       return { allowed: true, conversation };
     }
     // Admin can read/delete private conversations but not write
@@ -41,8 +41,8 @@ export async function canAccessConversation(
     return { allowed: false, conversation };
   }
 
-  // Team visibility — any authenticated user can read and write (send messages)
-  if (conversation.visibility === "team" && (action === "read" || action === "write")) {
+  // Public visibility — any authenticated user can read and write (send messages)
+  if (conversation.visibility === "public" && (action === "read" || action === "write")) {
     return { allowed: true, conversation };
   }
 

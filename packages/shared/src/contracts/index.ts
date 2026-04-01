@@ -401,7 +401,7 @@ export interface GetFileDownloadUrlResponse {
 }
 
 // AI Chat
-export type AiChatVisibility = "team" | "private";
+export type AiChatVisibility = "public" | "private";
 export type AiChatMessageRole = "user" | "assistant";
 
 export interface AiChatCitationDto {

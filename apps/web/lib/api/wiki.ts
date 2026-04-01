@@ -171,7 +171,7 @@ export const aiChatApi = {
     return fetchApi<{ conversations: AiChatConversation[] }>(`/ai-chat${qs ? `?${qs}` : ""}`);
   },
 
-  createConversation: (data?: { title?: string; visibility?: "team" | "private" }) =>
+  createConversation: (data?: { title?: string; visibility?: "public" | "private" }) =>
     fetchApi<{ conversation: AiChatConversation }>("/ai-chat", {
       method: "POST",
       body: JSON.stringify(data ?? {}),
@@ -180,7 +180,7 @@ export const aiChatApi = {
   getConversation: (id: string) =>
     fetchApi<{ conversation: AiChatConversation; messages: AiChatMessage[] }>(`/ai-chat/${id}`),
 
-  updateConversation: (id: string, data: { title?: string; visibility?: "team" | "private" }) =>
+  updateConversation: (id: string, data: { title?: string; visibility?: "public" | "private" }) =>
     fetchApi<{ conversation: AiChatConversation }>(`/ai-chat/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),

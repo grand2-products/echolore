@@ -947,7 +947,7 @@ aiChat:
   back: "Back"
   citationLabel: "Sources"
   toolStepsLabel: "Used {count} tool(s)"
-  team: "Team"
+  public: "Public"
   private: "Private"
   createdBy: "by {name}"
 aituber:
