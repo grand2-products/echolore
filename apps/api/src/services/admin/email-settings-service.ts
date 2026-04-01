@@ -26,7 +26,7 @@ const cache = createTypedSettingsService(
     smtpPass: field("emailSmtpPass", FieldCodecs.nullable),
     smtpFrom: field("emailSmtpFrom", FieldCodecs.nullable),
   },
-  { cacheTtlMs: false }
+  { cacheTtlMs: false, encryptedKeys: ["emailResendApiKey", "emailSmtpPass"] }
 );
 
 export const getEmailSettings = cache.get;
