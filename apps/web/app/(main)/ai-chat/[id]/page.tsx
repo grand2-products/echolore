@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChatInput, ChatMessageBubble, TypingIndicator } from "@/components/ai-chat";
 import { useChatSidebar } from "@/components/ai-chat/chat-sidebar-context";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -24,6 +24,11 @@ export default function AiChatPage() {
   const id = params.id as string;
   const { setIsMobileOpen } = useChatSidebar();
 
+  // Persist last opened conversation for resume
+  useEffect(() => {
+    localStorage.setItem("echolore:lastChatId", id);
+  }, [id]);
+
   const { data, isLoading, error } = useAiChatConversationQuery(id);
   const sendMutation = useSendAiChatMessageMutation(id);
   const deleteMutation = useDeleteAiChatConversationMutation();
@@ -41,6 +46,7 @@ export default function AiChatPage() {
 
   const handleDeleteConfirmed = async () => {
     setShowDeleteConfirm(false);
+    localStorage.removeItem("echolore:lastChatId");
     await deleteMutation.mutateAsync(id);
     router.push("/ai-chat");
   };

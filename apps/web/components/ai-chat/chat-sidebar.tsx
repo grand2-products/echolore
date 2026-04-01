@@ -81,6 +81,7 @@ export function ChatSidebar({ activeId }: ChatSidebarProps) {
     e.stopPropagation();
     await deleteMutation.mutateAsync(id);
     if (activeId === id) {
+      localStorage.removeItem("echolore:lastChatId");
       router.push("/ai-chat");
     }
   };

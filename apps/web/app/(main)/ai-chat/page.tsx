@@ -1,15 +1,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useChatSidebar } from "@/components/ai-chat/chat-sidebar-context";
 import { useCreateAiChatConversationMutation } from "@/lib/api";
 import { useT } from "@/lib/i18n";
+
+const LAST_CHAT_KEY = "echolore:lastChatId";
 
 export default function AiChatEmptyPage() {
   const t = useT();
   const router = useRouter();
   const createMutation = useCreateAiChatConversationMutation();
   const { setIsMobileOpen } = useChatSidebar();
+
+  // Resume last conversation
+  useEffect(() => {
+    const lastId = localStorage.getItem(LAST_CHAT_KEY);
+    if (lastId) {
+      router.replace(`/ai-chat/${lastId}`);
+    }
+  }, [router]);
 
   const handleNewChat = async () => {
     const result = await createMutation.mutateAsync({});
