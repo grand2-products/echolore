@@ -22,27 +22,30 @@ export interface LlmSettings {
   embeddingDimensions: number | null;
 }
 
-const cache = createTypedSettingsService({
-  provider: field("llmProvider", FieldCodecs.withDefault<LlmProvider>("google")),
-  geminiApiKey: field("llmGeminiApiKey", FieldCodecs.nullable),
-  geminiTextModel: field("llmGeminiTextModel", FieldCodecs.nullable),
-  vertexProject: field("llmVertexProject", FieldCodecs.nullable),
-  vertexLocation: field("llmVertexLocation", FieldCodecs.nullable),
-  vertexModel: field("llmVertexModel", FieldCodecs.nullable),
-  zhipuApiKey: field("llmZhipuApiKey", FieldCodecs.nullable),
-  zhipuTextModel: field("llmZhipuTextModel", FieldCodecs.nullable),
-  zhipuUseCodingPlan: field("llmZhipuUseCodingPlan", FieldCodecs.boolFalse),
-  openaiCompatBaseUrl: field("llmOpenaiCompatBaseUrl", FieldCodecs.nullable),
-  openaiCompatApiKey: field("llmOpenaiCompatApiKey", FieldCodecs.nullable),
-  openaiCompatModel: field("llmOpenaiCompatModel", FieldCodecs.nullable),
-  embeddingEnabled: field("llmEmbeddingEnabled", FieldCodecs.boolTrue),
-  embeddingProvider: field(
-    "llmEmbeddingProvider",
-    FieldCodecs.withDefault<EmbeddingProvider>("google")
-  ),
-  embeddingModel: field("llmEmbeddingModel", FieldCodecs.nullable),
-  embeddingDimensions: field("llmEmbeddingDimensions", FieldCodecs.nullableNumber),
-});
+const cache = createTypedSettingsService(
+  {
+    provider: field("llmProvider", FieldCodecs.withDefault<LlmProvider>("google")),
+    geminiApiKey: field("llmGeminiApiKey", FieldCodecs.nullable),
+    geminiTextModel: field("llmGeminiTextModel", FieldCodecs.nullable),
+    vertexProject: field("llmVertexProject", FieldCodecs.nullable),
+    vertexLocation: field("llmVertexLocation", FieldCodecs.nullable),
+    vertexModel: field("llmVertexModel", FieldCodecs.nullable),
+    zhipuApiKey: field("llmZhipuApiKey", FieldCodecs.nullable),
+    zhipuTextModel: field("llmZhipuTextModel", FieldCodecs.nullable),
+    zhipuUseCodingPlan: field("llmZhipuUseCodingPlan", FieldCodecs.boolFalse),
+    openaiCompatBaseUrl: field("llmOpenaiCompatBaseUrl", FieldCodecs.nullable),
+    openaiCompatApiKey: field("llmOpenaiCompatApiKey", FieldCodecs.nullable),
+    openaiCompatModel: field("llmOpenaiCompatModel", FieldCodecs.nullable),
+    embeddingEnabled: field("llmEmbeddingEnabled", FieldCodecs.boolTrue),
+    embeddingProvider: field(
+      "llmEmbeddingProvider",
+      FieldCodecs.withDefault<EmbeddingProvider>("google")
+    ),
+    embeddingModel: field("llmEmbeddingModel", FieldCodecs.nullable),
+    embeddingDimensions: field("llmEmbeddingDimensions", FieldCodecs.nullableNumber),
+  },
+  { encryptedKeys: ["llmGeminiApiKey", "llmZhipuApiKey", "llmOpenaiCompatApiKey"] }
+);
 
 export const getLlmSettings = cache.get;
 export const updateLlmSettings = cache.update;
