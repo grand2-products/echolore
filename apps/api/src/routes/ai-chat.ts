@@ -19,12 +19,10 @@ export const aiChatRoutes = new Hono<AppEnv>();
 
 const createConversationSchema = z.object({
   title: z.string().min(1).max(500).optional(),
-  visibility: z.enum(["public", "private"]).optional(),
 });
 
 const updateConversationSchema = z.object({
   title: z.string().min(1).max(500).optional(),
-  visibility: z.enum(["public", "private"]).optional(),
 });
 
 const sendMessageSchema = z.object({
@@ -37,7 +35,6 @@ aiChatRoutes.get(
   withErrorHandler("AI_CHAT_LIST_FAILED", "Failed to list conversations"),
   async (c) => {
     const user = c.get("user");
-    const mine = c.req.query("mine") === "1";
     const query = c.req.query("q")?.trim();
 
     const rows = await listConversations({
@@ -45,14 +42,11 @@ aiChatRoutes.get(
       query: query || undefined,
     });
 
-    // Filter: if mine=1, only show user's own conversations
-    const filtered = mine ? rows.filter((r) => r.creatorId === user.id) : rows;
-
     // Batch fetch message counts and last messages (avoids N+1)
-    const conversationIds = filtered.map((r) => r.id);
+    const conversationIds = rows.map((r) => r.id);
     const stats = await getConversationStats(conversationIds);
 
-    const conversations = filtered.map((r) => {
+    const conversations = rows.map((r) => {
       const stat = stats.get(r.id);
       return {
         ...r,
@@ -84,7 +78,6 @@ aiChatRoutes.post("/", zValidator("json", createConversationSchema), async (c) =
         id: nanoid(),
         title: data.title || "New Chat",
         creatorId: user.id,
-        visibility: data.visibility || "public",
         createdAt: now,
         updatedAt: now,
       });
@@ -135,11 +128,10 @@ aiChatRoutes.patch(
       return jsonError(c, 403, "AI_CHAT_FORBIDDEN", "Forbidden");
     }
 
-    const payload: { title?: string; visibility?: string; updatedAt: Date } = {
+    const payload: { title?: string; updatedAt: Date } = {
       updatedAt: new Date(),
     };
     if (data.title !== undefined) payload.title = data.title;
-    if (data.visibility !== undefined) payload.visibility = data.visibility;
 
     const updated = await updateConversation(id, payload);
     return c.json({ conversation: updated });

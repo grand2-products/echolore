@@ -99,15 +99,6 @@ export default function AiChatPage() {
         <h1 className="flex-1 truncate text-lg font-semibold text-gray-900">
           {conversation.title}
         </h1>
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-            conversation.visibility === "private"
-              ? "bg-gray-100 text-gray-600"
-              : "bg-blue-50 text-blue-600"
-          }`}
-        >
-          {t(`aiChat.${conversation.visibility}`)}
-        </span>
         <button
           type="button"
           onClick={() => setShowDeleteConfirm(true)}

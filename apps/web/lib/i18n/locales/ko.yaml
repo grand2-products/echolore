@@ -915,8 +915,6 @@ aiChat:
   description: "Wiki 지식 기반에 질문하고 답변을 받으세요."
   newChat: "+ 새 채팅"
   searchPlaceholder: "대화 검색..."
-  allTab: "전체"
-  myTab: "내 대화"
   noConversations: "아직 대화가 없습니다."
   loadError: "대화를 불러오지 못했습니다."
   deleteConfirm: "이 대화를 삭제하시겠습니까?"
@@ -930,9 +928,6 @@ aiChat:
   back: "돌아가기"
   citationLabel: "출처"
   toolStepsLabel: "{count}개의 도구 사용"
-  public: "공개"
-  private: "비공개"
-  createdBy: "{name}"
 
 invite:
   validating: "초대 확인 중..."

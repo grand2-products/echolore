@@ -1,3 +1,3 @@
--- Rename visibility value 'team' -> 'public' for ai_chat_conversations
-UPDATE "ai_chat_conversations" SET "visibility" = 'public' WHERE "visibility" = 'team';
-ALTER TABLE "ai_chat_conversations" ALTER COLUMN "visibility" SET DEFAULT 'public';
+-- Remove visibility column from ai_chat_conversations
+-- All conversations are now private to the creator (no public/team sharing)
+ALTER TABLE "ai_chat_conversations" DROP COLUMN "visibility";

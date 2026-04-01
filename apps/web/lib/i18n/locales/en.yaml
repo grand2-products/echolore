@@ -932,8 +932,6 @@ aiChat:
   description: "Ask questions and get answers from the wiki knowledge base."
   newChat: "+ New Chat"
   searchPlaceholder: "Search conversations..."
-  allTab: "All"
-  myTab: "My"
   noConversations: "No conversations yet."
   loadError: "Failed to load conversations."
   deleteConfirm: "Delete this conversation?"
@@ -947,9 +945,6 @@ aiChat:
   back: "Back"
   citationLabel: "Sources"
   toolStepsLabel: "Used {count} tool(s)"
-  public: "Public"
-  private: "Private"
-  createdBy: "by {name}"
 aituber:
   title: "AITuber"
   description: "A streaming mode where AI characters respond to viewers in real-time with text, voice, and VRM avatars."
