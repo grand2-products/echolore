@@ -24,6 +24,7 @@ vi.mock("../services/admin/admin-service.js", () => ({
   createAgentDefinition: vi.fn(),
   deleteSpacePermissionForGroup: vi.fn(),
   getAuthSettings: vi.fn(async () => ({})),
+  getDriveSettings: vi.fn(async () => ({})),
   getEmailSettings: vi.fn(async () => ({})),
   getGcpCredentials: vi.fn(async () => ({})),
   getGroupDetail: vi.fn(),
@@ -42,6 +43,7 @@ vi.mock("../services/admin/admin-service.js", () => ({
   replaceUserGroups: replaceUserGroupsMock,
   updateAgentDefinition: vi.fn(),
   updateAuthSettings: vi.fn(),
+  updateDriveSettings: vi.fn(),
   updateEmailSettings: vi.fn(),
   updateGcpCredentials: vi.fn(),
   updateLlmSettings: vi.fn(),
@@ -90,6 +92,11 @@ vi.mock("../lib/file-storage.js", () => ({
 vi.mock("../lib/secret-mask.js", () => ({
   maskSecrets: vi.fn((v: unknown) => v),
   stripMaskedValues: vi.fn((v: unknown) => v),
+}));
+
+vi.mock("../services/drive/drive-sync-service.js", () => ({
+  triggerDriveSync: vi.fn(async () => ({ started: true, message: "ok" })),
+  getDriveSyncStatus: vi.fn(async () => ({ syncInProgress: false, files: {} })),
 }));
 
 vi.mock("../lib/audit.js", () => ({
