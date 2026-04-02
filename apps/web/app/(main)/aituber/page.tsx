@@ -77,8 +77,8 @@ export default function AituberPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center p-8">
-        <p className="text-gray-500">{t("common.status.loading")}</p>
+      <div className="flex h-full items-center justify-center bg-gray-950 p-8">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-indigo-400" />
       </div>
     );
   }
@@ -86,28 +86,28 @@ export default function AituberPage() {
   // Active session exists — show streaming view
   if (session && (session.status === "live" || session.status === "created")) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
+      <div className="flex h-[calc(100vh-4rem)] flex-col bg-gray-950">
+        {/* Header — dark translucent */}
+        <div className="flex items-center justify-between border-b border-white/10 bg-gray-900/95 px-4 py-2 backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-gray-900">{session.title}</h1>
+            <h1 className="text-lg font-semibold text-gray-100">{session.title}</h1>
             {session.status === "live" && (
-              <span className="animate-pulse rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
+              <span className="rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs font-bold text-red-400 shadow-[0_0_8px_rgba(239,68,68,0.4)]">
                 LIVE
               </span>
             )}
             {session.characterName && (
-              <span className="text-sm text-gray-500">{session.characterName}</span>
+              <span className="text-sm text-gray-400">{session.characterName}</span>
             )}
           </div>
           <div className="flex items-center gap-3">
-            {error && <span className="text-xs text-red-600">{error}</span>}
+            {error && <span className="text-xs text-red-400">{error}</span>}
             {isAdmin && session.status === "live" && (
               <button
                 type="button"
                 onClick={() => void handleStop()}
                 disabled={stopping}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                className="rounded-lg bg-red-600/80 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
               >
                 {stopping ? "..." : t("aituber.sessions.stop")}
               </button>
@@ -115,7 +115,7 @@ export default function AituberPage() {
             {isAdmin && (
               <Link
                 href="/aituber/characters"
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-300 hover:bg-white/10"
               >
                 {t("aituber.characters.title")}
               </Link>
@@ -133,53 +133,93 @@ export default function AituberPage() {
 
   // No active session
   return (
-    <div className="flex h-full flex-col items-center justify-center p-8">
+    <div className="flex h-full flex-col items-center justify-center bg-gray-950 p-8">
       {isAdmin ? (
-        <div className="w-full max-w-md space-y-6">
+        <div className="w-full max-w-lg space-y-8">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900">{t("aituber.title")}</h1>
-            <p className="mt-1 text-sm text-gray-500">{t("aituber.description")}</p>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/10">
+              <svg
+                className="h-8 w-8 text-indigo-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z"
+                />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-100">{t("aituber.title")}</h1>
+            <p className="mt-2 text-sm text-gray-400">{t("aituber.description")}</p>
           </div>
 
-          {error && <p className="text-center text-sm text-red-600">{error}</p>}
+          {error && <p className="text-center text-sm text-red-400">{error}</p>}
 
+          {/* Character cards */}
           <div>
-            <label htmlFor="aituber-char-select" className="mb-1 block text-sm text-gray-700">
+            <p className="mb-3 text-sm font-medium text-gray-400">
               {t("aituber.sessions.selectCharacter")}
-            </label>
-            <select
-              id="aituber-char-select"
-              value={selectedCharId}
-              onChange={(e) => setSelectedCharId(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
-            >
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {characters.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCharId(c.id)}
+                  className={`rounded-xl border-2 p-4 text-left transition-all ${
+                    selectedCharId === c.id
+                      ? "border-indigo-500 bg-indigo-500/10 shadow-[0_0_12px_rgba(99,102,241,0.2)]"
+                      : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10"
+                  }`}
+                >
+                  <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/30 to-purple-500/30">
+                    <span className="text-lg text-indigo-300">{c.name.charAt(0)}</span>
+                  </div>
+                  <p className="truncate text-sm font-medium text-gray-200">{c.name}</p>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
           <button
             type="button"
             onClick={() => void handleStartLive()}
             disabled={starting || !selectedCharId || characters.length === 0}
-            className="w-full rounded-lg bg-green-600 px-4 py-3 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            className="w-full rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-green-500/20 transition-all hover:from-green-400 hover:to-emerald-500 hover:shadow-green-500/30 disabled:opacity-40 disabled:shadow-none"
           >
             {starting ? "..." : t("aituber.sessions.startLive")}
           </button>
 
           <div className="text-center">
-            <Link href="/aituber/characters" className="text-sm text-blue-600 hover:underline">
+            <Link href="/aituber/characters" className="text-sm text-gray-500 hover:text-gray-300">
               {t("aituber.characters.title")}
             </Link>
           </div>
         </div>
       ) : (
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900">{t("aituber.title")}</h1>
-          <p className="mt-4 text-gray-500">{t("aituber.sessions.noLiveStream")}</p>
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-white/5">
+            <svg
+              className="h-10 w-10 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"
+              />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-100">{t("aituber.title")}</h1>
+          <p className="mt-3 text-gray-500">{t("aituber.sessions.noLiveStream")}</p>
         </div>
       )}
     </div>
