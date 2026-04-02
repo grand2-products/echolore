@@ -87,13 +87,13 @@ export function ChatSidebar({ activeId }: ChatSidebarProps) {
   };
 
   const sidebarContent = (
-    <div className="flex h-full flex-col bg-gray-900">
+    <div className="flex h-full flex-col border-r border-gray-200 bg-white">
       <div className="p-3">
         <button
           type="button"
           onClick={() => void handleNewChat()}
           disabled={createMutation.isPending}
-          className="flex w-full items-center gap-2 rounded-lg border border-gray-700 px-3 py-2.5 text-sm font-medium text-gray-200 hover:bg-gray-800 disabled:opacity-50"
+          className="flex w-full items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
         >
           <svg
             className="h-4 w-4"
@@ -110,13 +110,13 @@ export function ChatSidebar({ activeId }: ChatSidebarProps) {
 
       <nav className="flex-1 overflow-y-auto px-2 pb-4">
         {groups.length === 0 && (
-          <p className="px-3 py-4 text-center text-xs text-gray-500">
+          <p className="px-3 py-4 text-center text-xs text-gray-400">
             {t("aiChat.sidebar.noConversations")}
           </p>
         )}
         {groups.map((group) => (
           <div key={group.label}>
-            <h3 className="mt-4 px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            <h3 className="mt-4 px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
               {group.label}
             </h3>
             {group.conversations.map((conv) => (
@@ -126,8 +126,8 @@ export function ChatSidebar({ activeId }: ChatSidebarProps) {
                 onClick={() => setIsMobileOpen(false)}
                 className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
                   activeId === conv.id
-                    ? "bg-gray-700 text-white"
-                    : "text-gray-300 hover:bg-gray-800"
+                    ? "bg-blue-50 text-blue-700 font-medium"
+                    : "text-gray-700 hover:bg-gray-100"
                 }`}
               >
                 <span className="flex-1 truncate">
@@ -136,7 +136,7 @@ export function ChatSidebar({ activeId }: ChatSidebarProps) {
                 <button
                   type="button"
                   onClick={(e) => void handleDelete(conv.id, e)}
-                  className="hidden shrink-0 rounded p-0.5 text-gray-500 hover:text-red-400 group-hover:block"
+                  className="hidden shrink-0 rounded p-0.5 text-gray-400 hover:text-red-500 group-hover:block"
                   title={t("aiChat.sidebar.deleteTooltip")}
                 >
                   <svg
@@ -172,7 +172,7 @@ export function ChatSidebar({ activeId }: ChatSidebarProps) {
         <>
           {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismiss */}
           <div
-            className="fixed inset-0 z-30 bg-black/50 md:hidden"
+            className="fixed inset-0 z-30 bg-black/30 md:hidden"
             onClick={() => setIsMobileOpen(false)}
             role="presentation"
           />
