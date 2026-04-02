@@ -191,11 +191,12 @@ export const aiChatApi = {
     }),
 
   sendMessage: (conversationId: string, content: string) =>
-    fetchApi<{ userMessage: AiChatMessage; assistantMessage: AiChatMessage }>(
-      `/ai-chat/${conversationId}/messages`,
-      {
-        method: "POST",
-        body: JSON.stringify({ content }),
-      }
-    ),
+    fetchApi<{
+      userMessage: AiChatMessage;
+      assistantMessage: AiChatMessage;
+      generatedTitle: string | null;
+    }>(`/ai-chat/${conversationId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    }),
 };
