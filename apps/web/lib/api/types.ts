@@ -428,6 +428,31 @@ export interface BackupJobStatus {
   lastResult: "success" | "error" | null;
 }
 
+export interface DriveSettings {
+  driveEnabled: boolean;
+  sharedDriveIds: string | null;
+  syncIntervalMinutes: number | null;
+  includeMimeTypes: string | null;
+  excludeFolderIds: string | null;
+  maxFileSizeBytes: number | null;
+}
+
+export interface UpdateDriveSettingsRequest {
+  driveEnabled?: boolean;
+  sharedDriveIds?: string | null;
+  syncIntervalMinutes?: number | null;
+  includeMimeTypes?: string | null;
+  excludeFolderIds?: string | null;
+  maxFileSizeBytes?: number | null;
+}
+
+export interface DriveSyncStatus {
+  syncInProgress: boolean;
+  lastSyncAt: string | null;
+  lastSyncResult: { indexed: number; skipped: number; errors: number } | null;
+  files: { total: number; indexed: number; pending: number; error: number; skipped: number };
+}
+
 export type UserInvitation = UserInvitationDto;
 
 export type CreateAdminGroupRequest = import("@echolore/shared/contracts").CreateAdminGroupRequest;

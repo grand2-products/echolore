@@ -18,6 +18,11 @@ export interface AiChatToolResult {
   pageId: string;
   pageTitle: string;
   snippet?: string;
+  // Drive-specific (present when source === "drive")
+  driveFileId?: string;
+  driveFileName?: string;
+  driveLink?: string;
+  source?: "wiki" | "drive";
 }
 
 export function createAiChatSearchTool(user: SessionUser) {

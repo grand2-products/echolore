@@ -4,6 +4,8 @@ import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages
 import { defaultLlmProvider, type LlmProvider } from "../../ai/providers/index.js";
 import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
 import type { AituberCharacter, AituberMessage } from "../../db/schema.js";
+import { searchDriveForUser } from "../drive/drive-vector-search-service.js";
+import { searchByVector } from "../wiki/vector-search-service.js";
 import * as livekitService from "./aituber-livekit-service.js";
 import * as aituberService from "./aituber-service.js";
 import * as ttsService from "./aituber-tts-service.js";
@@ -183,10 +185,13 @@ async function generateStreamingResponse(
   }
   const chatModel = result.model;
 
+  // RAG: search Wiki + Drive in parallel using viewer's message as query
+  const ragContext = await buildRagContext(viewerMessage.content);
+
   // Build messages with context
   const history = await aituberService.listMessageHistory(sessionId, 20);
   const langchainMessages = [
-    new SystemMessage(buildSystemPrompt(character)),
+    new SystemMessage(buildSystemPrompt(character, ragContext)),
     ...history.map((msg) =>
       msg.role === "assistant"
         ? new AIMessage(msg.content)
@@ -210,7 +215,36 @@ async function generateStreamingResponse(
   return fullResponse;
 }
 
-function buildSystemPrompt(character: AituberCharacter): string {
+/**
+ * Search Wiki + Drive in parallel and build a compact RAG context string.
+ * Returns empty string if no results or search fails (best-effort).
+ */
+async function buildRagContext(query: string): Promise<string> {
+  try {
+    const [wikiResults, driveResults] = await Promise.all([
+      searchByVector(query, 3).catch(() => []),
+      searchDriveForUser("", query, 2).catch(() => []),
+    ]);
+
+    const parts: string[] = [];
+    for (const r of wikiResults) {
+      parts.push(
+        `[Wiki: ${escapeXmlTags(r.pageTitle)}] ${escapeXmlTags(r.chunkText.slice(0, 300))}`
+      );
+    }
+    for (const r of driveResults) {
+      parts.push(
+        `[Drive: ${escapeXmlTags(r.fileName)}] ${escapeXmlTags(r.chunkText.slice(0, 300))}`
+      );
+    }
+
+    return parts.length > 0 ? parts.join("\n") : "";
+  } catch {
+    return "";
+  }
+}
+
+function buildSystemPrompt(character: AituberCharacter, ragContext = ""): string {
   let prompt = character.systemPrompt;
   prompt += `\n\nキャラクター名: ${escapeXmlTags(character.name)}`;
   prompt += `\n性格: ${escapeXmlTags(character.personality)}`;
@@ -239,6 +273,13 @@ function buildSystemPrompt(character: AituberCharacter): string {
   prompt += "\n\n例: [emotion:happy:0.7][action:greeting-wave-casual] やっほー！元気？";
   prompt += "\n例: [emotion:neutral:0.0][action:nod-gentle-1] うん、そうだね。";
   prompt += "\n例: [emotion:sad:0.4] それは残念だね...";
+
+  // RAG context — reference material from Wiki and Drive
+  if (ragContext) {
+    prompt += "\n\n## 参考情報（社内Wiki・共有ドライブ）";
+    prompt += "\n以下の情報を参考にして回答できますが、キャラクターの口調は崩さないでください。";
+    prompt += `\n${ragContext}`;
+  }
 
   return prompt;
 }

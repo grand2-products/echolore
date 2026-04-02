@@ -133,6 +133,21 @@ export const updateBackupSettingsSchema = z.object({
   slackWebhookUrl: z.string().url().max(500).nullable().optional(),
 });
 
+export const updateDriveSettingsSchema = z.object({
+  driveEnabled: z.boolean().optional(),
+  sharedDriveIds: z.string().max(2000).nullable().optional(),
+  syncIntervalMinutes: z.number().int().min(5).max(1440).nullable().optional(),
+  includeMimeTypes: z.string().max(2000).nullable().optional(),
+  excludeFolderIds: z.string().max(2000).nullable().optional(),
+  maxFileSizeBytes: z
+    .number()
+    .int()
+    .min(0)
+    .max(100 * 1024 * 1024)
+    .nullable()
+    .optional(),
+});
+
 export const updateGcpCredentialsSchema = z.object({
   gcpProjectId: z.string().max(200).nullable().optional(),
   gcpServiceAccountKeyJson: z.string().max(10000).nullable().optional(),

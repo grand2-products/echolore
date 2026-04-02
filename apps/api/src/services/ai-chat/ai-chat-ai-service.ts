@@ -4,10 +4,16 @@ import {
   HumanMessage,
   type ToolMessage,
 } from "@langchain/core/messages";
+import type { DynamicStructuredTool } from "@langchain/core/tools";
 import { nanoid } from "nanoid";
 import { createAiChatAgent } from "../../ai/agent/create-ai-chat-agent.js";
 import { defaultLlmProvider, type LlmProvider } from "../../ai/providers/index.js";
 import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
+import {
+  createAiChatDriveReadTool,
+  createAiChatDriveSearchTool,
+  type DriveToolResult,
+} from "../../ai/tools/ai-chat-drive-tools.js";
 import {
   type AiChatToolResult,
   createAiChatListPagesTool,
@@ -21,11 +27,12 @@ import {
   listRecentMessages,
   updateConversation,
 } from "../../repositories/ai-chat/ai-chat-repository.js";
+import { getResolvedDriveSettings } from "../admin/drive-settings-service.js";
+import { searchDriveForUser } from "../drive/drive-vector-search-service.js";
 import {
   type SearchMode,
   searchVisibleChunks,
   type VectorSearchResult,
-  type VisibleChunksResult,
 } from "../wiki/vector-search-service.js";
 
 // Replaceable for testing
@@ -106,23 +113,37 @@ async function invokeAgent(
     };
   }
 
-  // Step 1: Deterministic RAG — always perform vector search
+  // Step 1: Deterministic RAG — search Wiki and Drive in parallel
   const searchStart = Date.now();
   let ragResults: VectorSearchResult[] = [];
   let searchMode: SearchMode = "vector";
-  try {
-    const searchResult: VisibleChunksResult = await searchVisibleChunks(user, userQuery, 5);
-    ragResults = searchResult.results;
-    searchMode = searchResult.searchMode;
-  } catch (err) {
-    console.error(
-      JSON.stringify({
-        event: "ai-chat.search.error",
-        query: userQuery.slice(0, 100),
-        error: err instanceof Error ? err.message : "Unknown",
-      })
-    );
-  }
+  let driveRagResults: import("../drive/drive-vector-search-service.js").DriveVectorSearchResult[] =
+    [];
+
+  const wikiSearchPromise = searchVisibleChunks(user, userQuery, 5)
+    .then((r) => {
+      ragResults = r.results;
+      searchMode = r.searchMode;
+    })
+    .catch((err) => {
+      console.error(
+        JSON.stringify({
+          event: "ai-chat.search.error",
+          query: userQuery.slice(0, 100),
+          error: err instanceof Error ? err.message : "Unknown",
+        })
+      );
+    });
+
+  const driveSearchPromise = searchDriveForUser(user.email, userQuery, 3)
+    .then((r) => {
+      driveRagResults = r;
+    })
+    .catch(() => {
+      // Drive not available or not configured — silently skip
+    });
+
+  await Promise.all([wikiSearchPromise, driveSearchPromise]);
   const searchDurationMs = Date.now() - searchStart;
 
   console.log(
@@ -130,34 +151,69 @@ async function invokeAgent(
       event: "ai-chat.search",
       query: userQuery.slice(0, 100),
       searchMode,
-      resultCount: ragResults.length,
+      wikiResultCount: ragResults.length,
+      driveResultCount: driveRagResults.length,
       topSimilarity: ragResults[0]?.similarity ?? 0,
       durationMs: searchDurationMs,
     })
   );
 
-  // Step 2: Build RAG context string (sanitize wiki content to prevent prompt injection)
+  // Step 2: Build unified RAG context (Wiki + Drive)
+  const wikiContextParts = ragResults.map(
+    (r, i) =>
+      `### Wiki Source ${i + 1}: ${escapeXmlTags(r.pageTitle)} (id: ${r.pageId})\n${escapeXmlTags(r.chunkText)}`
+  );
+  const driveContextParts = driveRagResults.map(
+    (r, i) =>
+      `### Drive Source ${i + 1}: ${escapeXmlTags(r.fileName)} (id: ${r.fileId})\n${escapeXmlTags(r.chunkText)}`
+  );
+  const allContextParts = [...wikiContextParts, ...driveContextParts];
   const ragContext =
-    ragResults.length > 0
-      ? ragResults
-          .map(
-            (r, i) =>
-              `### Source ${i + 1}: ${escapeXmlTags(r.pageTitle)} (id: ${r.pageId})\n${escapeXmlTags(r.chunkText)}`
-          )
-          .join("\n\n")
-      : "No relevant wiki content was found for this query.";
+    allContextParts.length > 0
+      ? allContextParts.join("\n\n")
+      : "No relevant content was found for this query in either Wiki or Drive.";
 
-  // Step 3: RAG citations from search
-  const ragCitations: AiChatToolResult[] = ragResults.map((r) => ({
-    pageId: r.pageId,
-    pageTitle: r.pageTitle,
-    snippet: r.chunkText.slice(0, 200),
-  }));
+  // Step 3: RAG citations from both searches
+  const ragCitations: AiChatToolResult[] = [
+    ...ragResults.map((r) => ({
+      pageId: r.pageId,
+      pageTitle: r.pageTitle,
+      snippet: r.chunkText.slice(0, 200),
+      source: "wiki" as const,
+    })),
+    ...driveRagResults.map((r) => ({
+      pageId: r.fileId,
+      pageTitle: r.fileName,
+      snippet: r.chunkText.slice(0, 200),
+      driveFileId: r.fileId,
+      driveFileName: r.fileName,
+      driveLink: r.webViewLink ?? undefined,
+      source: "drive" as const,
+    })),
+  ];
 
   // Step 4: Create tools for additional agent exploration
   const { searchTool, referencedPages: searchRefs } = createAiChatSearchTool(user);
   const { listPagesTool, referencedPages: listRefs } = createAiChatListPagesTool(user);
   const { readPageTool, referencedPages: readRefs } = createAiChatReadPageTool(user);
+
+  // Step 4b: Conditionally add Drive tools
+  let driveSearchRefs: DriveToolResult[] = [];
+  let driveReadRefs: DriveToolResult[] = [];
+  const allTools: DynamicStructuredTool[] = [searchTool, listPagesTool, readPageTool];
+
+  try {
+    const driveSettings = await getResolvedDriveSettings();
+    if (driveSettings.enabled && driveSettings.sharedDriveIds.length > 0) {
+      const { driveSearchTool, referencedFiles: searchFiles } = createAiChatDriveSearchTool(user);
+      const { driveReadTool, referencedFiles: readFiles } = createAiChatDriveReadTool(user);
+      allTools.push(driveSearchTool, driveReadTool);
+      driveSearchRefs = searchFiles;
+      driveReadRefs = readFiles;
+    }
+  } catch {
+    // Drive not configured — continue without Drive tools
+  }
 
   try {
     const generateStart = Date.now();
@@ -166,7 +222,7 @@ async function invokeAgent(
 
     const agent = createAiChatAgent({
       chatModel,
-      tools: [searchTool, listPagesTool, readPageTool],
+      tools: allTools,
       ragContext,
     });
 
@@ -213,13 +269,41 @@ async function invokeAgent(
 
     const generateDurationMs = Date.now() - generateStart;
 
-    // Deduplicate citations: RAG results + tool-referenced pages
-    const seenPageIds = new Set<string>();
-    const citations = [...ragCitations, ...searchRefs, ...listRefs, ...readRefs].filter((ref) => {
-      if (seenPageIds.has(ref.pageId)) return false;
-      seenPageIds.add(ref.pageId);
+    // Deduplicate citations: RAG results + tool-referenced pages + Drive files
+    const seenIds = new Set<string>();
+    const wikiCitations: AiChatToolResult[] = [
+      ...ragCitations,
+      ...searchRefs,
+      ...listRefs,
+      ...readRefs,
+    ].filter((ref) => {
+      if (seenIds.has(ref.pageId)) return false;
+      seenIds.add(ref.pageId);
       return true;
     });
+
+    // Convert Drive refs to citation format
+    const driveCitations: AiChatToolResult[] = [...driveSearchRefs, ...driveReadRefs]
+      .filter((ref) => {
+        const key = `drive:${ref.driveFileId}`;
+        if (seenIds.has(key)) return false;
+        seenIds.add(key);
+        return true;
+      })
+      .map((ref) => ({
+        pageId: ref.driveFileId,
+        pageTitle: ref.driveFileName,
+        snippet: ref.snippet,
+        driveFileId: ref.driveFileId,
+        driveFileName: ref.driveFileName,
+        driveLink: ref.driveLink,
+        source: "drive" as const,
+      }));
+
+    const citations = [
+      ...wikiCitations.map((c) => ({ ...c, source: "wiki" as const })),
+      ...driveCitations,
+    ];
 
     console.log(
       JSON.stringify({
