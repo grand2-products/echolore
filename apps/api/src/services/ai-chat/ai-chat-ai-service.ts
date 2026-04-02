@@ -24,6 +24,7 @@ import type { ToolStepJson } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import {
   createMessage,
+  getConversationById,
   listRecentMessages,
   updateConversation,
 } from "../../repositories/ai-chat/ai-chat-repository.js";
@@ -93,7 +94,44 @@ export async function sendMessageAndGetResponse(
   // Update conversation timestamp
   await updateConversation(conversationId, { updatedAt: new Date() });
 
+  // Auto-generate title on first message (fire-and-forget)
+  if (recentMessages.filter((m) => m.id !== userMessage.id).length === 0) {
+    generateConversationTitle(conversationId, content, responseContent).catch((err) =>
+      console.error("[ai-chat] Failed to generate conversation title:", err)
+    );
+  }
+
   return { userMessage, assistantMessage };
+}
+
+async function generateConversationTitle(
+  conversationId: string,
+  userMessage: string,
+  assistantResponse: string
+): Promise<void> {
+  const conversation = await getConversationById(conversationId);
+  if (!conversation || (conversation.title !== "New Chat" && conversation.title !== "")) return;
+
+  const llmResult = await llm.init({ temperature: 0, maxTokens: 50 });
+  if (!llmResult) return;
+
+  const result = await llmResult.model.invoke([
+    new HumanMessage(
+      `Generate a short conversation title (under 30 characters, no quotes) based on this exchange.\n\nUser: ${userMessage.slice(0, 200)}\nAssistant: ${assistantResponse.slice(0, 200)}\n\nTitle:`
+    ),
+  ]);
+
+  const title =
+    typeof result.content === "string"
+      ? result.content
+          .trim()
+          .replace(/^["']|["']$/g, "")
+          .slice(0, 50)
+      : "";
+
+  if (title) {
+    await updateConversation(conversationId, { title, updatedAt: new Date() });
+  }
 }
 
 async function invokeAgent(
