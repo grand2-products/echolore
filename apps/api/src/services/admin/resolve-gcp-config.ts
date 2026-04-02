@@ -13,8 +13,13 @@ export async function resolveGcpCredentials(
       const gcpCreds = await getGcpCredentials();
       gcsProjectId = gcpCreds.gcpProjectId ?? undefined;
       gcsKeyJson = gcpCreds.gcpServiceAccountKeyJson ?? undefined;
-    } catch {
-      /* fall through to ADC */
+      if (!gcsKeyJson) {
+        console.warn(
+          "[GCP] useGcpDefaults is true but no service account key found in site_settings"
+        );
+      }
+    } catch (err) {
+      console.warn("[GCP] Failed to load GCP credentials from site_settings:", err);
     }
   }
 

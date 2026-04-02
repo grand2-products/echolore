@@ -24,6 +24,7 @@ import type { ToolStepJson } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import {
   createMessage,
+  getConversationById,
   listRecentMessages,
   updateConversation,
 } from "../../repositories/ai-chat/ai-chat-repository.js";
@@ -93,7 +94,72 @@ export async function sendMessageAndGetResponse(
   // Update conversation timestamp
   await updateConversation(conversationId, { updatedAt: new Date() });
 
-  return { userMessage, assistantMessage };
+  // Auto-generate title on first message (awaited so we can return it)
+  let generatedTitle: string | null = null;
+  const isFirstMessage = recentMessages.filter((m) => m.id !== userMessage.id).length === 0;
+  if (isFirstMessage) {
+    generatedTitle = await generateConversationTitle(conversationId, content, responseContent);
+  }
+
+  return { userMessage, assistantMessage, generatedTitle };
+}
+
+/**
+ * Generate a conversation title from the first exchange.
+ * Returns the generated title, or null if generation fails or is skipped.
+ */
+async function generateConversationTitle(
+  conversationId: string,
+  userMessage: string,
+  assistantResponse: string
+): Promise<string | null> {
+  try {
+    const conversation = await getConversationById(conversationId);
+    if (!conversation || conversation.title !== "New Chat") return null;
+
+    const llmResult = await llm.init({ temperature: 0, maxTokens: 50 });
+    if (!llmResult) return null;
+
+    const sanitizedUser = escapeXmlTags(userMessage.slice(0, 200));
+    const sanitizedAssistant = escapeXmlTags(assistantResponse.slice(0, 200));
+
+    const result = await llmResult.model.invoke([
+      new HumanMessage(
+        [
+          "Generate a short conversation title (under 50 characters, no quotes) based on this exchange.",
+          "Respond in the same language as the user's message.",
+          "",
+          `User: ${sanitizedUser}`,
+          `Assistant: ${sanitizedAssistant}`,
+          "",
+          "Title:",
+        ].join("\n")
+      ),
+    ]);
+
+    const title =
+      typeof result.content === "string"
+        ? result.content
+            .trim()
+            .replace(/^["'「」『』]|["'「」『』]$/g, "")
+            .slice(0, 50)
+        : "";
+
+    if (title) {
+      await updateConversation(conversationId, { title, updatedAt: new Date() });
+      return title;
+    }
+    return null;
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        event: "ai-chat.title-generation.error",
+        conversationId,
+        error: err instanceof Error ? err.message : "Unknown",
+      })
+    );
+    return null;
+  }
 }
 
 async function invokeAgent(

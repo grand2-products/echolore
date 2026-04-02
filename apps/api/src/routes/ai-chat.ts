@@ -177,7 +177,11 @@ aiChatRoutes.post(
       return jsonError(c, 403, "AI_CHAT_FORBIDDEN", "Forbidden");
     }
 
-    const { userMessage, assistantMessage } = await sendMessageAndGetResponse(user, id, content);
-    return c.json({ userMessage, assistantMessage });
+    const { userMessage, assistantMessage, generatedTitle } = await sendMessageAndGetResponse(
+      user,
+      id,
+      content
+    );
+    return c.json({ userMessage, assistantMessage, generatedTitle });
   }
 );
