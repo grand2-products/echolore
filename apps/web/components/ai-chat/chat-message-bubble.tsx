@@ -33,8 +33,8 @@ export function ChatMessageBubble({ message, variant = "default" }: ChatMessageB
     return (
       <div className={`flex gap-2 ${isUser ? "justify-end" : ""}`}>
         <div
-          className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-            isUser ? "bg-gray-700 text-gray-200" : "bg-indigo-900/50 text-indigo-200"
+          className={`max-w-[80%] rounded-xl px-3.5 py-2.5 text-sm ${
+            isUser ? "bg-white/10 text-gray-200" : "bg-indigo-500/15 text-indigo-200"
           }`}
         >
           <span

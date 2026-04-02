@@ -121,34 +121,37 @@ export function AituberStage({ session, livekitUrl }: AituberStageProps) {
   }, [session.id, session.status, livekitUrl, handleDataEvent, setConnected, reset]);
 
   return (
-    <div className="flex h-full flex-col lg:flex-row">
+    <div className="flex h-full flex-col bg-gray-950 lg:flex-row">
       {/* Left: Avatar */}
       <div className="relative h-[40vh] w-full lg:h-full lg:w-2/3">
         <AituberAvatar avatarUrl={session.characterAvatarUrl ?? null} />
 
         {/* Overlay info */}
-        <div className="absolute bottom-3 left-3 flex items-center gap-3">
+        <div className="absolute bottom-4 left-4 flex items-center gap-2">
           {session.status === "live" && (
-            <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white animate-pulse">
+            <span className="rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs font-bold text-red-400 shadow-[0_0_8px_rgba(239,68,68,0.4)] backdrop-blur-sm">
               LIVE
             </span>
           )}
           {connected && (
-            <span className="rounded-full bg-gray-800/80 px-2 py-0.5 text-xs text-gray-300">
+            <span className="rounded-full bg-black/40 px-2.5 py-0.5 text-xs text-gray-300 backdrop-blur-sm">
               {t("aituber.viewer.viewers", { count: String(viewerCount) })}
             </span>
           )}
         </div>
 
         {!connected && session.status === "live" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <p className="text-white">{t("aituber.viewer.connecting")}</p>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-500 border-t-indigo-400" />
+              <p className="text-sm text-gray-300">{t("aituber.viewer.connecting")}</p>
+            </div>
           </div>
         )}
 
         {session.status !== "live" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-            <p className="text-gray-400">
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-950">
+            <p className="text-gray-500">
               {session.status === "created"
                 ? t("aituber.sessions.status.created")
                 : t("aituber.sessions.status.ended")}
@@ -158,11 +161,11 @@ export function AituberStage({ session, livekitUrl }: AituberStageProps) {
       </div>
 
       {/* Right: Chat */}
-      <div className="flex h-[60vh] w-full flex-col border-t border-gray-700 lg:h-full lg:w-1/3 lg:border-l lg:border-t-0">
-        <div className="border-b border-gray-700 px-4 py-3">
-          <h3 className="text-sm font-medium text-white">{session.title}</h3>
+      <div className="flex h-[60vh] w-full flex-col border-t border-white/10 bg-gray-900/50 lg:h-full lg:w-1/3 lg:border-l lg:border-t-0">
+        <div className="border-b border-white/10 px-4 py-3">
+          <h3 className="text-sm font-medium text-gray-200">{session.title}</h3>
           {session.characterName && (
-            <p className="text-xs text-gray-400">{session.characterName}</p>
+            <p className="text-xs text-gray-500">{session.characterName}</p>
           )}
         </div>
         <AituberChat sessionId={session.id} />

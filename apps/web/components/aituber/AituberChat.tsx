@@ -44,19 +44,18 @@ export function AituberChat({ sessionId }: AituberChatProps) {
   const handleKeyDown = useEnterToSend(() => void handleSend());
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-gray-950/50">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.map((msg: AituberChatMessage) => (
-          // タスク2: インライン ChatBubble を共通コンポーネントに置き換え
           <ChatMessageBubble key={msg.id} message={msg} variant="aituber" />
         ))}
         {streamingContent && (
           <div className="flex gap-2">
-            <div className="rounded-lg bg-indigo-900/50 px-3 py-2 text-sm text-indigo-200">
+            <div className="max-w-[80%] rounded-xl bg-indigo-500/15 px-3.5 py-2.5 text-sm text-indigo-200">
               <span className="mb-1 block text-xs font-medium text-indigo-400">AI</span>
               {streamingContent}
-              <span className="ml-1 inline-block animate-pulse">▋</span>
+              <span className="ml-1 inline-block animate-pulse text-indigo-400">▋</span>
             </div>
           </div>
         )}
@@ -64,7 +63,7 @@ export function AituberChat({ sessionId }: AituberChatProps) {
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-700 p-3">
+      <div className="border-t border-white/10 p-3">
         {error && <p className="mb-2 text-xs text-red-400">{error}</p>}
         <div className="flex gap-2">
           <input
@@ -73,14 +72,14 @@ export function AituberChat({ sessionId }: AituberChatProps) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={t("aituber.viewer.messagePlaceholder")}
-            className="flex-1 rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-400 focus:border-indigo-500 focus:outline-none"
+            className="flex-1 rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
             disabled={sending}
           />
           <button
             type="button"
             onClick={() => void handleSend()}
             disabled={sending || !input.trim()}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-40"
           >
             {t("aituber.viewer.send")}
           </button>
