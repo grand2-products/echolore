@@ -6,6 +6,7 @@ import {
   getDriveFileById,
   getDriveFileStats,
   listDriveFileIds,
+  listDriveFileIdsByDriveId,
   replaceDriveEmbeddings,
   replaceDriveFilePermissions,
   updateDriveFileIndexStatus,
@@ -31,6 +32,49 @@ export async function getDriveSyncStatus() {
     lastSyncResult,
     files: stats,
   };
+}
+
+// ─── Periodic sync scheduler ──────────────────────────────────────
+
+let schedulerTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Start the periodic Drive sync scheduler.
+ * Reads syncIntervalMinutes from settings and schedules recurring syncs.
+ * Call once at app startup.
+ */
+export function startDriveSyncScheduler(): void {
+  if (schedulerTimer) return;
+  scheduleNextSync();
+}
+
+export function stopDriveSyncScheduler(): void {
+  if (schedulerTimer) {
+    clearTimeout(schedulerTimer);
+    schedulerTimer = null;
+  }
+}
+
+function scheduleNextSync(): void {
+  // Read interval asynchronously, default to 60 min
+  getResolvedDriveSettings()
+    .then((settings) => {
+      if (!settings.enabled) {
+        // Check again in 5 minutes in case it gets enabled
+        schedulerTimer = setTimeout(scheduleNextSync, 5 * 60 * 1000);
+        return;
+      }
+      const intervalMs = settings.syncIntervalMinutes * 60 * 1000;
+      schedulerTimer = setTimeout(() => {
+        triggerDriveSync()
+          .catch((err) => console.error("[drive-sync-scheduler] Trigger failed:", err))
+          .finally(scheduleNextSync);
+      }, intervalMs);
+    })
+    .catch(() => {
+      // Settings not available, retry in 5 minutes
+      schedulerTimer = setTimeout(scheduleNextSync, 5 * 60 * 1000);
+    });
 }
 
 export async function triggerDriveSync(): Promise<{
@@ -89,6 +133,8 @@ async function syncAllDrives(): Promise<void> {
     // Track which file IDs we see in this sync (to prune deleted files)
     const seenFileIds = new Set<string>();
 
+    const failedDriveIds: string[] = [];
+
     for (const driveId of settings.sharedDriveIds) {
       try {
         const result = await syncSharedDrive(drive, driveId, mimeQuery, settings, seenFileIds);
@@ -97,11 +143,21 @@ async function syncAllDrives(): Promise<void> {
         errors += result.errors;
       } catch (err) {
         console.error(`[drive-sync] Failed to sync drive ${driveId}:`, err);
+        failedDriveIds.push(driveId);
         errors++;
       }
     }
 
-    // Prune files that no longer exist in any synced drive
+    // Protect files from failed drives: add their existing IDs to seenFileIds
+    // so prune does not delete them due to a transient API failure.
+    for (const driveId of failedDriveIds) {
+      const existingIds = await listDriveFileIdsByDriveId(driveId);
+      for (const id of existingIds) {
+        seenFileIds.add(id);
+      }
+    }
+
+    // Prune files that no longer exist in any successfully-synced drive
     await pruneDeletedFiles(seenFileIds);
   } catch (err) {
     console.error("[drive-sync] Fatal error:", err);

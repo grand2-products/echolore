@@ -33,6 +33,7 @@ import { usersRoutes } from "./routes/users.js";
 import { wikiRoutes } from "./routes/wiki/index.js";
 import { createWikiCollabRoutes } from "./routes/wiki-collab.js";
 import { buildStorageConfig, getStorageSettings } from "./services/admin/admin-service.js";
+import { startDriveSyncScheduler } from "./services/drive/drive-sync-service.js";
 import { startKnowledgeScanLoop } from "./services/knowledge/knowledge-scan-service.js";
 import { startAutonomousAgentLoop } from "./services/meeting/autonomous-agent-service.js";
 import { shutdownCollab } from "./services/wiki/yjs-collab-service.js";
@@ -231,6 +232,9 @@ startAutonomousAgentLoop();
 
 // Start knowledge suggestion periodic scan
 startKnowledgeScanLoop();
+
+// Start periodic Drive sync scheduler
+startDriveSyncScheduler();
 
 // Graceful shutdown: persist all Yjs documents before exit
 const SHUTDOWN_TIMEOUT_MS = 30_000;

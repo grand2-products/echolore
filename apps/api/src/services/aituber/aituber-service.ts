@@ -129,6 +129,17 @@ export async function stopSession(id: string): Promise<AituberSession> {
   return updated;
 }
 
+/**
+ * Abort a session that failed during startup (status = "created").
+ * Unlike stopSession, this transitions from "created" → "ended".
+ */
+export async function abortSession(id: string): Promise<void> {
+  await repo.updateSessionWithStatus(id, "created", {
+    status: "ended",
+    endedAt: new Date(),
+  });
+}
+
 // --- Message Management ---
 
 export async function sendViewerMessage(input: {

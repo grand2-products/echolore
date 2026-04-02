@@ -1,4 +1,9 @@
-import { embedText, getEmbeddingDimensions, isEmbeddingEnabled } from "../../ai/embeddings.js";
+import {
+  embedText,
+  getEmbeddingConfig,
+  getEmbeddingDimensions,
+  isEmbeddingEnabled,
+} from "../../ai/embeddings.js";
 import { db } from "../../db/index.js";
 import {
   type DriveVectorSearchResult,
@@ -30,11 +35,18 @@ export async function searchDriveForUser(
 
   if (!queryEmbedding) return [];
 
+  const { model: modelId } = await getEmbeddingConfig();
+
   try {
-    return await searchDriveByVectorWithPermissions(queryEmbedding, userEmail, limit);
+    return await searchDriveByVectorWithPermissions(queryEmbedding, userEmail, limit, modelId);
   } catch (err) {
-    console.warn("[drive-search] Vector search failed:", err);
-    return [];
+    // Dimension mismatch or other pgvector error — retry without modelId filter
+    console.warn("[drive-search] Vector search failed, retrying without model filter:", err);
+    try {
+      return await searchDriveByVectorWithPermissions(queryEmbedding, userEmail, limit);
+    } catch {
+      return [];
+    }
   }
 }
 
@@ -58,6 +70,7 @@ export async function readDriveFileText(
         eb("dp.permissionType", "=", "anyone"),
         eb.and([eb("dp.permissionType", "=", "domain"), eb("dp.domain", "=", userDomain)]),
         eb.and([eb("dp.permissionType", "=", "user"), eb("dp.email", "=", userEmail)]),
+        eb.and([eb("dp.permissionType", "=", "group"), eb("dp.email", "=", userEmail)]),
       ])
     )
     .select(["df.name as fileName", "df.webViewLink"])

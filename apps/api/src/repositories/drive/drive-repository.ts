@@ -72,6 +72,15 @@ export async function listDriveFileIds(): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
+export async function listDriveFileIdsByDriveId(driveId: string): Promise<string[]> {
+  const rows = await db
+    .selectFrom("drive_files")
+    .select("id")
+    .where("driveId", "=", driveId)
+    .execute();
+  return rows.map((r) => r.id);
+}
+
 // ─── Drive Embeddings ─────────────────────────────────────────────
 
 export async function replaceDriveEmbeddings(
@@ -158,7 +167,8 @@ export interface DriveVectorSearchResult {
 export async function searchDriveByVectorWithPermissions(
   queryEmbedding: number[],
   userEmail: string,
-  limit: number
+  limit: number,
+  modelId?: string
 ): Promise<DriveVectorSearchResult[]> {
   const vectorStr = `[${queryEmbedding.join(",")}]`;
   const userDomain = userEmail.split("@")[1] ?? "";
@@ -172,9 +182,13 @@ export async function searchDriveByVectorWithPermissions(
         eb("dp.permissionType", "=", "anyone"),
         eb.and([eb("dp.permissionType", "=", "domain"), eb("dp.domain", "=", userDomain)]),
         eb.and([eb("dp.permissionType", "=", "user"), eb("dp.email", "=", userEmail)]),
+        // Google Groups: match if user's email is the group email.
+        // For full group membership resolution, integrate Google Directory API.
+        eb.and([eb("dp.permissionType", "=", "group"), eb("dp.email", "=", userEmail)]),
       ])
     )
     .where("df.indexStatus", "=", "indexed")
+    .$if(!!modelId, (qb) => qb.where("de.modelId", "=", modelId!))
     .select([
       "df.id as fileId",
       "df.name as fileName",

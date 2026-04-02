@@ -338,26 +338,32 @@ aituberRoutes.post(
       title: character.name,
     });
 
-    // Create LiveKit room
-    await livekitService.createAituberRoom(session.roomName);
+    try {
+      // Create LiveKit room
+      await livekitService.createAituberRoom(session.roomName);
 
-    // Start session
-    const updated = await aituberService.startSession(session.id);
+      // Start session
+      const updated = await aituberService.startSession(session.id);
 
-    // Start AI processing loop
-    await aiService.startProcessingLoop(session.id, character, session.roomName);
+      // Start AI processing loop
+      await aiService.startProcessingLoop(session.id, character, session.roomName);
 
-    const avatarUrl = resolveCharacterAvatarUrl(character);
-    return c.json(
-      {
-        session: {
-          ...updated,
-          characterName: character.name,
-          characterAvatarUrl: avatarUrl,
+      const avatarUrl = resolveCharacterAvatarUrl(character);
+      return c.json(
+        {
+          session: {
+            ...updated,
+            characterName: character.name,
+            characterAvatarUrl: avatarUrl,
+          },
         },
-      },
-      201
-    );
+        201
+      );
+    } catch (err) {
+      // Abort the created session so it doesn't block future sessions
+      await aituberService.abortSession(session.id).catch(() => {});
+      throw err;
+    }
   }
 );
 
