@@ -148,6 +148,12 @@ export const adminApi = {
       body: JSON.stringify(data),
     }),
 
+  testGcpConnection: () =>
+    fetchApi<{ ok: boolean; projectId?: string; clientEmail?: string; error?: string }>(
+      "/admin/gcp-credentials/test",
+      { method: "POST" }
+    ),
+
   getAuthSettings: () => fetchApi<AuthSettings>("/admin/auth-settings"),
 
   updateAuthSettings: (data: UpdateAuthSettingsRequest) =>

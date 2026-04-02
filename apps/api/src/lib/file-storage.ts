@@ -174,9 +174,13 @@ class GcsStorageProvider implements StorageProvider {
     if (this.config.gcsKeyJson) {
       try {
         opts.credentials = JSON.parse(this.config.gcsKeyJson);
-      } catch {
-        // fall back to ADC
+      } catch (err) {
+        console.warn("[GCS] Failed to parse gcsKeyJson, falling back to ADC:", err);
       }
+    } else {
+      console.warn(
+        "[GCS] No gcsKeyJson provided, using ADC (may fail without configured credentials)"
+      );
     }
     const storage = new Storage(opts);
     return storage.bucket(this.config.gcsBucket || "files");
