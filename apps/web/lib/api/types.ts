@@ -109,6 +109,7 @@ export interface AgentDefinition {
   voiceProfile: string | null;
   interventionStyle: string;
   defaultProvider: string;
+  llmConfigSetId: string | null;
   isActive: boolean;
   autonomousEnabled: boolean;
   autonomousCooldownSec: number;
@@ -124,6 +125,7 @@ export interface CreateAgentRequest {
   voiceProfile?: string | null;
   interventionStyle: string;
   defaultProvider: "google" | "vertex" | "zhipu" | "openai-compatible";
+  llmConfigSetId?: string | null;
   isActive?: boolean;
   autonomousEnabled?: boolean;
   autonomousCooldownSec?: number;
@@ -266,7 +268,51 @@ export interface UpdateEmailSettingsRequest {
   smtpFrom?: string | null;
 }
 
-export type LlmProvider = "google" | "vertex" | "zhipu" | "openai-compatible";
+export interface LlmConfigSet {
+  id: string;
+  name: string;
+  provider: LlmProvider;
+  geminiApiKey: string | null;
+  geminiTextModel: string | null;
+  vertexProject: string | null;
+  vertexLocation: string | null;
+  vertexModel: string | null;
+  zhipuApiKey: string | null;
+  zhipuTextModel: string | null;
+  zhipuUseCodingPlan: boolean;
+  openaiCompatBaseUrl: string | null;
+  openaiCompatApiKey: string | null;
+  openaiCompatModel: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLlmConfigSetRequest {
+  name: string;
+  provider?: LlmProvider;
+  geminiApiKey?: string | null;
+  geminiTextModel?: string | null;
+  vertexProject?: string | null;
+  vertexLocation?: string | null;
+  vertexModel?: string | null;
+  zhipuApiKey?: string | null;
+  zhipuTextModel?: string | null;
+  zhipuUseCodingPlan?: boolean;
+  openaiCompatBaseUrl?: string | null;
+  openaiCompatApiKey?: string | null;
+  openaiCompatModel?: string | null;
+}
+
+export type UpdateLlmConfigSetRequest = Partial<CreateLlmConfigSetRequest>;
+
+export interface ConfigSetAssignments {
+  aiChat: string;
+  aituber: string;
+  meetingAgent: string;
+}
+
+export const LLM_PROVIDERS = ["google", "vertex", "zhipu", "openai-compatible"] as const;
+export type LlmProvider = (typeof LLM_PROVIDERS)[number];
 export type EmbeddingProvider = "google" | "vertex";
 
 export interface LlmSettings {

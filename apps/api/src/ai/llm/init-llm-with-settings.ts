@@ -1,4 +1,9 @@
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import {
+  getConfigSetById,
+  type LlmFeature,
+  resolveConfigSetForFeature,
+} from "../../services/admin/llm-config-set-service.js";
 import { getLlmSettings } from "../../services/admin/llm-settings-service.js";
 import type { LlmOverrides, TextProvider } from "./create-chat-model.js";
 import {
@@ -45,30 +50,71 @@ export function mapToOverrides(dbSettings: {
   };
 }
 
+/** Resolve a config-set-like object into overrides + provider. */
+function resolveFromSettings(
+  settings: Parameters<typeof mapToOverrides>[0] & { provider: string }
+): {
+  overrides: LlmOverrides;
+  provider: TextProvider;
+} {
+  return {
+    overrides: mapToOverrides(settings),
+    provider: resolveTextProvider(settings.provider),
+  };
+}
+
 /**
- * Shared helper that encapsulates the repeated LLM initialisation pattern:
+ * Shared helper that encapsulates the repeated LLM initialisation pattern.
  *
- * 1. Fetch `LlmSettings` from the database
- * 2. Map settings to `LlmOverrides`
- * 3. Resolve the text provider
- * 4. Guard against disabled providers
- * 5. Build the `BaseChatModel`
+ * Resolution order:
+ * 1. `configSetId` — load that specific config set
+ * 2. `feature` — resolve via feature-to-config-set assignment
+ * 3. `defaultProvider` (legacy) — fall back to global site_settings
+ * 4. Otherwise — load the "default" config set
  *
- * Returns `null` when the resolved provider is not enabled so callers can
- * fall back gracefully.
+ * Returns `null` when the resolved provider is not enabled.
  */
 export async function initLlmWithSettings(options?: {
   temperature?: number;
   maxTokens?: number;
   defaultProvider?: string;
+  configSetId?: string;
+  feature?: LlmFeature;
 }): Promise<InitLlmResult | null> {
-  const dbSettings = await getLlmSettings();
-  const overrides = mapToOverrides(dbSettings);
-  const provider = resolveTextProvider(options?.defaultProvider ?? dbSettings.provider);
+  let resolved: { overrides: LlmOverrides; provider: TextProvider } | null = null;
 
-  if (!isTextGenerationEnabled(provider, overrides)) {
+  if (options?.configSetId) {
+    const configSet = await getConfigSetById(options.configSetId);
+    if (configSet) {
+      resolved = resolveFromSettings(configSet);
+    } else if (options.feature) {
+      const featureSet = await resolveConfigSetForFeature(options.feature);
+      if (featureSet) resolved = resolveFromSettings(featureSet);
+    }
+  } else if (options?.feature) {
+    const configSet = await resolveConfigSetForFeature(options.feature);
+    if (configSet) resolved = resolveFromSettings(configSet);
+  } else if (options?.defaultProvider) {
+    const dbSettings = await getLlmSettings();
+    resolved = {
+      overrides: mapToOverrides(dbSettings),
+      provider: resolveTextProvider(options.defaultProvider),
+    };
+  } else {
+    const configSet = await getConfigSetById("default");
+    if (configSet) {
+      resolved = resolveFromSettings(configSet);
+    } else {
+      const dbSettings = await getLlmSettings();
+      resolved = resolveFromSettings(dbSettings);
+    }
+  }
+
+  if (!resolved || !isTextGenerationEnabled(resolved.provider, resolved.overrides)) {
     return null;
   }
+
+  const { overrides, provider } = resolved;
 
   const model = createChatModel({
     provider,
@@ -85,8 +131,9 @@ export async function initLlmWithSettings(options?: {
  * Only reads DB settings — does not instantiate a model.
  */
 export async function isLlmAvailable(): Promise<boolean> {
-  const dbSettings = await getLlmSettings();
-  const overrides = mapToOverrides(dbSettings);
-  const provider = resolveTextProvider(dbSettings.provider);
+  const configSet = await getConfigSetById("default");
+  const { overrides, provider } = configSet
+    ? resolveFromSettings(configSet)
+    : resolveFromSettings(await getLlmSettings());
   return isTextGenerationEnabled(provider, overrides);
 }

@@ -16,6 +16,7 @@ export async function createAgentDefinition(input: {
   voiceProfile?: string | null;
   interventionStyle: string;
   defaultProvider: string;
+  llmConfigSetId?: string | null;
   isActive?: boolean;
   autonomousEnabled?: boolean;
   autonomousCooldownSec?: number;
@@ -30,6 +31,7 @@ export async function createAgentDefinition(input: {
     voiceProfile: input.voiceProfile ?? null,
     interventionStyle: input.interventionStyle,
     defaultProvider: input.defaultProvider,
+    llmConfigSetId: input.llmConfigSetId ?? null,
     isActive: input.isActive ?? true,
     autonomousEnabled: input.autonomousEnabled ?? false,
     autonomousCooldownSec: input.autonomousCooldownSec ?? 120,
@@ -48,6 +50,7 @@ export async function updateAgentDefinition(
     voiceProfile?: string | null;
     interventionStyle?: string;
     defaultProvider?: string;
+    llmConfigSetId?: string | null;
     isActive?: boolean;
     autonomousEnabled?: boolean;
     autonomousCooldownSec?: number;
@@ -67,6 +70,7 @@ export async function updateAgentDefinition(
       ? { interventionStyle: input.interventionStyle }
       : {}),
     ...(input.defaultProvider !== undefined ? { defaultProvider: input.defaultProvider } : {}),
+    ...(input.llmConfigSetId !== undefined ? { llmConfigSetId: input.llmConfigSetId } : {}),
     ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
     ...(input.autonomousEnabled !== undefined
       ? { autonomousEnabled: input.autonomousEnabled }

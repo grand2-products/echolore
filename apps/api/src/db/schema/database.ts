@@ -302,6 +302,7 @@ export interface AgentsTable {
   voiceProfile: string | null;
   interventionStyle: string;
   defaultProvider: string;
+  llmConfigSetId: string | null;
   isActive: Generated<boolean>;
   autonomousEnabled: Generated<boolean>;
   autonomousCooldownSec: Generated<number>;
@@ -486,6 +487,25 @@ export interface DriveFilePermissionsTable {
   createdAt: Generated<Date>;
 }
 
+export interface LlmConfigSetsTable {
+  id: string;
+  name: string;
+  provider: string;
+  geminiApiKey: string | null;
+  geminiTextModel: string | null;
+  vertexProject: string | null;
+  vertexLocation: string | null;
+  vertexModel: string | null;
+  zhipuApiKey: string | null;
+  zhipuTextModel: string | null;
+  zhipuUseCodingPlan: Generated<boolean>;
+  openaiCompatBaseUrl: string | null;
+  openaiCompatApiKey: string | null;
+  openaiCompatModel: string | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
 export interface SiteSettingsTable {
   key: string;
   value: string;
@@ -534,5 +554,6 @@ export interface Database {
   drive_files: DriveFilesTable;
   drive_embeddings: DriveEmbeddingsTable;
   drive_file_permissions: DriveFilePermissionsTable;
+  llm_config_sets: LlmConfigSetsTable;
   site_settings: SiteSettingsTable;
 }

@@ -117,7 +117,7 @@ async function generateConversationTitle(
     const conversation = await getConversationById(conversationId);
     if (!conversation || conversation.title !== "New Chat") return null;
 
-    const llmResult = await llm.init({ temperature: 0, maxTokens: 50 });
+    const llmResult = await llm.init({ temperature: 0, maxTokens: 50, feature: "aiChat" });
     if (!llmResult) return null;
 
     const sanitizedUser = escapeXmlTags(userMessage.slice(0, 200));
@@ -168,7 +168,7 @@ async function invokeAgent(
   messageHistory: (HumanMessage | AIMessage)[],
   conversationId: string
 ): Promise<{ responseContent: string; citations: AiChatToolResult[]; toolSteps: ToolStepJson[] }> {
-  const llmResult = await llm.init({ temperature: 0.3, maxTokens: 2048 });
+  const llmResult = await llm.init({ temperature: 0.3, maxTokens: 2048, feature: "aiChat" });
 
   if (!llmResult) {
     return {

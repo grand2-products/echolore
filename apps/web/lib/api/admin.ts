@@ -19,13 +19,16 @@ import type {
   BackupJobStatus,
   BackupListResponse,
   BackupSettings,
+  ConfigSetAssignments,
   CreateAdminGroupRequest,
   CreateAgentRequest,
+  CreateLlmConfigSetRequest,
   DriveSettings,
   DriveSyncStatus,
   EmailSettings,
   GcpCredentials,
   KpiOverviewResponse,
+  LlmConfigSet,
   LlmSettings,
   SiteSettings,
   StorageSettings,
@@ -36,6 +39,7 @@ import type {
   UpdateDriveSettingsRequest,
   UpdateEmailSettingsRequest,
   UpdateGcpCredentialsRequest,
+  UpdateLlmConfigSetRequest,
   UpdateLlmSettingsRequest,
   UpdateSiteSettingsRequest,
   UpdateStorageSettingsRequest,
@@ -166,6 +170,40 @@ export const adminApi = {
 
   updateEmailSettings: (data: UpdateEmailSettingsRequest) =>
     fetchApi<EmailSettings>("/admin/email-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  // LLM Config Sets
+  listLlmConfigSets: () => fetchApi<{ configSets: LlmConfigSet[] }>("/admin/llm-config-sets"),
+
+  createLlmConfigSet: (data: CreateLlmConfigSetRequest) =>
+    fetchApi<{ configSet: LlmConfigSet }>("/admin/llm-config-sets", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  updateLlmConfigSet: (id: string, data: UpdateLlmConfigSetRequest) =>
+    fetchApi<{ configSet: LlmConfigSet }>(`/admin/llm-config-sets/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  deleteLlmConfigSet: (id: string) =>
+    fetchApi<{ ok: boolean }>(`/admin/llm-config-sets/${id}`, {
+      method: "DELETE",
+    }),
+
+  testLlmConfigSet: (id: string) =>
+    fetchApi<{ ok: boolean; reply?: string; error?: string }>(`/admin/llm-config-sets/${id}/test`, {
+      method: "POST",
+    }),
+
+  getConfigSetAssignments: () =>
+    fetchApi<ConfigSetAssignments>("/admin/llm-config-sets/assignments"),
+
+  updateConfigSetAssignments: (data: Partial<ConfigSetAssignments>) =>
+    fetchApi<ConfigSetAssignments>("/admin/llm-config-sets/assignments", {
       method: "PUT",
       body: JSON.stringify(data),
     }),

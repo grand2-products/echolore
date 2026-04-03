@@ -93,6 +93,10 @@ export type NewFile = Insertable<Database["files"]>;
 export type AuditLog = Selectable<Database["audit_logs"]>;
 export type NewAuditLog = Insertable<Database["audit_logs"]>;
 
+// ─── LLM Config Sets ────────────────────────────────────────────
+export type LlmConfigSet = Selectable<Database["llm_config_sets"]>;
+export type NewLlmConfigSet = Insertable<Database["llm_config_sets"]>;
+
 // ─── Site Settings ───────────────────────────────────────────────
 export type SiteSetting = Selectable<Database["site_settings"]>;
 export type NewSiteSetting = Insertable<Database["site_settings"]>;

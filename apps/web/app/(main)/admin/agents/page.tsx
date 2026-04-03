@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Tooltip } from "@/components/ui";
-import { type AgentDefinition, adminApi, type CreateAgentRequest } from "@/lib/api";
+import {
+  type AgentDefinition,
+  adminApi,
+  type CreateAgentRequest,
+  LLM_PROVIDERS,
+  type LlmConfigSet,
+} from "@/lib/api";
 import { aituberApi, type TtsVoice } from "@/lib/api/aituber";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
@@ -12,8 +18,8 @@ import {
   TestConnectionModal,
   type TestModalState,
 } from "../settings/_components/TestConnectionModal";
+import { ConfigSetManager } from "./_components/ConfigSetManager";
 
-const VALID_PROVIDERS = ["google", "vertex", "zhipu", "openai-compatible"] as const;
 const VALID_INTERVENTION_STYLES = ["facilitator", "observer", "active"] as const;
 
 const emptyForm: CreateAgentRequest = {
@@ -23,6 +29,7 @@ const emptyForm: CreateAgentRequest = {
   voiceProfile: "",
   interventionStyle: "facilitator",
   defaultProvider: "google",
+  llmConfigSetId: null,
   isActive: true,
   autonomousEnabled: false,
   autonomousCooldownSec: 120,
@@ -48,6 +55,7 @@ export default function AdminAgentsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [testModal, setTestModal] = useState<TestModalState | null>(null);
   const [voices, setVoices] = useState<TtsVoice[]>([]);
+  const [configSets, setConfigSets] = useState<LlmConfigSet[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,12 +93,20 @@ export default function AdminAgentsPage() {
     }
   };
 
+  const getConfigSetName = (id: string | null) => {
+    if (!id) return null;
+    return configSets.find((cs) => cs.id === id)?.name ?? null;
+  };
+
   return (
     <div className="space-y-6">
+      <ConfigSetManager onTestModal={setTestModal} onConfigSetsChange={setConfigSets} />
+
       <LlmSettingsSection onTestModal={setTestModal} />
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <section className="rounded-xl border border-gray-200 bg-white p-6">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">{t("admin.agents.title")}</h2>
           {displayError ? (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               <span>{displayError}</span>
@@ -128,11 +144,12 @@ export default function AdminAgentsPage() {
                       systemPrompt: agent.systemPrompt,
                       voiceProfile: agent.voiceProfile,
                       interventionStyle: agent.interventionStyle,
-                      defaultProvider: (VALID_PROVIDERS as readonly string[]).includes(
+                      defaultProvider: (LLM_PROVIDERS as readonly string[]).includes(
                         agent.defaultProvider
                       )
                         ? (agent.defaultProvider as CreateAgentRequest["defaultProvider"])
                         : "google",
+                      llmConfigSetId: agent.llmConfigSetId,
                       isActive: agent.isActive,
                       autonomousEnabled: agent.autonomousEnabled,
                       autonomousCooldownSec: agent.autonomousCooldownSec,
@@ -167,7 +184,9 @@ export default function AdminAgentsPage() {
                   <div className="mt-3 text-xs text-gray-500">
                     {t("admin.agents.meta", {
                       style: formatters.interventionStyle(agent.interventionStyle),
-                      provider: formatters.provider(agent.defaultProvider),
+                      provider:
+                        getConfigSetName(agent.llmConfigSetId) ??
+                        formatters.provider(agent.defaultProvider),
                     })}
                   </div>
                 </button>
@@ -278,27 +297,26 @@ export default function AdminAgentsPage() {
 
             <label className="block text-sm text-gray-700">
               <span className="inline-flex items-center gap-1">
-                {t("admin.agents.providerLabel")}
-                <Tooltip text={t("admin.agents.tooltips.provider")} />
+                {t("admin.agents.configSetLabel")}
+                <Tooltip text={t("admin.agents.tooltips.configSet")} />
               </span>
               <select
-                value={form.defaultProvider}
+                value={form.llmConfigSetId ?? ""}
                 onChange={(event) => {
                   const value = event.target.value;
-                  if (!VALID_PROVIDERS.includes(value as (typeof VALID_PROVIDERS)[number])) return;
                   setForm((current) => ({
                     ...current,
-                    defaultProvider: value as CreateAgentRequest["defaultProvider"],
+                    llmConfigSetId: value || null,
                   }));
                 }}
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
               >
-                <option value="google">{formatters.provider("google")}</option>
-                <option value="vertex">{formatters.provider("vertex")}</option>
-                <option value="zhipu">{formatters.provider("zhipu")}</option>
-                <option value="openai-compatible">
-                  {formatters.provider("openai-compatible")}
-                </option>
+                <option value="">{t("admin.agents.configSetDefault")}</option>
+                {configSets.map((cs) => (
+                  <option key={cs.id} value={cs.id}>
+                    {cs.name} ({formatters.provider(cs.provider)})
+                  </option>
+                ))}
               </select>
             </label>
 
