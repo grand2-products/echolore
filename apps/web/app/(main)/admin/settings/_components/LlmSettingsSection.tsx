@@ -1,9 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { adminApi, type LlmProvider } from "@/lib/api";
+import { adminApi, LLM_PROVIDERS, type LlmProvider } from "@/lib/api";
 import { useSettingsForm } from "@/lib/hooks/use-settings-form";
-import { useT } from "@/lib/i18n";
+import { useFormatters, useT } from "@/lib/i18n";
+import {
+  buildLlmProviderPayload,
+  EMPTY_PROVIDER_FORM,
+  LlmProviderFields,
+  type LlmProviderFormValues,
+} from "../../_components/LlmProviderFields";
 import { INPUT_CLASS, SettingsSaveButton, SettingsSectionShell } from "./SettingsSectionShell";
 import type { TestModalState } from "./TestConnectionModal";
 import { useConnectionTest } from "./use-connection-test";
@@ -12,53 +18,44 @@ interface LlmSettingsSectionProps {
   onTestModal: (modal: TestModalState | null) => void;
 }
 
+interface LlmSettingsForm extends LlmProviderFormValues {
+  provider: LlmProvider;
+}
+
+const emptyForm: LlmSettingsForm = {
+  provider: "google",
+  ...EMPTY_PROVIDER_FORM,
+};
+
 export function LlmSettingsSection({ onTestModal }: LlmSettingsSectionProps) {
   const t = useT();
+  const formatters = useFormatters();
 
-  const [llmProvider, setLlmProvider] = useState<LlmProvider>("google");
-  const [geminiApiKey, setGeminiApiKey] = useState("");
-  const [geminiTextModel, setGeminiTextModel] = useState("");
-  const [vertexProject, setVertexProject] = useState("");
-  const [vertexLocation, setVertexLocation] = useState("");
-  const [vertexModel, setVertexModel] = useState("");
-  const [zhipuApiKey, setZhipuApiKey] = useState("");
-  const [zhipuTextModel, setZhipuTextModel] = useState("");
-  const [zhipuUseCodingPlan, setZhipuUseCodingPlan] = useState(false);
-  const [openaiCompatBaseUrl, setOpenaiCompatBaseUrl] = useState("");
-  const [openaiCompatApiKey, setOpenaiCompatApiKey] = useState("");
-  const [openaiCompatModel, setOpenaiCompatModel] = useState("");
+  const [form, setForm] = useState<LlmSettingsForm>(emptyForm);
   const { loading, saving, error, notice, loadSettings, handleSave, setError, setNotice } =
     useSettingsForm({
       load: () => adminApi.getLlmSettings(),
       onLoaded: (data) => {
-        setLlmProvider(data.provider);
-        setGeminiApiKey(data.geminiApiKey ?? "");
-        setGeminiTextModel(data.geminiTextModel ?? "");
-        setVertexProject(data.vertexProject ?? "");
-        setVertexLocation(data.vertexLocation ?? "");
-        setVertexModel(data.vertexModel ?? "");
-        setZhipuApiKey(data.zhipuApiKey ?? "");
-        setZhipuTextModel(data.zhipuTextModel ?? "");
-        setZhipuUseCodingPlan(data.zhipuUseCodingPlan ?? false);
-        setOpenaiCompatBaseUrl(data.openaiCompatBaseUrl ?? "");
-        setOpenaiCompatApiKey(data.openaiCompatApiKey ?? "");
-        setOpenaiCompatModel(data.openaiCompatModel ?? "");
+        setForm({
+          provider: data.provider,
+          geminiApiKey: data.geminiApiKey ?? "",
+          geminiTextModel: data.geminiTextModel ?? "",
+          vertexProject: data.vertexProject ?? "",
+          vertexLocation: data.vertexLocation ?? "",
+          vertexModel: data.vertexModel ?? "",
+          zhipuApiKey: data.zhipuApiKey ?? "",
+          zhipuTextModel: data.zhipuTextModel ?? "",
+          zhipuUseCodingPlan: data.zhipuUseCodingPlan ?? false,
+          openaiCompatBaseUrl: data.openaiCompatBaseUrl ?? "",
+          openaiCompatApiKey: data.openaiCompatApiKey ?? "",
+          openaiCompatModel: data.openaiCompatModel ?? "",
+        });
       },
       save: async () => {
-        const payload: Record<string, unknown> = { provider: llmProvider };
-        if (geminiApiKey && geminiApiKey !== "••••••••") payload.geminiApiKey = geminiApiKey;
-        payload.geminiTextModel = geminiTextModel || null;
-        payload.vertexProject = vertexProject || null;
-        payload.vertexLocation = vertexLocation || null;
-        payload.vertexModel = vertexModel || null;
-        if (zhipuApiKey && zhipuApiKey !== "••••••••") payload.zhipuApiKey = zhipuApiKey;
-        payload.zhipuTextModel = zhipuTextModel || null;
-        payload.zhipuUseCodingPlan = zhipuUseCodingPlan;
-        payload.openaiCompatBaseUrl = openaiCompatBaseUrl || null;
-        if (openaiCompatApiKey && openaiCompatApiKey !== "••••••••")
-          payload.openaiCompatApiKey = openaiCompatApiKey;
-        payload.openaiCompatModel = openaiCompatModel || null;
-        await adminApi.updateLlmSettings(payload);
+        await adminApi.updateLlmSettings({
+          provider: form.provider,
+          ...buildLlmProviderPayload(form),
+        });
       },
     });
 
@@ -94,142 +91,23 @@ export function LlmSettingsSection({ onTestModal }: LlmSettingsSectionProps) {
         <label className="block text-sm text-gray-700">
           {t("admin.settings.llmProvider")}
           <select
-            value={llmProvider}
-            onChange={(e) => setLlmProvider(e.target.value as LlmProvider)}
+            value={form.provider}
+            onChange={(e) => setForm((c) => ({ ...c, provider: e.target.value as LlmProvider }))}
             className={`${INPUT_CLASS} cursor-pointer`}
           >
-            <option value="google">{t("common.providerGoogle")}</option>
-            <option value="vertex">{t("common.providerVertex")}</option>
-            <option value="zhipu">{t("common.providerZhipu")}</option>
-            <option value="openai-compatible">{t("common.providerOpenaiCompat")}</option>
+            {LLM_PROVIDERS.map((p) => (
+              <option key={p} value={p}>
+                {formatters.provider(p)}
+              </option>
+            ))}
           </select>
         </label>
 
-        {llmProvider === "google" && (
-          <>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.llmGeminiApiKey")}
-              <input
-                type="password"
-                value={geminiApiKey}
-                onChange={(e) => setGeminiApiKey(e.target.value)}
-                placeholder="AIza..."
-                autoComplete="off"
-                className={INPUT_CLASS}
-              />
-            </label>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.llmGeminiModel")}
-              <input
-                value={geminiTextModel}
-                onChange={(e) => setGeminiTextModel(e.target.value)}
-                placeholder="gemini-1.5-flash"
-                className={INPUT_CLASS}
-              />
-            </label>
-          </>
-        )}
-
-        {llmProvider === "vertex" && (
-          <>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.llmVertexProject")}
-              <input
-                value={vertexProject}
-                onChange={(e) => setVertexProject(e.target.value)}
-                placeholder="my-gcp-project"
-                className={INPUT_CLASS}
-              />
-            </label>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.llmVertexLocation")}
-              <input
-                value={vertexLocation}
-                onChange={(e) => setVertexLocation(e.target.value)}
-                placeholder="asia-northeast1"
-                className={INPUT_CLASS}
-              />
-            </label>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.llmVertexModel")}
-              <input
-                value={vertexModel}
-                onChange={(e) => setVertexModel(e.target.value)}
-                placeholder="gemini-1.5-flash"
-                className={INPUT_CLASS}
-              />
-            </label>
-            <p className="text-xs text-gray-500">{t("admin.settings.llmVertexAdcHint")}</p>
-          </>
-        )}
-
-        {llmProvider === "zhipu" && (
-          <>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.llmZhipuApiKey")}
-              <input
-                type="password"
-                value={zhipuApiKey}
-                onChange={(e) => setZhipuApiKey(e.target.value)}
-                autoComplete="off"
-                className={INPUT_CLASS}
-              />
-            </label>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.llmZhipuModel")}
-              <input
-                value={zhipuTextModel}
-                onChange={(e) => setZhipuTextModel(e.target.value)}
-                placeholder="glm-5"
-                className={INPUT_CLASS}
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={zhipuUseCodingPlan}
-                onChange={(e) => setZhipuUseCodingPlan(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              {t("admin.settings.llmZhipuCodingPlan")}
-            </label>
-          </>
-        )}
-
-        {llmProvider === "openai-compatible" && (
-          <>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.llmOpenaiCompatBaseUrl")}
-              <input
-                value={openaiCompatBaseUrl}
-                onChange={(e) => setOpenaiCompatBaseUrl(e.target.value)}
-                placeholder="http://localhost:11434/v1"
-                className={INPUT_CLASS}
-              />
-            </label>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.llmOpenaiCompatApiKey")}
-              <input
-                type="password"
-                value={openaiCompatApiKey}
-                onChange={(e) => setOpenaiCompatApiKey(e.target.value)}
-                autoComplete="off"
-                placeholder={t("admin.settings.llmOpenaiCompatApiKeyPlaceholder")}
-                className={INPUT_CLASS}
-              />
-            </label>
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.llmOpenaiCompatModel")}
-              <input
-                value={openaiCompatModel}
-                onChange={(e) => setOpenaiCompatModel(e.target.value)}
-                placeholder="llama3, qwen2.5, mistral..."
-                className={INPUT_CLASS}
-              />
-            </label>
-            <p className="text-xs text-gray-500">{t("admin.settings.llmOpenaiCompatHint")}</p>
-          </>
-        )}
+        <LlmProviderFields
+          provider={form.provider}
+          values={form}
+          onChange={(updates) => setForm((c) => ({ ...c, ...updates }))}
+        />
 
         <div className="flex gap-3">
           <SettingsSaveButton

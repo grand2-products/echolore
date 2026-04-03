@@ -179,7 +179,7 @@ async function generateStreamingResponse(
   viewerMessage: AituberMessage,
   roomName: string
 ): Promise<string> {
-  const result = await llm.init({ temperature: 0.7, maxTokens: 500 });
+  const result = await llm.init({ temperature: 0.7, maxTokens: 500, feature: "aituber" });
   if (!result) {
     return "";
   }

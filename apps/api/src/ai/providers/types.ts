@@ -26,6 +26,8 @@ export interface LlmInitOptions {
   temperature?: number;
   maxTokens?: number;
   defaultProvider?: string;
+  configSetId?: string;
+  feature?: "aiChat" | "aituber" | "meetingAgent";
 }
 
 export interface LlmInitResult {

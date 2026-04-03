@@ -126,7 +126,7 @@ async function callDecisionLlm(
   const result = await initLlmWithSettings({
     temperature: 0,
     maxTokens: 200,
-    defaultProvider: agent.defaultProvider,
+    feature: "meetingAgent",
   });
 
   if (!result) {

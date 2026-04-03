@@ -1,6 +1,23 @@
 import { ALL_GROUP_PERMISSIONS, type GroupPermission, UserRole } from "@echolore/shared/contracts";
 import { z } from "zod";
 
+const LLM_PROVIDER_ENUM = ["google", "vertex", "zhipu", "openai-compatible"] as const;
+
+/** Provider-specific fields shared by LLM settings and config set schemas. */
+const llmProviderFieldsSchema = {
+  geminiApiKey: z.string().max(500).nullable().optional(),
+  geminiTextModel: z.string().max(100).nullable().optional(),
+  vertexProject: z.string().max(200).nullable().optional(),
+  vertexLocation: z.string().max(100).nullable().optional(),
+  vertexModel: z.string().max(100).nullable().optional(),
+  zhipuApiKey: z.string().max(500).nullable().optional(),
+  zhipuTextModel: z.string().max(100).nullable().optional(),
+  zhipuUseCodingPlan: z.boolean().optional(),
+  openaiCompatBaseUrl: z.string().url().max(500).nullable().optional(),
+  openaiCompatApiKey: z.string().max(500).nullable().optional(),
+  openaiCompatModel: z.string().max(100).nullable().optional(),
+};
+
 export const groupPermissionSchema = z.enum(
   ALL_GROUP_PERMISSIONS as [GroupPermission, ...GroupPermission[]]
 );
@@ -27,7 +44,8 @@ export const createAgentSchema = z.object({
   systemPrompt: z.string().min(1).max(10000),
   voiceProfile: z.string().nullable().optional(),
   interventionStyle: z.string().min(1).max(1000),
-  defaultProvider: z.enum(["google", "vertex", "zhipu", "openai-compatible"]).default("google"),
+  defaultProvider: z.enum(LLM_PROVIDER_ENUM).default("google"),
+  llmConfigSetId: z.string().max(100).nullable().optional(),
   isActive: z.boolean().optional(),
   autonomousEnabled: z.boolean().optional(),
   autonomousCooldownSec: z.number().int().min(10).max(3600).optional(),
@@ -81,18 +99,8 @@ export const updateEmailSettingsSchema = z.object({
 });
 
 export const updateLlmSettingsSchema = z.object({
-  provider: z.enum(["google", "vertex", "zhipu", "openai-compatible"]).optional(),
-  geminiApiKey: z.string().max(500).nullable().optional(),
-  geminiTextModel: z.string().max(100).nullable().optional(),
-  vertexProject: z.string().max(200).nullable().optional(),
-  vertexLocation: z.string().max(100).nullable().optional(),
-  vertexModel: z.string().max(100).nullable().optional(),
-  zhipuApiKey: z.string().max(500).nullable().optional(),
-  zhipuTextModel: z.string().max(100).nullable().optional(),
-  zhipuUseCodingPlan: z.boolean().optional(),
-  openaiCompatBaseUrl: z.string().url().max(500).nullable().optional(),
-  openaiCompatApiKey: z.string().max(500).nullable().optional(),
-  openaiCompatModel: z.string().max(100).nullable().optional(),
+  provider: z.enum(LLM_PROVIDER_ENUM).optional(),
+  ...llmProviderFieldsSchema,
   embeddingEnabled: z.boolean().optional(),
   embeddingProvider: z.enum(["google", "vertex"]).optional(),
   embeddingModel: z.string().max(100).nullable().optional(),
@@ -151,6 +159,20 @@ export const updateDriveSettingsSchema = z.object({
 export const updateGcpCredentialsSchema = z.object({
   gcpProjectId: z.string().max(200).nullable().optional(),
   gcpServiceAccountKeyJson: z.string().max(10000).nullable().optional(),
+});
+
+export const createLlmConfigSetSchema = z.object({
+  name: z.string().min(1).max(100),
+  provider: z.enum(LLM_PROVIDER_ENUM).default("google"),
+  ...llmProviderFieldsSchema,
+});
+
+export const updateLlmConfigSetSchema = createLlmConfigSetSchema.partial();
+
+export const updateConfigSetAssignmentsSchema = z.object({
+  aiChat: z.string().max(100).optional(),
+  aituber: z.string().max(100).optional(),
+  meetingAgent: z.string().max(100).optional(),
 });
 
 export const updateAuthSettingsSchema = z.object({

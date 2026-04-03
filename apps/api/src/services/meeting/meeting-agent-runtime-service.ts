@@ -40,11 +40,13 @@ async function generateAgentTextResponse(input: {
   prompt: string;
   transcriptLines: string[];
   defaultProvider?: string;
+  llmConfigSetId?: string | null;
   triggeredByUserId: string;
 }) {
   const llmResult = await initLlmWithSettings({
     temperature: 0.4,
-    defaultProvider: input.defaultProvider,
+    configSetId: input.llmConfigSetId ?? undefined,
+    feature: "meetingAgent",
   });
   if (!llmResult) {
     return buildFallbackResponse(input.agentName, input.prompt, input.transcriptLines);
@@ -131,6 +133,7 @@ export async function generateMeetingAgentResponse(input: {
     prompt: input.prompt,
     transcriptLines,
     defaultProvider: agent.defaultProvider,
+    llmConfigSetId: agent.llmConfigSetId,
     triggeredByUserId: input.triggeredByUserId,
   });
 
