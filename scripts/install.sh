@@ -92,6 +92,11 @@ info "Configuring EchoLore..."
 prompt_value DOMAIN       "Domain name (e.g. echolore.example.com)"
 prompt_value ACME_EMAIL   "Email for Let's Encrypt certificates"
 
+# Validate DOMAIN format (alphanumeric, dots, hyphens only)
+if ! printf '%s' "$DOMAIN" | grep -qP '^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$'; then
+  fail "Invalid domain name: $DOMAIN"
+fi
+
 # ── generate secrets (keep existing if loaded via --force) ───────────────────
 
 DB_PASSWORD="${DB_PASSWORD:-$(rand_secret 32)}"

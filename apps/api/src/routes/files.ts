@@ -1,10 +1,14 @@
 import { UserRole } from "@echolore/shared/contracts";
 import { Hono } from "hono";
 import { jsonError, withErrorHandler } from "../lib/api-error.js";
+import { auditAction } from "../lib/audit.js";
 import type { AppEnv } from "../lib/auth.js";
 import { buildStoragePath, loadFile, removeFile, saveFile } from "../lib/file-storage.js";
+import { parsePaginationParams } from "../lib/pagination.js";
 import { authorizeOwnerResource } from "../policies/authorization-policy.js";
 import {
+  countFiles,
+  countFilesByUploader,
   createFile,
   deleteFile,
   getFileById,
@@ -16,13 +20,18 @@ const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
 export const filesRoutes = new Hono<AppEnv>();
 
-// GET /api/files - List all files
+// GET /api/files - List files (paginated)
 filesRoutes.get("/", withErrorHandler("FILES_LIST_FAILED", "Failed to fetch files"), async (c) => {
   const user = c.get("user");
+  const { limit, offset } = parsePaginationParams(c);
+  const isAdmin = user.role === UserRole.Admin;
 
-  const allFiles =
-    user.role === UserRole.Admin ? await listFiles() : await listFilesByUploader(user.id);
-  return c.json({ files: allFiles });
+  const [files, total] = await Promise.all([
+    isAdmin ? listFiles({ limit, offset }) : listFilesByUploader(user.id, { limit, offset }),
+    isAdmin ? countFiles() : countFilesByUploader(user.id),
+  ]);
+
+  return c.json({ files, total });
 });
 
 // GET /api/files/:id - Get file metadata
@@ -144,6 +153,12 @@ filesRoutes.post(
       }
     }
 
+    await auditAction(c, "file.upload", "file", fileId, {
+      filename: uploadedFile.name,
+      size: uploadedFile.size,
+      contentType: uploadedFile.type,
+    });
+
     return c.json({ file: newFile }, 201);
   }
 );
@@ -196,9 +211,19 @@ filesRoutes.delete(
       return jsonError(c, 403, "FORBIDDEN", "Forbidden");
     }
 
-    await removeFile(fileRecord.storagePath);
-
+    // Delete DB record first to maintain referential integrity;
+    // orphaned storage files are preferable to orphaned DB records.
     await deleteFile(id);
+
+    try {
+      await removeFile(fileRecord.storagePath);
+    } catch {
+      // Storage file may already be gone — don't fail the request
+    }
+
+    await auditAction(c, "file.delete", "file", id, {
+      filename: fileRecord.filename,
+    });
 
     return c.json({ success: true });
   }

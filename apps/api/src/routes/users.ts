@@ -217,15 +217,9 @@ usersRoutes.delete(
       return jsonError(c, 404, "USER_NOT_FOUND", "User not found");
     }
 
-    // If the stored value is a storage path, remove the file
-    if (currentUser.avatarUrl?.startsWith("avatars/")) {
-      try {
-        await removeFile(currentUser.avatarUrl);
-      } catch {
-        // File may already be gone
-      }
-    }
+    const oldAvatarPath = currentUser.avatarUrl;
 
+    // Clear DB first to maintain consistency
     const updatedUser = await updateUser(sessionUser.id, {
       avatarUrl: null,
       updatedAt: new Date(),
@@ -234,6 +228,16 @@ usersRoutes.delete(
     if (!updatedUser) {
       return jsonError(c, 404, "USER_NOT_FOUND", "User not found");
     }
+
+    // Clean up storage file after DB update succeeds
+    if (oldAvatarPath?.startsWith("avatars/")) {
+      try {
+        await removeFile(oldAvatarPath);
+      } catch {
+        // File may already be gone
+      }
+    }
+
     return c.json({ user: toUserResponse(updatedUser) });
   }
 );

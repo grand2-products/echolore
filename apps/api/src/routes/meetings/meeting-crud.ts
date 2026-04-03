@@ -80,9 +80,10 @@ meetingCrudRoutes.get(
       return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
     }
 
-    const meetingTranscripts = await getMeetingTranscripts(id);
-
-    const meetingSummaries = await getMeetingSummaries(id);
+    const [meetingTranscripts, meetingSummaries] = await Promise.all([
+      getMeetingTranscripts(id),
+      getMeetingSummaries(id),
+    ]);
 
     await auditAction(c, "meeting.record.view", "meeting", id, {
       transcriptCount: meetingTranscripts.length,

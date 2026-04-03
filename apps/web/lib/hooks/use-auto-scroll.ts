@@ -7,13 +7,13 @@ import { type RefObject, useEffect, useRef } from "react";
  * Useful for chat-style auto-scroll on new messages.
  */
 export function useScrollIntoView(ref: RefObject<HTMLElement | null>, trigger: unknown) {
-  const triggerRef = useRef(trigger);
+  const prevTrigger = useRef(trigger);
   useEffect(() => {
-    if (triggerRef.current !== trigger) {
-      triggerRef.current = trigger;
+    if (prevTrigger.current !== trigger) {
+      prevTrigger.current = trigger;
       ref.current?.scrollIntoView({ behavior: "smooth" });
     }
-  });
+  }, [ref, trigger]);
 }
 
 /**
@@ -25,10 +25,10 @@ export function useAutoScrollNearBottom(
   trigger: unknown,
   threshold = 80
 ) {
-  const triggerRef = useRef(trigger);
+  const prevTrigger = useRef(trigger);
   useEffect(() => {
-    if (triggerRef.current !== trigger) {
-      triggerRef.current = trigger;
+    if (prevTrigger.current !== trigger) {
+      prevTrigger.current = trigger;
       const el = ref.current;
       if (!el) return;
       const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
@@ -36,5 +36,5 @@ export function useAutoScrollNearBottom(
         el.scrollTop = el.scrollHeight;
       }
     }
-  });
+  }, [ref, trigger, threshold]);
 }

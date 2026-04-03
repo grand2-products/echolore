@@ -51,11 +51,8 @@ export function withErrorHandler(
     } catch (error) {
       if (error instanceof Response) throw error;
       console.error(error);
-      const detail =
-        statusCode < 500
-          ? (error instanceof Error ? error.message : String(error)).slice(0, 300) || undefined
-          : undefined;
-      return jsonError(c, statusCode, errorCode, errorMessage, detail);
+      // Never leak internal error details to clients — log only
+      return jsonError(c, statusCode, errorCode, errorMessage);
     }
   });
 }
@@ -77,10 +74,7 @@ export async function tryCatchResponse(
   } catch (error) {
     if (error instanceof Response) return error;
     console.error(error);
-    const detail =
-      statusCode < 500
-        ? (error instanceof Error ? error.message : String(error)).slice(0, 300) || undefined
-        : undefined;
-    return jsonError(c, statusCode, errorCode, errorMessage, detail);
+    // Never leak internal error details to clients — log only
+    return jsonError(c, statusCode, errorCode, errorMessage);
   }
 }

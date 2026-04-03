@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import { requireRoomAiWorker } from "../lib/internal-auth.js";
+import { getUserById } from "../repositories/user/user-repository.js";
 import {
   transcribeMeetingAudioSegment,
   upsertTranscriptSegment,
@@ -89,6 +90,26 @@ const meetingStatusSyncSchema = z.object({
     .optional(),
 });
 
+/** Validate that speakerUserId (if provided) refers to an existing user. */
+async function validateSpeakerUserId(
+  speakerUserId: string | null | undefined
+): Promise<string | null> {
+  if (!speakerUserId) return null;
+  const user = await getUserById(speakerUserId);
+  if (!user) return null; // Silently drop unknown speaker — don't block transcription
+  return user.id;
+}
+
+/** Validate that a non-guest participantIdentity refers to an existing user. */
+async function validateParticipantUser(
+  participantIdentity: string,
+  isGuest: boolean
+): Promise<boolean> {
+  if (isGuest) return true;
+  const user = await getUserById(participantIdentity);
+  return user !== null;
+}
+
 internalRoomAiRoutes.use("*", requireRoomAiWorker);
 
 internalRoomAiRoutes.get(
@@ -134,6 +155,8 @@ internalRoomAiRoutes.post(
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
+    const validatedSpeakerUserId = await validateSpeakerUserId(data.speakerUserId);
+
     const segment = await transcribeMeetingAudioSegment({
       meetingId: id,
       audioBase64: data.audioBase64,
@@ -141,7 +164,7 @@ internalRoomAiRoutes.post(
       languageCode: data.languageCode,
       provider: data.provider,
       participantIdentity: data.participantIdentity,
-      speakerUserId: data.speakerUserId ?? null,
+      speakerUserId: validatedSpeakerUserId,
       speakerLabel: data.speakerLabel,
       segmentKey: data.segmentKey,
       startedAt: new Date(data.startedAt),
@@ -172,10 +195,12 @@ internalRoomAiRoutes.post(
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
     }
 
+    const validatedSpeakerUserId = await validateSpeakerUserId(data.speakerUserId);
+
     const segment = await upsertTranscriptSegment({
       meetingId: id,
       participantIdentity: data.participantIdentity,
-      speakerUserId: data.speakerUserId ?? null,
+      speakerUserId: validatedSpeakerUserId,
       speakerLabel: data.speakerLabel,
       content: data.content,
       isPartial: data.isPartial,
@@ -239,6 +264,11 @@ internalRoomAiRoutes.post(
     const meeting = await getMeetingById(id);
     if (!meeting) {
       return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+    }
+
+    // Validate that non-guest participantIdentity refers to an existing user
+    if (!(await validateParticipantUser(data.participantIdentity, data.isGuest))) {
+      return jsonError(c, 400, "INVALID_PARTICIPANT", "Participant user not found");
     }
 
     const participant = await recordParticipantJoin({

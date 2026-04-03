@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { jsonError, tryCatchResponse, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { authorizePageResource } from "../../policies/authorization-policy.js";
-import { indexPage } from "../../services/wiki/embedding-service.js";
+import { indexPageBackground } from "../../services/wiki/embedding-service.js";
 import {
   createPageRevision,
   getPageById,
@@ -95,7 +95,7 @@ wikiRevisionRoutes.post("/:id/revisions/:revisionId/restore", async (c) => {
         return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
       }
       await restoreRevision(id, revisionId, user.id);
-      void indexPage(id).catch((e) => console.error("indexPage error:", e));
+      indexPageBackground(id);
       return c.json({ success: true });
     },
     "WIKI_REVISION_RESTORE_FAILED",

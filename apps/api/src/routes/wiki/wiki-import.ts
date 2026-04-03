@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { jsonError } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
-import { indexPage } from "../../services/wiki/embedding-service.js";
+import { indexPageBackground } from "../../services/wiki/embedding-service.js";
 import {
   IMPORT_ALLOWED_EXTENSIONS,
   IMPORT_MAX_FILE_SIZE,
@@ -79,7 +79,7 @@ wikiImportRoutes.post("/import", async (c) => {
     const buffer = await file.arrayBuffer();
     const result = await importFile(buffer, file.name, spaceId, resolvedParentId, user);
 
-    void indexPage(result.page.id).catch((e) => console.error("indexPage error:", e));
+    indexPageBackground(result.page.id);
 
     return c.json({ page: result.page, blocks: result.blocks }, 201);
   } catch (error) {
