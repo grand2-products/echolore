@@ -2,7 +2,7 @@ import { UserRole } from "@echolore/shared/contracts";
 import { Hono } from "hono";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
 import type { AppEnv } from "../../lib/auth.js";
-import { indexPage } from "../../services/wiki/embedding-service.js";
+import { indexPageBackground } from "../../services/wiki/embedding-service.js";
 import {
   getPageById,
   listDeletedPages,
@@ -48,7 +48,7 @@ wikiTrashRoutes.post(
     }
 
     const restored = await restorePage(id);
-    void indexPage(id).catch((e) => console.error("indexPage error:", e));
+    indexPageBackground(id);
     return c.json({ page: restored });
   }
 );

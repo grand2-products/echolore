@@ -1,12 +1,43 @@
+import { sql } from "kysely";
 import { db } from "../../db/index.js";
 import type { File } from "../../db/schema.js";
 
-export async function listFiles(): Promise<File[]> {
-  return db.selectFrom("files").selectAll().execute();
+export async function listFiles(opts?: { limit?: number; offset?: number }): Promise<File[]> {
+  let q = db.selectFrom("files").selectAll().orderBy("createdAt", "desc");
+  if (opts?.limit) q = q.limit(opts.limit);
+  if (opts?.offset) q = q.offset(opts.offset);
+  return q.execute();
 }
 
-export async function listFilesByUploader(uploaderId: string): Promise<File[]> {
-  return db.selectFrom("files").selectAll().where("uploaderId", "=", uploaderId).execute();
+export async function listFilesByUploader(
+  uploaderId: string,
+  opts?: { limit?: number; offset?: number }
+): Promise<File[]> {
+  let q = db
+    .selectFrom("files")
+    .selectAll()
+    .where("uploaderId", "=", uploaderId)
+    .orderBy("createdAt", "desc");
+  if (opts?.limit) q = q.limit(opts.limit);
+  if (opts?.offset) q = q.offset(opts.offset);
+  return q.execute();
+}
+
+export async function countFiles(): Promise<number> {
+  const row = await db
+    .selectFrom("files")
+    .select(sql<number>`count(*)::int`.as("value"))
+    .executeTakeFirst();
+  return row?.value ?? 0;
+}
+
+export async function countFilesByUploader(uploaderId: string): Promise<number> {
+  const row = await db
+    .selectFrom("files")
+    .select(sql<number>`count(*)::int`.as("value"))
+    .where("uploaderId", "=", uploaderId)
+    .executeTakeFirst();
+  return row?.value ?? 0;
 }
 
 export async function getFileById(id: string): Promise<File | null> {

@@ -110,6 +110,24 @@ export async function indexPage(pageId: string): Promise<void> {
   );
 }
 
+/**
+ * Fire-and-forget wrapper for indexPage with structured logging.
+ * Use this from route handlers instead of `void indexPage(id).catch(...)`.
+ */
+export function indexPageBackground(pageId: string): void {
+  void indexPage(pageId)
+    .then(() => console.log(JSON.stringify({ event: "wiki.indexPage.done", pageId })))
+    .catch((error) =>
+      console.error(
+        JSON.stringify({
+          event: "wiki.indexPage.error",
+          pageId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      )
+    );
+}
+
 export async function deletePageEmbeddings(pageId: string): Promise<void> {
   await deletePageEmbeddingsByPageId(pageId);
 }

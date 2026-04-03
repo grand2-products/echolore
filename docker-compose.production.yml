@@ -1,10 +1,26 @@
 services:
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3
+    container_name: echolore-docker-socket-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      NETWORKS: 0
+      SERVICES: 0
+      TASKS: 0
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket-proxy
+
   traefik:
     image: traefik:v3.6
     container_name: echolore-traefik
     restart: unless-stopped
     command:
       - --providers.docker=true
+      - --providers.docker.endpoint=tcp://docker-socket-proxy:2375
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
@@ -19,13 +35,12 @@ services:
       - "443:443"
       - "${LIVEKIT_TURN_TLS_PORT:-5349}:${LIVEKIT_TURN_TLS_PORT:-5349}"
     volumes:
-      # SECURITY: Direct Docker socket access grants full host control.
-      # In production, use a docker-socket-proxy (e.g. tecnativa/docker-socket-proxy)
-      # to restrict API access to only the endpoints Traefik needs.
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - letsencrypt:/letsencrypt
     networks:
       - frontend
+      - socket-proxy
+    depends_on:
+      - docker-socket-proxy
 
   db:
     image: pgvector/pgvector:pg17
@@ -255,18 +270,34 @@ services:
     networks:
       - backend
 
+  updater-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3
+    container_name: echolore-updater-socket-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      SERVICES: 1
+      TASKS: 1
+      IMAGES: 1
+      POST: 1
+      NETWORKS: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket-proxy
+
   updater:
     image: ghcr.io/grand2-products/echolore/updater:${ECHOLORE_VERSION:-latest}
     container_name: echolore-updater
     restart: unless-stopped
-    user: "0:0"
+    user: "1000:1000"
     environment:
       UPDATER_SECRET: ${UPDATER_SECRET:-}
       GITHUB_REPO: grand2-products/echolore
       INSTALL_DIR: /opt/echolore
+      DOCKER_HOST: tcp://updater-socket-proxy:2375
       PORT: 8787
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - /opt/echolore:/opt/echolore
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8787/health"]
@@ -275,6 +306,9 @@ services:
       retries: 3
     networks:
       - backend
+      - socket-proxy
+    depends_on:
+      - updater-socket-proxy
 
 volumes:
   postgres_data:
@@ -285,3 +319,5 @@ volumes:
 networks:
   frontend:
   backend:
+  socket-proxy:
+    internal: true

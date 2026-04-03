@@ -8,7 +8,7 @@ import {
   sanitizeBlockType,
 } from "../../lib/sanitize-block.js";
 import { authorizePageResource } from "../../policies/authorization-policy.js";
-import { indexPage } from "../../services/wiki/embedding-service.js";
+import { indexPageBackground } from "../../services/wiki/embedding-service.js";
 import type { NewBlock } from "../../services/wiki/wiki-service.js";
 import {
   createBlock,
@@ -54,7 +54,7 @@ wikiBlockRoutes.post(
     if (!createdBlock) {
       return jsonError(c, 500, "WIKI_BLOCK_CREATE_FAILED", "Failed to create block");
     }
-    void indexPage(data.pageId).catch((e) => console.error("indexPage error:", e));
+    indexPageBackground(data.pageId);
     return c.json({ block: createdBlock }, 201);
   }
 );
@@ -82,7 +82,7 @@ wikiBlockRoutes.delete(
 
     const deletedPageId = block.pageId;
     await deleteBlock(id);
-    void indexPage(deletedPageId).catch((e) => console.error("indexPage error:", e));
+    indexPageBackground(deletedPageId);
 
     return c.json({ success: true });
   }
@@ -133,7 +133,7 @@ wikiBlockRoutes.put(
       return jsonError(c, 404, "WIKI_BLOCK_NOT_FOUND", "Block not found");
     }
 
-    void indexPage(block.pageId).catch((e) => console.error("indexPage error:", e));
+    indexPageBackground(block.pageId);
     return c.json({ block: updatedBlock });
   }
 );

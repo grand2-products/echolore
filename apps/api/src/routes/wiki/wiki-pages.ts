@@ -4,7 +4,10 @@ import { jsonError, tryCatchResponse, withErrorHandler } from "../../lib/api-err
 import { auditAction, extractRequestMeta, writeAuditLog } from "../../lib/audit.js";
 import type { AppEnv } from "../../lib/auth.js";
 import { authorizePageResource } from "../../policies/authorization-policy.js";
-import { deletePageEmbeddings, indexPage } from "../../services/wiki/embedding-service.js";
+import {
+  deletePageEmbeddings,
+  indexPageBackground,
+} from "../../services/wiki/embedding-service.js";
 import {
   canAccessSpace,
   GENERAL_SPACE_ID,
@@ -206,7 +209,7 @@ wikiPageRoutes.put(
       return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
     }
 
-    void indexPage(id).catch((e) => console.error("indexPage error:", e));
+    indexPageBackground(id);
     return c.json({ page: updatedPage });
   }
 );

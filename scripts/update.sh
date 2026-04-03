@@ -56,7 +56,7 @@ rollback() {
   fi
 
   if [ "$CURRENT_VERSION" != "unknown" ]; then
-    sed -i "s/^ECHOLORE_VERSION=.*/ECHOLORE_VERSION=${CURRENT_VERSION}/" .env
+    sed -i "s|^ECHOLORE_VERSION=.*|ECHOLORE_VERSION=${CURRENT_VERSION}|" .env
   fi
 
   docker compose pull 2>/dev/null || true
@@ -132,7 +132,7 @@ mv docker-compose.yml.new docker-compose.yml
 # ── update version in .env (must happen before pull so image tags resolve) ───
 
 if grep -q '^ECHOLORE_VERSION=' .env; then
-  sed -i "s/^ECHOLORE_VERSION=.*/ECHOLORE_VERSION=${TARGET_VERSION}/" .env
+  sed -i "s|^ECHOLORE_VERSION=.*|ECHOLORE_VERSION=${TARGET_VERSION}|" .env
 else
   echo "ECHOLORE_VERSION=${TARGET_VERSION}" >> .env
 fi
