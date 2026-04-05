@@ -6,21 +6,27 @@ import { ErrorBanner, LoadingState } from "@/components/ui";
 import { ImportFileModal, SpacePickerModal } from "@/components/wiki";
 import { useWikiPagesQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
+import type { RecentWikiPage } from "@/lib/hooks/use-recent-wiki-pages";
 import { useRecentWikiPages } from "@/lib/hooks/use-recent-wiki-pages";
 import { useWikiPageActions } from "@/lib/hooks/use-wiki-page-actions";
 import { useFormatters, useT } from "@/lib/i18n";
 
-function formatRelativeDate(value: string | number): string {
+const EMPTY_RECENT: RecentWikiPage[] = [];
+
+function formatRelativeDate(
+  value: string | number,
+  t: (key: string, vars?: Record<string, string>) => string
+): string {
   const diff = Date.now() - (typeof value === "number" ? value : new Date(value).getTime());
   const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 1) return t("wiki.list.relativeTime.now");
+  if (minutes < 60) return t("wiki.list.relativeTime.minutes", { count: String(minutes) });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
+  if (hours < 24) return t("wiki.list.relativeTime.hours", { count: String(hours) });
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d`;
+  if (days < 30) return t("wiki.list.relativeTime.days", { count: String(days) });
   const months = Math.floor(days / 30);
-  return `${months}mo`;
+  return t("wiki.list.relativeTime.months", { count: String(months) });
 }
 
 export default function WikiListPage() {
@@ -40,7 +46,7 @@ export default function WikiListPage() {
   // - Drop entries whose page no longer exists (deleted)
   // - Use the latest title from the server, not the stale localStorage copy
   const resolvedRecentPages = useMemo(() => {
-    if (!data) return recentPages; // API未ロード → localStorage をそのまま表示
+    if (!data) return EMPTY_RECENT; // API未ロード → 権限未確認のため非表示
     const pageMap = new Map(pages.map((p) => [p.id, p]));
     return recentPages
       .filter((entry) => pageMap.has(entry.id))
@@ -137,7 +143,7 @@ export default function WikiListPage() {
                     {entry.title || t("wiki.newPage.defaultTitle")}
                   </span>
                   <span className="text-xs text-gray-400">
-                    {formatRelativeDate(entry.visitedAt)}
+                    {formatRelativeDate(entry.visitedAt, t)}
                   </span>
                 </Link>
               ))}
@@ -199,7 +205,7 @@ export default function WikiListPage() {
                       </>
                     )}
                     <span className="text-gray-300">·</span>
-                    <span>{formatRelativeDate(page.updatedAt)}</span>
+                    <span>{formatRelativeDate(page.updatedAt, t)}</span>
                   </span>
                 </Link>
               ))}

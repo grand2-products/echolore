@@ -232,6 +232,12 @@ wiki:
     noPages: "まだページはありません。"
     noFilterResults: "一致するページが見つかりません。"
     morePages: "他に {count} ページ — 絞り込みで表示"
+    relativeTime:
+      now: "たった今"
+      minutes: "{count}分前"
+      hours: "{count}時間前"
+      days: "{count}日前"
+      months: "{count}ヶ月前"
     loadError: "ページの読み込みに失敗しました。"
     reparentSuccess: "ページ階層を更新しました。"
     reparentError: "ページ階層の更新に失敗しました。"

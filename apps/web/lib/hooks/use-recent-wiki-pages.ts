@@ -15,15 +15,17 @@ const KEY = STORAGE_KEYS.recentWikiPages;
 // return the same reference when the underlying data hasn't changed.
 // ---------------------------------------------------------------------------
 const EMPTY: RecentWikiPage[] = [];
-let cache: { raw: string | null; parsed: RecentWikiPage[] } = { raw: null, parsed: EMPTY };
+let cache: { parsed: RecentWikiPage[] } = { parsed: EMPTY };
+let cacheInitialized = false;
 
 function getSnapshot(): RecentWikiPage[] {
-  const raw = localStorage.getItem(KEY);
-  if (raw !== cache.raw) {
+  if (!cacheInitialized) {
+    cacheInitialized = true;
+    const raw = localStorage.getItem(KEY);
     try {
-      cache = { raw, parsed: raw ? (JSON.parse(raw) as RecentWikiPage[]) : EMPTY };
+      cache = { parsed: raw ? (JSON.parse(raw) as RecentWikiPage[]) : EMPTY };
     } catch {
-      cache = { raw, parsed: EMPTY };
+      cache = { parsed: EMPTY };
     }
   }
   return cache.parsed;
@@ -45,7 +47,12 @@ function emitChange() {
 // Single module-scoped handler so addEventListener/removeEventListener
 // always reference the same function identity.
 function onStorage(e: StorageEvent) {
-  if (e.key === KEY) emitChange();
+  if (e.key === KEY) {
+    // Another tab wrote to this key — invalidate cache so the next
+    // getSnapshot() re-reads from localStorage.
+    cacheInitialized = false;
+    emitChange();
+  }
 }
 
 function subscribe(listener: () => void): () => void {
@@ -67,10 +74,10 @@ function subscribe(listener: () => void): () => void {
 // Write helper
 // ---------------------------------------------------------------------------
 function save(pages: RecentWikiPage[]): void {
-  const raw = JSON.stringify(pages);
-  localStorage.setItem(KEY, raw);
+  localStorage.setItem(KEY, JSON.stringify(pages));
   // Eagerly update cache so the next getSnapshot() returns a stable reference
-  cache = { raw, parsed: pages };
+  cache = { parsed: pages };
+  cacheInitialized = true;
   emitChange();
 }
 
@@ -90,9 +97,5 @@ export function useRecentWikiPages() {
     save(next);
   }, []);
 
-  const removeEntry = useCallback((id: string) => {
-    save(getSnapshot().filter((p) => p.id !== id));
-  }, []);
-
-  return { recentPages: pages, recordVisit, removeEntry };
+  return { recentPages: pages, recordVisit };
 }
