@@ -15,7 +15,7 @@ import { useT } from "@/lib/i18n";
 interface CharacterPreviewProps {
   character: Pick<
     AituberCharacterDto,
-    "id" | "name" | "avatarUrl" | "languageCode" | "voiceName" | "speakingStyle"
+    "id" | "name" | "avatarUrl" | "motionProfile" | "languageCode" | "voiceName" | "speakingStyle"
   >;
 }
 
@@ -57,7 +57,10 @@ export function CharacterPreview({ character }: CharacterPreviewProps) {
 
       {/* VRM Viewer */}
       <div className="h-80 w-full bg-gray-900">
-        <AituberAvatar avatarUrl={character.avatarUrl} />
+        <AituberAvatar
+          avatarUrl={character.avatarUrl}
+          motionProfileJson={character.motionProfile ?? null}
+        />
       </div>
 
       <div className="p-4 space-y-4">

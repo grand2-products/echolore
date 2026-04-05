@@ -124,7 +124,10 @@ export function AituberStage({ session, livekitUrl }: AituberStageProps) {
     <div className="flex h-full flex-col bg-gray-950 lg:flex-row">
       {/* Left: Avatar */}
       <div className="relative h-[40vh] w-full lg:h-full lg:w-2/3">
-        <AituberAvatar avatarUrl={session.characterAvatarUrl ?? null} />
+        <AituberAvatar
+          avatarUrl={session.characterAvatarUrl ?? null}
+          motionProfileJson={session.characterMotionProfile ?? null}
+        />
 
         {/* Overlay info */}
         <div className="absolute bottom-4 left-4 flex items-center gap-2">

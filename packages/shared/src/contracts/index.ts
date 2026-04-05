@@ -714,6 +714,8 @@ export interface AituberCharacterDto {
   languageCode: string;
   voiceName: string | null;
   avatarUrl: string | null;
+  /** JSON-serialised collision capsule profile for motion correction. */
+  motionProfile: string | null;
   createdBy: string;
   isPublic: boolean;
   createdAt: ISODateString;
@@ -732,6 +734,7 @@ export interface AituberSessionDto {
   createdAt: ISODateString;
   characterName?: string;
   characterAvatarUrl?: string | null;
+  characterMotionProfile?: string | null;
 }
 
 export interface AituberMessageDto {
@@ -755,6 +758,7 @@ export interface CreateAituberCharacterRequest {
   voiceName?: string;
   avatarUrl?: string;
   avatarFileId?: string;
+  motionProfile?: string;
   isPublic?: boolean;
 }
 
@@ -767,6 +771,7 @@ export interface UpdateAituberCharacterRequest {
   voiceName?: string | null;
   avatarUrl?: string | null;
   avatarFileId?: string | null;
+  motionProfile?: string | null;
   isPublic?: boolean;
 }
 

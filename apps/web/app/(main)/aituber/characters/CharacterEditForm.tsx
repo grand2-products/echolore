@@ -23,6 +23,7 @@ interface CharacterEditFormProps {
   avatarUrl: string | null;
   onUpdateField: <K extends keyof CharacterForm>(key: K, value: CharacterForm[K]) => void;
   onAvatarFileChange: (file: File | null) => void;
+  onMotionProfileChange?: (profile: string | null) => void;
   onSave: () => void;
   onCancel: () => void;
   onError: (msg: string) => void;
@@ -35,6 +36,7 @@ export function CharacterEditForm({
   avatarUrl,
   onUpdateField,
   onAvatarFileChange,
+  onMotionProfileChange,
   onSave,
   onCancel,
   onError,
@@ -204,7 +206,11 @@ export function CharacterEditForm({
           label={t("aituber.characters.avatarFile")}
           tooltip={t("aituber.characters.tooltips.avatarFile")}
         >
-          <VrmFileInput onFileSelect={onAvatarFileChange} onError={onError} />
+          <VrmFileInput
+            onFileSelect={onAvatarFileChange}
+            onMotionProfile={onMotionProfileChange}
+            onError={onError}
+          />
         </Field>
 
         {avatarUrl && (
@@ -276,9 +282,11 @@ function Field({
 
 function VrmFileInput({
   onFileSelect,
+  onMotionProfile,
   onError,
 }: {
   onFileSelect: (file: File | null) => void;
+  onMotionProfile?: (profile: string | null) => void;
   onError: (msg: string) => void;
 }) {
   const t = useT();
@@ -390,6 +398,24 @@ function VrmFileInput({
           modification: isVrm0 ? undefined : (meta?.modification ?? undefined),
           otherLicenseUrl: meta?.otherLicenseUrl ?? undefined,
         });
+        // Build collision profile from mesh analysis before disposing the scene
+        try {
+          const THREE = await import("three");
+          const { buildCollisionProfile } = await import(
+            "@/components/aituber/animation/build-collision-profile"
+          );
+          // Apply VRM0 rotation so mesh vertices are in correct world-space
+          // orientation for capsule fitting.  Safe: the scene is deepDisposed
+          // immediately after; the blob URL for 3D preview is created from the
+          // original file bytes, not from this mutated scene graph.
+          if (isVrm0) VRMUtils.rotateVRM0(vrm);
+          vrm.scene.updateMatrixWorld(true);
+          const profile = buildCollisionProfile(vrm, THREE);
+          onMotionProfile?.(JSON.stringify(profile));
+        } catch (err) {
+          console.warn("[CharacterEditForm] Motion profile generation failed:", err);
+        }
+
         // Clean up parsed scene to free memory
         VRMUtils.deepDispose(vrm.scene);
         // Create blob URL for 3D preview
@@ -405,7 +431,7 @@ function VrmFileInput({
         setValidating(false);
       }
     },
-    [onError, onFileSelect, t]
+    [onError, onFileSelect, onMotionProfile, t]
   );
 
   const handleDrop = useCallback(

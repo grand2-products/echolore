@@ -192,13 +192,13 @@ export class VrmAnimationController {
   }
 
   /**
-   * Returns the effective weight (0-1) of the current animation clip action.
-   * When a clip is fully active, returns 1. During crossfade-in, ramps 0→1.
-   * When no clip plays, returns 0. Compositor uses this to suppress bone
-   * output that would be immediately overwritten by the mixer.
+   * Returns the effective weight (0-1) of the current *action* clip.
+   * Idle clips return 0 so the compositor's procedural breathing and
+   * micro-movements remain active during idle — only suppressed when a
+   * specific action clip (greeting, think, etc.) overrides the bones.
    */
   getClipWeight(): number {
-    if (this.paused || !this.currentAction) return 0;
+    if (this.paused || !this.currentAction || this.state !== "action") return 0;
     return this.currentAction.getEffectiveWeight();
   }
 
@@ -260,7 +260,6 @@ export class VrmAnimationController {
     next.time = 0;
     next.enabled = true;
     next.setEffectiveTimeScale(1);
-    next.setEffectiveWeight(1);
 
     if (prev && prev !== next) {
       // crossFadeFrom handles weight interpolation: prev 1→0, next 0→1
@@ -279,6 +278,9 @@ export class VrmAnimationController {
         CROSSFADE_DURATION * 1000 + 100
       );
       this.pendingTimers.add(timer);
+    } else {
+      // No previous action — set weight directly
+      next.setEffectiveWeight(1);
     }
 
     next.play();

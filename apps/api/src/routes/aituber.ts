@@ -30,6 +30,22 @@ const createCharacterSchema = z.object({
   voiceName: z.string().max(100).optional(),
   avatarUrl: z.string().max(500).optional(),
   avatarFileId: z.string().min(1).optional(),
+  motionProfile: z
+    .string()
+    .max(10000)
+    .optional()
+    .refine(
+      (v) => {
+        if (!v) return true;
+        try {
+          JSON.parse(v);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "motionProfile must be valid JSON" }
+    ),
   isPublic: z.boolean().optional(),
 });
 
@@ -91,6 +107,23 @@ const updateCharacterSchema = z.object({
   voiceName: z.string().max(100).nullable().optional(),
   avatarUrl: z.string().max(500).nullable().optional(),
   avatarFileId: z.string().min(1).nullable().optional(),
+  motionProfile: z
+    .string()
+    .max(10000)
+    .nullable()
+    .optional()
+    .refine(
+      (v) => {
+        if (v == null) return true;
+        try {
+          JSON.parse(v);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "motionProfile must be valid JSON" }
+    ),
   isPublic: z.boolean().optional(),
 });
 
@@ -314,6 +347,7 @@ aituberRoutes.get(
         ...session,
         characterName: character?.name,
         characterAvatarUrl: character ? resolveCharacterAvatarUrl(character) : null,
+        characterMotionProfile: character?.motionProfile ?? null,
       },
     });
   }
@@ -361,6 +395,7 @@ aituberRoutes.post(
             ...updated,
             characterName: character.name,
             characterAvatarUrl: avatarUrl,
+            characterMotionProfile: character.motionProfile ?? null,
           },
         },
         201
@@ -404,6 +439,7 @@ aituberRoutes.get(
         ...session,
         characterName: character?.name,
         characterAvatarUrl: character ? resolveCharacterAvatarUrl(character) : null,
+        characterMotionProfile: character?.motionProfile ?? null,
       },
     });
   }

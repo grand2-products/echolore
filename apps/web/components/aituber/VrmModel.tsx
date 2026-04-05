@@ -5,6 +5,11 @@ import { useEffect, useRef } from "react";
 import type * as THREE from "three";
 import { BlinkLayer } from "./animation/blink-layer";
 import { BreathingLayer } from "./animation/breathing-layer";
+import {
+  CollisionCorrector,
+  type MotionProfile,
+  type VrmLike,
+} from "./animation/collision-corrector";
 import { AnimationCompositor } from "./animation/compositor";
 import { EmotionLayer } from "./animation/emotion-layer";
 import { IdleMotionLayer } from "./animation/idle-motion-layer";
@@ -19,6 +24,7 @@ type VrmScene = { scene: THREE.Object3D };
 
 interface VrmModelProps {
   avatarUrl: string;
+  motionProfile?: MotionProfile | null;
   onError?: (message: string) => void;
 }
 
@@ -26,16 +32,19 @@ interface MotionManifest {
   clips: AnimationClipDef[];
 }
 
-export function VrmModel({ avatarUrl, onError }: VrmModelProps) {
+export function VrmModel({ avatarUrl, motionProfile, onError }: VrmModelProps) {
   const groupRef = useRef<THREE.Group>(null);
   const vrmRef = useRef<unknown>(null);
   const vrmUtilsRef = useRef<{ deepDispose: (obj: THREE.Object3D) => void } | null>(null);
   const compositorRef = useRef<AnimationCompositor | null>(null);
   const lookAtRef = useRef<LookAtController | null>(null);
   const animControllerRef = useRef<VrmAnimationController | null>(null);
+  const correctorRef = useRef<CollisionCorrector | null>(null);
   const elapsedRef = useRef(0);
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+  const motionProfileRef = useRef(motionProfile);
+  motionProfileRef.current = motionProfile;
 
   useEffect(() => {
     if (!groupRef.current) return;
@@ -92,6 +101,12 @@ export function VrmModel({ avatarUrl, onError }: VrmModelProps) {
         const controller = new VrmAnimationController(vrm, mixer);
         animControllerRef.current = controller;
 
+        // Collision corrector (push-out for arm/clothing clipping)
+        const corrector = new CollisionCorrector();
+        corrector.setThree(THREE);
+        corrector.setProfile(motionProfileRef.current ?? null);
+        correctorRef.current = corrector;
+
         // Load motion manifest (non-blocking)
         if (!abortController.signal.aborted) {
           void loadManifest(controller, abortController.signal);
@@ -112,6 +127,7 @@ export function VrmModel({ avatarUrl, onError }: VrmModelProps) {
       lookAtRef.current = null;
       animControllerRef.current?.dispose();
       animControllerRef.current = null;
+      correctorRef.current = null;
       const vrm = vrmRef.current as VrmScene | null;
       if (vrm) {
         vrmUtilsRef.current?.deepDispose(vrm.scene);
@@ -120,6 +136,11 @@ export function VrmModel({ avatarUrl, onError }: VrmModelProps) {
       vrmRef.current = null;
     };
   }, [avatarUrl]);
+
+  // Feed motion profile to corrector whenever it changes.
+  useEffect(() => {
+    correctorRef.current?.setProfile(motionProfile ?? null);
+  }, [motionProfile]);
 
   useFrame((_state, delta) => {
     const vrm = vrmRef.current;
@@ -158,9 +179,13 @@ export function VrmModel({ avatarUrl, onError }: VrmModelProps) {
       // 4. AnimationMixer: must run AFTER compositor so clip bones
       //    properly override the (now-suppressed) procedural bones.
       controller?.update(delta);
+
+      // 5. Collision correction: push arm bones out of torso capsules
+      //    so arms rest on top of clothing instead of clipping through.
+      correctorRef.current?.correct(vrm as VrmLike);
     }
 
-    // 5. VRM internal update (expression override, spring bones, etc.)
+    // 6. VRM internal update (expression override, spring bones, etc.)
     (vrm as { update: (d: number) => void }).update(delta);
   });
 

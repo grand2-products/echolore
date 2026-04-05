@@ -401,6 +401,8 @@ export interface AituberCharactersTable {
   voiceName: string | null;
   avatarUrl: string | null;
   avatarFileId: string | null;
+  /** JSON-serialised collision capsule profile for motion correction. */
+  motionProfile: string | null;
   createdBy: string;
   isPublic: Generated<boolean>;
   createdAt: Generated<Date>;

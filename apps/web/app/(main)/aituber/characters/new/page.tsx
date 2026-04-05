@@ -13,6 +13,7 @@ export default function CharacterNewPage() {
     error,
     message,
     setAvatarFile,
+    setMotionProfile,
     setError,
     updateField,
     handleSave,
@@ -33,6 +34,7 @@ export default function CharacterNewPage() {
         avatarUrl={null}
         onUpdateField={updateField}
         onAvatarFileChange={setAvatarFile}
+        onMotionProfileChange={setMotionProfile}
         onSave={() => void handleSave()}
         onCancel={handleCancel}
         onError={setError}
