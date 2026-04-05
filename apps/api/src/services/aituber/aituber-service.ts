@@ -41,7 +41,7 @@ export async function getCharacter(id: string): Promise<AituberCharacter | null>
   return repo.getCharacterById(id);
 }
 
-export async function listCharacters(opts?: { createdBy?: string }) {
+export async function listCharacters(opts?: { createdBy?: string; visibleTo?: string }) {
   return repo.listCharacters(opts);
 }
 
@@ -87,18 +87,26 @@ export async function createSession(input: {
     throw new Error("Another session is already active");
   }
   const roomName = `aituber-${nanoid(12)}`;
-  return createOrThrow(
-    () =>
-      repo.createSession({
-        id: crypto.randomUUID(),
-        characterId: input.characterId,
-        creatorId: input.creatorId,
-        title: input.title,
-        status: "created",
-        roomName: roomName,
-      }),
-    "Failed to create session"
-  );
+  try {
+    return createOrThrow(
+      () =>
+        repo.createSession({
+          id: crypto.randomUUID(),
+          characterId: input.characterId,
+          creatorId: input.creatorId,
+          title: input.title,
+          status: "created",
+          roomName: roomName,
+        }),
+      "Failed to create session"
+    );
+  } catch (err) {
+    // Partial unique index constraint violation → duplicate active session
+    if (err instanceof Error && err.message.includes("aituber_sessions_single_active")) {
+      throw new Error("Another session is already active");
+    }
+    throw err;
+  }
 }
 
 export async function getSession(id: string): Promise<AituberSession | null> {

@@ -5,8 +5,6 @@ import type { AnimationContext, VisemeEntry } from "./types";
 function makeContext(overrides?: Partial<AnimationContext>): AnimationContext {
   return {
     avatarState: "idle",
-    audioAnalyser: null,
-    audioSampleRate: 48000,
     emotion: null,
     elapsedTime: 0,
     visemes: null,
@@ -83,21 +81,16 @@ describe("LipSyncLayer", () => {
       expect(sum).toBeLessThan(0.1);
     });
 
-    it("computes correct bin ranges for different sample rates", () => {
-      // This test verifies that the layer handles sampleRate properly
-      // by checking it doesn't crash with various rates
+    it("decays gracefully when talking without visemes", () => {
       const layer = new LipSyncLayer();
 
-      for (const rate of [22050, 44100, 48000, 96000]) {
-        const ctx = makeContext({
-          avatarState: "talking",
-          audioSampleRate: rate,
-          audioAnalyser: null, // no analyser, should gracefully handle
-        });
-        // Should not throw
-        const out = layer.update(0.016, ctx);
-        expect(out).toBeDefined();
-      }
+      const ctx = makeContext({
+        avatarState: "talking",
+        visemes: null,
+      });
+      // Should not throw and should return valid output
+      const out = layer.update(0.016, ctx);
+      expect(out).toBeDefined();
     });
   });
 

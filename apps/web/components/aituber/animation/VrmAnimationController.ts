@@ -31,7 +31,7 @@ export interface AnimationClipDef {
 
 type State = "init" | "idle" | "action";
 
-const CROSSFADE_DURATION = 0.3;
+const CROSSFADE_DURATION = 0.4;
 const IDLE_SWITCH_MIN = 4;
 const IDLE_SWITCH_MAX = 8;
 
@@ -82,6 +82,7 @@ export class VrmAnimationController {
   private currentIdleId: string | null = null;
   private idleTimer = 0;
   private nextIdleSwitch = 0;
+  private pendingTimers = new Set<ReturnType<typeof setTimeout>>();
 
   // biome-ignore lint/suspicious/noExplicitAny: VRM type not exported
   constructor(vrm: any, mixer: THREE.AnimationMixer) {
@@ -190,10 +191,23 @@ export class VrmAnimationController {
     return this.paused;
   }
 
+  /**
+   * Returns the effective weight (0-1) of the current animation clip action.
+   * When a clip is fully active, returns 1. During crossfade-in, ramps 0→1.
+   * When no clip plays, returns 0. Compositor uses this to suppress bone
+   * output that would be immediately overwritten by the mixer.
+   */
+  getClipWeight(): number {
+    if (this.paused || !this.currentAction) return 0;
+    return this.currentAction.getEffectiveWeight();
+  }
+
   /** Release all resources. Safe to call multiple times. */
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    for (const timer of this.pendingTimers) clearTimeout(timer);
+    this.pendingTimers.clear();
     this.mixer.removeEventListener("finished", this.onFinished);
     this.mixer.stopAllAction();
     this.currentAction = null;
@@ -240,20 +254,34 @@ export class VrmAnimationController {
 
   private crossFadeTo(next: THREE.AnimationAction): void {
     const prev = this.currentAction;
-    if (prev) {
+
+    // Prepare next action WITHOUT reset() — reset() forces effectiveWeight
+    // to 1 which defeats the crossFadeFrom weight interpolation.
+    next.time = 0;
+    next.enabled = true;
+    next.setEffectiveTimeScale(1);
+    next.setEffectiveWeight(1);
+
+    if (prev && prev !== next) {
+      // crossFadeFrom handles weight interpolation: prev 1→0, next 0→1
       next.crossFadeFrom(prev, CROSSFADE_DURATION, true);
+
       // Clean up previous action after crossfade completes
       const clipToUncache = prev.getClip();
-      setTimeout(
+      const prevRef = prev;
+      const timer = setTimeout(
         () => {
+          this.pendingTimers.delete(timer);
           if (this.disposed) return;
-          prev.stop();
+          prevRef.stop();
           this.mixer.uncacheAction(clipToUncache);
         },
         CROSSFADE_DURATION * 1000 + 100
       );
+      this.pendingTimers.add(timer);
     }
-    next.reset().play();
+
+    next.play();
     this.currentAction = next;
   }
 

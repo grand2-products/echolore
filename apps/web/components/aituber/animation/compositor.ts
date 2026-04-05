@@ -32,8 +32,14 @@ export class AnimationCompositor {
     this.tempEuler = new three.Euler(0, 0, 0);
   }
 
+  /**
+   * @param clipWeight - effective weight of the current animation clip (0-1).
+   *   When a VRMA clip is playing (weight=1), procedural bone rotations are
+   *   suppressed because the mixer would overwrite them immediately.
+   *   During crossfade (weight transitioning), bones blend proportionally.
+   */
   // biome-ignore lint/suspicious/noExplicitAny: VRM type not exported
-  update(delta: number, context: AnimationContext, vrm: any): void {
+  update(delta: number, context: AnimationContext, vrm: any, clipWeight = 0): void {
     const outputs: LayerOutput[] = [];
     for (const layer of this.layers) {
       outputs.push(layer.update(delta, context));
@@ -55,6 +61,10 @@ export class AnimationCompositor {
     }
 
     // --- Merge bone rotations ---
+    // Suppress procedural bones proportionally to clip weight:
+    // when a VRMA clip is fully active (clipWeight=1), the mixer controls
+    // these bones and our values would be overwritten immediately.
+    const boneScale = 1 - clipWeight;
     const targetBones = new Map<string, { x: number; y: number; z: number }>();
     for (const out of outputs) {
       if (!out.boneRotations) continue;
@@ -62,9 +72,9 @@ export class AnimationCompositor {
         if (!rot) continue;
         const existing = targetBones.get(name) ?? { x: 0, y: 0, z: 0 };
         targetBones.set(name, {
-          x: existing.x + rot.x,
-          y: existing.y + rot.y,
-          z: existing.z + rot.z,
+          x: existing.x + rot.x * boneScale,
+          y: existing.y + rot.y * boneScale,
+          z: existing.z + rot.z * boneScale,
         });
       }
     }

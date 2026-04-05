@@ -59,7 +59,10 @@ aituberRoutes.get(
   "/characters",
   withErrorHandler("AITUBER_CHARACTER_LIST_FAILED", "Failed to list characters"),
   async (c) => {
-    const characters = await aituberService.listCharacters();
+    const user = c.get("user");
+    const characters = await aituberService.listCharacters(
+      user.role === UserRole.Admin ? undefined : { visibleTo: user.id }
+    );
     return c.json({ characters: characters.map((character) => toCharacterResponse(character)) });
   }
 );
@@ -206,6 +209,9 @@ aituberRoutes.post(
         console.log(`[aituber] Cleaning up old avatar file: ${oldFile.id}`);
         await removeFile(oldFile.storagePath).catch((err) =>
           console.warn(`[aituber] Failed to delete old avatar file ${oldFile.id}:`, err)
+        );
+        await deleteFile(oldFile.id).catch((err) =>
+          console.warn(`[aituber] Failed to delete old avatar DB record ${oldFile.id}:`, err)
         );
       }
     }

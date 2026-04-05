@@ -688,6 +688,15 @@ export interface UpdateAdminGroupRequest {
 export type AituberSessionStatus = "created" | "live" | "ended";
 export type AituberMessageRole = "viewer" | "assistant";
 export type AituberAvatarState = "idle" | "thinking" | "talking";
+export type AituberEmotionType = "neutral" | "happy" | "sad" | "angry" | "surprised" | "relaxed";
+export const AITUBER_VALID_EMOTIONS: AituberEmotionType[] = [
+  "neutral",
+  "happy",
+  "sad",
+  "angry",
+  "surprised",
+  "relaxed",
+];
 
 export interface VisemeEntry {
   time: number;
@@ -825,7 +834,7 @@ export type AituberDataEvent =
       mimeType: string;
       visemes?: VisemeEntry[];
     }
-  | { type: "emotion"; emotion: string; intensity: number }
+  | { type: "emotion"; emotion: AituberEmotionType; intensity: number }
   | { type: "action"; action: string };
 
 // --- Knowledge Suggestions ---

@@ -1,6 +1,10 @@
 "use client";
 
-import type { AituberAvatarState, AituberDataEvent } from "@echolore/shared/contracts";
+import {
+  AITUBER_VALID_EMOTIONS,
+  type AituberAvatarState,
+  type AituberDataEvent,
+} from "@echolore/shared/contracts";
 import { create } from "zustand";
 import type { EmotionState, EmotionType, VisemeEntry } from "./animation/types";
 
@@ -131,7 +135,9 @@ export const useAituberStore = create<AituberStoreState>((set, get) => ({
         break;
       }
       case "emotion": {
-        const emotionType = String(e.emotion ?? "neutral") as EmotionType;
+        const rawEmotion = String(e.emotion ?? "neutral");
+        if (!(AITUBER_VALID_EMOTIONS as readonly string[]).includes(rawEmotion)) break;
+        const emotionType = rawEmotion as EmotionType;
         const intensity = Math.min(Math.max(Number(e.intensity ?? 0.5), 0), 1);
         set({ emotion: { type: emotionType, intensity } });
         break;

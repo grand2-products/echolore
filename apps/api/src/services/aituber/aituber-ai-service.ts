@@ -1,10 +1,10 @@
 import crypto from "node:crypto";
-import type { AituberDataEvent } from "@echolore/shared/contracts";
+import { AITUBER_VALID_EMOTIONS, type AituberDataEvent } from "@echolore/shared/contracts";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { defaultLlmProvider, type LlmProvider } from "../../ai/providers/index.js";
 import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
 import type { AituberCharacter, AituberMessage } from "../../db/schema.js";
-import { searchDriveForUser } from "../drive/drive-vector-search-service.js";
+import { searchDriveAsSystem } from "../drive/drive-vector-search-service.js";
 import { searchByVector } from "../wiki/vector-search-service.js";
 import * as livekitService from "./aituber-livekit-service.js";
 import * as aituberService from "./aituber-service.js";
@@ -24,6 +24,10 @@ const activeLoops = new Map<string, { running: boolean }>();
 /**
  * Starts the AI processing loop for a session.
  * Polls for unprocessed messages and generates streaming responses.
+ *
+ * このループはサービスアカウント相当で動作する。RAG コンテキスト取得時の
+ * Drive 検索はパーミッション不問（searchDriveAsSystem）で行う。
+ * 特定ユーザーの認証情報には依存しない。
  */
 export async function startProcessingLoop(
   sessionId: string,
@@ -73,7 +77,7 @@ export function stopProcessingLoop(sessionId: string): void {
   const state = activeLoops.get(sessionId);
   if (state) {
     state.running = false;
-    activeLoops.delete(sessionId);
+    // activeLoops entry is cleaned up by the loop itself after it exits
   }
 }
 
@@ -218,12 +222,19 @@ async function generateStreamingResponse(
 /**
  * Search Wiki + Drive in parallel and build a compact RAG context string.
  * Returns empty string if no results or search fails (best-effort).
+ *
+ * ## Drive 検索の権限モデル
+ * AITuber の AI 処理ループはサービスアカウント相当で動作するため、
+ * ユーザー権限によるフィルタ（searchDriveForUser）ではなく
+ * パーミッション不問の searchDriveAsSystem を使用する。
+ * これにより、インデックス済みの全 Drive ファイルが RAG コンテキストの
+ * 対象となる。特定ユーザーのメールアドレスに依存しない設計。
  */
 async function buildRagContext(query: string): Promise<string> {
   try {
     const [wikiResults, driveResults] = await Promise.all([
       searchByVector(query, 3).catch(() => []),
-      searchDriveForUser("", query, 2).catch(() => []),
+      searchDriveAsSystem(query, 2).catch(() => []),
     ]);
 
     const parts: string[] = [];
@@ -404,7 +415,7 @@ const VALID_ACTION_IDS = new Set(
 const EMOTION_TAG_RE = /^\[emotion:(\w+):([\d.]+)\]\s*/;
 const ACTION_TAG_RE = /^\[action:([\w-]+)\]\s*/;
 
-const VALID_EMOTIONS = ["neutral", "happy", "sad", "angry", "surprised", "relaxed"];
+const VALID_EMOTIONS: readonly string[] = AITUBER_VALID_EMOTIONS;
 
 interface ParsedAnnotations {
   text: string;

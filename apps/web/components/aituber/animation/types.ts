@@ -1,8 +1,12 @@
 export type { VisemeEntry } from "@echolore/shared/contracts";
 
-import type { AituberAvatarState, VisemeEntry } from "@echolore/shared/contracts";
+import type {
+  AituberAvatarState,
+  AituberEmotionType,
+  VisemeEntry,
+} from "@echolore/shared/contracts";
 
-export type EmotionType = "neutral" | "happy" | "sad" | "angry" | "surprised" | "relaxed";
+export type EmotionType = AituberEmotionType;
 
 export interface EmotionState {
   type: EmotionType;
@@ -11,8 +15,6 @@ export interface EmotionState {
 
 export interface AnimationContext {
   avatarState: AituberAvatarState;
-  audioAnalyser: AnalyserNode | null;
-  audioSampleRate: number;
   emotion: EmotionState | null;
   elapsedTime: number;
   visemes: VisemeEntry[] | null;

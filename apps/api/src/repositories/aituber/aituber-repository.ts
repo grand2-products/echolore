@@ -32,10 +32,20 @@ export async function getCharacterById(id: string): Promise<AituberCharacter | n
   );
 }
 
-export async function listCharacters(opts?: { createdBy?: string }): Promise<AituberCharacter[]> {
+export async function listCharacters(opts?: {
+  createdBy?: string;
+  visibleTo?: string;
+}): Promise<AituberCharacter[]> {
   let query = db.selectFrom("aituber_characters").selectAll();
   if (opts?.createdBy) {
     query = query.where("createdBy", "=", opts.createdBy);
+  }
+  if (opts?.visibleTo) {
+    // Show public characters OR characters created by this user
+    const visibleTo = opts.visibleTo;
+    query = query.where((eb) =>
+      eb.or([eb("isPublic", "=", true), eb("createdBy", "=", visibleTo)])
+    );
   }
   return query.orderBy("createdAt", "desc").execute();
 }
