@@ -226,6 +226,7 @@ wiki:
     searchDescription: "直接跳转到有权限的内容。"
     totalTitle: "页面总数"
     totalPages: "{count} 页"
+    recentlyOpenedTitle: "最近打开的页面"
     recentTitle: "最近更新的页面"
     filterPlaceholder: "按标题筛选…"
     noPages: "还没有页面。"

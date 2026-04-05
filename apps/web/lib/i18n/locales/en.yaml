@@ -226,6 +226,7 @@ wiki:
     searchDescription: "Jump directly to permitted content."
     totalTitle: "Total pages"
     totalPages: "{count} pages"
+    recentlyOpenedTitle: "Recently opened"
     recentTitle: "Recently updated pages"
     filterPlaceholder: "Filter by title…"
     noPages: "No pages yet."

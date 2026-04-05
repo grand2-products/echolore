@@ -226,6 +226,7 @@ wiki:
     searchDescription: "권한이 있는 콘텐츠로 바로 이동합니다."
     totalTitle: "총 페이지 수"
     totalPages: "{count}개 페이지"
+    recentlyOpenedTitle: "최근 열어본 페이지"
     recentTitle: "최근 업데이트된 페이지"
     filterPlaceholder: "제목으로 필터링…"
     noPages: "아직 페이지가 없습니다."

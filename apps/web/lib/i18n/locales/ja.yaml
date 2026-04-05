@@ -226,6 +226,7 @@ wiki:
     searchDescription: "閲覧可能なコンテンツへ直接移動します。"
     totalTitle: "総ページ数"
     totalPages: "{count} ページ"
+    recentlyOpenedTitle: "最近開いたページ"
     recentTitle: "最近更新されたページ"
     filterPlaceholder: "タイトルで絞り込み…"
     noPages: "まだページはありません。"

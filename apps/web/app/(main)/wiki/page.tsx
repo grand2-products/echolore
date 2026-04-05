@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ErrorBanner, LoadingState } from "@/components/ui";
 import { ImportFileModal, SpacePickerModal } from "@/components/wiki";
 import { useWikiPagesQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
+import { useRecentWikiPages } from "@/lib/hooks/use-recent-wiki-pages";
 import { useWikiPageActions } from "@/lib/hooks/use-wiki-page-actions";
 import { useFormatters, useT } from "@/lib/i18n";
 
-function formatRelativeDate(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
+function formatRelativeDate(value: string | number): string {
+  const diff = Date.now() - (typeof value === "number" ? value : new Date(value).getTime());
   const minutes = Math.floor(diff / 60_000);
   if (minutes < 1) return "now";
   if (minutes < 60) return `${minutes}m`;
@@ -28,11 +29,27 @@ export default function WikiListPage() {
   const { number } = useFormatters();
   const { data, isLoading, error, refetch } = useWikiPagesQuery();
   const { handleAddSubPage } = useWikiPageActions();
+  const { recentPages } = useRecentWikiPages();
   const [showSpacePicker, setShowSpacePicker] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [filter, setFilter] = useState("");
 
   const pages = data?.pages ?? [];
+
+  // Cross-reference recent visits with API data:
+  // - Drop entries whose page no longer exists (deleted)
+  // - Use the latest title from the server, not the stale localStorage copy
+  const resolvedRecentPages = useMemo(() => {
+    if (!data) return recentPages; // API未ロード → localStorage をそのまま表示
+    const pageMap = new Map(pages.map((p) => [p.id, p]));
+    return recentPages
+      .filter((entry) => pageMap.has(entry.id))
+      .map((entry) => ({
+        ...entry,
+        title: pageMap.get(entry.id)?.title ?? entry.title,
+      }));
+  }, [recentPages, pages, data]);
+
   const filterLower = filter.trim().toLowerCase();
   const filteredPages = filterLower
     ? pages.filter((p) => (p.title || "").toLowerCase().includes(filterLower))
@@ -89,6 +106,44 @@ export default function WikiListPage() {
             </p>
           </div>
         </div>
+
+        {resolvedRecentPages.length > 0 && (
+          <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900">
+              {t("wiki.list.recentlyOpenedTitle")}
+            </h2>
+            <div className="space-y-1">
+              {resolvedRecentPages.slice(0, 8).map((entry) => (
+                <Link
+                  key={entry.id}
+                  href={`/wiki/${entry.id}`}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 transition hover:bg-gray-50"
+                >
+                  <svg
+                    className="h-4 w-4 shrink-0 text-blue-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
+                    {entry.title || t("wiki.newPage.defaultTitle")}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {formatRelativeDate(entry.visitedAt)}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-4">
