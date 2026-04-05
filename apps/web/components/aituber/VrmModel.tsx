@@ -133,18 +133,11 @@ export function VrmModel({ avatarUrl, onError }: VrmModelProps) {
       const store = useAituberStore.getState();
       const context: AnimationContext = {
         avatarState: store.avatarState,
-        audioAnalyser: null,
-        audioSampleRate: store.audioSampleRate,
         emotion: store.emotion,
         elapsedTime: elapsedRef.current,
         visemes: store.currentVisemes,
       };
-      compositor.update(delta, context, vrm);
-
-      // 2. LookAt: gaze drift
-      lookAtRef.current?.update(context);
-
-      // 3. Motion clips: play pending actions from store
+      // 2. Motion clips: play pending actions from store
       const controller = animControllerRef.current;
       if (controller) {
         const action = store.pendingAction;
@@ -152,12 +145,22 @@ export function VrmModel({ avatarUrl, onError }: VrmModelProps) {
           void controller.playAction(action);
           useAituberStore.setState({ pendingAction: null });
         }
-        // Mixer runs after compositor — clip bones override procedural bones
-        controller.update(delta);
       }
+
+      // Pass clip weight so compositor suppresses bone rotations that
+      // the mixer would overwrite, preventing jumps on clip start/end.
+      const clipWeight = controller?.getClipWeight() ?? 0;
+      compositor.update(delta, context, vrm, clipWeight);
+
+      // 3. LookAt: gaze drift
+      lookAtRef.current?.update(context, delta);
+
+      // 4. AnimationMixer: must run AFTER compositor so clip bones
+      //    properly override the (now-suppressed) procedural bones.
+      controller?.update(delta);
     }
 
-    // 4. VRM internal update (expression override, spring bones, etc.)
+    // 5. VRM internal update (expression override, spring bones, etc.)
     (vrm as { update: (d: number) => void }).update(delta);
   });
 

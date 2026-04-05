@@ -213,6 +213,50 @@ export async function searchDriveByVectorWithPermissions(
   return deduped;
 }
 
+/**
+ * Search Drive files by vector similarity **without** permission filtering.
+ *
+ * パーミッション不問でインデックス済みの全ファイルを対象にする。
+ * ユーザー権限フィルタが必要な場合は searchDriveByVectorWithPermissions を使うこと。
+ *
+ * @see searchDriveByVectorWithPermissions — ユーザー権限フィルタ付き版
+ */
+export async function searchDriveByVector(
+  queryEmbedding: number[],
+  limit: number,
+  modelId?: string
+): Promise<DriveVectorSearchResult[]> {
+  const vectorStr = `[${queryEmbedding.join(",")}]`;
+
+  const results = await db
+    .selectFrom("drive_embeddings as de")
+    .innerJoin("drive_files as df", "df.id", "de.fileId")
+    .where("df.indexStatus", "=", "indexed")
+    // biome-ignore lint/style/noNonNullAssertion: guarded by $if(!!modelId)
+    .$if(!!modelId, (qb) => qb.where("de.modelId", "=", modelId!))
+    .select([
+      "df.id as fileId",
+      "df.name as fileName",
+      "df.webViewLink",
+      "de.plainText as chunkText",
+      sql<number>`1 - (de.embedding <=> ${vectorStr}::vector)`.as("similarity"),
+    ])
+    .orderBy(sql`de.embedding <=> ${vectorStr}::vector`)
+    .limit(limit * 3)
+    .execute();
+
+  const seen = new Set<string>();
+  const deduped: DriveVectorSearchResult[] = [];
+  for (const r of results) {
+    if (seen.has(r.fileId)) continue;
+    seen.add(r.fileId);
+    deduped.push(r);
+    if (deduped.length >= limit) break;
+  }
+
+  return deduped;
+}
+
 // ─── Sync Status ──────────────────────────────────────────────────
 
 export async function getDriveFileStats(): Promise<{

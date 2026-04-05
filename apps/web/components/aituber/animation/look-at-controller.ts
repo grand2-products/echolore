@@ -48,11 +48,10 @@ export class LookAtController {
     vrm.lookAt.target = this.target;
   }
 
-  update(context: AnimationContext): void {
+  update(context: AnimationContext, delta: number): void {
     if (!this.target) return;
 
     const t = context.elapsedTime;
-    const delta = 1 / 60; // approximate; LookAtController doesn't receive delta
     const talking = context.avatarState === "talking";
     const thinking = context.avatarState === "thinking";
 

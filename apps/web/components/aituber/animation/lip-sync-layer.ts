@@ -23,6 +23,7 @@ const THRESHOLD = 0.05;
 export class LipSyncLayer implements AnimationLayer {
   private playbackStartTime = 0;
   private activeVisemes: VisemeEntry[] | null = null;
+  private activeVisemeLength = 0;
   private smoothed: Record<string, number> = {};
 
   update(delta: number, context: AnimationContext): LayerOutput {
@@ -30,8 +31,12 @@ export class LipSyncLayer implements AnimationLayer {
       return this.decayAll(delta);
     }
 
-    if (context.visemes && context.visemes !== this.activeVisemes) {
+    if (
+      context.visemes &&
+      (context.visemes !== this.activeVisemes || context.visemes.length !== this.activeVisemeLength)
+    ) {
       this.activeVisemes = context.visemes;
+      this.activeVisemeLength = context.visemes.length;
       this.playbackStartTime = performance.now();
     }
 
@@ -39,7 +44,7 @@ export class LipSyncLayer implements AnimationLayer {
       return this.visemeMode(delta);
     }
 
-    return this.audioFallback(delta, context);
+    return this.decayAll(delta);
   }
 
   private visemeMode(delta: number): LayerOutput {
@@ -62,41 +67,6 @@ export class LipSyncLayer implements AnimationLayer {
       }
     }
     return current;
-  }
-
-  private audioFallback(delta: number, context: AnimationContext): LayerOutput {
-    if (!context.audioAnalyser) return this.decayAll(delta);
-
-    const analyser = context.audioAnalyser;
-    const fftSize = analyser.fftSize || 256;
-    const data = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteFrequencyData(data);
-
-    const hzPerBin = context.audioSampleRate / fftSize;
-
-    const bandEnergy = (lo: number, hi: number): number => {
-      const startBin = Math.max(0, Math.round(lo / hzPerBin));
-      const endBin = Math.min(data.length - 1, Math.round(hi / hzPerBin));
-      if (startBin > endBin) return 0;
-      let sum = 0;
-      for (let i = startBin; i <= endBin; i++) sum += data[i]!;
-      return sum / ((endBin - startBin + 1) * 255);
-    };
-
-    const low = bandEnergy(200, 500);
-    const midLow = bandEnergy(500, 900);
-    const mid = bandEnergy(700, 1500);
-    const high = bandEnergy(1500, 2500);
-
-    const raw: Record<string, number> = {
-      aa: midLow * 0.6 + mid * 0.4,
-      ih: low * 0.3 + high * 0.7,
-      ou: low * 0.7 + (1 - mid) * 0.3 * low,
-      ee: midLow * 0.3 + high * 0.7,
-      oh: midLow * 0.5 + (1 - high) * 0.3 * midLow,
-    };
-
-    return this.smoothAndReturn(raw, delta);
   }
 
   private smoothAndReturn(raw: Record<string, number>, _delta: number): LayerOutput {
@@ -136,6 +106,7 @@ export class LipSyncLayer implements AnimationLayer {
   reset(): void {
     this.playbackStartTime = 0;
     this.activeVisemes = null;
+    this.activeVisemeLength = 0;
     this.smoothed = {};
   }
 }

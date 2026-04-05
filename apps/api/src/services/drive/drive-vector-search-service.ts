@@ -8,6 +8,7 @@ import { db } from "../../db/index.js";
 import {
   type DriveVectorSearchResult,
   getDriveFileChunks,
+  searchDriveByVector,
   searchDriveByVectorWithPermissions,
 } from "../../repositories/drive/drive-repository.js";
 import { getResolvedDriveSettings } from "../admin/drive-settings-service.js";
@@ -44,6 +45,46 @@ export async function searchDriveForUser(
     console.warn("[drive-search] Vector search failed, retrying without model filter:", err);
     try {
       return await searchDriveByVectorWithPermissions(queryEmbedding, userEmail, limit);
+    } catch {
+      return [];
+    }
+  }
+}
+
+/**
+ * Search Drive files via vector similarity **without** permission filtering.
+ *
+ * 用途: サービスアカウント相当で動作するシステムレベルの消費者向け。
+ * 現在の利用箇所: AITuber AI 処理ループ（aituber-ai-service）。
+ *
+ * ユーザー単位のアクセス制御が必要な場合は searchDriveForUser を使うこと。
+ * この関数はインデックス済みの全ファイルを検索対象とする。
+ */
+export async function searchDriveAsSystem(
+  queryText: string,
+  limit = 5
+): Promise<DriveVectorSearchResult[]> {
+  const settings = await getResolvedDriveSettings();
+  if (!settings.enabled) return [];
+
+  if (!(await isEmbeddingEnabled())) return [];
+
+  const dimensions = await getEmbeddingDimensions();
+  const queryEmbedding = await embedText(queryText, {
+    taskType: "RETRIEVAL_QUERY",
+    outputDimensionality: dimensions,
+  });
+
+  if (!queryEmbedding) return [];
+
+  const { model: modelId } = await getEmbeddingConfig();
+
+  try {
+    return await searchDriveByVector(queryEmbedding, limit, modelId);
+  } catch (err) {
+    console.warn("[drive-search] Vector search failed, retrying without model filter:", err);
+    try {
+      return await searchDriveByVector(queryEmbedding, limit);
     } catch {
       return [];
     }

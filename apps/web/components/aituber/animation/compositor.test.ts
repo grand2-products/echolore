@@ -5,8 +5,6 @@ import type { AnimationContext, AnimationLayer, LayerOutput } from "./types";
 function makeContext(overrides?: Partial<AnimationContext>): AnimationContext {
   return {
     avatarState: "idle",
-    audioAnalyser: null,
-    audioSampleRate: 48000,
     emotion: null,
     elapsedTime: 0,
     visemes: null,
