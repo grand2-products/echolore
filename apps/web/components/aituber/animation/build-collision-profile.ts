@@ -51,7 +51,7 @@ function buildCapsuleForBone(
   THREE: typeof import("three"),
   boneName: string
 ): CollisionCapsule | null {
-  const boneNode = vrm.humanoid?.getNormalizedBoneNode(boneName) as THREE.Object3D | null;
+  const boneNode = vrm.humanoid?.getRawBoneNode(boneName) as THREE.Object3D | null;
   if (!boneNode) return null;
 
   const vertices = collectVerticesForBone(vrm, THREE, boneNode);

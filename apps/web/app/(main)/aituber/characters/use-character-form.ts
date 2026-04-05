@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { aituberApi } from "@/lib/api/aituber";
+import { fetchBlobUrl } from "@/lib/api/fetch";
 import { useT } from "@/lib/i18n";
 
 export interface CharacterForm {
@@ -38,6 +39,7 @@ export function useCharacterForm(characterId: string | "new") {
   const [motionProfile, setMotionProfile] = useState<string | null>(null);
   // True when motionProfile was re-generated during this session (avatar changed)
   const [motionProfileDirty, setMotionProfileDirty] = useState(false);
+  const [rebuildingCollision, setRebuildingCollision] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -95,6 +97,46 @@ export function useCharacterForm(characterId: string | "new") {
     },
     []
   );
+
+  const handleRebuildCollision = useCallback(async () => {
+    if (!avatarUrl) return;
+    setRebuildingCollision(true);
+    setError(null);
+    let blobUrl: string | null = null;
+    try {
+      const [{ GLTFLoader }, { VRMLoaderPlugin, VRMUtils }, THREE] = await Promise.all([
+        import("three/examples/jsm/loaders/GLTFLoader.js"),
+        import("@pixiv/three-vrm"),
+        import("three"),
+      ]);
+      const { buildCollisionProfile } = await import(
+        "@/components/aituber/animation/build-collision-profile"
+      );
+
+      blobUrl = await fetchBlobUrl(avatarUrl);
+      const loader = new GLTFLoader();
+      loader.register((parser: unknown) => new VRMLoaderPlugin(parser as never));
+      const gltf = await loader.loadAsync(blobUrl);
+      const vrm = gltf.userData.vrm;
+      if (!vrm) {
+        setError(t("aituber.characters.invalidVrmFormat"));
+        return;
+      }
+      if (vrm.meta?.metaVersion === "0") VRMUtils.rotateVRM0(vrm);
+      vrm.scene.updateMatrixWorld(true);
+      const profile = buildCollisionProfile(vrm, THREE);
+      VRMUtils.deepDispose(vrm.scene);
+
+      setMotionProfile(JSON.stringify(profile));
+      setMotionProfileDirty(true);
+      setMessage(t("aituber.characters.collisionRebuilt"));
+    } catch {
+      setError(t("aituber.characters.collisionRebuildError"));
+    } finally {
+      if (blobUrl?.startsWith("blob:")) URL.revokeObjectURL(blobUrl);
+      setRebuildingCollision(false);
+    }
+  }, [avatarUrl, t]);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -163,6 +205,7 @@ export function useCharacterForm(characterId: string | "new") {
     avatarFile,
     avatarUrl,
     motionProfile,
+    rebuildingCollision,
     error,
     message,
     setAvatarFile,
@@ -171,5 +214,6 @@ export function useCharacterForm(characterId: string | "new") {
     updateField,
     handleSave,
     handleCancel,
+    handleRebuildCollision,
   };
 }
