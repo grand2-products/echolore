@@ -221,12 +221,6 @@ export default function WikiListPage() {
             </div>
           )}
         </div>
-
-        {process.env.NEXT_PUBLIC_APP_VERSION && (
-          <p className="mt-6 text-center text-xs text-gray-400">
-            {process.env.NEXT_PUBLIC_APP_VERSION}
-          </p>
-        )}
       </div>
     </div>
   );
