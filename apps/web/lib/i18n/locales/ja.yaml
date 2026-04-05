@@ -1080,6 +1080,10 @@ aituber:
     invalidVrmExtension: ".vrm 拡張子のファイルのみアップロードできます。"
     invalidVrmFormat: "有効なVRMファイルではありません。"
     avatarValidating: "VRMファイルを検証中..."
+    rebuildCollision: "コリジョン再生成"
+    rebuildingCollision: "再生成中..."
+    collisionRebuilt: "コリジョンプロファイルを再生成しました。保存してください。"
+    collisionRebuildError: "コリジョンプロファイルの再生成に失敗しました。"
     deleteError: "キャラクターの削除に失敗しました。"
     tooltips:
       name: "配信時に表示されるキャラクターの名前です。"

@@ -17,6 +17,7 @@ export default function CharacterDetailPage() {
     avatarUrl,
     error,
     message,
+    rebuildingCollision,
     setAvatarFile,
     motionProfile,
     setMotionProfile,
@@ -24,6 +25,7 @@ export default function CharacterDetailPage() {
     updateField,
     handleSave,
     handleCancel,
+    handleRebuildCollision,
   } = useCharacterForm(id);
 
   if (loading) {
@@ -48,6 +50,8 @@ export default function CharacterDetailPage() {
           onSave={() => void handleSave()}
           onCancel={handleCancel}
           onError={setError}
+          onRebuildCollision={() => void handleRebuildCollision()}
+          rebuildingCollision={rebuildingCollision}
         />
 
         {avatarUrl && (

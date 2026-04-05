@@ -22,6 +22,7 @@ import type * as THREE from "three";
 /** Minimal VRM humanoid interface used by the corrector. */
 interface VrmHumanoid {
   getNormalizedBoneNode(name: string): THREE.Object3D | null;
+  getRawBoneNode(name: string): THREE.Object3D | null;
 }
 
 /** Minimal VRM instance expected by {@link CollisionCorrector.correct}. */

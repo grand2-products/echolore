@@ -1081,6 +1081,10 @@ aituber:
     invalidVrmExtension: "Only .vrm files are allowed."
     invalidVrmFormat: "File is not a valid VRM file."
     avatarValidating: "Validating VRM file..."
+    rebuildCollision: "Rebuild collision"
+    rebuildingCollision: "Rebuilding..."
+    collisionRebuilt: "Collision profile rebuilt. Please save to apply."
+    collisionRebuildError: "Failed to rebuild collision profile."
     deleteError: "Failed to delete character."
     tooltips:
       name: "The character name displayed during streams."

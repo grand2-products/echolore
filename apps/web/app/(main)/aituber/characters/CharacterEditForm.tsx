@@ -27,6 +27,8 @@ interface CharacterEditFormProps {
   onSave: () => void;
   onCancel: () => void;
   onError: (msg: string) => void;
+  onRebuildCollision?: () => void;
+  rebuildingCollision?: boolean;
 }
 
 export function CharacterEditForm({
@@ -40,6 +42,8 @@ export function CharacterEditForm({
   onSave,
   onCancel,
   onError,
+  onRebuildCollision,
+  rebuildingCollision,
 }: CharacterEditFormProps) {
   const t = useT();
   const [allVoices, setAllVoices] = useState<TtsVoice[]>([]);
@@ -215,14 +219,30 @@ export function CharacterEditForm({
 
         {avatarUrl && (
           <Field label={t("aituber.characters.avatarPreview")}>
-            <a
-              href={avatarUrl.startsWith("/") || avatarUrl.startsWith("https://") ? avatarUrl : "#"}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm text-blue-600 hover:underline"
-            >
-              {t("aituber.characters.avatarDownload")}
-            </a>
+            <div className="flex items-center gap-3">
+              <a
+                href={
+                  avatarUrl.startsWith("/") || avatarUrl.startsWith("https://") ? avatarUrl : "#"
+                }
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-blue-600 hover:underline"
+              >
+                {t("aituber.characters.avatarDownload")}
+              </a>
+              {onRebuildCollision && (
+                <button
+                  type="button"
+                  onClick={onRebuildCollision}
+                  disabled={rebuildingCollision}
+                  className="rounded-md border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {rebuildingCollision
+                    ? t("aituber.characters.rebuildingCollision")
+                    : t("aituber.characters.rebuildCollision")}
+                </button>
+              )}
+            </div>
           </Field>
         )}
 
