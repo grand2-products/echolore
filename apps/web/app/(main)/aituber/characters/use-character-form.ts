@@ -35,6 +35,9 @@ export function useCharacterForm(characterId: string | "new") {
   const [loading, setLoading] = useState(!isNew);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [motionProfile, setMotionProfile] = useState<string | null>(null);
+  // True when motionProfile was re-generated during this session (avatar changed)
+  const [motionProfileDirty, setMotionProfileDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -68,6 +71,7 @@ export function useCharacterForm(characterId: string | "new") {
           isPublic: character.isPublic,
         });
         setAvatarUrl(character.avatarUrl);
+        setMotionProfile(character.motionProfile ?? null);
       } catch {
         if (!cancelled) setError(t("aituber.characters.loadError"));
       } finally {
@@ -79,6 +83,11 @@ export function useCharacterForm(characterId: string | "new") {
       cancelled = true;
     };
   }, [characterId, isNew, t]);
+
+  const updateMotionProfile = useCallback((profile: string | null) => {
+    setMotionProfile(profile);
+    setMotionProfileDirty(true);
+  }, []);
 
   const updateField = useCallback(
     <K extends keyof CharacterForm>(key: K, value: CharacterForm[K]) => {
@@ -100,6 +109,9 @@ export function useCharacterForm(characterId: string | "new") {
           languageCode: form.languageCode,
           voiceName: form.voiceName || undefined,
           isPublic: form.isPublic,
+          // Only send motionProfile on create when avatar was analysed successfully.
+          // If VRM analysis failed, motionProfile is null — omit to avoid storing empty data.
+          ...(motionProfileDirty && motionProfile ? { motionProfile } : {}),
         });
         if (avatarFile != null) {
           try {
@@ -118,6 +130,8 @@ export function useCharacterForm(characterId: string | "new") {
           languageCode: form.languageCode,
           voiceName: form.voiceName || null,
           isPublic: form.isPublic,
+          // On update, send null to clear stale profile when avatar changed but analysis failed.
+          ...(motionProfileDirty ? { motionProfile } : {}),
         });
         if (avatarFile != null) {
           const { character: updated } = await aituberApi.uploadCharacterAvatar(
@@ -136,7 +150,7 @@ export function useCharacterForm(characterId: string | "new") {
     } finally {
       setSaving(false);
     }
-  }, [isNew, characterId, form, avatarFile, t, router]);
+  }, [isNew, characterId, form, avatarFile, motionProfile, motionProfileDirty, t, router]);
 
   const handleCancel = useCallback(() => {
     router.push("/aituber/characters");
@@ -148,9 +162,11 @@ export function useCharacterForm(characterId: string | "new") {
     loading,
     avatarFile,
     avatarUrl,
+    motionProfile,
     error,
     message,
     setAvatarFile,
+    setMotionProfile: updateMotionProfile,
     setError,
     updateField,
     handleSave,

@@ -1,8 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchBlobUrl } from "@/lib/api/fetch";
+import type { MotionProfile } from "./animation/collision-corrector";
 
 const AituberCanvas = dynamic(
   () => import("./AituberCanvas").then((m) => ({ default: m.AituberCanvas })),
@@ -14,9 +15,10 @@ const AituberCanvas = dynamic(
 
 interface AituberAvatarProps {
   avatarUrl: string | null;
+  motionProfileJson?: string | null;
 }
 
-export function AituberAvatar({ avatarUrl }: AituberAvatarProps) {
+export function AituberAvatar({ avatarUrl, motionProfileJson }: AituberAvatarProps) {
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const blobUrlRef = useRef<string | null>(null);
@@ -50,6 +52,15 @@ export function AituberAvatar({ avatarUrl }: AituberAvatarProps) {
     };
   }, [avatarUrl]);
 
+  const motionProfile = useMemo<MotionProfile | null>(() => {
+    if (!motionProfileJson) return null;
+    try {
+      return JSON.parse(motionProfileJson) as MotionProfile;
+    } catch {
+      return null;
+    }
+  }, [motionProfileJson]);
+
   const handleCanvasError = useCallback((message: string) => {
     setLoadError(message);
   }, []);
@@ -71,7 +82,11 @@ export function AituberAvatar({ avatarUrl }: AituberAvatarProps) {
 
   return (
     <div className="relative h-full w-full">
-      <AituberCanvas avatarUrl={resolvedUrl} onError={handleCanvasError} />
+      <AituberCanvas
+        avatarUrl={resolvedUrl}
+        motionProfile={motionProfile}
+        onError={handleCanvasError}
+      />
     </div>
   );
 }

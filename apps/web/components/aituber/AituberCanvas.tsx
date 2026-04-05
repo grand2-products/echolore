@@ -4,6 +4,7 @@ import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Suspense, useMemo } from "react";
 import * as THREE from "three";
+import type { MotionProfile } from "./animation/collision-corrector";
 import { VrmModel } from "./VrmModel";
 
 function handleCanvasCreated({
@@ -16,6 +17,7 @@ function handleCanvasCreated({
 
 export interface AituberCanvasProps {
   avatarUrl: string;
+  motionProfile?: MotionProfile | null;
   onError?: (message: string) => void;
 }
 
@@ -55,7 +57,7 @@ function GradientBackground() {
   );
 }
 
-export function AituberCanvas({ avatarUrl, onError }: AituberCanvasProps) {
+export function AituberCanvas({ avatarUrl, motionProfile, onError }: AituberCanvasProps) {
   return (
     <Canvas
       camera={{ position: [0, 1.3, 1.5], fov: 30, near: 0.1, far: 20 }}
@@ -73,7 +75,7 @@ export function AituberCanvas({ avatarUrl, onError }: AituberCanvasProps) {
       <directionalLight position={[-1, 2, -1]} intensity={0.5} color="#b0c4ff" />
 
       <Suspense fallback={null}>
-        <VrmModel avatarUrl={avatarUrl} onError={onError} />
+        <VrmModel avatarUrl={avatarUrl} motionProfile={motionProfile} onError={onError} />
       </Suspense>
 
       <EffectComposer>

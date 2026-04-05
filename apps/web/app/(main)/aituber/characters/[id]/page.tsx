@@ -18,6 +18,8 @@ export default function CharacterDetailPage() {
     error,
     message,
     setAvatarFile,
+    motionProfile,
+    setMotionProfile,
     setError,
     updateField,
     handleSave,
@@ -42,6 +44,7 @@ export default function CharacterDetailPage() {
           avatarUrl={avatarUrl}
           onUpdateField={updateField}
           onAvatarFileChange={setAvatarFile}
+          onMotionProfileChange={setMotionProfile}
           onSave={() => void handleSave()}
           onCancel={handleCancel}
           onError={setError}
@@ -53,6 +56,7 @@ export default function CharacterDetailPage() {
               id,
               name: form.name,
               avatarUrl,
+              motionProfile: motionProfile,
               languageCode: form.languageCode,
               voiceName: form.voiceName || null,
               speakingStyle: form.speakingStyle || null,
