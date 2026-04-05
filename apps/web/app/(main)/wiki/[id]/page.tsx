@@ -7,6 +7,7 @@ import { BlockEditor, type EditorHandle } from "@/components/wiki/BlockEditor";
 import { PagePermissionsPanel } from "@/components/wiki/PagePermissionsPanel";
 import { VersionHistoryPanel } from "@/components/wiki/VersionHistoryPanel";
 import { useAuthMeQuery, useWikiPageQuery, wikiApi } from "@/lib/api";
+import { useRecentWikiPages } from "@/lib/hooks/use-recent-wiki-pages";
 import { useFormatters, useT } from "@/lib/i18n";
 
 function stringToColor(str: string): string {
@@ -81,6 +82,7 @@ export default function WikiDetailPage() {
 
   const { data: authData } = useAuthMeQuery();
   const { data: pageData, isLoading, error, refetch } = useWikiPageQuery(pageId);
+  const { recordVisit } = useRecentWikiPages();
 
   const editorHandleRef = useRef<EditorHandle | null>(null);
   const setEditorHandle = useCallback((handle: EditorHandle) => {
@@ -124,6 +126,14 @@ export default function WikiDetailPage() {
   const currentPage = pageData?.page ?? null;
   const blocks = pageData?.blocks ?? [];
   const [pageTitle, setPageTitle] = useState<string | null>(null);
+
+  // Record visit for "recently opened" list on the wiki top page
+  const serverTitle = currentPage?.title;
+  useEffect(() => {
+    if (serverTitle != null) {
+      recordVisit(pageId, serverTitle);
+    }
+  }, [pageId, serverTitle, recordVisit]);
 
   // Sync title from server data when page changes
   const [prevPageId, setPrevPageId] = useState(pageId);

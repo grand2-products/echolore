@@ -5,4 +5,5 @@ export const STORAGE_KEYS = {
   backgroundEffect: "backgroundEffect",
   customBackgrounds: "customBackgrounds",
   videoDevice: "coworking-video-device",
+  recentWikiPages: "echolore-recent-wiki-pages",
 } as const;
