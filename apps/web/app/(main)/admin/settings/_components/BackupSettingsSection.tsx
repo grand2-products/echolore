@@ -74,6 +74,7 @@ export function BackupSettingsSection({ onTestModal }: BackupSettingsSectionProp
   const [gcsProjectId, setGcsProjectId] = useState("");
   const [gcsKeyJson, setGcsKeyJson] = useState("");
   const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
+  const [notificationEmail, setNotificationEmail] = useState("");
 
   const fetchBackupList = useCallback(async () => {
     setListLoading(true);
@@ -136,6 +137,7 @@ export function BackupSettingsSection({ onTestModal }: BackupSettingsSectionProp
         setGcsProjectId(data.gcsProjectId ?? "");
         setGcsKeyJson(data.gcsKeyJson ?? "");
         setSlackWebhookUrl(data.slackWebhookUrl ?? "");
+        setNotificationEmail(data.notificationEmail ?? "");
       },
       save: async () => {
         const payload: Record<string, unknown> = {
@@ -158,6 +160,7 @@ export function BackupSettingsSection({ onTestModal }: BackupSettingsSectionProp
           }
         }
         payload.slackWebhookUrl = slackWebhookUrl || null;
+        payload.notificationEmail = notificationEmail || null;
         await adminApi.updateBackupSettings(payload);
         void fetchBackupList();
       },
@@ -357,6 +360,19 @@ export function BackupSettingsSection({ onTestModal }: BackupSettingsSectionProp
               value={slackWebhookUrl}
               onChange={(e) => setSlackWebhookUrl(e.target.value)}
               placeholder="https://hooks.slack.com/services/..."
+              className={INPUT_CLASS}
+            />
+          </label>
+        )}
+
+        {provider && (
+          <label className="block text-sm text-gray-700">
+            {t("admin.settings.backupNotificationEmail")}
+            <input
+              type="email"
+              value={notificationEmail}
+              onChange={(e) => setNotificationEmail(e.target.value)}
+              placeholder="admin@example.com"
               className={INPUT_CLASS}
             />
           </label>

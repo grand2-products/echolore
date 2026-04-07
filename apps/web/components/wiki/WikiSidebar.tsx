@@ -16,6 +16,7 @@ interface WikiSidebarProps {
   onAddSubPage?: (parentId?: string, spaceId?: string) => void;
   onRenamePage?: (pageId: string, newTitle: string) => Promise<void> | void;
   onDeletePage?: (pageId: string) => Promise<void> | void;
+  isCreating?: boolean;
 }
 
 function spaceLabel(
@@ -36,6 +37,7 @@ function SpaceSection({
   onAddSubPage,
   onRenamePage,
   onDeletePage,
+  isCreating,
   t,
 }: {
   space: Space;
@@ -45,6 +47,7 @@ function SpaceSection({
   onAddSubPage?: WikiSidebarProps["onAddSubPage"];
   onRenamePage?: WikiSidebarProps["onRenamePage"];
   onDeletePage?: WikiSidebarProps["onDeletePage"];
+  isCreating?: boolean;
   t: (key: string) => string;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -61,8 +64,9 @@ function SpaceSection({
         </button>
         <button
           type="button"
+          disabled={isCreating}
           onClick={() => onAddSubPage?.(undefined, space.id)}
-          className="rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-50"
+          className="rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 hover:bg-blue-50 disabled:pointer-events-none disabled:opacity-50"
         >
           {t("wiki.spaces.newPage")}
         </button>
@@ -77,6 +81,7 @@ function SpaceSection({
               onAddSubPage={onAddSubPage}
               onRenamePage={onRenamePage}
               onDeletePage={onDeletePage}
+              isCreating={isCreating}
             />
           ) : (
             <p className="text-xs text-gray-400 py-1">{t("wiki.spaces.noPages")}</p>
@@ -96,6 +101,7 @@ export function WikiSidebar({
   onAddSubPage,
   onRenamePage,
   onDeletePage,
+  isCreating,
 }: WikiSidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showSpacePicker, setShowSpacePicker] = useState(false);
@@ -116,6 +122,7 @@ export function WikiSidebar({
           onAddSubPage={onAddSubPage}
           onRenamePage={onRenamePage}
           onDeletePage={onDeletePage}
+          isCreating={isCreating}
           t={t}
         />
       ))}
@@ -126,8 +133,9 @@ export function WikiSidebar({
         <h2 className="text-sm font-semibold text-gray-500">{t("wiki.sidebar.pages")}</h2>
         <button
           type="button"
+          disabled={isCreating}
           onClick={() => setShowSpacePicker(true)}
-          className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700"
+          className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:pointer-events-none disabled:opacity-50"
         >
           {t("wiki.sidebar.new")}
         </button>
@@ -137,6 +145,7 @@ export function WikiSidebar({
           open={showSpacePicker}
           onClose={() => setShowSpacePicker(false)}
           onAddSubPage={onAddSubPage}
+          loading={isCreating}
         />
       )}
       <PageTree
@@ -146,6 +155,7 @@ export function WikiSidebar({
         onAddSubPage={onAddSubPage}
         onRenamePage={onRenamePage}
         onDeletePage={onDeletePage}
+        isCreating={isCreating}
       />
     </div>
   );

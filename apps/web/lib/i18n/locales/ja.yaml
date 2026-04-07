@@ -875,6 +875,7 @@ admin:
     backupRestoreFailed: "リストアの開始に失敗しました"
     backupDeleteFailed: "バックアップの削除に失敗しました"
     backupSlackWebhookUrl: "Slack Webhook URL（任意）"
+    backupNotificationEmail: "通知先メールアドレス（任意）"
     close: "閉じる"
     testing: "テスト中..."
     testConnection: "接続テスト"

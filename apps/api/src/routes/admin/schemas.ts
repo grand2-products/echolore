@@ -139,6 +139,7 @@ export const updateBackupSettingsSchema = z.object({
   gcsProjectId: z.string().max(200).nullable().optional(),
   gcsKeyJson: z.string().max(10000).nullable().optional(),
   slackWebhookUrl: z.string().url().max(500).nullable().optional(),
+  notificationEmail: z.string().email().max(500).nullable().optional(),
 });
 
 export const updateDriveSettingsSchema = z.object({

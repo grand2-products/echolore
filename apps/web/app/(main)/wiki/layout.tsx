@@ -21,7 +21,7 @@ export default function WikiLayout({ children }: WikiLayoutProps) {
   const spaces = spacesData?.spaces ?? [];
   const pagesBySpace = useMemo(() => groupPagesBySpace(pages, spaces), [pages, spaces]);
 
-  const { handleReparent, handleAddSubPage, handleRenamePage, handleDeletePage } =
+  const { handleReparent, handleAddSubPage, handleRenamePage, handleDeletePage, isCreating } =
     useWikiPageActions({ currentPageId });
 
   return (
@@ -34,6 +34,7 @@ export default function WikiLayout({ children }: WikiLayoutProps) {
         onAddSubPage={handleAddSubPage}
         onRenamePage={handleRenamePage}
         onDeletePage={handleDeletePage}
+        isCreating={isCreating}
       />
       {children}
     </div>

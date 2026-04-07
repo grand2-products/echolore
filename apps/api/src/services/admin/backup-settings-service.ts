@@ -17,6 +17,7 @@ export interface BackupSettings {
   gcsProjectId: string | null;
   gcsKeyJson: string | null;
   slackWebhookUrl: string | null;
+  notificationEmail: string | null;
 }
 
 export interface BackupStorageConfig {
@@ -47,6 +48,7 @@ const cache = createTypedSettingsService(
     gcsProjectId: field("backupGcsProjectId", FieldCodecs.nullable),
     gcsKeyJson: field("backupGcsKeyJson", FieldCodecs.nullable),
     slackWebhookUrl: field("backupSlackWebhookUrl", FieldCodecs.nullable),
+    notificationEmail: field("backupNotificationEmail", FieldCodecs.nullable),
   },
   { cacheTtlMs: 10_000, encryptedKeys: ["backupS3SecretKey", "backupGcsKeyJson"] }
 );

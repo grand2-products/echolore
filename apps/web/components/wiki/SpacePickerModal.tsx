@@ -10,9 +10,10 @@ interface SpacePickerModalProps {
   open: boolean;
   onClose: () => void;
   onAddSubPage: (parentId?: string, spaceId?: string) => void;
+  loading?: boolean;
 }
 
-export function SpacePickerModal({ open, onClose, onAddSubPage }: SpacePickerModalProps) {
+export function SpacePickerModal({ open, onClose, onAddSubPage, loading }: SpacePickerModalProps) {
   const t = useT();
   const { data: spacesData, isLoading } = useSpacesQuery();
   const spaces = spacesData?.spaces ?? [];
@@ -33,7 +34,7 @@ export function SpacePickerModal({ open, onClose, onAddSubPage }: SpacePickerMod
       {isLoading ? (
         <p className="text-sm text-gray-500">{t("common.status.loading")}</p>
       ) : (
-        <SpaceList spaces={spaces} onSelect={handleSelect} />
+        <SpaceList spaces={spaces} onSelect={handleSelect} disabled={loading} />
       )}
 
       <div className="mt-4 text-right">

@@ -34,7 +34,7 @@ export default function WikiListPage() {
   const getApiErrorMessage = useApiErrorMessage();
   const { number } = useFormatters();
   const { data, isLoading, error, refetch } = useWikiPagesQuery();
-  const { handleAddSubPage } = useWikiPageActions();
+  const { handleAddSubPage, isCreating } = useWikiPageActions();
   const { recentPages } = useRecentWikiPages();
   const [showSpacePicker, setShowSpacePicker] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -71,14 +71,16 @@ export default function WikiListPage() {
           open={showSpacePicker}
           onClose={() => setShowSpacePicker(false)}
           onAddSubPage={handleAddSubPage}
+          loading={isCreating}
         />
         <ImportFileModal open={showImport} onClose={() => setShowImport(false)} />
 
         <div className="mb-8 grid gap-4 md:grid-cols-4">
           <button
             type="button"
+            disabled={isCreating}
             onClick={() => setShowSpacePicker(true)}
-            className="block rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-500 hover:shadow-md"
+            className="block rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-blue-500 hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
           >
             <div className="mb-2 text-2xl">+</div>
             <h3 className="font-medium text-gray-900">{t("wiki.list.createTitle")}</h3>

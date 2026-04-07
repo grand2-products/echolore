@@ -14,17 +14,10 @@ Temporary planning artifacts. Implemented behavior belongs in `docs/`.
 
 ## Retained Files
 
-- `security-vulnerability-review.md` — 脆弱性レビュー 2026-03-30 (High 3 / Medium 10 / Low 10)
-- `meeting-data-model-refactoring.md` — ミーティング参加者トラッキング・ライフサイクル・スキーマ整合性の As-Is / To-Be
+- `ai-meeting-intervention.md` — AI Meeting Intervention (LiveKit エージェント参加・発話)
 - `aituber-motion-sota.md` — VRMA モーションクリップ生成 (Batch 4-B/4-C)
-- `backup-strategy.md` — バックアップ失敗通知のみ残
-- `google-drive-integration.md` — Google Drive 連携設計 (組織単位インデックス + クエリ時権限チェック)
-
-## Recently Completed (deleted from plan/, documented in docs/)
-
-- 会議ゲストアクセス — 全ステップ実装済み
-- パブリック配布 — 全フェーズ実装済み (install.sh, publish-release.yml, DEPLOYMENT.md)
-- AITuber Motion Batch 1-3 — compositor, layers, LookAt, VrmAnimationController
+- `backup-strategy.md` — バックアップ失敗通知 (残タスクのみ)
+- `google-drive-integration.md` — Google Drive 連携 Phase 2-3
 
 ## Docs Reference
 

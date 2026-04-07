@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { queryKeys, wikiApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
@@ -18,6 +18,8 @@ export function useWikiPageActions({ currentPageId }: UseWikiPageActionsOptions 
   const queryClient = useQueryClient();
   const getApiErrorMessage = useApiErrorMessage();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const creatingRef = useRef(false);
 
   const clearActionError = useCallback(() => setActionError(null), []);
 
@@ -41,6 +43,9 @@ export function useWikiPageActions({ currentPageId }: UseWikiPageActionsOptions 
 
   const handleAddSubPage = useCallback(
     (parentId?: string, spaceId?: string) => {
+      if (creatingRef.current) return;
+      creatingRef.current = true;
+      setIsCreating(true);
       wikiApi
         .createPage({ title: t("wiki.newPage.defaultTitle"), parentId, spaceId })
         .then(async (res) => {
@@ -49,6 +54,10 @@ export function useWikiPageActions({ currentPageId }: UseWikiPageActionsOptions 
         })
         .catch((err) => {
           setActionError(getApiErrorMessage(err, t("wiki.newPage.createError")));
+        })
+        .finally(() => {
+          creatingRef.current = false;
+          setIsCreating(false);
         });
     },
     [invalidate, router, t, getApiErrorMessage]
@@ -88,5 +97,6 @@ export function useWikiPageActions({ currentPageId }: UseWikiPageActionsOptions 
     handleAddSubPage,
     handleRenamePage,
     handleDeletePage,
+    isCreating,
   };
 }

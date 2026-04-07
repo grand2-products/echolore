@@ -10,9 +10,10 @@ interface SpaceListProps {
   selectedId?: string | null;
   onSelect: (spaceId: string) => void;
   size?: "sm" | "md";
+  disabled?: boolean;
 }
 
-export function SpaceList({ spaces, selectedId, onSelect, size = "md" }: SpaceListProps) {
+export function SpaceList({ spaces, selectedId, onSelect, size = "md", disabled }: SpaceListProps) {
   const t = useT();
   const padding = size === "sm" ? "p-3" : "p-4";
   const iconSize = size === "sm" ? "h-7 w-7 text-xs" : "h-8 w-8 text-sm";
@@ -23,12 +24,13 @@ export function SpaceList({ spaces, selectedId, onSelect, size = "md" }: SpaceLi
         <button
           key={space.id}
           type="button"
+          disabled={disabled}
           onClick={() => onSelect(space.id)}
           className={`flex w-full items-center gap-3 rounded-lg border ${padding} text-left transition ${
             selectedId === space.id
               ? "border-blue-500 bg-blue-50"
               : "border-gray-200 bg-white hover:border-blue-500 hover:shadow-sm"
-          }`}
+          } ${disabled ? "pointer-events-none opacity-50" : ""}`}
         >
           <span
             className={`flex items-center justify-center rounded-md bg-gray-100 font-medium text-gray-600 ${iconSize}`}

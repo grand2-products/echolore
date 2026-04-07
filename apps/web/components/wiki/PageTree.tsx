@@ -23,6 +23,7 @@ interface PageActionMenuProps {
   onRename?: (pageId: string, currentTitle: string) => void;
   onMoveToRoot?: (pageId: string) => void;
   onDelete?: (pageId: string) => void;
+  isCreating?: boolean;
 }
 
 function PageActionMenu({
@@ -31,6 +32,7 @@ function PageActionMenu({
   onRename,
   onMoveToRoot,
   onDelete,
+  isCreating,
 }: PageActionMenuProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -76,7 +78,8 @@ function PageActionMenu({
           {onAddSubPage && (
             <button
               type="button"
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+              disabled={isCreating}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-50"
               onClick={(e) => {
                 e.stopPropagation();
                 setOpen(false);
@@ -253,6 +256,7 @@ interface PageTreeItemProps {
   onRenameCancel?: () => void;
   onMoveToRoot?: (pageId: string) => void;
   onDelete?: (pageId: string) => void;
+  isCreating?: boolean;
 }
 
 function PageTreeItem(props: PageTreeItemProps) {
@@ -330,6 +334,7 @@ function PageTreeItem(props: PageTreeItemProps) {
             onRename={props.onRename}
             onMoveToRoot={props.onMoveToRoot}
             onDelete={props.onDelete}
+            isCreating={props.isCreating}
           />
         )}
       </div>
@@ -357,6 +362,7 @@ interface PageTreeProps {
   onAddSubPage?: (parentId: string, spaceId?: string) => void;
   onRenamePage?: (pageId: string, newTitle: string) => Promise<void> | void;
   onDeletePage?: (pageId: string) => Promise<void> | void;
+  isCreating?: boolean;
 }
 
 function flattenPageIds(nodes: PageNode[]): string[] {
@@ -394,6 +400,7 @@ export function PageTree({
   onAddSubPage,
   onRenamePage,
   onDeletePage,
+  isCreating,
 }: PageTreeProps) {
   const t = useT();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -521,6 +528,7 @@ export function PageTree({
           onRenameCancel={handleRenameCancel}
           onMoveToRoot={onReparent ? handleMoveToRoot : undefined}
           onDelete={onDeletePage ? handleDelete : undefined}
+          isCreating={isCreating}
         />
       ))}
       <ConfirmDialog

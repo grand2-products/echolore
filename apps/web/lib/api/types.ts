@@ -429,6 +429,7 @@ export interface BackupSettings {
   gcsProjectId: string | null;
   gcsKeyJson: string | null;
   slackWebhookUrl: string | null;
+  notificationEmail: string | null;
 }
 
 export interface UpdateBackupSettingsRequest {
@@ -445,6 +446,7 @@ export interface UpdateBackupSettingsRequest {
   gcsProjectId?: string | null;
   gcsKeyJson?: string | null;
   slackWebhookUrl?: string | null;
+  notificationEmail?: string | null;
 }
 
 export interface BackupEntry {

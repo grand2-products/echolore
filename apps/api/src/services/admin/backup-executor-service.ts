@@ -7,6 +7,7 @@ import {
   listBackups,
   uploadBackupStream,
 } from "../../lib/backup-storage.js";
+import { sendEmail } from "../../lib/email.js";
 import { completeJob, updateProgress, updateTargetFile } from "./backup-job-service.js";
 import type { BackupStorageConfig } from "./backup-settings-service.js";
 import { buildBackupStorageConfig, getBackupSettings } from "./backup-settings-service.js";
@@ -49,11 +50,13 @@ export async function executeBackup(): Promise<void> {
   updateTargetFile(filename);
 
   let slackWebhookUrl: string | null = null;
+  let notificationEmail: string | null = null;
 
   try {
     const settings = await getBackupSettings();
     if (!settings.provider) throw new Error("Backup provider is not configured");
     slackWebhookUrl = settings.slackWebhookUrl;
+    notificationEmail = settings.notificationEmail;
     const config = await buildBackupStorageConfig(settings);
     const databaseUrl = process.env.DATABASE_URL;
     if (!databaseUrl) throw new Error("DATABASE_URL is not set");
@@ -84,10 +87,12 @@ export async function executeBackup(): Promise<void> {
 
     completeJob("success");
     await sendSlackNotification(slackWebhookUrl, "backup", "success", filename);
+    await sendEmailNotification(notificationEmail, "backup", "success", filename);
   } catch (e) {
     const msg = (e as Error).message;
     completeJob("error", msg);
     await sendSlackNotification(slackWebhookUrl, "backup", "error", filename, msg);
+    await sendEmailNotification(notificationEmail, "backup", "error", filename, msg);
     throw e;
   }
 }
@@ -96,11 +101,13 @@ export async function executeRestore(backupName: string): Promise<void> {
   validateBackupName(backupName);
   const tmpPath = join("/tmp", backupName);
   let slackWebhookUrl: string | null = null;
+  let notificationEmail: string | null = null;
 
   try {
     const settings = await getBackupSettings();
     if (!settings.provider) throw new Error("Backup provider is not configured");
     slackWebhookUrl = settings.slackWebhookUrl;
+    notificationEmail = settings.notificationEmail;
     const config = await buildBackupStorageConfig(settings);
     const databaseUrl = process.env.DATABASE_URL;
     if (!databaseUrl) throw new Error("DATABASE_URL is not set");
@@ -131,10 +138,12 @@ export async function executeRestore(backupName: string): Promise<void> {
 
     completeJob("success");
     await sendSlackNotification(slackWebhookUrl, "restore", "success", backupName);
+    await sendEmailNotification(notificationEmail, "restore", "success", backupName);
   } catch (e) {
     const msg = (e as Error).message;
     completeJob("error", msg);
     await sendSlackNotification(slackWebhookUrl, "restore", "error", backupName, msg);
+    await sendEmailNotification(notificationEmail, "restore", "error", backupName, msg);
     throw e;
   } finally {
     rm(tmpPath, { force: true }).catch(() => {});
@@ -186,6 +195,37 @@ async function sendSlackNotification(
     }
   } catch (e) {
     console.warn("Slack notification failed (non-fatal):", (e as Error).message);
+  }
+}
+
+async function sendEmailNotification(
+  email: string | null,
+  operation: "backup" | "restore",
+  result: "success" | "error",
+  filename: string,
+  errorMessage?: string
+): Promise<void> {
+  if (!email) return;
+  try {
+    const isSuccess = result === "success";
+    const status = isSuccess ? "completed" : "failed";
+    await sendEmail(
+      {
+        to: email,
+        subject: `EchoLore ${operation} ${status}: ${filename}`,
+        text: [
+          `EchoLore ${operation} ${status}.`,
+          `Operation: ${operation}`,
+          `File: ${filename}`,
+          `Result: ${status}`,
+          ...(errorMessage ? [`Error: ${errorMessage}`] : []),
+          `Timestamp: ${new Date().toISOString()}`,
+        ].join("\n"),
+      },
+      "BACKUP_NOTIFY"
+    );
+  } catch (e) {
+    console.warn("Backup email notification failed (non-fatal):", (e as Error).message);
   }
 }
 

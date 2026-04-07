@@ -876,6 +876,7 @@ admin:
     backupRestoreFailed: "Failed to start restore"
     backupDeleteFailed: "Failed to delete backup"
     backupSlackWebhookUrl: "Slack Webhook URL (optional)"
+    backupNotificationEmail: "Notification Email (optional)"
     close: "Close"
     testing: "Testing..."
     testConnection: "Test Connection"

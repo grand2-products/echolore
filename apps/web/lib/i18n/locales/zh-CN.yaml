@@ -871,6 +871,7 @@ admin:
     backupRestoreFailed: "恢复启动失败"
     backupDeleteFailed: "备份删除失败"
     backupSlackWebhookUrl: "Slack Webhook URL（可选）"
+    backupNotificationEmail: "通知邮箱（可选）"
     close: "关闭"
     testing: "测试中..."
     testConnection: "测试连接"

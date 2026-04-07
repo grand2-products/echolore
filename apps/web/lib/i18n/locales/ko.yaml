@@ -871,6 +871,7 @@ admin:
     backupRestoreFailed: "복원 시작에 실패했습니다"
     backupDeleteFailed: "백업 삭제에 실패했습니다"
     backupSlackWebhookUrl: "Slack Webhook URL (선택)"
+    backupNotificationEmail: "알림 이메일 (선택)"
     close: "닫기"
     testing: "테스트 중..."
     testConnection: "연결 테스트"
