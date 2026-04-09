@@ -6,6 +6,7 @@ export * from "./backup-settings-service.js";
 export * from "./drive-settings-service.js";
 export * from "./email-settings-service.js";
 export * from "./gcp-credentials-service.js";
+export * from "./github-settings-service.js";
 export * from "./group-service.js";
 export * from "./llm-config-set-service.js";
 export * from "./llm-settings-service.js";

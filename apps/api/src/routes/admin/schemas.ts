@@ -157,6 +157,40 @@ export const updateDriveSettingsSchema = z.object({
     .optional(),
 });
 
+export const updateGithubSettingsSchema = z.object({
+  githubEnabled: z.boolean().optional(),
+  githubAppId: z.string().max(100).nullable().optional(),
+  githubAppPrivateKey: z.string().max(20000).nullable().optional(),
+  githubWebhookSecret: z.string().max(500).nullable().optional(),
+  syncIntervalMinutes: z.number().int().min(5).max(1440).nullable().optional(),
+  maxFileSizeBytes: z
+    .number()
+    .int()
+    .min(0)
+    .max(100 * 1024 * 1024)
+    .nullable()
+    .optional(),
+});
+
+export const createGithubRepoSchema = z.object({
+  owner: z.string().min(1).max(200),
+  name: z.string().min(1).max(200),
+  pathPrefix: z.string().max(500).default(""),
+  installationId: z.number().int(),
+  branch: z.string().max(200).default("main"),
+  accessScope: z.enum(["all_members", "admins", "groups"]).default("all_members"),
+  fileExtensions: z.array(z.string().max(20)).min(1).max(50).optional(),
+  groupIds: z.array(z.string()).optional(),
+});
+
+export const updateGithubRepoSchema = z.object({
+  pathPrefix: z.string().max(500).optional(),
+  branch: z.string().max(200).optional(),
+  accessScope: z.enum(["all_members", "admins", "groups"]).optional(),
+  fileExtensions: z.array(z.string().max(20)).min(1).max(50).optional(),
+  groupIds: z.array(z.string()).optional(),
+});
+
 export const updateGcpCredentialsSchema = z.object({
   gcpProjectId: z.string().max(200).nullable().optional(),
   gcpServiceAccountKeyJson: z.string().max(10000).nullable().optional(),

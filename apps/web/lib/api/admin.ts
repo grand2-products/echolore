@@ -27,6 +27,9 @@ import type {
   DriveSyncStatus,
   EmailSettings,
   GcpCredentials,
+  GithubRepo,
+  GithubRepoStatus,
+  GithubSettings,
   KpiOverviewResponse,
   LlmConfigSet,
   LlmSettings,
@@ -39,6 +42,8 @@ import type {
   UpdateDriveSettingsRequest,
   UpdateEmailSettingsRequest,
   UpdateGcpCredentialsRequest,
+  UpdateGithubRepoRequest,
+  UpdateGithubSettingsRequest,
   UpdateLlmConfigSetRequest,
   UpdateLlmSettingsRequest,
   UpdateSiteSettingsRequest,
@@ -307,6 +312,88 @@ export const adminApi = {
     }),
 
   getDriveSyncStatus: () => fetchApi<DriveSyncStatus>("/admin/drive-sync/status"),
+
+  // GitHub settings
+  getGithubSettings: () => fetchApi<GithubSettings>("/admin/github-settings"),
+
+  updateGithubSettings: (data: UpdateGithubSettingsRequest) =>
+    fetchApi<GithubSettings>("/admin/github-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  testGithubConnection: () =>
+    fetchApi<{ ok: boolean; message?: string; error?: string }>("/admin/github-settings/test", {
+      method: "POST",
+    }),
+
+  // GitHub repos
+  listGithubRepos: () => fetchApi<GithubRepo[]>("/admin/github/repos"),
+
+  createGithubRepo: (data: {
+    owner: string;
+    name: string;
+    pathPrefix?: string;
+    installationId: number;
+    branch?: string;
+    accessScope?: string;
+    fileExtensions?: string[];
+    groupIds?: string[];
+  }) =>
+    fetchApi<GithubRepo>("/admin/github/repos", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getGithubRepo: (id: string) =>
+    fetchApi<GithubRepo & { groupIds?: string[] }>(`/admin/github/repos/${id}`),
+
+  updateGithubRepo: (id: string, data: UpdateGithubRepoRequest) =>
+    fetchApi<GithubRepo>(`/admin/github/repos/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  deleteGithubRepo: (id: string) =>
+    fetchApi<{ ok: boolean }>(`/admin/github/repos/${id}`, {
+      method: "DELETE",
+    }),
+
+  syncGithubRepo: (id: string) =>
+    fetchApi<{ started: boolean; message: string }>(`/admin/github/repos/${id}/sync`, {
+      method: "POST",
+    }),
+
+  getGithubRepoStatus: (id: string) =>
+    fetchApi<GithubRepoStatus>(`/admin/github/repos/${id}/status`),
+
+  reindexAllGithubRepos: () =>
+    fetchApi<{ started: boolean; message: string }>("/admin/github/reindex", {
+      method: "POST",
+    }),
+
+  getGithubSyncLogs: (repoId: string) =>
+    fetchApi<
+      Array<{
+        id: string;
+        repoId: string;
+        trigger: string;
+        status: string;
+        filesProcessed: number;
+        filesAdded: number;
+        filesUpdated: number;
+        filesRemoved: number;
+        errorMessage: string | null;
+        startedAt: string;
+        finishedAt: string | null;
+        createdAt: string;
+      }>
+    >(`/admin/github/repos/${repoId}/sync-logs`),
+
+  listInstallationRepos: (installationId: number) =>
+    fetchApi<Array<{ full_name: string; default_branch: string }>>(
+      `/admin/github/installation/${installationId}/repos`
+    ),
 
   // System update
   getSystemStatus: () => fetchApi<SystemStatusResponse>("/admin/system/status"),

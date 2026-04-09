@@ -48,6 +48,11 @@ export const csrfProtection: MiddlewareHandler<AppEnv> = async (c, next) => {
     return next();
   }
 
+  // Skip CSRF check for GitHub webhook routes (use HMAC-SHA256 auth)
+  if (path.startsWith("/api/github/webhook")) {
+    return next();
+  }
+
   // Skip CSRF check for internal routes (use X-Room-AI-Worker-Secret)
   if (path.startsWith("/api/internal/") || path.startsWith("/internal/")) {
     return next();

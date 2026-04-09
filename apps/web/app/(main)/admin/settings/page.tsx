@@ -6,6 +6,7 @@ import { useSiteSettings } from "@/lib/site-settings-context";
 import { BackupSettingsSection } from "./_components/BackupSettingsSection";
 import { CoworkingVideoSection } from "./_components/CoworkingVideoSection";
 import { EmailSettingsSection } from "./_components/EmailSettingsSection";
+import { GithubSettingsSection } from "./_components/GithubSettingsSection";
 import { MeetingVideoSection } from "./_components/MeetingVideoSection";
 import { SiteIconSection } from "./_components/SiteIconSection";
 import { SiteSettingsSection } from "./_components/SiteSettingsSection";
@@ -68,6 +69,7 @@ export default function AdminSettingsPage() {
           />
           <StorageSettingsSection onTestModal={setTestModal} />
           <BackupSettingsSection onTestModal={setTestModal} />
+          <GithubSettingsSection />
         </>
       ) : (
         <div className="space-y-6">

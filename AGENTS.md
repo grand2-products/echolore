@@ -79,6 +79,13 @@
 - `apps/api/src/routes/users.ts`
 - `apps/api/src/routes/livekit.ts`
 - `apps/api/src/routes/internal-room-ai.ts`
+- `apps/api/src/routes/github-webhook.ts`
+- `apps/api/src/routes/admin/admin-github-settings.ts`
+- `apps/api/src/routes/admin/admin-github-repos.ts`
+- `apps/api/src/services/github/github-api-client.ts`
+- `apps/api/src/services/github/github-webhook-handler.ts`
+- `apps/api/src/services/github/github-sync-service.ts`
+- `apps/api/src/services/admin/github-settings-service.ts`
 - `.github/workflows/`
 - `docker-compose.yml`
 - Changes in these areas should be reviewed for trust boundary, privilege scope, and rollback impact.

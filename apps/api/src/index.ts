@@ -21,6 +21,7 @@ import { calendarRoutes } from "./routes/calendar.js";
 import { coworkingHlsRoutes } from "./routes/coworking-hls.js";
 import { egressLayoutRoutes } from "./routes/egress-layout.js";
 import { filesRoutes } from "./routes/files.js";
+import { githubWebhookRoutes } from "./routes/github-webhook.js";
 import { internalRoomAiRoutes } from "./routes/internal-room-ai.js";
 import { knowledgeSuggestionsRoutes } from "./routes/knowledge-suggestions.js";
 import { livekitRoutes } from "./routes/livekit.js";
@@ -34,6 +35,7 @@ import { wikiRoutes } from "./routes/wiki/index.js";
 import { createWikiCollabRoutes } from "./routes/wiki-collab.js";
 import { buildStorageConfig, getStorageSettings } from "./services/admin/admin-service.js";
 import { startDriveSyncScheduler } from "./services/drive/drive-sync-service.js";
+import { startGithubSyncScheduler } from "./services/github/github-sync-service.js";
 import { startKnowledgeScanLoop } from "./services/knowledge/knowledge-scan-service.js";
 import { startAutonomousAgentLoop } from "./services/meeting/autonomous-agent-service.js";
 import { shutdownCollab } from "./services/wiki/yjs-collab-service.js";
@@ -129,6 +131,7 @@ app.get("/health", (c) => c.json({ status: "ok", timestamp: new Date().toISOStri
 app.route("/api/ws", createWikiCollabRoutes(upgradeWebSocket)); // WebSocket routes before authGuard
 app.route("/internal/room-ai", internalRoomAiRoutes);
 app.route("/api/livekit/webhook", livekitWebhookRoutes);
+app.route("/api/github", githubWebhookRoutes);
 app.route("/api/auth", authRoutes);
 
 app.route("/api", siteRoutes);
@@ -235,6 +238,9 @@ startKnowledgeScanLoop();
 
 // Start periodic Drive sync scheduler
 startDriveSyncScheduler();
+
+// Start periodic GitHub sync scheduler
+startGithubSyncScheduler();
 
 // Graceful shutdown: persist all Yjs documents before exit
 const SHUTDOWN_TIMEOUT_MS = 30_000;
