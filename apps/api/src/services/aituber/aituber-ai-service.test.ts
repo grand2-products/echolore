@@ -32,8 +32,18 @@ vi.mock("./aituber-tts-service.js", () => ttsServiceMock);
 
 vi.mock("./aituber-livekit-service.js", () => livekitServiceMock);
 
-vi.mock("../../ai/llm/index.js", () => ({
-  initLlmWithSettings: initLlmWithSettingsMock,
+vi.mock("../../ai/providers/index.js", () => ({
+  defaultLlmProvider: {
+    init: initLlmWithSettingsMock,
+  },
+}));
+
+vi.mock("../wiki/vector-search-service.js", () => ({
+  searchByVector: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("../drive/drive-vector-search-service.js", () => ({
+  searchDriveAsSystem: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@langchain/core/messages", () => ({
@@ -117,7 +127,6 @@ describe("aituber-ai-service", () => {
       initLlmWithSettingsMock.mockResolvedValue({
         model: chatModelMock,
         provider: "gemini",
-        overrides: {},
       });
 
       // Create an async iterable for the stream
@@ -195,7 +204,6 @@ describe("aituber-ai-service", () => {
       initLlmWithSettingsMock.mockResolvedValue({
         model: chatModelMock,
         provider: "gemini",
-        overrides: {},
       });
 
       chatModelMock.stream.mockResolvedValue(
@@ -241,7 +249,6 @@ describe("aituber-ai-service", () => {
       initLlmWithSettingsMock.mockResolvedValue({
         model: chatModelMock,
         provider: "gemini",
-        overrides: {},
       });
 
       chatModelMock.stream.mockRejectedValue(new Error("LLM provider error"));
@@ -278,7 +285,6 @@ describe("aituber-ai-service", () => {
       initLlmWithSettingsMock.mockResolvedValue({
         model: chatModelMock,
         provider: "gemini",
-        overrides: {},
       });
 
       chatModelMock.stream.mockResolvedValue(
