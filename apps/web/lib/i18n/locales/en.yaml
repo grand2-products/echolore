@@ -955,6 +955,7 @@ admin:
     githubNoRepos: "No repositories registered. Add a repository to start indexing."
     githubSync: "Sync"
     githubDeleteRepo: "Delete"
+    githubDeleteRepoConfirm: "Delete this repository and all indexed data? This cannot be undone."
     githubReindexAll: "Reindex All"
     githubLoading: "Loading..."
     githubFetchRepos: "Fetch Repos"

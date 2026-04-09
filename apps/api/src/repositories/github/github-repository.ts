@@ -155,7 +155,6 @@ export async function deleteGithubRepo(id: string): Promise<void> {
 // ─── Github Files ──────────────────────────────────────────────────
 
 export async function upsertGithubFile(input: {
-  id?: string;
   repoId: string;
   path: string;
   name: string;
@@ -166,8 +165,8 @@ export async function upsertGithubFile(input: {
   indexStatus: string;
   indexError: string | null;
 }): Promise<string> {
-  const fileId = input.id ?? nanoid();
-  await db
+  const fileId = nanoid();
+  const result = await db
     .insertInto("github_files")
     .values({
       id: fileId,
@@ -185,8 +184,7 @@ export async function upsertGithubFile(input: {
       updatedAt: new Date(),
     })
     .onConflict((oc) =>
-      oc.column("id").doUpdateSet({
-        path: input.path,
+      oc.columns(["repoId", "path"]).doUpdateSet({
         name: input.name,
         sha: input.sha,
         plainText: input.plainText,
@@ -198,8 +196,9 @@ export async function upsertGithubFile(input: {
         updatedAt: new Date(),
       })
     )
-    .execute();
-  return fileId;
+    .returning("id")
+    .executeTakeFirstOrThrow();
+  return result.id;
 }
 
 export async function getGithubFileById(id: string): Promise<GithubFile | null> {
@@ -334,28 +333,16 @@ function mapToGithubVectorSearchResult(r: Record<string, unknown>): GithubVector
   };
 }
 
-export async function searchGithubByVectorWithAccessScope(
-  queryEmbedding: number[],
-  userRole: string,
-  limit: number,
-  modelId?: string,
-  userGroupIds?: string[]
-): Promise<GithubVectorSearchResult[]> {
-  const vectorStr = `[${queryEmbedding.join(",")}]`;
-  const groupSet = userGroupIds ? new Set(userGroupIds) : new Set<string>();
-
-  const results = await db
+/**
+ * Shared base query for GitHub vector search.
+ * Over-fetches by `overFetchMultiplier` to compensate for deduplication and access filtering.
+ */
+function buildGithubVectorQuery(vectorStr: string, fetchLimit: number, modelId?: string) {
+  return db
     .selectFrom("github_embeddings as ge")
     .innerJoin("github_files as gf", "gf.id", "ge.fileId")
     .innerJoin("github_repos as gr", "gr.id", "gf.repoId")
     .where("gf.indexStatus", "=", "indexed")
-    .where((eb) =>
-      eb.or([
-        eb("gr.accessScope", "=", "all_members"),
-        eb("gr.accessScope", "=", "groups"),
-        ...(userRole === "admin" ? [eb("gr.accessScope", "=", "admins")] : []),
-      ])
-    )
     .$if(!!modelId, (qb) => qb.where("ge.modelId", "=", modelId as string))
     .select([
       "gf.id as fileId",
@@ -370,7 +357,46 @@ export async function searchGithubByVectorWithAccessScope(
       sql<number>`1 - (ge.embedding <=> ${vectorStr}::vector)`.as("similarity"),
     ])
     .orderBy(sql`ge.embedding <=> ${vectorStr}::vector`)
-    .limit(limit * 3)
+    .limit(fetchLimit);
+}
+
+function deduplicateResults(
+  results: Array<Record<string, unknown>>,
+  limit: number,
+  filter?: (r: Record<string, unknown>) => boolean
+): GithubVectorSearchResult[] {
+  const seen = new Set<string>();
+  const deduped: GithubVectorSearchResult[] = [];
+  for (const r of results) {
+    const mapped = mapToGithubVectorSearchResult(r);
+    if (seen.has(mapped.fileId)) continue;
+    seen.add(mapped.fileId);
+    if (filter && !filter(r)) continue;
+    deduped.push(mapped);
+    if (deduped.length >= limit) break;
+  }
+  return deduped;
+}
+
+export async function searchGithubByVectorWithAccessScope(
+  queryEmbedding: number[],
+  userRole: string,
+  limit: number,
+  modelId?: string,
+  userGroupIds?: string[]
+): Promise<GithubVectorSearchResult[]> {
+  const vectorStr = `[${queryEmbedding.join(",")}]`;
+  const groupSet = userGroupIds ? new Set(userGroupIds) : new Set<string>();
+
+  // Over-fetch more aggressively to compensate for access scope filtering
+  const results = await buildGithubVectorQuery(vectorStr, limit * 5, modelId)
+    .where((eb) =>
+      eb.or([
+        eb("gr.accessScope", "=", "all_members"),
+        eb("gr.accessScope", "=", "groups"),
+        ...(userRole === "admin" ? [eb("gr.accessScope", "=", "admins")] : []),
+      ])
+    )
     .execute();
 
   const groupRepoIds =
@@ -386,24 +412,13 @@ export async function searchGithubByVectorWithAccessScope(
         )
       : new Set<string>();
 
-  const seen = new Set<string>();
-  const deduped: GithubVectorSearchResult[] = [];
-  for (const r of results) {
-    const mapped = mapToGithubVectorSearchResult(r as unknown as Record<string, unknown>);
-    if (seen.has(mapped.fileId)) continue;
-    seen.add(mapped.fileId);
-
-    const accessScope = (r as unknown as Record<string, unknown>).accessScope as string;
-    const repoId = (r as unknown as Record<string, unknown>).repoId as string;
-
-    if (accessScope === "admins" && userRole !== "admin") continue;
-    if (accessScope === "groups" && !groupRepoIds.has(repoId)) continue;
-
-    deduped.push(mapped);
-    if (deduped.length >= limit) break;
-  }
-
-  return deduped;
+  return deduplicateResults(results as unknown as Array<Record<string, unknown>>, limit, (r) => {
+    const accessScope = r.accessScope as string;
+    const repoId = r.repoId as string;
+    if (accessScope === "admins" && userRole !== "admin") return false;
+    if (accessScope === "groups" && !groupRepoIds.has(repoId)) return false;
+    return true;
+  });
 }
 
 export async function searchGithubByVector(
@@ -413,37 +428,9 @@ export async function searchGithubByVector(
 ): Promise<GithubVectorSearchResult[]> {
   const vectorStr = `[${queryEmbedding.join(",")}]`;
 
-  const results = await db
-    .selectFrom("github_embeddings as ge")
-    .innerJoin("github_files as gf", "gf.id", "ge.fileId")
-    .innerJoin("github_repos as gr", "gr.id", "gf.repoId")
-    .where("gf.indexStatus", "=", "indexed")
-    .$if(!!modelId, (qb) => qb.where("ge.modelId", "=", modelId as string))
-    .select([
-      "gf.id as fileId",
-      "gf.name as fileName",
-      "gf.path as filePath",
-      "gr.owner as repoOwner",
-      "gr.name as repoName",
-      "gr.branch as repoBranch",
-      "ge.plainText as chunkText",
-      sql<number>`1 - (ge.embedding <=> ${vectorStr}::vector)`.as("similarity"),
-    ])
-    .orderBy(sql`ge.embedding <=> ${vectorStr}::vector`)
-    .limit(limit * 3)
-    .execute();
+  const results = await buildGithubVectorQuery(vectorStr, limit * 3, modelId).execute();
 
-  const seen = new Set<string>();
-  const deduped: GithubVectorSearchResult[] = [];
-  for (const r of results) {
-    const mapped = mapToGithubVectorSearchResult(r as unknown as Record<string, unknown>);
-    if (seen.has(mapped.fileId)) continue;
-    seen.add(mapped.fileId);
-    deduped.push(mapped);
-    if (deduped.length >= limit) break;
-  }
-
-  return deduped;
+  return deduplicateResults(results as unknown as Array<Record<string, unknown>>, limit);
 }
 
 // ─── Sync Stats ──────────────────────────────────────────────────

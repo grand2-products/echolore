@@ -26,10 +26,25 @@ import {
   stripFrontmatter,
 } from "./github-text-processor.js";
 
-let syncInProgress = false;
 let schedulerTimer: ReturnType<typeof setTimeout> | null = null;
 
 const MAX_FILES_PER_CYCLE = 100;
+
+// Per-repo serialisation lock shared across all trigger sources
+// (scheduler, manual, webhook). Prevents concurrent syncs on the same repo.
+const repoSyncLocks = new Map<string, Promise<void>>();
+
+function withRepoLock(repoKey: string, fn: () => Promise<void>): Promise<void> {
+  const prev = repoSyncLocks.get(repoKey) ?? Promise.resolve();
+  const next = prev.then(fn, fn).finally(() => {
+    // Clean up if this is still the latest promise in the chain
+    if (repoSyncLocks.get(repoKey) === next) {
+      repoSyncLocks.delete(repoKey);
+    }
+  });
+  repoSyncLocks.set(repoKey, next);
+  return next;
+}
 
 export function startGithubSyncScheduler(): void {
   if (schedulerTimer) return;
@@ -72,7 +87,8 @@ export async function triggerGithubRepoSync(repoId: string): Promise<{
   const repo = await getGithubRepoById(repoId);
   if (!repo) return { started: false, message: "Repository not found" };
 
-  void syncRepo(repo, false, "manual")
+  const repoKey = `${repo.owner}/${repo.name}`;
+  void withRepoLock(repoKey, () => syncRepo(repo, false, "manual"))
     .then(() => console.log(JSON.stringify({ event: "github.sync.manual.done", repoId })))
     .catch((err) =>
       console.error(
@@ -95,9 +111,6 @@ export async function triggerAllReposReindex(): Promise<{
 }
 
 async function syncAllRepos(forceReindex = false): Promise<void> {
-  if (syncInProgress) return;
-  syncInProgress = true;
-
   try {
     const settings = await getResolvedGithubSettings();
     if (!settings.enabled) return;
@@ -110,8 +123,9 @@ async function syncAllRepos(forceReindex = false): Promise<void> {
 
     const repos = await listGithubRepos();
     for (const repo of repos) {
+      const repoKey = `${repo.owner}/${repo.name}`;
       try {
-        await syncRepo(repo, forceReindex, "scheduled");
+        await withRepoLock(repoKey, () => syncRepo(repo, forceReindex, "scheduled"));
       } catch (err) {
         console.error(
           JSON.stringify({
@@ -125,8 +139,6 @@ async function syncAllRepos(forceReindex = false): Promise<void> {
     }
   } catch (err) {
     console.error(JSON.stringify({ event: "github.sync.fatal_error", error: String(err) }));
-  } finally {
-    syncInProgress = false;
   }
 }
 
@@ -233,19 +245,22 @@ async function syncFileFromGitHub(
   const data = await resp.json();
 
   if (Array.isArray(data) || data.type !== "file") return;
+  if (!data.content || (data.encoding && data.encoding !== "base64")) return;
 
   const rawText = Buffer.from(data.content, "base64").toString("utf-8");
 
-  if (Buffer.byteLength(rawText, "utf-8") > resolved.maxFileSizeBytes) {
-    const existing = await getGithubFileByPath(repo.id, path);
+  const fileName = path.split("/").pop() ?? path;
+  const fileSha = data.sha ?? sha ?? "";
+  const fileSize = Buffer.byteLength(rawText, "utf-8");
+
+  if (fileSize > resolved.maxFileSizeBytes) {
     await upsertGithubFile({
-      id: existing?.id,
       repoId: repo.id,
       path,
-      name: path.split("/").pop() ?? path,
-      sha: data.sha ?? sha ?? "",
+      name: fileName,
+      sha: fileSha,
       plainText: null,
-      size: Buffer.byteLength(rawText, "utf-8"),
+      size: fileSize,
       lastModifiedAt: null,
       indexStatus: "skipped",
       indexError: "File too large",
@@ -287,15 +302,13 @@ async function syncFileFromGitHub(
   }
 
   if (embeddings.length === 0) {
-    const existing = await getGithubFileByPath(repo.id, path);
     await upsertGithubFile({
-      id: existing?.id,
       repoId: repo.id,
       path,
-      name: path.split("/").pop() ?? path,
-      sha: data.sha ?? sha ?? "",
+      name: fileName,
+      sha: fileSha,
       plainText: text,
-      size: Buffer.byteLength(rawText, "utf-8"),
+      size: fileSize,
       lastModifiedAt: null,
       indexStatus: "skipped",
       indexError: "Embedding generation failed",
@@ -304,13 +317,12 @@ async function syncFileFromGitHub(
   }
 
   const fileId = await upsertGithubFile({
-    id: (await getGithubFileByPath(repo.id, path))?.id,
     repoId: repo.id,
     path,
-    name: path.split("/").pop() ?? path,
-    sha: data.sha ?? sha ?? "",
+    name: fileName,
+    sha: fileSha,
     plainText: text,
-    size: Buffer.byteLength(rawText, "utf-8"),
+    size: fileSize,
     lastModifiedAt: null,
     indexStatus: "indexed",
     indexError: null,
@@ -413,22 +425,7 @@ async function triggerGithubPushSync(payload: PushEventPayload): Promise<void> {
   }
 }
 
-const repoSyncLocks = new Map<string, Promise<void>>();
-
 export async function triggerGithubPushSyncSerialized(payload: PushEventPayload): Promise<void> {
   const repoKey = payload.repository.full_name;
-  const prev = repoSyncLocks.get(repoKey) ?? Promise.resolve();
-  const next = prev
-    .then(() => triggerGithubPushSync(payload))
-    .catch((err) => {
-      console.log(
-        JSON.stringify({
-          event: "github.webhook.sync_error",
-          repo: repoKey,
-          error: String(err),
-        })
-      );
-    });
-  repoSyncLocks.set(repoKey, next);
-  await next;
+  await withRepoLock(repoKey, () => triggerGithubPushSync(payload));
 }

@@ -195,6 +195,7 @@ export function GithubSettingsSection() {
 
   const handleDeleteRepo = useCallback(
     async (id: string) => {
+      if (!window.confirm(t("admin.settings.githubDeleteRepoConfirm"))) return;
       try {
         await adminApi.deleteGithubRepo(id);
         await loadRepos();
@@ -202,7 +203,7 @@ export function GithubSettingsSection() {
         setError(err instanceof Error ? err.message : "Failed to delete repository");
       }
     },
-    [loadRepos, setError]
+    [loadRepos, setError, t]
   );
 
   const handleSyncRepo = useCallback(

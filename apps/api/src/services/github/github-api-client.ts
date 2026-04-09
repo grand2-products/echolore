@@ -70,6 +70,7 @@ export async function getInstallationToken(creds: AppCredentials): Promise<strin
 }
 
 const MAX_RATE_LIMIT_RETRIES = 3;
+const MAX_RATE_LIMIT_WAIT_MS = 120_000; // 2 minutes
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -86,7 +87,7 @@ export async function fetchWithRateLimit(
   const remaining = parseInt(resp.headers.get("X-RateLimit-Remaining") ?? "999", 10);
   if (remaining <= 100) {
     const resetAt = parseInt(resp.headers.get("X-RateLimit-Reset") ?? "0", 10) * 1000;
-    const waitMs = Math.max(resetAt - Date.now(), 0);
+    const waitMs = Math.min(Math.max(resetAt - Date.now(), 0), MAX_RATE_LIMIT_WAIT_MS);
     console.log(
       JSON.stringify({ event: "github.ratelimit.approaching", installationId, remaining, waitMs })
     );
@@ -94,6 +95,9 @@ export async function fetchWithRateLimit(
   }
 
   if (resp.status === 403 && resp.headers.get("X-RateLimit-Remaining") === "0") {
+    // Consume the response body to prevent connection leaks
+    await resp.text().catch(() => {});
+
     if (retryCount >= MAX_RATE_LIMIT_RETRIES) {
       console.log(
         JSON.stringify({ event: "github.ratelimit.max_retries", installationId, retryCount })
@@ -101,7 +105,7 @@ export async function fetchWithRateLimit(
       return resp;
     }
     const resetAt = parseInt(resp.headers.get("X-RateLimit-Reset") ?? "0", 10) * 1000;
-    const waitMs = Math.max(resetAt - Date.now(), 60_000);
+    const waitMs = Math.min(Math.max(resetAt - Date.now(), 60_000), MAX_RATE_LIMIT_WAIT_MS);
     await sleep(waitMs);
     return fetchWithRateLimit(url, options, installationId, retryCount + 1);
   }

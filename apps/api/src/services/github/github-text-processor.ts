@@ -56,8 +56,6 @@ export function isTargetFile(path: string, prefix: string, extensions?: string[]
   return true;
 }
 
-export { isTargetFile as isTargetMarkdown };
-
 export function isCodeFile(path: string): boolean {
   const ext = path.split(".").pop()?.toLowerCase();
   if (!ext) return false;
