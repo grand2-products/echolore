@@ -45,21 +45,31 @@ githubWebhookRoutes.post("/webhook", async (c) => {
     return c.json({ error: "Invalid JSON body" }, 400);
   }
 
+  const logWebhookError = (err: unknown) =>
+    console.error(
+      JSON.stringify({
+        event: "github.webhook.handler_error",
+        deliveryId,
+        githubEvent: event,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+
   switch (event) {
     case "push":
       void triggerGithubPushSyncSerialized(
         payload as unknown as Parameters<typeof triggerGithubPushSyncSerialized>[0]
-      );
+      ).catch(logWebhookError);
       break;
     case "installation":
       void handleInstallationEvent(
         payload as unknown as Parameters<typeof handleInstallationEvent>[0]
-      );
+      ).catch(logWebhookError);
       break;
     case "installation_repositories":
       void handleInstallationReposEvent(
         payload as unknown as Parameters<typeof handleInstallationReposEvent>[0]
-      );
+      ).catch(logWebhookError);
       break;
     case "ping":
       return c.json({ msg: "pong" });

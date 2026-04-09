@@ -36,12 +36,16 @@ const repoSyncLocks = new Map<string, Promise<void>>();
 
 function withRepoLock(repoKey: string, fn: () => Promise<void>): Promise<void> {
   const prev = repoSyncLocks.get(repoKey) ?? Promise.resolve();
-  const next = prev.then(fn, fn).finally(() => {
-    // Clean up if this is still the latest promise in the chain
-    if (repoSyncLocks.get(repoKey) === next) {
-      repoSyncLocks.delete(repoKey);
-    }
-  });
+  // Always run fn after prev settles (regardless of prev's success/failure)
+  // so queued syncs are never blocked by a prior failure.
+  const next = prev
+    .catch(() => {})
+    .then(() => fn())
+    .finally(() => {
+      if (repoSyncLocks.get(repoKey) === next) {
+        repoSyncLocks.delete(repoKey);
+      }
+    });
   repoSyncLocks.set(repoKey, next);
   return next;
 }
@@ -168,6 +172,17 @@ async function syncRepo(
 
     if (!treeData.tree) {
       throw new Error(`Failed to fetch tree: ${treeData.message ?? "unknown error"}`);
+    }
+
+    if (treeData.truncated) {
+      console.warn(
+        JSON.stringify({
+          event: "github.sync.tree_truncated",
+          repoId: repo.id,
+          treeSize: treeData.tree.length,
+          message: "Repository tree was truncated by GitHub API; some files may be missed",
+        })
+      );
     }
 
     const extensions = repo.fileExtensions as string[] | undefined;

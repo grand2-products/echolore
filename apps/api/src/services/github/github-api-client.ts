@@ -95,15 +95,15 @@ export async function fetchWithRateLimit(
   }
 
   if (resp.status === 403 && resp.headers.get("X-RateLimit-Remaining") === "0") {
-    // Consume the response body to prevent connection leaks
-    await resp.text().catch(() => {});
-
     if (retryCount >= MAX_RATE_LIMIT_RETRIES) {
       console.log(
         JSON.stringify({ event: "github.ratelimit.max_retries", installationId, retryCount })
       );
+      // Return the unconsumed response so callers can still read the body
       return resp;
     }
+    // Consume the response body before retrying to prevent connection leaks
+    await resp.text().catch(() => {});
     const resetAt = parseInt(resp.headers.get("X-RateLimit-Reset") ?? "0", 10) * 1000;
     const waitMs = Math.min(Math.max(resetAt - Date.now(), 60_000), MAX_RATE_LIMIT_WAIT_MS);
     await sleep(waitMs);

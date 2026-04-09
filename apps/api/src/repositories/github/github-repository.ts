@@ -249,13 +249,12 @@ export async function deleteGithubFile(repoId: string, path: string): Promise<vo
 }
 
 export async function pruneRemovedFiles(repoId: string, seenPaths: Set<string>): Promise<number> {
-  if (seenPaths.size === 0) return 0;
   const rows = await db
     .selectFrom("github_files")
     .select(["id", "path"])
     .where("repoId", "=", repoId)
     .execute();
-  const toDelete = rows.filter((r) => !seenPaths.has(r.path));
+  const toDelete = seenPaths.size === 0 ? rows : rows.filter((r) => !seenPaths.has(r.path));
   if (toDelete.length === 0) return 0;
   await db
     .deleteFrom("github_files")
