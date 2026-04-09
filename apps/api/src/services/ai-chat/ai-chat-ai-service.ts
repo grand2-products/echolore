@@ -15,6 +15,7 @@ import {
   type DriveToolResult,
 } from "../../ai/tools/ai-chat-drive-tools.js";
 import {
+  buildGithubLink,
   createAiChatGithubReadTool,
   createAiChatGithubSearchTool,
   type GithubToolResult,
@@ -268,7 +269,7 @@ async function invokeAgent(
       source: "wiki" as const,
     })),
     ...driveRagResults.map((r) => ({
-      pageId: r.fileId,
+      pageId: `drive:${r.fileId}`,
       pageTitle: r.fileName,
       snippet: r.chunkText.slice(0, 200),
       driveFileId: r.fileId,
@@ -277,7 +278,7 @@ async function invokeAgent(
       source: "drive" as const,
     })),
     ...githubRagResults.map((r) => ({
-      pageId: r.fileId,
+      pageId: `github:${r.fileId}`,
       pageTitle: r.fileName,
       snippet: r.chunkText.slice(0, 200),
       githubFileId: r.fileId,
@@ -286,7 +287,7 @@ async function invokeAgent(
       githubRepoName: r.repoName,
       githubRepoBranch: r.repoBranch,
       githubFilePath: r.filePath,
-      githubLink: `https://github.com/${r.repoOwner}/${r.repoName}/blob/${r.repoBranch}/${r.filePath}`,
+      githubLink: buildGithubLink(r.repoOwner, r.repoName, r.repoBranch, r.filePath),
       source: "github" as const,
     })),
   ];

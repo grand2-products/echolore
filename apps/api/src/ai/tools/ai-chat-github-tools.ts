@@ -7,6 +7,19 @@ import {
 } from "../../services/github/github-vector-search-service.js";
 import { escapeXmlTags } from "../sanitize-prompt-input.js";
 
+export function buildGithubLink(
+  owner: string,
+  name: string,
+  branch: string,
+  filePath: string
+): string {
+  const encodedPath = filePath
+    .split("/")
+    .map((s) => encodeURIComponent(s))
+    .join("/");
+  return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/blob/${encodeURIComponent(branch)}/${encodedPath}`;
+}
+
 export interface GithubToolResult {
   githubFileId: string;
   githubFileName: string;
@@ -38,7 +51,7 @@ export function createAiChatGithubSearchTool(user: SessionUser) {
       const output: string[] = [];
       for (const r of results) {
         const snippet = escapeXmlTags(r.chunkText.slice(0, 200));
-        const link = `https://github.com/${r.repoOwner}/${r.repoName}/blob/${r.repoBranch}/${r.filePath}`;
+        const link = buildGithubLink(r.repoOwner, r.repoName, r.repoBranch, r.filePath);
         referencedFiles.push({
           githubFileId: r.fileId,
           githubFileName: r.fileName,
@@ -66,7 +79,7 @@ export function createAiChatGithubReadTool(user: SessionUser) {
 
   const githubReadTool = new DynamicStructuredTool({
     name: "github_read",
-    description: "Read the full content of an indexed GitHub file.",
+    description: "Read the content of an indexed GitHub file (up to 8000 characters).",
     schema: z.object({
       fileId: z.string().describe("GitHub file ID to read"),
     }),
@@ -74,7 +87,12 @@ export function createAiChatGithubReadTool(user: SessionUser) {
       const result = await readGithubFileText(fileId, user);
       if (!result) return "File not found or you do not have permission to read it.";
 
-      const link = `https://github.com/${result.repoOwner}/${result.repoName}/blob/${result.repoBranch}/${result.filePath}`;
+      const link = buildGithubLink(
+        result.repoOwner,
+        result.repoName,
+        result.repoBranch,
+        result.filePath
+      );
       referencedFiles.push({
         githubFileId: result.fileId,
         githubFileName: result.fileName,

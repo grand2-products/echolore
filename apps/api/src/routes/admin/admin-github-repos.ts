@@ -100,6 +100,8 @@ adminGithubReposRoutes.delete(
   withErrorHandler("GITHUB_REPO_DELETE_FAILED", "Failed to delete GitHub repo"),
   async (c) => {
     const id = c.req.param("id");
+    const repo = await getGithubRepoById(id);
+    if (!repo) return c.json({ error: "Not found" }, 404);
     await deleteGithubRepo(id);
     return c.json({ ok: true });
   }
