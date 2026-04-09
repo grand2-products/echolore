@@ -9,6 +9,7 @@ import {
   listGithubRepos,
   pruneRemovedFiles,
   replaceGithubEmbeddings,
+  updateGithubFileIndexStatus,
   updateRepoStats,
   updateRepoSyncStatus,
   upsertGithubFile,
@@ -331,6 +332,9 @@ async function syncFileFromGitHub(
     return;
   }
 
+  // Write file record as "pending" first, then update to "indexed" after embeddings
+  // are committed. This avoids an inconsistent state if the process crashes between
+  // the file upsert and the embedding replace.
   const fileId = await upsertGithubFile({
     repoId: repo.id,
     path,
@@ -339,11 +343,12 @@ async function syncFileFromGitHub(
     plainText: text,
     size: fileSize,
     lastModifiedAt: null,
-    indexStatus: "indexed",
+    indexStatus: "pending",
     indexError: null,
   });
 
   await replaceGithubEmbeddings(fileId, embeddings);
+  await updateGithubFileIndexStatus(fileId, "indexed");
 }
 
 // ─── Webhook Push Sync ─────────────────────────────────────────────

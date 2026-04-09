@@ -45,6 +45,9 @@ adminGithubReposRoutes.post(
   async (c) => {
     const data = c.req.valid("json");
     const { groupIds, ...repoData } = data;
+    if (repoData.accessScope === "groups" && (!groupIds || groupIds.length === 0)) {
+      return c.json({ error: "groupIds required when accessScope is 'groups'" }, 400);
+    }
     const repo = await createGithubRepo(repoData);
     if (groupIds && groupIds.length > 0) {
       await replaceRepoPermissions(repo.id, groupIds);
@@ -75,6 +78,14 @@ adminGithubReposRoutes.put(
     const repo = await getGithubRepoById(id);
     if (!repo) return c.json({ error: "Not found" }, 404);
     const { groupIds, ...repoData } = data;
+    // Prevent setting accessScope to "groups" without any group IDs
+    const finalScope = repoData.accessScope ?? repo.accessScope;
+    if (finalScope === "groups") {
+      const finalGroupIds = groupIds ?? (await getRepoGroupIds(id));
+      if (finalGroupIds.length === 0) {
+        return c.json({ error: "groupIds required when accessScope is 'groups'" }, 400);
+      }
+    }
     await updateGithubRepo(id, repoData);
     if (groupIds !== undefined) {
       await replaceRepoPermissions(id, groupIds);
