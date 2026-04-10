@@ -229,6 +229,7 @@ async function syncRepo(
       filesRemoved: removedCount,
     });
   } catch (err) {
+    await updateRepoSyncStatus(repo.id, "error", String(err));
     await finishSyncLog(logId, "error", {
       errorMessage: String(err),
     });

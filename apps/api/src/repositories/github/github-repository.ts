@@ -165,11 +165,13 @@ export async function upsertGithubFile(input: {
   indexStatus: string;
   indexError: string | null;
 }): Promise<string> {
-  const fileId = nanoid();
-  const result = await db
+  const now = new Date();
+  const newLastIndexedAt = input.indexStatus === "indexed" ? now : null;
+
+  await db
     .insertInto("github_files")
     .values({
-      id: fileId,
+      id: nanoid(),
       repoId: input.repoId,
       path: input.path,
       name: input.name,
@@ -177,11 +179,11 @@ export async function upsertGithubFile(input: {
       plainText: input.plainText,
       size: input.size,
       lastModifiedAt: input.lastModifiedAt,
-      lastIndexedAt: input.indexStatus === "indexed" ? new Date() : null,
+      lastIndexedAt: newLastIndexedAt,
       indexStatus: input.indexStatus,
       indexError: input.indexError,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
     })
     .onConflict((oc) =>
       oc.columns(["repoId", "path"]).doUpdateSet({
@@ -190,15 +192,22 @@ export async function upsertGithubFile(input: {
         plainText: input.plainText,
         size: input.size,
         lastModifiedAt: input.lastModifiedAt,
-        lastIndexedAt: input.indexStatus === "indexed" ? new Date() : undefined,
+        lastIndexedAt: newLastIndexedAt,
         indexStatus: input.indexStatus,
         indexError: input.indexError,
-        updatedAt: new Date(),
+        updatedAt: now,
       })
     )
-    .returning("id")
+    .execute();
+
+  // Retrieve the canonical file ID (works for both insert and conflict paths)
+  const row = await db
+    .selectFrom("github_files")
+    .select("id")
+    .where("repoId", "=", input.repoId)
+    .where("path", "=", input.path)
     .executeTakeFirstOrThrow();
-  return result.id;
+  return row.id;
 }
 
 export async function getGithubFileById(id: string): Promise<GithubFile | null> {
