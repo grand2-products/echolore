@@ -501,6 +501,14 @@ export interface DriveSyncStatus {
   files: { total: number; indexed: number; pending: number; error: number; skipped: number };
 }
 
+export type GithubSettings = import("@echolore/shared/contracts").GithubSettingsDto;
+export type UpdateGithubSettingsRequest =
+  import("@echolore/shared/contracts").UpdateGithubSettingsRequest;
+export type GithubRepo = import("@echolore/shared/contracts").GithubRepoDto;
+export type CreateGithubRepoRequest = import("@echolore/shared/contracts").CreateGithubRepoRequest;
+export type UpdateGithubRepoRequest = import("@echolore/shared/contracts").UpdateGithubRepoRequest;
+export type GithubRepoStatus = import("@echolore/shared/contracts").GithubRepoStatusDto;
+
 export type UserInvitation = UserInvitationDto;
 
 export type CreateAdminGroupRequest = import("@echolore/shared/contracts").CreateAdminGroupRequest;

@@ -22,7 +22,15 @@ export interface AiChatToolResult {
   driveFileId?: string;
   driveFileName?: string;
   driveLink?: string;
-  source?: "wiki" | "drive";
+  // GitHub-specific (present when source === "github")
+  githubFileId?: string;
+  githubFileName?: string;
+  githubRepoOwner?: string;
+  githubRepoName?: string;
+  githubRepoBranch?: string;
+  githubFilePath?: string;
+  githubLink?: string;
+  source?: "wiki" | "drive" | "github";
 }
 
 export function createAiChatSearchTool(user: SessionUser) {

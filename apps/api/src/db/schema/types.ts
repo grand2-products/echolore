@@ -154,3 +154,15 @@ export type DriveEmbedding = Selectable<Database["drive_embeddings"]>;
 export type NewDriveEmbedding = Insertable<Database["drive_embeddings"]>;
 export type DriveFilePermission = Selectable<Database["drive_file_permissions"]>;
 export type NewDriveFilePermission = Insertable<Database["drive_file_permissions"]>;
+
+// ─── GitHub ─────────────────────────────────────────────────────
+export type GithubRepo = Selectable<Database["github_repos"]>;
+export type NewGithubRepo = Insertable<Database["github_repos"]>;
+export type GithubFile = Selectable<Database["github_files"]>;
+export type NewGithubFile = Insertable<Database["github_files"]>;
+export type GithubEmbedding = Selectable<Database["github_embeddings"]>;
+export type NewGithubEmbedding = Insertable<Database["github_embeddings"]>;
+export type GithubRepoPermission = Selectable<Database["github_repo_permissions"]>;
+export type NewGithubRepoPermission = Insertable<Database["github_repo_permissions"]>;
+export type GithubSyncLog = Selectable<Database["github_sync_logs"]>;
+export type NewGithubSyncLog = Insertable<Database["github_sync_logs"]>;

@@ -410,7 +410,14 @@ export interface AiChatCitationDto {
   driveFileId?: string;
   driveFileName?: string;
   driveLink?: string;
-  source?: "wiki" | "drive";
+  githubFileId?: string;
+  githubFileName?: string;
+  githubRepoOwner?: string;
+  githubRepoName?: string;
+  githubRepoBranch?: string;
+  githubFilePath?: string;
+  githubLink?: string;
+  source?: "wiki" | "drive" | "github";
 }
 
 export interface AiChatConversationDto {
@@ -927,4 +934,90 @@ export interface UpdateProgressResponse {
   steps: UpdateStepDto[];
   currentStep: number;
   error?: string;
+}
+
+// ─── GitHub Settings DTOs ──────────────────────────────────────────
+
+export interface GithubSettingsDto {
+  githubEnabled: boolean;
+  githubAppId: string | null;
+  githubAppPrivateKey: string | null;
+  githubWebhookSecret: string | null;
+  syncIntervalMinutes: number | null;
+  maxFileSizeBytes: number | null;
+}
+
+export interface UpdateGithubSettingsRequest {
+  githubEnabled?: boolean;
+  githubAppId?: string | null;
+  githubAppPrivateKey?: string | null;
+  githubWebhookSecret?: string | null;
+  syncIntervalMinutes?: number | null;
+  maxFileSizeBytes?: number | null;
+}
+
+export interface GithubRepoDto {
+  id: string;
+  owner: string;
+  name: string;
+  pathPrefix: string;
+  installationId: number;
+  branch: string;
+  accessScope: string;
+  fileExtensions: string[];
+  lastSyncAt: string | null;
+  syncStatus: string;
+  syncError: string | null;
+  fileCount: number;
+  createdAt: string;
+  updatedAt: string;
+  groupIds?: string[];
+  stats?: GithubRepoStatsDto;
+}
+
+export interface GithubRepoStatsDto {
+  total: number;
+  indexed: number;
+  pending: number;
+  error: number;
+  skipped: number;
+}
+
+export interface CreateGithubRepoRequest {
+  owner: string;
+  name: string;
+  pathPrefix?: string;
+  installationId: number;
+  branch?: string;
+  accessScope?: string;
+  fileExtensions?: string[];
+  groupIds?: string[];
+}
+
+export interface UpdateGithubRepoRequest {
+  pathPrefix?: string;
+  branch?: string;
+  accessScope?: string;
+  fileExtensions?: string[];
+  groupIds?: string[];
+}
+
+export interface GithubRepoStatusDto {
+  repo: GithubRepoDto;
+  stats: GithubRepoStatsDto;
+}
+
+export interface GithubSyncLogDto {
+  id: string;
+  repoId: string;
+  trigger: string;
+  status: string;
+  filesProcessed: number;
+  filesAdded: number;
+  filesUpdated: number;
+  filesRemoved: number;
+  errorMessage: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  createdAt: string;
 }

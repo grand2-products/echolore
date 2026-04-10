@@ -17,7 +17,15 @@ export interface CitationJson {
   driveFileId?: string;
   driveFileName?: string;
   driveLink?: string;
-  source?: "wiki" | "drive";
+  // GitHub-specific fields (present when source === "github")
+  githubFileId?: string;
+  githubFileName?: string;
+  githubRepoOwner?: string;
+  githubRepoName?: string;
+  githubRepoBranch?: string;
+  githubFilePath?: string;
+  githubLink?: string;
+  source?: "wiki" | "drive" | "github";
 }
 
 // Tool step type used in ai_chat_messages
@@ -452,6 +460,72 @@ export interface KnowledgeSuggestionsTable {
   updatedAt: Generated<Date>;
 }
 
+export interface GithubReposTable {
+  id: string;
+  owner: string;
+  name: string;
+  pathPrefix: string;
+  installationId: number;
+  branch: string;
+  accessScope: Generated<string>;
+  fileExtensions: Generated<string[]>;
+  lastSyncAt: Date | null;
+  syncStatus: Generated<string>;
+  syncError: string | null;
+  fileCount: Generated<number>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface GithubFilesTable {
+  id: string;
+  repoId: string;
+  path: string;
+  name: string;
+  sha: string;
+  plainText: string | null;
+  size: number | null;
+  lastModifiedAt: Date | null;
+  lastIndexedAt: Date | null;
+  indexStatus: Generated<string>;
+  indexError: string | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface GithubEmbeddingsTable {
+  id: string;
+  fileId: string;
+  chunkIndex: Generated<number>;
+  plainText: string;
+  embedding: string;
+  modelId: Generated<string>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface GithubRepoPermissionsTable {
+  id: string;
+  repoId: string;
+  groupId: string;
+  createdAt: Generated<Date>;
+}
+
+export interface GithubSyncLogsTable {
+  id: string;
+  repoId: string;
+  trigger: string;
+  status: string;
+  filesProcessed: Generated<number>;
+  filesAdded: Generated<number>;
+  filesUpdated: Generated<number>;
+  filesRemoved: Generated<number>;
+  errorMessage: string | null;
+  startedAt: Date;
+  finishedAt: Date | null;
+  createdAt: Generated<Date>;
+}
+
 export interface DriveFilesTable {
   id: string;
   name: string;
@@ -556,6 +630,11 @@ export interface Database {
   drive_files: DriveFilesTable;
   drive_embeddings: DriveEmbeddingsTable;
   drive_file_permissions: DriveFilePermissionsTable;
+  github_repos: GithubReposTable;
+  github_files: GithubFilesTable;
+  github_embeddings: GithubEmbeddingsTable;
+  github_repo_permissions: GithubRepoPermissionsTable;
+  github_sync_logs: GithubSyncLogsTable;
   llm_config_sets: LlmConfigSetsTable;
   site_settings: SiteSettingsTable;
 }

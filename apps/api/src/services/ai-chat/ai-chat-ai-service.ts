@@ -15,6 +15,12 @@ import {
   type DriveToolResult,
 } from "../../ai/tools/ai-chat-drive-tools.js";
 import {
+  buildGithubLink,
+  createAiChatGithubReadTool,
+  createAiChatGithubSearchTool,
+  type GithubToolResult,
+} from "../../ai/tools/ai-chat-github-tools.js";
+import {
   type AiChatToolResult,
   createAiChatListPagesTool,
   createAiChatReadPageTool,
@@ -29,7 +35,9 @@ import {
   updateConversation,
 } from "../../repositories/ai-chat/ai-chat-repository.js";
 import { getResolvedDriveSettings } from "../admin/drive-settings-service.js";
+import { getResolvedGithubSettings } from "../admin/github-settings-service.js";
 import { searchDriveForUser } from "../drive/drive-vector-search-service.js";
+import { searchGithubForUser } from "../github/github-vector-search-service.js";
 import {
   type SearchMode,
   searchVisibleChunks,
@@ -185,6 +193,8 @@ async function invokeAgent(
   let searchMode: SearchMode = "vector";
   let driveRagResults: import("../drive/drive-vector-search-service.js").DriveVectorSearchResult[] =
     [];
+  let githubRagResults: import("../github/github-vector-search-service.js").GithubVectorSearchResult[] =
+    [];
 
   const wikiSearchPromise = searchVisibleChunks(user, userQuery, 5)
     .then((r) => {
@@ -209,7 +219,13 @@ async function invokeAgent(
       // Drive not available or not configured — silently skip
     });
 
-  await Promise.all([wikiSearchPromise, driveSearchPromise]);
+  const githubSearchPromise = searchGithubForUser(user, userQuery, 3)
+    .then((r) => {
+      githubRagResults = r;
+    })
+    .catch(() => {});
+
+  await Promise.all([wikiSearchPromise, driveSearchPromise, githubSearchPromise]);
   const searchDurationMs = Date.now() - searchStart;
 
   console.log(
@@ -219,6 +235,7 @@ async function invokeAgent(
       searchMode,
       wikiResultCount: ragResults.length,
       driveResultCount: driveRagResults.length,
+      githubResultCount: githubRagResults.length,
       topSimilarity: ragResults[0]?.similarity ?? 0,
       durationMs: searchDurationMs,
     })
@@ -233,11 +250,15 @@ async function invokeAgent(
     (r, i) =>
       `### Drive Source ${i + 1}: ${escapeXmlTags(r.fileName)} (id: ${r.fileId})\n${escapeXmlTags(r.chunkText)}`
   );
-  const allContextParts = [...wikiContextParts, ...driveContextParts];
+  const githubContextParts = githubRagResults.map(
+    (r, i) =>
+      `### GitHub Source ${i + 1}: ${r.filePath} (${r.repoOwner}/${r.repoName}@${r.repoBranch})\n${escapeXmlTags(r.chunkText)}`
+  );
+  const allContextParts = [...wikiContextParts, ...driveContextParts, ...githubContextParts];
   const ragContext =
     allContextParts.length > 0
       ? allContextParts.join("\n\n")
-      : "No relevant content was found for this query in either Wiki or Drive.";
+      : "No relevant content was found for this query in Wiki, Drive, or GitHub docs.";
 
   // Step 3: RAG citations from both searches
   const ragCitations: AiChatToolResult[] = [
@@ -248,13 +269,26 @@ async function invokeAgent(
       source: "wiki" as const,
     })),
     ...driveRagResults.map((r) => ({
-      pageId: r.fileId,
+      pageId: `drive:${r.fileId}`,
       pageTitle: r.fileName,
       snippet: r.chunkText.slice(0, 200),
       driveFileId: r.fileId,
       driveFileName: r.fileName,
       driveLink: r.webViewLink ?? undefined,
       source: "drive" as const,
+    })),
+    ...githubRagResults.map((r) => ({
+      pageId: `github:${r.fileId}`,
+      pageTitle: r.fileName,
+      snippet: r.chunkText.slice(0, 200),
+      githubFileId: r.fileId,
+      githubFileName: r.fileName,
+      githubRepoOwner: r.repoOwner,
+      githubRepoName: r.repoName,
+      githubRepoBranch: r.repoBranch,
+      githubFilePath: r.filePath,
+      githubLink: buildGithubLink(r.repoOwner, r.repoName, r.repoBranch, r.filePath),
+      source: "github" as const,
     })),
   ];
 
@@ -279,6 +313,21 @@ async function invokeAgent(
     }
   } catch {
     // Drive not configured — continue without Drive tools
+  }
+
+  let githubSearchRefs: GithubToolResult[] = [];
+  let githubReadRefs: GithubToolResult[] = [];
+  try {
+    const githubSettings = await getResolvedGithubSettings();
+    if (githubSettings.enabled) {
+      const { githubSearchTool, referencedFiles: searchFiles } = createAiChatGithubSearchTool(user);
+      const { githubReadTool, referencedFiles: readFiles } = createAiChatGithubReadTool(user);
+      allTools.push(githubSearchTool, githubReadTool);
+      githubSearchRefs = searchFiles;
+      githubReadRefs = readFiles;
+    }
+  } catch {
+    // GitHub not configured — continue without GitHub tools
   }
 
   try {
@@ -366,9 +415,32 @@ async function invokeAgent(
         source: "drive" as const,
       }));
 
+    // Convert GitHub refs to citation format
+    const githubCitations: AiChatToolResult[] = [...githubSearchRefs, ...githubReadRefs]
+      .filter((ref) => {
+        const key = `github:${ref.githubFileId}`;
+        if (seenIds.has(key)) return false;
+        seenIds.add(key);
+        return true;
+      })
+      .map((ref) => ({
+        pageId: ref.githubFileId,
+        pageTitle: ref.githubFileName,
+        snippet: ref.snippet,
+        githubFileId: ref.githubFileId,
+        githubFileName: ref.githubFileName,
+        githubRepoOwner: ref.githubRepoOwner,
+        githubRepoName: ref.githubRepoName,
+        githubRepoBranch: ref.githubRepoBranch,
+        githubFilePath: ref.githubFilePath,
+        githubLink: ref.githubLink,
+        source: "github" as const,
+      }));
+
     const citations = [
       ...wikiCitations.map((c) => ({ ...c, source: "wiki" as const })),
       ...driveCitations,
+      ...githubCitations,
     ];
 
     console.log(
