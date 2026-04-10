@@ -1,9 +1,4 @@
-import {
-  embedText,
-  getEmbeddingConfig,
-  getEmbeddingDimensions,
-  isEmbeddingEnabled,
-} from "../../ai/embeddings.js";
+import { embedText, getEmbeddingConfig, isEmbeddingEnabled } from "../../ai/embeddings.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { listMembershipsByUser } from "../../repositories/admin/admin-repository.js";
 import {
@@ -33,10 +28,8 @@ export async function searchGithubForUser(
 
   if (!(await isEmbeddingEnabled())) return [];
 
-  const dimensions = await getEmbeddingDimensions();
   const queryEmbedding = await embedText(queryText, {
     taskType: "RETRIEVAL_QUERY",
-    outputDimensionality: dimensions,
   });
   if (!queryEmbedding) return [];
 
@@ -76,10 +69,8 @@ export async function searchGithubAsSystem(
 
   if (!(await isEmbeddingEnabled())) return [];
 
-  const dimensions = await getEmbeddingDimensions();
   const queryEmbedding = await embedText(queryText, {
     taskType: "RETRIEVAL_QUERY",
-    outputDimensionality: dimensions,
   });
   if (!queryEmbedding) return [];
 

@@ -2,7 +2,6 @@ import {
   cosineSimilarity,
   embedText,
   getEmbeddingConfig,
-  getEmbeddingDimensions,
   getEmbeddingModel,
   isEmbeddingEnabled,
 } from "../embeddings.js";
@@ -13,6 +12,5 @@ export const defaultEmbeddingProvider: EmbeddingProvider = {
   embed: embedText,
   getConfig: getEmbeddingConfig,
   getModel: getEmbeddingModel,
-  getDimensions: getEmbeddingDimensions,
   cosineSimilarity,
 };

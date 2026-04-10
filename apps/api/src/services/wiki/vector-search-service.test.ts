@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   mockEmbedText,
   mockIsEmbeddingEnabled,
-  mockGetEmbeddingDimensions,
   mockSearchByVectorRepo,
   mockSearchByVectorForUser,
   mockFindPagesWithExplicitDeny,
@@ -12,7 +11,6 @@ const {
 } = vi.hoisted(() => ({
   mockEmbedText: vi.fn(),
   mockIsEmbeddingEnabled: vi.fn(),
-  mockGetEmbeddingDimensions: vi.fn(),
   mockSearchByVectorRepo: vi.fn(),
   mockSearchByVectorForUser: vi.fn(),
   mockFindPagesWithExplicitDeny: vi.fn(),
@@ -22,7 +20,6 @@ const {
 vi.mock("../../ai/embeddings.js", () => ({
   embedText: mockEmbedText,
   isEmbeddingEnabled: mockIsEmbeddingEnabled,
-  getEmbeddingDimensions: mockGetEmbeddingDimensions,
 }));
 
 vi.mock("../../repositories/wiki/wiki-repository.js", () => ({
@@ -51,7 +48,6 @@ describe("vector-search-service", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
-    mockGetEmbeddingDimensions.mockResolvedValue(768);
     mockFindPagesWithExplicitDeny.mockResolvedValue(new Set());
   });
 

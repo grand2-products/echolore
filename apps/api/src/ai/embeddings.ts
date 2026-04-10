@@ -9,7 +9,6 @@ export type EmbeddingTaskType =
 
 interface EmbedTextOptions {
   taskType?: EmbeddingTaskType;
-  outputDimensionality?: number;
 }
 
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta";
@@ -34,7 +33,7 @@ export async function getEmbeddingConfig(): Promise<{ model: string; dimensions:
     const settings = await getLlmSettings();
     return {
       model: settings.embeddingModel || DEFAULT_EMBEDDING_MODEL,
-      dimensions: settings.embeddingDimensions || DEFAULT_EMBEDDING_DIMENSIONS,
+      dimensions: DEFAULT_EMBEDDING_DIMENSIONS,
     };
   } catch {
     return { model: DEFAULT_EMBEDDING_MODEL, dimensions: DEFAULT_EMBEDDING_DIMENSIONS };
@@ -44,11 +43,6 @@ export async function getEmbeddingConfig(): Promise<{ model: string; dimensions:
 export async function getEmbeddingModel() {
   const config = await getEmbeddingConfig();
   return config.model;
-}
-
-export async function getEmbeddingDimensions(): Promise<number> {
-  const config = await getEmbeddingConfig();
-  return config.dimensions;
 }
 
 export function vectorToJson(values: number[]) {
@@ -116,7 +110,6 @@ async function embedTextGemini(
       parts: [{ text }],
     },
     ...(options.taskType ? { taskType: options.taskType } : {}),
-    ...(options.outputDimensionality ? { outputDimensionality: options.outputDimensionality } : {}),
   };
 
   const response = await fetch(`${GEMINI_API_URL}/models/${model}:embedContent`, {
@@ -190,11 +183,7 @@ async function embedTextVertex(
         ...(options.taskType ? { task_type: options.taskType } : {}),
       },
     ],
-    parameters: {
-      ...(options.outputDimensionality
-        ? { outputDimensionality: options.outputDimensionality }
-        : {}),
-    },
+    parameters: {},
   };
 
   const response = await fetch(url, {

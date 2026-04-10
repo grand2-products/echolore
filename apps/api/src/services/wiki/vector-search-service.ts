@@ -1,5 +1,5 @@
 import { UserRole } from "@echolore/shared/contracts";
-import { embedText, getEmbeddingDimensions, isEmbeddingEnabled } from "../../ai/embeddings.js";
+import { embedText, isEmbeddingEnabled } from "../../ai/embeddings.js";
 import type { SessionUser } from "../../lib/auth.js";
 import {
   findPagesWithExplicitDeny,
@@ -12,10 +12,8 @@ import {
 export type { VectorSearchResult };
 
 export async function searchByVector(queryText: string, limit = 10): Promise<VectorSearchResult[]> {
-  const dimensions = await getEmbeddingDimensions();
   const queryEmbedding = await embedText(queryText, {
     taskType: "RETRIEVAL_QUERY",
-    outputDimensionality: dimensions,
   });
 
   if (!queryEmbedding) return [];
@@ -47,10 +45,8 @@ export async function searchVisibleChunks(
     return { results, searchMode: "ilike_disabled" };
   }
 
-  const dimensions = await getEmbeddingDimensions();
   const queryEmbedding = await embedText(queryText, {
     taskType: "RETRIEVAL_QUERY",
-    outputDimensionality: dimensions,
   });
 
   if (!queryEmbedding) {

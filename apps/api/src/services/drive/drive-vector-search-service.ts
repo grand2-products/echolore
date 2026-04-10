@@ -1,9 +1,4 @@
-import {
-  embedText,
-  getEmbeddingConfig,
-  getEmbeddingDimensions,
-  isEmbeddingEnabled,
-} from "../../ai/embeddings.js";
+import { embedText, getEmbeddingConfig, isEmbeddingEnabled } from "../../ai/embeddings.js";
 import { db } from "../../db/index.js";
 import {
   type DriveVectorSearchResult,
@@ -28,10 +23,8 @@ export async function searchDriveForUser(
 
   if (!(await isEmbeddingEnabled())) return [];
 
-  const dimensions = await getEmbeddingDimensions();
   const queryEmbedding = await embedText(queryText, {
     taskType: "RETRIEVAL_QUERY",
-    outputDimensionality: dimensions,
   });
 
   if (!queryEmbedding) return [];
@@ -69,10 +62,8 @@ export async function searchDriveAsSystem(
 
   if (!(await isEmbeddingEnabled())) return [];
 
-  const dimensions = await getEmbeddingDimensions();
   const queryEmbedding = await embedText(queryText, {
     taskType: "RETRIEVAL_QUERY",
-    outputDimensionality: dimensions,
   });
 
   if (!queryEmbedding) return [];

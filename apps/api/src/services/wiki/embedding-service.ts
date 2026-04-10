@@ -79,7 +79,7 @@ export async function indexPage(pageId: string): Promise<void> {
   }
 
   const chunks = chunkText(plainText);
-  const { model: modelId, dimensions } = await getEmbeddingConfig();
+  const { model: modelId } = await getEmbeddingConfig();
   const now = new Date();
 
   const embeddings: { chunkIndex: number; text: string; vector: number[] }[] = [];
@@ -88,7 +88,6 @@ export async function indexPage(pageId: string): Promise<void> {
     if (!chunkText_) continue;
     const vector = await embedText(chunkText_, {
       taskType: "RETRIEVAL_DOCUMENT",
-      outputDimensionality: dimensions,
     });
     if (vector) {
       embeddings.push({ chunkIndex: i, text: chunkText_, vector });

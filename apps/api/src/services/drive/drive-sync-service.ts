@@ -301,7 +301,7 @@ async function syncSingleFile(
 
   // Chunk + embed
   const chunks = chunkText(`${fileName}\n\n${text}`);
-  const { model: modelId, dimensions } = await getEmbeddingConfig();
+  const { model: modelId } = await getEmbeddingConfig();
   const now = new Date();
 
   const embeddings: Array<{
@@ -319,7 +319,6 @@ async function syncSingleFile(
 
     const vector = await embedText(chunkStr, {
       taskType: "RETRIEVAL_DOCUMENT",
-      outputDimensionality: dimensions,
     });
 
     if (vector) {

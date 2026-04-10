@@ -331,7 +331,6 @@ export interface LlmSettings {
   embeddingEnabled: boolean;
   embeddingProvider: EmbeddingProvider;
   embeddingModel: string | null;
-  embeddingDimensions: number | null;
 }
 
 export interface UpdateLlmSettingsRequest {
@@ -350,7 +349,6 @@ export interface UpdateLlmSettingsRequest {
   embeddingEnabled?: boolean;
   embeddingProvider?: EmbeddingProvider;
   embeddingModel?: string | null;
-  embeddingDimensions?: number | null;
 }
 
 export interface GcpCredentials {

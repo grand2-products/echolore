@@ -20,7 +20,6 @@ const {
   mockEmbedText,
   mockIsEmbeddingEnabled,
   mockGetEmbeddingConfig,
-  mockGetEmbeddingDimensions,
   mockGetPageById,
   mockGetPageBlocks,
   mockDeletePageEmbeddingsByPageId,
@@ -33,7 +32,6 @@ const {
   mockEmbedText: vi.fn(),
   mockIsEmbeddingEnabled: vi.fn(),
   mockGetEmbeddingConfig: vi.fn(),
-  mockGetEmbeddingDimensions: vi.fn(),
   mockGetPageById: vi.fn(),
   mockGetPageBlocks: vi.fn(),
   mockDeletePageEmbeddingsByPageId: vi.fn(),
@@ -48,7 +46,6 @@ vi.mock("../../ai/embeddings.js", () => ({
   embedText: mockEmbedText,
   isEmbeddingEnabled: mockIsEmbeddingEnabled,
   getEmbeddingConfig: mockGetEmbeddingConfig,
-  getEmbeddingDimensions: mockGetEmbeddingDimensions,
 }));
 
 vi.mock("../../repositories/wiki/wiki-repository.js", () => ({
@@ -93,7 +90,6 @@ describe("AI Chat search pipeline", () => {
       model: "gemini-embedding-2-preview",
       dimensions: 768,
     });
-    mockGetEmbeddingDimensions.mockResolvedValue(768);
     mockEmbedText.mockResolvedValue(FAKE_EMBEDDING);
     mockDeletePageEmbeddingsByPageId.mockResolvedValue(undefined);
     mockReplacePageEmbeddings.mockResolvedValue(undefined);

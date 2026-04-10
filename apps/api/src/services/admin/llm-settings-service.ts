@@ -19,7 +19,6 @@ export interface LlmSettings {
   embeddingEnabled: boolean;
   embeddingProvider: EmbeddingProvider;
   embeddingModel: string | null;
-  embeddingDimensions: number | null;
 }
 
 const cache = createTypedSettingsService(
@@ -42,7 +41,6 @@ const cache = createTypedSettingsService(
       FieldCodecs.withDefault<EmbeddingProvider>("google")
     ),
     embeddingModel: field("llmEmbeddingModel", FieldCodecs.nullable),
-    embeddingDimensions: field("llmEmbeddingDimensions", FieldCodecs.nullableNumber),
   },
   { encryptedKeys: ["llmGeminiApiKey", "llmZhipuApiKey", "llmOpenaiCompatApiKey"] }
 );

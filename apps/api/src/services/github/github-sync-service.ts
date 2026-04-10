@@ -287,7 +287,7 @@ async function syncFileFromGitHub(
 
   const text = isCodeFile(path) ? extractCodeText(rawText, path) : stripFrontmatter(rawText);
   const chunks = chunkText(text);
-  const { model: modelId, dimensions } = await getEmbeddingConfig();
+  const { model: modelId } = await getEmbeddingConfig();
   const now = new Date();
 
   const embeddings: Array<{
@@ -304,7 +304,6 @@ async function syncFileFromGitHub(
     if (!chunkStr) continue;
     const vector = await embedText(chunkStr, {
       taskType: "RETRIEVAL_DOCUMENT",
-      outputDimensionality: dimensions,
     });
     if (vector) {
       embeddings.push({

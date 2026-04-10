@@ -6,7 +6,6 @@ import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 
 export interface EmbedOptions {
   taskType?: string;
-  outputDimensionality?: number;
 }
 
 export interface EmbeddingProvider {
@@ -14,7 +13,6 @@ export interface EmbeddingProvider {
   embed(text: string, options?: EmbedOptions): Promise<number[] | null>;
   getConfig(): Promise<{ model: string; dimensions: number }>;
   getModel(): Promise<string>;
-  getDimensions(): Promise<number>;
   cosineSimilarity(a: number[], b: number[]): number;
 }
 
