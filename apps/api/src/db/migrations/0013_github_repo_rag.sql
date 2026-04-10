@@ -46,5 +46,3 @@ CREATE TABLE "github_embeddings" (
 );
 CREATE UNIQUE INDEX "github_embeddings_file_chunk_idx"
   ON "github_embeddings" USING btree ("file_id", "chunk_index");
-CREATE INDEX "github_embeddings_vector_idx"
-  ON "github_embeddings" USING hnsw ("embedding" vector_cosine_ops);
