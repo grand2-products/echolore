@@ -1,14 +1,13 @@
 "use client";
 
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
-import { type AdminGroup, adminApi, type Page, type Space, wikiApi } from "@/lib/api";
+import { type AdminGroup, adminApi, type Space, wikiApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { useT } from "@/lib/i18n";
 
 type AdminAccessContextValue = {
   groups: AdminGroup[];
-  pages: Page[];
   spaces: Space[];
   error: string | null;
   notice: string | null;
@@ -33,7 +32,6 @@ export function AdminAccessProvider({ children }: { children: ReactNode }) {
   const t = useT();
   const getApiErrorMessage = useApiErrorMessage();
   const [groups, setGroups] = useState<AdminGroup[]>([]);
-  const [pages, setPages] = useState<Page[]>([]);
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,14 +41,12 @@ export function AdminAccessProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      const [groupResult, pageResult, spaceResult] = await Promise.all([
+      const [groupResult, spaceResult] = await Promise.all([
         adminApi.listGroups(),
-        wikiApi.listPages(),
         wikiApi.listSpaces(),
       ]);
 
       setGroups(groupResult.groups);
-      setPages(pageResult.pages);
       setSpaces(spaceResult.spaces);
     } catch (loadError) {
       setError(getApiErrorMessage(loadError, t("admin.access.loadError")));
@@ -72,7 +68,6 @@ export function AdminAccessProvider({ children }: { children: ReactNode }) {
     <AdminAccessContext.Provider
       value={{
         groups,
-        pages,
         spaces,
         error,
         notice,

@@ -3,7 +3,6 @@
 import { useT } from "@/lib/i18n";
 import { AdminAccessProvider, useAdminAccess } from "./_components/AdminAccessContext";
 import { GroupManagementSection } from "./_components/GroupManagementSection";
-import { PagePermissionsSection } from "./_components/PagePermissionsSection";
 import { SpacePermissionsSection } from "./_components/SpacePermissionsSection";
 
 function AdminAccessContent() {
@@ -38,7 +37,6 @@ function AdminAccessContent() {
       ) : (
         <div className="grid gap-6 xl:grid-cols-2">
           <GroupManagementSection />
-          <PagePermissionsSection />
           <SpacePermissionsSection />
         </div>
       )}
