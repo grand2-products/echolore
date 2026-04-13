@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
-@source "../../node_modules/@blocknote/shadcn/src";
+@source "../../../node_modules/@blocknote/shadcn/src";
 
 :root {
   --background: #ffffff;
@@ -33,6 +33,10 @@ body {
   --color-primary-foreground: #ffffff;
   --color-secondary: #f5f5f5;
   --color-secondary-foreground: #1a1a1a;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1a1a1a;
+  --color-card: #ffffff;
+  --color-card-foreground: #1a1a1a;
   --color-accent: #f5f5f5;
   --color-accent-foreground: #1a1a1a;
   --color-destructive: #ef4444;
