@@ -135,6 +135,7 @@ export interface PagesTable {
   spaceId: string;
   parentId: string | null;
   authorId: string;
+  sortOrder: Generated<number>;
   deletedAt: Date | null;
   createdAt: Generated<Date>;
   updatedAt: Generated<Date>;

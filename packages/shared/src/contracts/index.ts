@@ -316,6 +316,15 @@ export interface UpdatePageRequest {
   parentId?: string | null;
 }
 
+export interface ReorderPagesRequest {
+  /** Ordered list of page IDs representing the new sibling order. */
+  pageIds: string[];
+  /** The common parent ID of these siblings, or null for root-level pages. */
+  parentId: string | null;
+  /** The space ID these pages belong to. */
+  spaceId: string;
+}
+
 export interface CreateBlockRequest {
   pageId: string;
   type: string;

@@ -13,6 +13,8 @@ export interface PageNode {
   children?: PageNode[];
 }
 
+export type DropPosition = "before" | "child" | "after";
+
 /* ------------------------------------------------------------------ */
 /*  Three-dot action menu                                             */
 /* ------------------------------------------------------------------ */
@@ -233,6 +235,19 @@ function InlineRename({ initialValue, onSave, onCancel }: InlineRenameProps) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Drop position detection                                           */
+/* ------------------------------------------------------------------ */
+
+function getDropPosition(event: React.DragEvent<HTMLDivElement>): DropPosition {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const y = event.clientY - rect.top;
+  const height = rect.height;
+  if (y < height * 0.25) return "before";
+  if (y > height * 0.75) return "after";
+  return "child";
+}
+
+/* ------------------------------------------------------------------ */
 /*  Page tree item                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -242,13 +257,13 @@ interface PageTreeItemProps {
   activeId?: string;
   expandedIds: Set<string>;
   draggingId: string | null;
-  dragOverId: string | null;
+  dropTarget: { id: string; position: DropPosition } | null;
   renamingId: string | null;
   onToggleExpand: (id: string, expanded: boolean) => void;
   onDragStart: (id: string) => void;
   onDragEnd: () => void;
-  onDragOver: (id: string) => void;
-  onDropTo: (targetId: string) => void;
+  onDragOver: (id: string, position: DropPosition) => void;
+  onDropTo: (targetId: string, position: DropPosition) => void;
   onExpand?: (id: string, expanded: boolean) => void;
   onAddSubPage?: (parentId: string, spaceId?: string) => void;
   onRename?: (pageId: string, currentTitle: string) => void;
@@ -263,19 +278,21 @@ function PageTreeItem(props: PageTreeItemProps) {
   const hasChildren = (props.page.children?.length ?? 0) > 0;
   const isExpanded = props.expandedIds.has(props.page.id);
   const isDragging = props.draggingId === props.page.id;
-  const isDragOver = props.dragOverId === props.page.id;
   const isRenaming = props.renamingId === props.page.id;
+
+  const isDropTarget = props.dropTarget?.id === props.page.id;
+  const dropPos = isDropTarget ? (props.dropTarget?.position ?? null) : null;
 
   return (
     <div>
       <div
         role="treeitem"
         tabIndex={0}
-        className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm transition ${
+        className={`group relative flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm transition ${
           props.activeId === props.page.id
             ? "bg-blue-50 text-blue-600"
             : "text-gray-700 hover:bg-gray-100"
-        } ${isDragOver ? "ring-1 ring-blue-400" : ""} ${isDragging ? "opacity-50" : ""}`}
+        } ${isDropTarget && dropPos === "child" ? "ring-1 ring-blue-400" : ""} ${isDragging ? "opacity-50" : ""}`}
         style={{ paddingLeft: `${props.level * 8 + 4}px` }}
         draggable={!isRenaming}
         onDragStart={() => props.onDragStart(props.page.id)}
@@ -283,14 +300,21 @@ function PageTreeItem(props: PageTreeItemProps) {
         onDragOver={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          props.onDragOver(props.page.id);
+          const position = getDropPosition(event);
+          props.onDragOver(props.page.id, position);
         }}
         onDrop={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          props.onDropTo(props.page.id);
+          const position = getDropPosition(event);
+          props.onDropTo(props.page.id, position);
         }}
       >
+        {/* Top insertion line */}
+        {isDropTarget && dropPos === "before" && (
+          <div className="pointer-events-none absolute top-0 right-0 left-0 z-10 h-0.5 bg-blue-500" />
+        )}
+
         {hasChildren ? (
           <button
             type="button"
@@ -337,6 +361,11 @@ function PageTreeItem(props: PageTreeItemProps) {
             isCreating={props.isCreating}
           />
         )}
+
+        {/* Bottom insertion line */}
+        {isDropTarget && dropPos === "after" && (
+          <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-0.5 bg-blue-500" />
+        )}
       </div>
 
       {hasChildren && isExpanded ? (
@@ -359,6 +388,7 @@ interface PageTreeProps {
   activeId?: string;
   onExpand?: (id: string, expanded: boolean) => void;
   onReparent?: (pageId: string, parentId: string | null) => Promise<void> | void;
+  onReorder?: (pageId: string, targetId: string, position: DropPosition) => Promise<void> | void;
   onAddSubPage?: (parentId: string, spaceId?: string) => void;
   onRenamePage?: (pageId: string, newTitle: string) => Promise<void> | void;
   onDeletePage?: (pageId: string) => Promise<void> | void;
@@ -397,6 +427,7 @@ export function PageTree({
   activeId,
   onExpand,
   onReparent,
+  onReorder,
   onAddSubPage,
   onRenamePage,
   onDeletePage,
@@ -405,7 +436,7 @@ export function PageTree({
   const t = useT();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ id: string; position: DropPosition } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const allIds = useMemo(() => flattenPageIds(pages), [pages]);
@@ -418,31 +449,37 @@ export function PageTree({
     });
   }, [allIds]);
 
-  const handleDropTo = async (targetId: string) => {
-    if (!onReparent || !draggingId || draggingId === targetId) {
+  const handleDropTo = async (targetId: string, position: DropPosition) => {
+    if (!draggingId || draggingId === targetId) {
       setDraggingId(null);
-      setDragOverId(null);
+      setDropTarget(null);
       return;
     }
 
     const draggingNode = findNodeById(pages, draggingId);
     if (!draggingNode) {
       setDraggingId(null);
-      setDragOverId(null);
+      setDropTarget(null);
       return;
     }
 
     if (collectDescendants(draggingNode).has(targetId)) {
       setDraggingId(null);
-      setDragOverId(null);
+      setDropTarget(null);
       return;
     }
 
     try {
-      await onReparent(draggingId, targetId);
+      if (position === "child") {
+        // Reparent: make dragged page a child of target
+        await onReparent?.(draggingId, targetId);
+      } else {
+        // Reorder: insert before/after the target in same sibling list
+        await onReorder?.(draggingId, targetId, position);
+      }
     } finally {
       setDraggingId(null);
-      setDragOverId(null);
+      setDropTarget(null);
     }
   };
 
@@ -484,14 +521,14 @@ export function PageTree({
       className="space-y-0.5"
       onDragOver={(event) => {
         event.preventDefault();
-        setDragOverId(null);
+        setDropTarget(null);
       }}
       onDrop={(event) => {
         event.preventDefault();
         if (event.target !== event.currentTarget || !onReparent || !draggingId) return;
         void onReparent(draggingId, null);
         setDraggingId(null);
-        setDragOverId(null);
+        setDropTarget(null);
       }}
     >
       {pages.map((page) => (
@@ -502,7 +539,7 @@ export function PageTree({
           activeId={activeId}
           expandedIds={expandedIds}
           draggingId={draggingId}
-          dragOverId={dragOverId}
+          dropTarget={dropTarget}
           renamingId={renamingId}
           onToggleExpand={(id, expanded) =>
             setExpandedIds((prev) => {
@@ -515,11 +552,11 @@ export function PageTree({
           onDragStart={(id) => setDraggingId(id)}
           onDragEnd={() => {
             setDraggingId(null);
-            setDragOverId(null);
+            setDropTarget(null);
           }}
-          onDragOver={(id) => setDragOverId(id)}
-          onDropTo={(targetId) => {
-            void handleDropTo(targetId);
+          onDragOver={(id, position) => setDropTarget({ id, position })}
+          onDropTo={(targetId, position) => {
+            void handleDropTo(targetId, position);
           }}
           onExpand={onExpand}
           onAddSubPage={onAddSubPage}

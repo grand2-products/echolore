@@ -21,8 +21,14 @@ export default function WikiLayout({ children }: WikiLayoutProps) {
   const spaces = spacesData?.spaces ?? [];
   const pagesBySpace = useMemo(() => groupPagesBySpace(pages, spaces), [pages, spaces]);
 
-  const { handleReparent, handleAddSubPage, handleRenamePage, handleDeletePage, isCreating } =
-    useWikiPageActions({ currentPageId });
+  const {
+    handleReparent,
+    handleAddSubPage,
+    handleRenamePage,
+    handleDeletePage,
+    handleReorder,
+    isCreating,
+  } = useWikiPageActions({ currentPageId, allPages: pages });
 
   return (
     <div className="flex h-full flex-col md:flex-row">
@@ -31,6 +37,7 @@ export default function WikiLayout({ children }: WikiLayoutProps) {
         pagesBySpace={pagesBySpace}
         activeId={currentPageId}
         onReparent={handleReparent}
+        onReorder={handleReorder}
         onAddSubPage={handleAddSubPage}
         onRenamePage={handleRenamePage}
         onDeletePage={handleDeletePage}

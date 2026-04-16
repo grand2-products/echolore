@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { Space } from "@/lib/api";
 import { useT } from "@/lib/i18n";
-import { type PageNode, PageTree } from "./PageTree";
+import { type DropPosition, type PageNode, PageTree } from "./PageTree";
 import { SpacePickerModal } from "./SpacePickerModal";
 
 interface WikiSidebarProps {
@@ -13,6 +13,7 @@ interface WikiSidebarProps {
   pages?: PageNode[];
   activeId?: string;
   onReparent?: (pageId: string, parentId: string | null) => Promise<void> | void;
+  onReorder?: (pageId: string, targetId: string, position: DropPosition) => Promise<void> | void;
   onAddSubPage?: (parentId?: string, spaceId?: string) => void;
   onRenamePage?: (pageId: string, newTitle: string) => Promise<void> | void;
   onDeletePage?: (pageId: string) => Promise<void> | void;
@@ -34,6 +35,7 @@ function SpaceSection({
   pages,
   activeId,
   onReparent,
+  onReorder,
   onAddSubPage,
   onRenamePage,
   onDeletePage,
@@ -44,6 +46,7 @@ function SpaceSection({
   pages: PageNode[];
   activeId?: string;
   onReparent?: WikiSidebarProps["onReparent"];
+  onReorder?: WikiSidebarProps["onReorder"];
   onAddSubPage?: WikiSidebarProps["onAddSubPage"];
   onRenamePage?: WikiSidebarProps["onRenamePage"];
   onDeletePage?: WikiSidebarProps["onDeletePage"];
@@ -78,6 +81,7 @@ function SpaceSection({
               pages={pages}
               activeId={activeId}
               onReparent={onReparent}
+              onReorder={onReorder}
               onAddSubPage={onAddSubPage}
               onRenamePage={onRenamePage}
               onDeletePage={onDeletePage}
@@ -98,6 +102,7 @@ export function WikiSidebar({
   pages,
   activeId,
   onReparent,
+  onReorder,
   onAddSubPage,
   onRenamePage,
   onDeletePage,
@@ -119,6 +124,7 @@ export function WikiSidebar({
           pages={pagesBySpace[space.id] ?? []}
           activeId={activeId}
           onReparent={onReparent}
+          onReorder={onReorder}
           onAddSubPage={onAddSubPage}
           onRenamePage={onRenamePage}
           onDeletePage={onDeletePage}
@@ -152,6 +158,7 @@ export function WikiSidebar({
         pages={pages ?? []}
         activeId={activeId}
         onReparent={onReparent}
+        onReorder={onReorder}
         onAddSubPage={onAddSubPage}
         onRenamePage={onRenamePage}
         onDeletePage={onDeletePage}

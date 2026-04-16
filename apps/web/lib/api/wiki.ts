@@ -4,6 +4,7 @@ import type {
   CreatePageRequest,
   GetPageResponse,
   ListPagesResponse,
+  ReorderPagesRequest,
   SuccessResponse,
   UpdateBlockRequest,
   UpdatePageRequest,
@@ -56,6 +57,12 @@ export const wikiApi = {
   deletePage: (id: string) =>
     fetchApi<SuccessResponse>(`/wiki/${id}`, {
       method: "DELETE",
+    }),
+
+  reorderPages: (data: ReorderPagesRequest) =>
+    fetchApi<SuccessResponse>("/wiki/reorder", {
+      method: "PUT",
+      body: JSON.stringify(data),
     }),
 
   createBlock: (data: CreateBlockRequest) =>

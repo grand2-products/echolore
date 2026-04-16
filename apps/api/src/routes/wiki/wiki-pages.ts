@@ -20,11 +20,12 @@ import {
   getPageBlocks,
   getPageById,
   listVisiblePages,
+  reorderPages,
   searchVisiblePages,
   softDeletePage,
   updatePage,
 } from "../../services/wiki/wiki-service.js";
-import { createPageSchema, updatePageSchema } from "./schemas.js";
+import { createPageSchema, reorderPagesSchema, updatePageSchema } from "./schemas.js";
 
 export const wikiPageRoutes = new Hono<AppEnv>();
 
@@ -158,6 +159,30 @@ wikiPageRoutes.post("/", zValidator("json", createPageSchema), async (c) => {
     "Failed to create page"
   );
 });
+
+wikiPageRoutes.put(
+  "/reorder",
+  zValidator("json", reorderPagesSchema),
+  withErrorHandler("WIKI_REORDER_FAILED", "Failed to reorder pages"),
+  async (c) => {
+    const user = c.get("user");
+    if (!user?.id) {
+      return jsonError(c, 401, "UNAUTHORIZED", "Unauthorized");
+    }
+    const { pageIds, parentId, spaceId } = c.req.valid("json");
+
+    const space = await getSpaceById(spaceId);
+    if (!space) {
+      return jsonError(c, 404, "WIKI_SPACE_NOT_FOUND", "Space not found");
+    }
+    if (!(await canAccessSpace(user, space, "write"))) {
+      return jsonError(c, 403, "WIKI_SPACE_FORBIDDEN", "Cannot reorder pages in this space");
+    }
+
+    await reorderPages(pageIds, parentId, spaceId);
+    return c.json({ success: true });
+  }
+);
 
 wikiPageRoutes.put(
   "/:id",

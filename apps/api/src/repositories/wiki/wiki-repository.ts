@@ -17,6 +17,7 @@ export async function listPagesOrderedByUpdatedAt(): Promise<
       "pages.spaceId",
       "pages.parentId",
       "pages.authorId",
+      "pages.sortOrder",
       "pages.deletedAt",
       "pages.createdAt",
       "pages.updatedAt",
@@ -24,6 +25,7 @@ export async function listPagesOrderedByUpdatedAt(): Promise<
       "spaces.name as spaceName",
     ])
     .where("pages.deletedAt", "is", null)
+    .orderBy("pages.sortOrder", "asc")
     .orderBy("pages.updatedAt", "desc")
     .execute();
 
@@ -348,16 +350,7 @@ export async function createPageWithAccessDefaults(input: {
   authorId: string;
   createdAt: Date;
   updatedAt: Date;
-}): Promise<{
-  id: string;
-  title: string;
-  spaceId: string;
-  parentId: string | null;
-  authorId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-}> {
+}): Promise<Page> {
   return db.transaction().execute(async (trx) => createPageWithAccessDefaultsTx(trx, input));
 }
 
@@ -372,16 +365,7 @@ export async function createPageWithAccessDefaultsTx(
     createdAt: Date;
     updatedAt: Date;
   }
-): Promise<{
-  id: string;
-  title: string;
-  spaceId: string;
-  parentId: string | null;
-  authorId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-}> {
+): Promise<Page> {
   const page = await trx
     .insertInto("pages")
     .values({
@@ -528,16 +512,7 @@ export async function importPageWithBlocks(input: {
   now: Date;
   blockDrafts: BlockDraft[];
 }): Promise<{
-  page: {
-    id: string;
-    title: string;
-    spaceId: string;
-    parentId: string | null;
-    authorId: string;
-    createdAt: Date;
-    updatedAt: Date;
-    deletedAt: Date | null;
-  };
+  page: Page;
   blocks: Array<{
     id: string;
     pageId: string;
@@ -864,6 +839,28 @@ export async function getPageSpaceId(id: string): Promise<string | null> {
     .where("id", "=", id)
     .executeTakeFirst();
   return page?.spaceId ?? null;
+}
+
+export async function reorderPages(
+  pageIds: string[],
+  parentId: string | null,
+  spaceId: string
+): Promise<void> {
+  if (pageIds.length === 0) return;
+  await db.transaction().execute(async (trx) => {
+    for (let i = 0; i < pageIds.length; i++) {
+      const pageId = pageIds[i] as string;
+      await trx
+        .updateTable("pages")
+        .set({ sortOrder: i })
+        .where("id", "=", pageId)
+        .where("spaceId", "=", spaceId)
+        .where((eb) =>
+          parentId === null ? eb("parentId", "is", null) : eb("parentId", "=", parentId)
+        )
+        .execute();
+    }
+  });
 }
 
 export async function getPageSpaceType(pageId: string): Promise<{

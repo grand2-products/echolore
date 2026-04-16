@@ -35,6 +35,7 @@ export {
   getPageById,
   listDeletedPages,
   permanentDeletePage,
+  reorderPages,
   restorePage,
   softDeletePage,
   updateBlock,

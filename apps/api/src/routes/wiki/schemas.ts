@@ -11,6 +11,12 @@ export const updatePageSchema = z.object({
   parentId: z.string().nullable().optional(),
 });
 
+export const reorderPagesSchema = z.object({
+  pageIds: z.array(z.string()).min(1),
+  parentId: z.string().nullable(),
+  spaceId: z.string(),
+});
+
 export const createBlockSchema = z.object({
   pageId: z.string(),
   type: z.string().max(50),
