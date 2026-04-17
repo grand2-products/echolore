@@ -23,6 +23,7 @@ import {
   getPageSpaceType,
   listPagesOrderedByUpdatedAt,
   searchPagesByIlike,
+  searchPagesLexically,
 } from "./wiki-repository.js";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
@@ -204,6 +205,27 @@ describe.skipIf(!hasDb)("CamelCasePlugin integration (real DB)", () => {
       expect(match?.pageTitle).toBe("CamelCase検証ページ");
       expect(match?.chunkText).toContain("XyzIntegrationMarker");
       expect(match?.similarity).toBe(0.5);
+    });
+  });
+
+  describe("searchPagesLexically", () => {
+    // Guards against accidentally writing camelCase identifiers inside raw
+    // `sql` templates. Raw SQL bypasses CamelCasePlugin, so columns like
+    // `blocks.pageId` are folded to `blocks.pageid` by PostgreSQL and fail
+    // at execution time. Executing the query end-to-end is the only way to
+    // catch this class of bug.
+    it("matches by block content (exercises the blocks.page_id join)", async () => {
+      const results = await searchPagesLexically("XyzIntegrationMarker");
+      const match = results.find((p) => p.id === ID.page);
+      expect(match).toBeDefined();
+      expect(match?.id).toBe(ID.page);
+      expect(match?.spaceId).toBe(ID.space);
+    });
+
+    it("matches by page title", async () => {
+      const results = await searchPagesLexically("CamelCase検証");
+      const match = results.find((p) => p.id === ID.page);
+      expect(match).toBeDefined();
     });
   });
 
