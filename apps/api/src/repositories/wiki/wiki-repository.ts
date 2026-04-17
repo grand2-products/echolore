@@ -76,7 +76,7 @@ export async function searchPagesLexically(query: string): Promise<Page[]> {
           db
             .selectFrom("blocks")
             .select(sql`1`.as("one"))
-            .where(sql<boolean>`blocks.pageId = pages.id`)
+            .where(sql<boolean>`blocks.page_id = pages.id`)
             .where(
               sql`to_tsvector('simple', coalesce(${sql.ref("blocks.content")}, ''))`,
               "@@",
@@ -88,7 +88,7 @@ export async function searchPagesLexically(query: string): Promise<Page[]> {
           db
             .selectFrom("blocks")
             .select(sql`1`.as("one"))
-            .where(sql<boolean>`blocks.pageId = pages.id`)
+            .where(sql<boolean>`blocks.page_id = pages.id`)
             .where(sql`coalesce(${sql.ref("blocks.content")}, '')`, "ilike", escaped)
         ),
       ])
