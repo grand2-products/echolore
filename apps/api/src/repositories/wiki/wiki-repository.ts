@@ -205,6 +205,21 @@ export async function createPage(newPage: NewPage): Promise<Page | null> {
   return firstOrNull(await db.insertInto("pages").values(newPage).returningAll().execute());
 }
 
+/**
+ * Bulk-fetch pages by ID, excluding soft-deleted rows. Used by the hybrid
+ * search path to hydrate `Page` rows for vector-only hits (where we have a
+ * pageId from the pgvector query but no full row yet).
+ */
+export async function listPagesByIds(pageIds: string[]): Promise<Page[]> {
+  if (pageIds.length === 0) return [];
+  return db
+    .selectFrom("pages")
+    .selectAll()
+    .where("id", "in", pageIds)
+    .where("deletedAt", "is", null)
+    .execute();
+}
+
 export async function updatePage(
   id: string,
   updatePayload: {

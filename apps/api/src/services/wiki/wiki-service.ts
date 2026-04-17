@@ -12,13 +12,17 @@ import {
 } from "../../repositories/wiki/revision-repository.js";
 import {
   createPageWithAccessDefaults as createPageWithAccessDefaultsRepo,
+  findPagesWithExplicitDeny,
   getPageBlocks,
   getPageById,
   getPageParentId,
   listBlockContentsByPageIds,
+  listPagesByIds,
   listPagesOrderedByUpdatedAt,
   restorePageRevision as restorePageRevisionRepo,
+  searchByVectorForUser,
   searchPagesLexically,
+  type VectorSearchResult,
 } from "../../repositories/wiki/wiki-repository.js";
 
 export type { NewBlock } from "../../db/schema.js";
@@ -51,8 +55,13 @@ export function _setEmbeddingProvider(p: EmbeddingProvider) {
   embedding = p;
 }
 
-const SEMANTIC_RERANK_LIMIT = 20;
+const VECTOR_SEARCH_LIMIT = 50;
 const SNIPPET_MAX_LENGTH = 120;
+// Weights for hybrid scoring. Vector similarity dominates since it captures
+// semantics (typos, synonyms, concept matches), while lexical rank breaks ties
+// and gives a small boost to exact-keyword matches.
+const VECTOR_WEIGHT = 0.75;
+const LEXICAL_WEIGHT = 0.25;
 
 function extractSnippet(text: string, queryLower: string): string {
   if (!text) return "";
@@ -71,11 +80,6 @@ function extractSnippet(text: string, queryLower: string): string {
   if (start > 0) snippet = `...${snippet}`;
   if (end < text.length) snippet = `${snippet}...`;
   return snippet;
-}
-
-function buildPageSearchText(title: string, blockContents: string[]) {
-  const joinedBlocks = blockContents.filter(Boolean).join("\n");
-  return `${title}\n${joinedBlocks}`.trim().slice(0, 8000);
 }
 
 export async function filterReadablePages(user: SessionUser, items: Page[]): Promise<Page[]> {
@@ -112,6 +116,19 @@ export async function detectPageCycle(pageId: string, newParentId: string): Prom
   return false;
 }
 
+/**
+ * Hybrid wiki page search.
+ *
+ * Runs lexical (FTS + ILIKE) and pgvector searches in parallel, unions the
+ * results, enforces read permissions, then reranks with a hybrid score.
+ * Uses the pre-computed `page_embeddings` rows via `searchByVectorForUser`
+ * — no ad-hoc re-embedding at query time.
+ *
+ * Falls back to lexical-only when:
+ * - `semantic=false` (caller opted out)
+ * - the embedding provider is unavailable or returns null
+ * - the vector query fails (e.g. dimension mismatch during reindex)
+ */
 export async function searchVisiblePages(
   user: SessionUser,
   query: string,
@@ -121,21 +138,56 @@ export async function searchVisiblePages(
   snippets: Record<string, string>;
   searchMeta: { mode: "lexical" | "hybrid"; semanticApplied: boolean; model?: string };
 }> {
-  const matchedPages = await searchPagesLexically(query);
-  const visiblePages = await filterReadablePages(user, matchedPages);
+  const lexicalPromise = searchPagesLexically(query);
 
-  // Fetch block content once — shared by snippet generation and semantic reranking
+  // Compute query embedding + run vector search (best-effort; null-safe)
+  let queryEmbedding: number[] | null = null;
+  let vectorResults: VectorSearchResult[] = [];
+  if (semantic && (await embedding.isAvailable())) {
+    queryEmbedding = await embedding.embed(query, { taskType: "RETRIEVAL_QUERY" });
+    if (queryEmbedding) {
+      try {
+        vectorResults = await searchByVectorForUser(queryEmbedding, user.id, VECTOR_SEARCH_LIMIT);
+        // Space-level perms are enforced in SQL; layer page-level explicit denies.
+        if (vectorResults.length > 0) {
+          const vectorPageIds = [...new Set(vectorResults.map((r) => r.pageId))];
+          const denied = await findPagesWithExplicitDeny(vectorPageIds, user.id);
+          if (denied.size > 0) {
+            vectorResults = vectorResults.filter((r) => !denied.has(r.pageId));
+          }
+        }
+      } catch (error) {
+        console.warn("Vector search failed; falling back to lexical only", error);
+        vectorResults = [];
+        queryEmbedding = null;
+      }
+    }
+  }
+
+  const lexicalPages = await lexicalPromise;
+
+  // Union both result sets on pageId, hydrating full Page rows for vector-only hits.
+  const pageMap = new Map<string, Page>();
+  for (const p of lexicalPages) pageMap.set(p.id, p);
+
+  const vectorOnlyIds = vectorResults.filter((r) => !pageMap.has(r.pageId)).map((r) => r.pageId);
+  if (vectorOnlyIds.length > 0) {
+    const extraPages = await listPagesByIds(vectorOnlyIds);
+    for (const p of extraPages) pageMap.set(p.id, p);
+  }
+
+  // Page-level visibility filter (covers both lexical and vector results).
+  const visiblePages = await filterReadablePages(user, Array.from(pageMap.values()));
+
+  // Build snippets from block content.
   const allPageIds = visiblePages.map((p) => p.id);
   const allBlocks = allPageIds.length > 0 ? await listBlockContentsByPageIds(allPageIds) : [];
-
   const blockMap = new Map<string, string[]>();
   for (const block of allBlocks) {
     const items = blockMap.get(block.pageId) ?? [];
     if (block.content) items.push(stripHtml(block.content));
     blockMap.set(block.pageId, items);
   }
-
-  // Build snippets from the shared block map
   const queryLower = query.toLowerCase();
   const snippets: Record<string, string> = {};
   for (const page of visiblePages) {
@@ -143,7 +195,8 @@ export async function searchVisiblePages(
     snippets[page.id] = extractSnippet(fullText, queryLower);
   }
 
-  if (!semantic || !(await embedding.isAvailable()) || visiblePages.length === 0) {
+  // Nothing semantic to apply — return lexical order.
+  if (!queryEmbedding || vectorResults.length === 0) {
     return {
       pages: visiblePages,
       snippets,
@@ -151,54 +204,34 @@ export async function searchVisiblePages(
     };
   }
 
-  try {
-    const queryEmbedding = await embedding.embed(query, { taskType: "RETRIEVAL_QUERY" });
-    if (!queryEmbedding) {
-      return {
-        pages: visiblePages,
-        snippets,
-        searchMeta: { mode: "lexical", semanticApplied: false },
-      };
-    }
+  // Hybrid rerank. Lexical rank is a 0..1 score based on position in the
+  // lexical result list (higher = earlier). Vector similarity is already 0..1.
+  // Pages present in only one set get 0 for the missing dimension.
+  const lexicalRank = new Map<string, number>();
+  const lexicalTotal = Math.max(lexicalPages.length, 1);
+  lexicalPages.forEach((p, idx) => {
+    lexicalRank.set(p.id, (lexicalPages.length - idx) / lexicalTotal);
+  });
+  const vectorScore = new Map<string, number>();
+  for (const r of vectorResults) vectorScore.set(r.pageId, r.similarity);
 
-    const rerankCandidates = visiblePages.slice(0, SEMANTIC_RERANK_LIMIT);
+  const scored = visiblePages.map((page) => ({
+    page,
+    score:
+      VECTOR_WEIGHT * (vectorScore.get(page.id) ?? 0) +
+      LEXICAL_WEIGHT * (lexicalRank.get(page.id) ?? 0),
+  }));
+  scored.sort((a, b) => b.score - a.score);
 
-    const lexicalRank = new Map<string, number>();
-    rerankCandidates.forEach((page, index) => {
-      lexicalRank.set(page.id, (rerankCandidates.length - index) / rerankCandidates.length);
-    });
-
-    const scored = await Promise.all(
-      rerankCandidates.map(async (page) => {
-        const text = buildPageSearchText(page.title, blockMap.get(page.id) ?? []);
-        const pageEmbedding = await embedding.embed(text, { taskType: "RETRIEVAL_DOCUMENT" });
-        const semanticScore = pageEmbedding
-          ? embedding.cosineSimilarity(queryEmbedding, pageEmbedding)
-          : 0;
-        const lexicalScore = lexicalRank.get(page.id) ?? 0;
-        return { page, score: semanticScore * 0.75 + lexicalScore * 0.25 };
-      })
-    );
-
-    scored.sort((a, b) => b.score - a.score);
-
-    return {
-      pages: [...scored.map((entry) => entry.page), ...visiblePages.slice(SEMANTIC_RERANK_LIMIT)],
-      snippets,
-      searchMeta: {
-        mode: "hybrid",
-        semanticApplied: true,
-        model: await embedding.getModel(),
-      },
-    };
-  } catch (error) {
-    console.error("Semantic rerank failed; fallback to lexical", error);
-    return {
-      pages: visiblePages,
-      snippets,
-      searchMeta: { mode: "lexical", semanticApplied: false },
-    };
-  }
+  return {
+    pages: scored.map((s) => s.page),
+    snippets,
+    searchMeta: {
+      mode: "hybrid",
+      semanticApplied: true,
+      model: await embedding.getModel(),
+    },
+  };
 }
 
 export async function createPageWithAccessDefaults(input: {

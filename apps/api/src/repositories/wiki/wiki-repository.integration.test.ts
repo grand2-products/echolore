@@ -21,7 +21,9 @@ import { findUserByEmailWithPasswordIdentity } from "../auth/auth-repository.js"
 import { listAutonomousActiveSessions } from "../meeting/meeting-realtime-repository.js";
 import {
   getPageSpaceType,
+  listPagesByIds,
   listPagesOrderedByUpdatedAt,
+  searchByVectorForUser,
   searchPagesByIlike,
   searchPagesLexically,
 } from "./wiki-repository.js";
@@ -226,6 +228,58 @@ describe.skipIf(!hasDb)("CamelCasePlugin integration (real DB)", () => {
       const results = await searchPagesLexically("CamelCase検証");
       const match = results.find((p) => p.id === ID.page);
       expect(match).toBeDefined();
+    });
+  });
+
+  describe("listPagesByIds", () => {
+    it("returns pages matching the given ids, excluding soft-deleted", async () => {
+      const pages = await listPagesByIds([ID.page, "does-not-exist"]);
+      expect(pages).toHaveLength(1);
+      expect(pages[0]?.id).toBe(ID.page);
+      expect(pages[0]?.title).toBe("CamelCase検証ページ");
+    });
+
+    it("returns empty array for empty input (no SQL round-trip)", async () => {
+      const pages = await listPagesByIds([]);
+      expect(pages).toEqual([]);
+    });
+  });
+
+  describe("searchByVectorForUser (hybrid search vector arm)", () => {
+    // Seeds a 768-dim embedding (matches the HNSW index dimension) and verifies
+    // the vector-search path returns the page with a similarity in [0, 1].
+    // Guards the pgvector query + permission SQL from regressions.
+    const EMBED_ID = "00000000-0000-0000-0000-integration10";
+    const DIM = 768;
+
+    beforeAll(async () => {
+      // Vector of 0.1 across all dims → cosine similarity with the same vector = 1.0
+      const vector = Array(DIM).fill(0.1);
+      const vectorStr = `[${vector.join(",")}]`;
+      await db
+        .insertInto("page_embeddings")
+        // biome-ignore lint/suspicious/noExplicitAny: pgvector column typed as string
+        .values({
+          id: EMBED_ID,
+          pageId: ID.page,
+          plainText: "Embedding integration test marker",
+          embedding: vectorStr,
+        } as any)
+        .onConflict((oc) => oc.column("id").doNothing())
+        .execute();
+    });
+
+    afterAll(async () => {
+      await db.deleteFrom("page_embeddings").where("id", "=", EMBED_ID).execute();
+    });
+
+    it("returns the seeded page for a matching query vector", async () => {
+      const queryVector = Array(DIM).fill(0.1);
+      const results = await searchByVectorForUser(queryVector, ID.user, 5);
+      const match = results.find((r) => r.pageId === ID.page);
+      expect(match).toBeDefined();
+      expect(match?.pageTitle).toBe("CamelCase検証ページ");
+      expect(match?.similarity).toBeGreaterThan(0.99);
     });
   });
 
