@@ -199,7 +199,7 @@ export function WikiSidebar({
         ) : null}
       </div>
 
-      <aside className="hidden w-64 border-r border-gray-200 bg-white p-4 md:block">
+      <aside className="hidden h-full w-64 shrink-0 overflow-y-auto border-r border-gray-200 bg-white p-4 md:block">
         {sidebarContent}
         <div className="mt-4 border-t border-gray-200 pt-3">
           <Link href="/wiki/trash" className="text-xs text-gray-500 hover:text-gray-700">
