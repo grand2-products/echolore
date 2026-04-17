@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import type { Space } from "@/lib/api";
 import { useT } from "@/lib/i18n";
-import { type DropPosition, type PageNode, PageTree } from "./PageTree";
+import { resolveSpaceLabel } from "@/lib/wiki-tree";
+import { DRAG_MIME, type DropPosition, type PageNode, PageTree } from "./PageTree";
 import { SpacePickerModal } from "./SpacePickerModal";
 
 interface WikiSidebarProps {
@@ -12,22 +13,16 @@ interface WikiSidebarProps {
   pagesBySpace?: Record<string, PageNode[]>;
   pages?: PageNode[];
   activeId?: string;
-  onReparent?: (pageId: string, parentId: string | null) => Promise<void> | void;
+  onReparent?: (
+    pageId: string,
+    parentId: string | null,
+    targetSpaceId?: string
+  ) => Promise<void> | void;
   onReorder?: (pageId: string, targetId: string, position: DropPosition) => Promise<void> | void;
   onAddSubPage?: (parentId?: string, spaceId?: string) => void;
   onRenamePage?: (pageId: string, newTitle: string) => Promise<void> | void;
   onDeletePage?: (pageId: string) => Promise<void> | void;
   isCreating?: boolean;
-}
-
-function spaceLabel(
-  type: string,
-  name: string,
-  t: (key: string, values?: Record<string, string | number>) => string
-): string {
-  if (type === "general") return t("wiki.spaces.general");
-  if (type === "personal") return t("wiki.spaces.personal", { name });
-  return name;
 }
 
 function SpaceSection({
@@ -51,7 +46,7 @@ function SpaceSection({
   onRenamePage?: WikiSidebarProps["onRenamePage"];
   onDeletePage?: WikiSidebarProps["onDeletePage"];
   isCreating?: boolean;
-  t: (key: string) => string;
+  t: (key: string, values?: Record<string, string | number>) => string;
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -63,7 +58,7 @@ function SpaceSection({
           onClick={() => setCollapsed((c) => !c)}
           className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-700"
         >
-          <span>{spaceLabel(space.type, space.name, t)}</span>
+          <span>{resolveSpaceLabel(space, t)}</span>
         </button>
         <button
           type="button"
@@ -80,6 +75,7 @@ function SpaceSection({
             <PageTree
               pages={pages}
               activeId={activeId}
+              spaceId={space.id}
               onReparent={onReparent}
               onReorder={onReorder}
               onAddSubPage={onAddSubPage}
@@ -88,7 +84,21 @@ function SpaceSection({
               isCreating={isCreating}
             />
           ) : (
-            <p className="text-xs text-gray-400 py-1">{t("wiki.spaces.noPages")}</p>
+            <section
+              aria-label={t("wiki.spaces.noPages")}
+              className="text-xs text-gray-400 py-1"
+              onDragOver={(event) => {
+                if (onReparent) event.preventDefault();
+              }}
+              onDrop={(event) => {
+                if (!onReparent) return;
+                event.preventDefault();
+                const draggedId = event.dataTransfer.getData(DRAG_MIME);
+                if (draggedId) void onReparent(draggedId, null, space.id);
+              }}
+            >
+              {t("wiki.spaces.noPages")}
+            </section>
           )}
         </div>
       )}

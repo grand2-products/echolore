@@ -9,6 +9,7 @@ export const createPageSchema = z.object({
 export const updatePageSchema = z.object({
   title: z.string().min(1).optional(),
   parentId: z.string().nullable().optional(),
+  spaceId: z.string().optional(),
 });
 
 export const reorderPagesSchema = z.object({

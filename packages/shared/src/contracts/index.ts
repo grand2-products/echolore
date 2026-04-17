@@ -314,6 +314,7 @@ export interface VerifyEmailResponse {
 export interface UpdatePageRequest {
   title?: string;
   parentId?: string | null;
+  spaceId?: string;
 }
 
 export interface ReorderPagesRequest {

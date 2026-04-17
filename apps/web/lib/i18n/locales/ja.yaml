@@ -177,6 +177,11 @@ wiki:
     delete: "削除"
     deleteConfirm: "このページを削除しますか？"
     deleteError: "ページの削除に失敗しました。"
+  moveSpace:
+    title: "別のスペースへ移動しますか？"
+    description: "このページとすべての子ページを「{space}」に移動します。移動先スペースの権限設定が適用され、現在このページに設定されている個別権限はすべて削除されます。"
+    confirm: "移動する"
+    cancel: "キャンセル"
   toolbar:
     bold: "太字 (Ctrl+B)"
     italic: "斜体 (Ctrl+I)"

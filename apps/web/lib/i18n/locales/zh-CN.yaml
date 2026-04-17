@@ -177,6 +177,11 @@ wiki:
     delete: "删除"
     deleteConfirm: "确定删除此页面？"
     deleteError: "删除页面失败。"
+  moveSpace:
+    title: "移动到其他空间？"
+    description: "此页面及其所有子页面将移动到\"{space}\"。目标空间的权限将生效，当前设置的所有单独权限将被清除。"
+    confirm: "移动"
+    cancel: "取消"
   toolbar:
     bold: "加粗 (Ctrl+B)"
     italic: "斜体 (Ctrl+I)"

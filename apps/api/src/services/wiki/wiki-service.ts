@@ -34,6 +34,7 @@ export {
   getPageBlocks,
   getPageById,
   listDeletedPages,
+  movePageAcrossSpaces,
   permanentDeletePage,
   reorderPages,
   restorePage,

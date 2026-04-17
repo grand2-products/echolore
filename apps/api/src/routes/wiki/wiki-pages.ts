@@ -20,6 +20,7 @@ import {
   getPageBlocks,
   getPageById,
   listVisiblePages,
+  movePageAcrossSpaces,
   reorderPages,
   searchVisiblePages,
   softDeletePage,
@@ -202,12 +203,26 @@ wikiPageRoutes.put(
       return jsonError(c, 403, "WIKI_PAGE_FORBIDDEN", "Forbidden");
     }
 
+    const targetSpaceId = data.spaceId ?? page.spaceId;
+    const isSpaceChanging = targetSpaceId !== page.spaceId;
+
+    if (isSpaceChanging) {
+      const user = c.get("user");
+      const targetSpace = await getSpaceById(targetSpaceId);
+      if (!targetSpace) {
+        return jsonError(c, 404, "WIKI_SPACE_NOT_FOUND", "Target space not found");
+      }
+      if (!(await canAccessSpace(user, targetSpace, "write"))) {
+        return jsonError(c, 403, "WIKI_SPACE_FORBIDDEN", "Cannot move pages to this space");
+      }
+    }
+
     if (data.parentId !== undefined && data.parentId !== null) {
       const parentPage = await getPageById(data.parentId);
       if (!parentPage) {
         return jsonError(c, 404, "WIKI_PARENT_NOT_FOUND", "Parent page not found");
       }
-      if (parentPage.spaceId !== page.spaceId) {
+      if (parentPage.spaceId !== targetSpaceId) {
         return jsonError(
           c,
           400,
@@ -221,17 +236,31 @@ wikiPageRoutes.put(
       }
     }
 
-    const updatePayload: { title?: string; parentId?: string | null; updatedAt: Date } = {
+    const updatePayload: {
+      title?: string;
+      parentId?: string | null;
+      updatedAt: Date;
+    } = {
       updatedAt: new Date(),
     };
 
     if (data.title !== undefined) updatePayload.title = data.title;
     if (data.parentId !== undefined) updatePayload.parentId = data.parentId;
 
-    const updatedPage = await updatePage(id, updatePayload);
+    const updatedPage = isSpaceChanging
+      ? await movePageAcrossSpaces(id, targetSpaceId, updatePayload)
+      : await updatePage(id, updatePayload);
 
     if (!updatedPage) {
       return jsonError(c, 404, "WIKI_PAGE_NOT_FOUND", "Page not found");
+    }
+
+    if (isSpaceChanging) {
+      await auditAction(c, "wiki.page.move_space", "wiki-page", id, {
+        fromSpaceId: page.spaceId,
+        toSpaceId: targetSpaceId,
+        parentId: updatePayload.parentId ?? null,
+      });
     }
 
     indexPageBackground(id);

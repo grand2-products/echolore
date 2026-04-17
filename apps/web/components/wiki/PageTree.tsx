@@ -260,10 +260,14 @@ interface PageTreeItemProps {
   dropTarget: { id: string; position: DropPosition } | null;
   renamingId: string | null;
   onToggleExpand: (id: string, expanded: boolean) => void;
-  onDragStart: (id: string) => void;
+  onDragStart: (event: React.DragEvent<HTMLDivElement>, id: string) => void;
   onDragEnd: () => void;
   onDragOver: (id: string, position: DropPosition) => void;
-  onDropTo: (targetId: string, position: DropPosition) => void;
+  onDropTo: (
+    event: React.DragEvent<HTMLDivElement>,
+    targetId: string,
+    position: DropPosition
+  ) => void;
   onExpand?: (id: string, expanded: boolean) => void;
   onAddSubPage?: (parentId: string, spaceId?: string) => void;
   onRename?: (pageId: string, currentTitle: string) => void;
@@ -295,7 +299,7 @@ function PageTreeItem(props: PageTreeItemProps) {
         } ${isDropTarget && dropPos === "child" ? "ring-1 ring-blue-400" : ""} ${isDragging ? "opacity-50" : ""}`}
         style={{ paddingLeft: `${props.level * 8 + 4}px` }}
         draggable={!isRenaming}
-        onDragStart={() => props.onDragStart(props.page.id)}
+        onDragStart={(event) => props.onDragStart(event, props.page.id)}
         onDragEnd={props.onDragEnd}
         onDragOver={(event) => {
           event.preventDefault();
@@ -307,7 +311,7 @@ function PageTreeItem(props: PageTreeItemProps) {
           event.preventDefault();
           event.stopPropagation();
           const position = getDropPosition(event);
-          props.onDropTo(props.page.id, position);
+          props.onDropTo(event, props.page.id, position);
         }}
       >
         {/* Top insertion line */}
@@ -383,11 +387,19 @@ function PageTreeItem(props: PageTreeItemProps) {
 /*  Page tree                                                         */
 /* ------------------------------------------------------------------ */
 
+export const DRAG_MIME = "application/x-echolore-wiki-page";
+
 interface PageTreeProps {
   pages: PageNode[];
   activeId?: string;
+  /** Space this tree belongs to — used to attribute root-level drops to the correct space. */
+  spaceId?: string;
   onExpand?: (id: string, expanded: boolean) => void;
-  onReparent?: (pageId: string, parentId: string | null) => Promise<void> | void;
+  onReparent?: (
+    pageId: string,
+    parentId: string | null,
+    targetSpaceId?: string
+  ) => Promise<void> | void;
   onReorder?: (pageId: string, targetId: string, position: DropPosition) => Promise<void> | void;
   onAddSubPage?: (parentId: string, spaceId?: string) => void;
   onRenamePage?: (pageId: string, newTitle: string) => Promise<void> | void;
@@ -425,6 +437,7 @@ function findNodeById(nodes: PageNode[], id: string): PageNode | null {
 export function PageTree({
   pages,
   activeId,
+  spaceId,
   onExpand,
   onReparent,
   onReorder,
@@ -449,21 +462,23 @@ export function PageTree({
     });
   }, [allIds]);
 
-  const handleDropTo = async (targetId: string, position: DropPosition) => {
-    if (!draggingId || draggingId === targetId) {
+  const handleDropTo = async (
+    event: React.DragEvent<HTMLDivElement>,
+    targetId: string,
+    position: DropPosition
+  ) => {
+    const transferredId = event.dataTransfer.getData(DRAG_MIME) || null;
+    const sourceId = draggingId ?? transferredId;
+
+    if (!sourceId || sourceId === targetId) {
       setDraggingId(null);
       setDropTarget(null);
       return;
     }
 
-    const draggingNode = findNodeById(pages, draggingId);
-    if (!draggingNode) {
-      setDraggingId(null);
-      setDropTarget(null);
-      return;
-    }
-
-    if (collectDescendants(draggingNode).has(targetId)) {
+    // Cycle check only applies when the dragged node is within this tree
+    const draggingNode = findNodeById(pages, sourceId);
+    if (draggingNode && collectDescendants(draggingNode).has(targetId)) {
       setDraggingId(null);
       setDropTarget(null);
       return;
@@ -471,11 +486,12 @@ export function PageTree({
 
     try {
       if (position === "child") {
-        // Reparent: make dragged page a child of target
-        await onReparent?.(draggingId, targetId);
+        // Reparent: make dragged page a child of target. Pass this tree's spaceId
+        // so the backend can move the page (and descendants) across spaces.
+        await onReparent?.(sourceId, targetId, spaceId);
       } else {
         // Reorder: insert before/after the target in same sibling list
-        await onReorder?.(draggingId, targetId, position);
+        await onReorder?.(sourceId, targetId, position);
       }
     } finally {
       setDraggingId(null);
@@ -525,8 +541,11 @@ export function PageTree({
       }}
       onDrop={(event) => {
         event.preventDefault();
-        if (event.target !== event.currentTarget || !onReparent || !draggingId) return;
-        void onReparent(draggingId, null);
+        if (event.target !== event.currentTarget || !onReparent) return;
+        const transferredId = event.dataTransfer.getData(DRAG_MIME) || null;
+        const sourceId = draggingId ?? transferredId;
+        if (!sourceId) return;
+        void onReparent(sourceId, null, spaceId);
         setDraggingId(null);
         setDropTarget(null);
       }}
@@ -549,14 +568,18 @@ export function PageTree({
               return next;
             })
           }
-          onDragStart={(id) => setDraggingId(id)}
+          onDragStart={(event, id) => {
+            setDraggingId(id);
+            event.dataTransfer.setData(DRAG_MIME, id);
+            event.dataTransfer.effectAllowed = "move";
+          }}
           onDragEnd={() => {
             setDraggingId(null);
             setDropTarget(null);
           }}
           onDragOver={(id, position) => setDropTarget({ id, position })}
-          onDropTo={(targetId, position) => {
-            void handleDropTo(targetId, position);
+          onDropTo={(event, targetId, position) => {
+            void handleDropTo(event, targetId, position);
           }}
           onExpand={onExpand}
           onAddSubPage={onAddSubPage}

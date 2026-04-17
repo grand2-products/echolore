@@ -36,6 +36,19 @@ function buildPageTree(flatPages: Page[]): PageNode[] {
   return roots;
 }
 
+/**
+ * Resolve a user-facing label for a space. "general" and "personal" spaces
+ * get translated labels; team/custom spaces fall back to the raw name.
+ */
+export function resolveSpaceLabel(
+  space: Pick<Space, "type" | "name">,
+  t: (key: string, values?: Record<string, string | number>) => string
+): string {
+  if (space.type === "general") return t("wiki.spaces.general");
+  if (space.type === "personal") return t("wiki.spaces.personal", { name: space.name });
+  return space.name;
+}
+
 export function groupPagesBySpace(pages: Page[], spaces: Space[]): Record<string, PageNode[]> {
   const grouped: Record<string, Page[]> = {};
   for (const space of spaces) {

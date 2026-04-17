@@ -177,6 +177,11 @@ wiki:
     delete: "Delete"
     deleteConfirm: "Delete this page?"
     deleteError: "Failed to delete page."
+  moveSpace:
+    title: "Move to a different space?"
+    description: "This page and all of its descendants will move to \"{space}\". The target space's permissions will apply, and any per-page permissions currently set on this subtree will be cleared."
+    confirm: "Move"
+    cancel: "Cancel"
   toolbar:
     bold: "Bold (Ctrl+B)"
     italic: "Italic (Ctrl+I)"

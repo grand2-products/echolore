@@ -207,11 +207,104 @@ export async function createPage(newPage: NewPage): Promise<Page | null> {
 
 export async function updatePage(
   id: string,
-  updatePayload: { title?: string; parentId?: string | null; updatedAt: Date }
+  updatePayload: {
+    title?: string;
+    parentId?: string | null;
+    spaceId?: string;
+    updatedAt: Date;
+  }
 ): Promise<Page | null> {
   return firstOrNull(
     await db.updateTable("pages").set(updatePayload).where("id", "=", id).returningAll().execute()
   );
+}
+
+/**
+ * Propagate a new spaceId to all descendants of `rootPageId`. Does NOT touch
+ * the root itself — the caller updates the root via `updatePage`, which is
+ * what makes the descendants discoverable via the existing parentId edges.
+ */
+async function updateDescendantSpaceIdsTx(
+  trx: DbTransaction,
+  rootPageId: string,
+  newSpaceId: string
+): Promise<void> {
+  await sql`
+    WITH RECURSIVE descendants AS (
+      SELECT id FROM pages WHERE parent_id = ${rootPageId}
+      UNION ALL
+      SELECT p.id FROM pages p
+      INNER JOIN descendants d ON p.parent_id = d.id
+    )
+    UPDATE pages SET space_id = ${newSpaceId}
+    WHERE id IN (SELECT id FROM descendants)
+  `.execute(trx);
+}
+
+/**
+ * Clear all page-level permissions and reset inheritance to `true` for the
+ * subtree rooted at `rootPageId` (the page itself plus all descendants).
+ */
+async function resetSubtreePermissionsTx(trx: DbTransaction, rootPageId: string): Promise<void> {
+  const result = await sql<{ id: string }>`
+    WITH RECURSIVE subtree AS (
+      SELECT id FROM pages WHERE id = ${rootPageId}
+      UNION ALL
+      SELECT p.id FROM pages p INNER JOIN subtree s ON p.parent_id = s.id
+    )
+    SELECT id FROM subtree
+  `.execute(trx);
+
+  const pageIds = result.rows.map((row) => row.id);
+  if (pageIds.length === 0) return;
+
+  const now = new Date();
+  await trx.deleteFrom("page_permissions").where("pageId", "in", pageIds).execute();
+  await trx.deleteFrom("page_inheritance").where("pageId", "in", pageIds).execute();
+  await trx
+    .insertInto("page_inheritance")
+    .values(
+      pageIds.map((pageId) => ({
+        id: `inherit_${nanoid(12)}`,
+        pageId,
+        inheritFromParent: true,
+        createdAt: now,
+      }))
+    )
+    .execute();
+}
+
+/**
+ * Atomically move a page subtree across spaces. In one transaction:
+ *   1. Update the root page (spaceId, parentId, title, updatedAt)
+ *   2. Propagate the new spaceId to all descendants
+ *   3. Drop per-page permissions and reset `inheritFromParent=true` for the
+ *      whole subtree — the old space's grants have no meaning in the new one.
+ */
+export async function movePageAcrossSpaces(
+  rootPageId: string,
+  newSpaceId: string,
+  updatePayload: {
+    title?: string;
+    parentId?: string | null;
+    updatedAt: Date;
+  }
+): Promise<Page | null> {
+  return db.transaction().execute(async (trx) => {
+    const updated = firstOrNull(
+      await trx
+        .updateTable("pages")
+        .set({ ...updatePayload, spaceId: newSpaceId })
+        .where("id", "=", rootPageId)
+        .returningAll()
+        .execute()
+    );
+    if (!updated) return null;
+
+    await updateDescendantSpaceIdsTx(trx, rootPageId, newSpaceId);
+    await resetSubtreePermissionsTx(trx, rootPageId);
+    return updated;
+  });
 }
 
 export async function deletePage(id: string): Promise<void> {
