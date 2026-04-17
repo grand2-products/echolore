@@ -209,6 +209,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build upstream packages
+        run: pnpm --filter @echolore/shared build
+
       - name: Enable pgvector extension
         env:
           PGPASSWORD: test
