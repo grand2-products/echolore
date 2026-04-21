@@ -274,6 +274,8 @@ wiki:
   shorthand:
     placeholder: "メモを入力してAIが適切な位置に挿入..."
     error: "速記の処理に失敗しました。末尾に追加しました。"
+  toc:
+    title: "目次"
   collab:
     live: "接続中"
     connecting: "接続中..."

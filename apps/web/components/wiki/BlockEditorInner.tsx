@@ -19,6 +19,7 @@ import "@blocknote/shadcn/style.css";
 
 export interface EditorHandle {
   exportMarkdown: () => string;
+  getEditor: () => ReturnType<typeof useCreateBlockNote> | null;
 }
 
 interface BlockEditorInnerProps {
@@ -202,6 +203,7 @@ function CollabEditor({
   useEffect(() => {
     onEditorReady?.({
       exportMarkdown: () => editor.blocksToMarkdownLossy(editor.document),
+      getEditor: () => editor,
     });
     // editor is stable (from useCreateBlockNote); onEditorReady is intentionally
     // excluded to avoid re-firing on every parent render.

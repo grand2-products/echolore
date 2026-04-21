@@ -274,6 +274,8 @@ wiki:
   shorthand:
     placeholder: "Type a note and AI will insert it in the right place..."
     error: "Failed to process shorthand. Appended at the end."
+  toc:
+    title: "On this page"
   collab:
     live: "Live"
     connecting: "Connecting..."

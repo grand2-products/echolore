@@ -1,10 +1,12 @@
 "use client";
 
+import type { BlockNoteEditor } from "@blocknote/core";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BlockEditor, type EditorHandle } from "@/components/wiki/BlockEditor";
 import { PagePermissionsPanel } from "@/components/wiki/PagePermissionsPanel";
+import { TableOfContents } from "@/components/wiki/TableOfContents";
 import { VersionHistoryPanel } from "@/components/wiki/VersionHistoryPanel";
 import { useAuthMeQuery, useWikiPageQuery, wikiApi } from "@/lib/api";
 import { useRecentWikiPages } from "@/lib/hooks/use-recent-wiki-pages";
@@ -85,9 +87,17 @@ export default function WikiDetailPage() {
   const { recordVisit } = useRecentWikiPages();
 
   const editorHandleRef = useRef<EditorHandle | null>(null);
-  const setEditorHandle = useCallback((handle: EditorHandle) => {
-    editorHandleRef.current = handle;
-  }, []);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const [editorInstance, setEditorInstance] = useState<BlockNoteEditor | null>(null);
+  const setEditorHandle = useCallback(
+    (handle: EditorHandle) => {
+      editorHandleRef.current = handle;
+      setEditorInstance(handle.getEditor());
+    },
+    // setEditorInstance is a state setter and is stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
   const [showHistory, setShowHistory] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
   const [snapshotStatus, setSnapshotStatus] = useState<"idle" | "saving" | "saved" | "error">(
@@ -206,57 +216,66 @@ export default function WikiDetailPage() {
 
   return (
     <>
-      <div className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-4xl p-8">
-          <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm text-gray-500">
-              {t("wiki.detail.updatedAt", { value: dateTime(currentPage.updatedAt) })}
-            </p>
-            <ActionMenu
-              items={[
-                {
-                  label:
-                    snapshotStatus === "saving"
-                      ? t("common.status.loading")
-                      : snapshotStatus === "saved"
-                        ? t("wiki.history.snapshotSaved")
-                        : snapshotStatus === "error"
-                          ? t("wiki.history.snapshotError")
-                          : t("wiki.actions.snapshot"),
-                  disabled: snapshotStatus === "saving",
-                  onClick: createSnapshot,
-                },
-                {
-                  label: t("wiki.actions.history"),
-                  onClick: () => setShowHistory(true),
-                },
-                {
-                  label: t("wiki.actions.exportMarkdown"),
-                  onClick: exportMarkdown,
-                },
-                ...(authData?.user?.role === "admin" || authData?.user?.id === currentPage.authorId
-                  ? [
-                      {
-                        label: t("wiki.actions.permissions"),
-                        onClick: () => setShowPermissions(true),
-                      },
-                    ]
-                  : []),
-              ]}
+      <div className="flex flex-1 overflow-hidden">
+        <div ref={scrollContainerRef} className="flex-1 overflow-auto">
+          <div className="mx-auto max-w-4xl p-8">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm text-gray-500">
+                {t("wiki.detail.updatedAt", { value: dateTime(currentPage.updatedAt) })}
+              </p>
+              <ActionMenu
+                items={[
+                  {
+                    label:
+                      snapshotStatus === "saving"
+                        ? t("common.status.loading")
+                        : snapshotStatus === "saved"
+                          ? t("wiki.history.snapshotSaved")
+                          : snapshotStatus === "error"
+                            ? t("wiki.history.snapshotError")
+                            : t("wiki.actions.snapshot"),
+                    disabled: snapshotStatus === "saving",
+                    onClick: createSnapshot,
+                  },
+                  {
+                    label: t("wiki.actions.history"),
+                    onClick: () => setShowHistory(true),
+                  },
+                  {
+                    label: t("wiki.actions.exportMarkdown"),
+                    onClick: exportMarkdown,
+                  },
+                  ...(authData?.user?.role === "admin" ||
+                  authData?.user?.id === currentPage.authorId
+                    ? [
+                        {
+                          label: t("wiki.actions.permissions"),
+                          onClick: () => setShowPermissions(true),
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            </div>
+
+            <BlockEditor
+              pageId={pageId}
+              initialBlocks={blocks}
+              pageTitle={resolvedTitle}
+              onTitleChange={setPageTitle}
+              autoFocusTitle={isNewPage}
+              userName={userName}
+              userColor={userColor}
+              onEditorReady={setEditorHandle}
             />
           </div>
-
-          <BlockEditor
-            pageId={pageId}
-            initialBlocks={blocks}
-            pageTitle={resolvedTitle}
-            onTitleChange={setPageTitle}
-            autoFocusTitle={isNewPage}
-            userName={userName}
-            userColor={userColor}
-            onEditorReady={setEditorHandle}
-          />
         </div>
+
+        <aside className="hidden shrink-0 border-l border-gray-200 xl:block">
+          <div className="sticky top-0 h-full overflow-auto p-6 pt-8">
+            <TableOfContents editor={editorInstance} scrollContainerRef={scrollContainerRef} />
+          </div>
+        </aside>
       </div>
 
       {showPermissions && (
