@@ -58,6 +58,28 @@ body {
   background-color: #ffffff;
 }
 
+/* Heading sizes: tighter H1 and slightly larger H3–H6 for smoother scale.
+ * Scoped to .block-editor to win specificity over BlockNote's own CSS
+ * (which is injected later via next/dynamic). */
+.block-editor [data-content-type="heading"] {
+  --level: 2em;
+}
+.block-editor [data-content-type="heading"][data-level="2"] {
+  --level: 1.75em;
+}
+.block-editor [data-content-type="heading"][data-level="3"] {
+  --level: 1.5em;
+}
+.block-editor [data-content-type="heading"][data-level="4"] {
+  --level: 1.3em;
+}
+.block-editor [data-content-type="heading"][data-level="5"] {
+  --level: 1.15em;
+}
+.block-editor [data-content-type="heading"][data-level="6"] {
+  --level: 1em;
+}
+
 /* Reaction float animation */
 @keyframes reaction-float {
   0% {

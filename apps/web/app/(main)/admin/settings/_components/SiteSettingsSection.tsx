@@ -1,10 +1,12 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Tooltip } from "@/components/ui";
 import { adminApi } from "@/lib/api";
 import { useSettingsForm } from "@/lib/hooks/use-settings-form";
 import { useT } from "@/lib/i18n";
+import { revalidateSiteSettings } from "@/lib/server/site-settings-actions";
 import { INPUT_CLASS, SettingsSaveButton, SettingsSectionShell } from "./SettingsSectionShell";
 
 interface SiteSettingsSectionProps {
@@ -30,6 +32,7 @@ export function SiteSettingsSection({
   onLoadedSiteSettings,
 }: SiteSettingsSectionProps) {
   const t = useT();
+  const router = useRouter();
 
   const [siteTitle, setSiteTitle] = useState("");
   const [siteTagline, setSiteTagline] = useState("");
@@ -56,7 +59,9 @@ export function SiteSettingsSection({
     },
     save: async () => {
       await adminApi.updateSiteSettings({ siteTitle, siteTagline });
+      await revalidateSiteSettings();
       refetchSiteSettings();
+      router.refresh();
     },
   });
 

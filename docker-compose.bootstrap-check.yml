@@ -95,6 +95,7 @@ services:
       NODE_ENV: ${WEB_NODE_ENV:-production}
       ECHOLORE_PUBLIC_API_URL: ${ECHOLORE_PUBLIC_API_URL:-http://api:3001}
       ECHOLORE_PUBLIC_LIVEKIT_URL: ${ECHOLORE_PUBLIC_LIVEKIT_URL:-ws://livekit:7880}
+      ECHOLORE_API_INTERNAL_URL: http://api:3001
     expose:
       - "3000"
     depends_on:

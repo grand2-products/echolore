@@ -48,18 +48,55 @@ function setupObserver(
     if (blockId) map.set(blockId, el as HTMLElement);
   }
 
-  const observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          const id = entry.target.getAttribute("data-id");
-          if (id) onActive(id);
+  const visibleIds = new Set<string>();
+
+  const pickClosest = () => {
+    const containerRect = container.getBoundingClientRect();
+    let closestId: string | null = null;
+    let closestTop = Infinity;
+    for (const id of visibleIds) {
+      const el = map.get(id);
+      if (!el) continue;
+      const top = el.getBoundingClientRect().top - containerRect.top;
+      if (top >= 0 && top < closestTop) {
+        closestTop = top;
+        closestId = id;
+      }
+    }
+    if (!closestId) {
+      let negClosest = -Infinity;
+      for (const id of visibleIds) {
+        const el = map.get(id);
+        if (!el) continue;
+        const top = el.getBoundingClientRect().top - containerRect.top;
+        if (top > negClosest) {
+          negClosest = top;
+          closestId = id;
         }
       }
+    }
+    if (closestId) onActive(closestId);
+  };
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      let changed = false;
+      for (const entry of entries) {
+        const id = entry.target.getAttribute("data-id");
+        if (!id) continue;
+        if (entry.isIntersecting) {
+          if (!visibleIds.has(id)) changed = true;
+          visibleIds.add(id);
+        } else {
+          if (visibleIds.has(id)) changed = true;
+          visibleIds.delete(id);
+        }
+      }
+      if (changed) pickClosest();
     },
     {
       root: container,
-      rootMargin: "-80px 0px 0px 0px",
+      rootMargin: "-80px 0px -60% 0px",
       threshold: 0,
     }
   );

@@ -80,11 +80,6 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       });
   }, [fetchNonce]);
 
-  // Sync document.title with the site title from DB
-  useEffect(() => {
-    document.title = settings.siteTitle;
-  }, [settings.siteTitle]);
-
   const value = useMemo(() => ({ settings, refetch }), [settings, refetch]);
 
   return <SiteSettingsContext.Provider value={value}>{children}</SiteSettingsContext.Provider>;

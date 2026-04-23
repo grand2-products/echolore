@@ -11,6 +11,7 @@ import { appTagline, appTitle } from "@/lib/app-config";
 import { AuthProvider } from "@/lib/auth-context";
 import { I18nProvider } from "@/lib/i18n";
 import { QueryProvider } from "@/lib/query-client";
+import { fetchSiteSettingsFromServer } from "@/lib/server/site-settings";
 import "./globals.css";
 
 const notoSansJP = Noto_Sans_JP({
@@ -18,10 +19,13 @@ const notoSansJP = Noto_Sans_JP({
   variable: "--font-noto-sans-jp",
 });
 
-export const metadata: Metadata = {
-  title: appTitle,
-  description: appTagline,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await fetchSiteSettingsFromServer();
+  return {
+    title: settings?.siteTitle || appTitle,
+    description: settings?.siteTagline || appTagline,
+  };
+}
 
 export default function RootLayout({
   children,

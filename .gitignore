@@ -70,4 +70,6 @@ apps/api/drizzle/meta/_journal.json.bak
 # Terraform nested env files
 terraform/**/*.tfvars
 terraform/**/backend.hcl
-.claude/settings.local.json
+
+# Kilocode (IDE-local tooling)
+.kilocode/

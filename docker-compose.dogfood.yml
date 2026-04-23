@@ -166,6 +166,7 @@ services:
       NODE_ENV: production
       ECHOLORE_PUBLIC_API_URL: http://localhost:${API_PORT:-17821}
       ECHOLORE_PUBLIC_LIVEKIT_URL: ws://localhost:${LIVEKIT_PORT:-17822}
+      ECHOLORE_API_INTERNAL_URL: http://api:3001
     ports:
       - "${WEB_PORT:-17860}:3000"
     depends_on:

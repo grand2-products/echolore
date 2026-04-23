@@ -217,6 +217,7 @@ services:
       NODE_ENV: production
       ECHOLORE_PUBLIC_API_URL: https://${DOMAIN}
       ECHOLORE_PUBLIC_LIVEKIT_URL: wss://${DOMAIN}
+      ECHOLORE_API_INTERNAL_URL: http://api:3001
     labels:
       traefik.enable: "true"
       traefik.http.routers.echolore-web.rule: "Host(`${DOMAIN}`)"

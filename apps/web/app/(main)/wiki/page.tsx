@@ -11,7 +11,30 @@ import { useRecentWikiPages } from "@/lib/hooks/use-recent-wiki-pages";
 import { useWikiPageActions } from "@/lib/hooks/use-wiki-page-actions";
 import { useFormatters, useT } from "@/lib/i18n";
 
-const EMPTY_RECENT: RecentWikiPage[] = [];
+type ResolvedRecentPage = RecentWikiPage & { breadcrumb: string };
+
+const EMPTY_RECENT: ResolvedRecentPage[] = [];
+
+function buildBreadcrumb(
+  pageId: string,
+  pageMap: Map<string, { title: string; parentId: string | null; spaceName?: string }>
+): string {
+  const start = pageMap.get(pageId);
+  if (!start) return "";
+  const parts: string[] = [];
+  if (start.spaceName) parts.push(start.spaceName);
+  let currentId: string | null = start.parentId;
+  const visited = new Set<string>([pageId]);
+  while (currentId) {
+    if (visited.has(currentId)) break;
+    visited.add(currentId);
+    const page = pageMap.get(currentId);
+    if (!page) break;
+    parts.push(page.title || "");
+    currentId = page.parentId;
+  }
+  return parts.join(" / ");
+}
 
 function formatRelativeDate(
   value: string | number,
@@ -45,15 +68,21 @@ export default function WikiListPage() {
   // Cross-reference recent visits with API data:
   // - Drop entries whose page no longer exists (deleted)
   // - Use the latest title from the server, not the stale localStorage copy
-  const resolvedRecentPages = useMemo(() => {
+  const resolvedRecentPages = useMemo<ResolvedRecentPage[]>(() => {
     if (!data) return EMPTY_RECENT; // API未ロード → 権限未確認のため非表示
-    const pageMap = new Map(pages.map((p) => [p.id, p]));
+    const pageMap = new Map(
+      pages.map((p) => [p.id, { title: p.title, parentId: p.parentId, spaceName: p.spaceName }])
+    );
     return recentPages
       .filter((entry) => pageMap.has(entry.id))
-      .map((entry) => ({
-        ...entry,
-        title: pageMap.get(entry.id)?.title ?? entry.title,
-      }));
+      .map((entry) => {
+        const serverPage = pageMap.get(entry.id);
+        return {
+          ...entry,
+          title: serverPage?.title ?? entry.title,
+          breadcrumb: buildBreadcrumb(entry.id, pageMap),
+        };
+      });
   }, [recentPages, pages, data]);
 
   const filterLower = filter.trim().toLowerCase();
@@ -141,9 +170,16 @@ export default function WikiListPage() {
                       d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  <span className="min-w-0 flex-1 truncate text-sm text-gray-700">
-                    {entry.title || t("wiki.newPage.defaultTitle")}
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-gray-700">
+                      {entry.title || t("wiki.newPage.defaultTitle")}
+                    </span>
+                    {entry.breadcrumb && (
+                      <span className="block truncate text-xs text-gray-400">
+                        {entry.breadcrumb}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-xs text-gray-400">
                     {formatRelativeDate(entry.visitedAt, t)}
                   </span>
