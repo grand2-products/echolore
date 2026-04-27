@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useT } from "@/lib/i18n";
 
@@ -407,15 +407,6 @@ interface PageTreeProps {
   isCreating?: boolean;
 }
 
-function flattenPageIds(nodes: PageNode[]): string[] {
-  const result: string[] = [];
-  for (const node of nodes) {
-    result.push(node.id);
-    if (node.children?.length) result.push(...flattenPageIds(node.children));
-  }
-  return result;
-}
-
 function collectDescendants(node: PageNode): Set<string> {
   const descendants = new Set<string>();
   for (const child of node.children ?? []) {
@@ -434,6 +425,23 @@ function findNodeById(nodes: PageNode[], id: string): PageNode | null {
   return null;
 }
 
+const EXPANDED_KEY = "echolore:wiki:tree-expanded";
+
+function readExpandedIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(EXPANDED_KEY);
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function writeExpandedIds(ids: Set<string>) {
+  try {
+    localStorage.setItem(EXPANDED_KEY, JSON.stringify([...ids]));
+  } catch {}
+}
+
 export function PageTree({
   pages,
   activeId,
@@ -447,20 +455,15 @@ export function PageTree({
   isCreating,
 }: PageTreeProps) {
   const t = useT();
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(readExpandedIds);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ id: string; position: DropPosition } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const allIds = useMemo(() => flattenPageIds(pages), [pages]);
 
   useEffect(() => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      for (const id of allIds) next.add(id);
-      return next;
-    });
-  }, [allIds]);
+    writeExpandedIds(expandedIds);
+  }, [expandedIds]);
 
   const handleDropTo = async (
     event: React.DragEvent<HTMLDivElement>,

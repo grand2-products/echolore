@@ -1,12 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Space } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { resolveSpaceLabel } from "@/lib/wiki-tree";
 import { DRAG_MIME, type DropPosition, type PageNode, PageTree } from "./PageTree";
 import { SpacePickerModal } from "./SpacePickerModal";
+
+const SPACE_COLLAPSED_KEY = "echolore:wiki:space-collapsed";
+
+function readSpaceCollapsedMap(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(SPACE_COLLAPSED_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSpaceCollapsedMap(map: Record<string, boolean>) {
+  try {
+    localStorage.setItem(SPACE_COLLAPSED_KEY, JSON.stringify(map));
+  } catch {}
+}
 
 interface WikiSidebarProps {
   spaces?: Space[];
@@ -48,7 +65,16 @@ function SpaceSection({
   isCreating?: boolean;
   t: (key: string, values?: Record<string, string | number>) => string;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    const map = readSpaceCollapsedMap();
+    return map[space.id] ?? true;
+  });
+
+  useEffect(() => {
+    const map = readSpaceCollapsedMap();
+    map[space.id] = collapsed;
+    writeSpaceCollapsedMap(map);
+  }, [collapsed, space.id]);
 
   return (
     <div className="mb-3">
