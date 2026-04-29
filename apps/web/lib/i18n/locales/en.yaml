@@ -161,6 +161,7 @@ wiki:
     general: "General"
     team: "Team"
     personal: "{name}'s Space"
+    personalGroup: "Personal"
     newPage: "+ New"
     noPages: "No pages yet"
   sidebar:

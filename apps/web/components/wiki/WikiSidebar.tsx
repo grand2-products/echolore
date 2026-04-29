@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Space } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { resolveSpaceLabel } from "@/lib/wiki-tree";
@@ -23,6 +23,30 @@ function writeSpaceCollapsedMap(map: Record<string, boolean>) {
   try {
     localStorage.setItem(SPACE_COLLAPSED_KEY, JSON.stringify(map));
   } catch {}
+}
+
+const PERSONAL_GROUP_COLLAPSED_KEY = "echolore:wiki:personal-group-collapsed";
+
+function usePersonalGroupCollapsed() {
+  const [value, setValue] = useState(() => {
+    try {
+      return localStorage.getItem(PERSONAL_GROUP_COLLAPSED_KEY) !== "false";
+    } catch {
+      return true;
+    }
+  });
+
+  const toggle = useCallback(() => {
+    setValue((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(PERSONAL_GROUP_COLLAPSED_KEY, String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  return { value, toggle };
 }
 
 interface WikiSidebarProps {
@@ -151,23 +175,68 @@ export function WikiSidebar({
   // If spaces are provided, use space-grouped view; otherwise fallback to flat view
   const useSpaceView = spaces && spaces.length > 0 && pagesBySpace;
 
+  const personalGroupCollapsed = usePersonalGroupCollapsed();
+
   const sidebarContent = useSpaceView ? (
     <div>
-      {spaces.map((space) => (
-        <SpaceSection
-          key={space.id}
-          space={space}
-          pages={pagesBySpace[space.id] ?? []}
-          activeId={activeId}
-          onReparent={onReparent}
-          onReorder={onReorder}
-          onAddSubPage={onAddSubPage}
-          onRenamePage={onRenamePage}
-          onDeletePage={onDeletePage}
-          isCreating={isCreating}
-          t={t}
-        />
-      ))}
+      {spaces
+        .filter((s) => s.type !== "personal")
+        .map((space) => (
+          <SpaceSection
+            key={space.id}
+            space={space}
+            pages={pagesBySpace[space.id] ?? []}
+            activeId={activeId}
+            onReparent={onReparent}
+            onReorder={onReorder}
+            onAddSubPage={onAddSubPage}
+            onRenamePage={onRenamePage}
+            onDeletePage={onDeletePage}
+            isCreating={isCreating}
+            t={t}
+          />
+        ))}
+      {spaces.some((s) => s.type === "personal") && (
+        <div className="mb-3">
+          <button
+            type="button"
+            onClick={() => personalGroupCollapsed.toggle()}
+            className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-700"
+          >
+            <svg
+              className={`h-3 w-3 transition-transform ${personalGroupCollapsed.value ? "" : "rotate-90"}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <span>{t("wiki.spaces.personalGroup")}</span>
+          </button>
+          {!personalGroupCollapsed.value && (
+            <div className="mt-1 ml-2">
+              {spaces
+                .filter((s) => s.type === "personal")
+                .map((space) => (
+                  <SpaceSection
+                    key={space.id}
+                    space={space}
+                    pages={pagesBySpace[space.id] ?? []}
+                    activeId={activeId}
+                    onReparent={onReparent}
+                    onReorder={onReorder}
+                    onAddSubPage={onAddSubPage}
+                    onRenamePage={onRenamePage}
+                    onDeletePage={onDeletePage}
+                    isCreating={isCreating}
+                    t={t}
+                  />
+                ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   ) : (
     <div>

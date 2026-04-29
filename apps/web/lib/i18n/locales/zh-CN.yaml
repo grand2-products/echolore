@@ -161,6 +161,7 @@ wiki:
     general: "全体"
     team: "团队"
     personal: "{name}的空间"
+    personalGroup: "个人"
     newPage: "+ 新建"
     noPages: "暂无页面"
   sidebar:
