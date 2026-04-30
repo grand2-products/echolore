@@ -35,7 +35,7 @@ export function SpaceList({ spaces, selectedId, onSelect, size = "md", disabled 
           <span
             className={`flex items-center justify-center rounded-md bg-gray-100 font-medium text-gray-600 ${iconSize}`}
           >
-            {SPACE_ICON[space.type] ?? "?"}
+            {space.emoji ?? SPACE_ICON[space.type] ?? "?"}
           </span>
           <div>
             <p className={`font-medium text-gray-900 ${size === "sm" ? "text-sm" : ""}`}>

@@ -25,6 +25,12 @@ import type {
 export const wikiApi = {
   listSpaces: () => fetchApi<{ spaces: Space[] }>("/wiki/spaces"),
 
+  updateSpace: (id: string, data: { emoji?: string | null }) =>
+    fetchApi<{ space: Space }>(`/wiki/spaces/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
   getOrCreatePersonalSpace: () =>
     fetchApi<{ space: Space }>("/wiki/spaces/personal", {
       method: "POST",

@@ -15,10 +15,18 @@ import {
   findPersonalSpaceByUserId,
   findTeamSpaceByGroupId,
   listSpaces,
+  updateSpace as updateSpaceRepo,
 } from "../../repositories/wiki/space-repository.js";
 
 // Re-export for route layer access
 export { getSpaceById } from "../../repositories/wiki/space-repository.js";
+
+export async function updateSpace(
+  id: string,
+  data: { emoji?: string | null }
+): Promise<Space | null> {
+  return updateSpaceRepo(id, data);
+}
 
 export const GENERAL_SPACE_ID = "00000000-0000-0000-0000-000000000001";
 

@@ -51,3 +51,17 @@ export async function listSpaces(): Promise<Space[]> {
 export async function createSpace(space: NewSpace): Promise<Space | null> {
   return (await db.insertInto("spaces").values(space).returningAll().executeTakeFirst()) ?? null;
 }
+
+export async function updateSpace(
+  id: string,
+  data: { emoji?: string | null }
+): Promise<Space | null> {
+  return (
+    (await db
+      .updateTable("spaces")
+      .set({ ...data, updatedAt: new Date() })
+      .where("id", "=", id)
+      .returningAll()
+      .executeTakeFirst()) ?? null
+  );
+}

@@ -1,11 +1,14 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { Space } from "@/lib/api";
+import { wikiApi } from "@/lib/api/wiki";
 import { useT } from "@/lib/i18n";
 import { resolveSpaceLabel } from "@/lib/wiki-tree";
 import { DRAG_MIME, type DropPosition, type PageNode, PageTree } from "./PageTree";
+import { SpaceEmojiPicker } from "./SpaceEmojiPicker";
 import { SpacePickerModal } from "./SpacePickerModal";
 
 const SPACE_COLLAPSED_KEY = "echolore:wiki:space-collapsed";
@@ -93,6 +96,7 @@ function SpaceSection({
     const map = readSpaceCollapsedMap();
     return map[space.id] ?? true;
   });
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const map = readSpaceCollapsedMap();
@@ -100,16 +104,29 @@ function SpaceSection({
     writeSpaceCollapsedMap(map);
   }, [collapsed, space.id]);
 
+  const handleEmojiChange = useCallback(
+    async (emoji: string | null) => {
+      try {
+        await wikiApi.updateSpace(space.id, { emoji });
+        queryClient.invalidateQueries({ queryKey: ["wiki", "spaces"] });
+      } catch {}
+    },
+    [space.id, queryClient]
+  );
+
   return (
     <div className="mb-3">
       <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => setCollapsed((c) => !c)}
-          className="flex items-center gap-1 text-xs font-semibold text-gray-500 hover:text-gray-700"
-        >
-          <span>{resolveSpaceLabel(space, t)}</span>
-        </button>
+        <div className="flex items-center gap-1 text-xs font-semibold text-gray-500">
+          <SpaceEmojiPicker emoji={space.emoji} onSelect={handleEmojiChange} />
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            className="hover:text-gray-700"
+          >
+            {resolveSpaceLabel(space, t)}
+          </button>
+        </div>
         <button
           type="button"
           disabled={isCreating}
@@ -120,7 +137,7 @@ function SpaceSection({
         </button>
       </div>
       {!collapsed && (
-        <div className="mt-1 ml-2">
+        <div className="mt-1">
           {pages.length > 0 ? (
             <PageTree
               pages={pages}

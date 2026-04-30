@@ -41,7 +41,7 @@ function buildPageTree(flatPages: Page[]): PageNode[] {
  * get translated labels; team/custom spaces fall back to the raw name.
  */
 export function resolveSpaceLabel(
-  space: Pick<Space, "type" | "name">,
+  space: Pick<Space, "type" | "name" | "emoji">,
   t: (key: string, values?: Record<string, string | number>) => string
 ): string {
   if (space.type === "general") return t("wiki.spaces.general");

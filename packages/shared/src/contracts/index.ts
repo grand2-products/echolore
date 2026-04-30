@@ -53,6 +53,7 @@ export interface SpaceDto {
   id: string;
   name: string;
   type: SpaceType;
+  emoji: string | null;
   ownerUserId: string | null;
   groupId: string | null;
   createdAt: ISODateString;

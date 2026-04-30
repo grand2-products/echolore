@@ -123,6 +123,7 @@ export interface SpacesTable {
   id: string;
   name: string;
   type: string;
+  emoji: string | null;
   ownerUserId: string | null;
   groupId: string | null;
   createdAt: Generated<Date>;
