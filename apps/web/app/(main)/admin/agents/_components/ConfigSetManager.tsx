@@ -1,22 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  adminApi,
-  type ConfigSetAssignments,
-  LLM_PROVIDERS,
-  type LlmConfigSet,
-  type LlmProvider,
-} from "@/lib/api";
+import { adminApi, type ConfigSetAssignments, type LlmConfigSet } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useFormatters, useT } from "@/lib/i18n";
-import {
-  buildLlmProviderPayload,
-  EMPTY_PROVIDER_FORM,
-  LlmProviderFields,
-  type LlmProviderFormValues,
-} from "../../_components/LlmProviderFields";
 import type { TestModalState } from "../../settings/_components/TestConnectionModal";
+import {
+  type ConfigSetForm,
+  ConfigSetFormModal,
+  emptyForm as emptyConfigSetForm,
+} from "./ConfigSetFormModal";
 
 const INPUT_CLASS = "mt-1 w-full rounded-md border border-gray-300 px-3 py-2";
 
@@ -24,17 +17,6 @@ interface ConfigSetManagerProps {
   onTestModal: (modal: TestModalState | null) => void;
   onConfigSetsChange?: (configSets: LlmConfigSet[]) => void;
 }
-
-interface ConfigSetForm extends LlmProviderFormValues {
-  name: string;
-  provider: LlmProvider;
-}
-
-const emptyForm: ConfigSetForm = {
-  name: "",
-  provider: "google",
-  ...EMPTY_PROVIDER_FORM,
-};
 
 export function ConfigSetManager({ onTestModal, onConfigSetsChange }: ConfigSetManagerProps) {
   const t = useT();
@@ -51,10 +33,9 @@ export function ConfigSetManager({ onTestModal, onConfigSetsChange }: ConfigSetM
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const [form, setForm] = useState<ConfigSetForm>(emptyForm);
+  const [form, setForm] = useState<ConfigSetForm>(emptyConfigSetForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -100,35 +81,16 @@ export function ConfigSetManager({ onTestModal, onConfigSetsChange }: ConfigSetM
   };
 
   const resetForm = () => {
-    setForm(emptyForm);
+    setForm(emptyConfigSetForm);
     setEditingId(null);
     setShowForm(false);
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      const payload: Record<string, unknown> = {
-        name: form.name,
-        provider: form.provider,
-        ...buildLlmProviderPayload(form),
-      };
-
-      if (editingId) {
-        await adminApi.updateLlmConfigSet(editingId, payload);
-        setNotice(t("admin.configSets.updated"));
-      } else {
-        await adminApi.createLlmConfigSet(payload as { name: string });
-        setNotice(t("admin.configSets.created"));
-      }
-      resetForm();
-      await loadData();
-    } catch (err) {
-      setError(getApiErrorMessage(err, t("admin.configSets.saveError")));
-    } finally {
-      setSaving(false);
-    }
+  const handleFormSaved = async () => {
+    const wasEditing = !!editingId;
+    resetForm();
+    setNotice(t(wasEditing ? "admin.configSets.updated" : "admin.configSets.created"));
+    await loadData();
   };
 
   const handleDelete = async (id: string) => {
@@ -273,71 +235,6 @@ export function ConfigSetManager({ onTestModal, onConfigSetsChange }: ConfigSetM
         )}
       </section>
 
-      {/* Config Set Form (create/edit) */}
-      {showForm && (
-        <section className="rounded-xl border border-gray-200 bg-white p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {editingId ? t("admin.configSets.edit") : t("admin.configSets.create")}
-            </h2>
-            <button
-              type="button"
-              onClick={resetForm}
-              className="text-sm text-gray-500 hover:text-gray-800"
-            >
-              {t("common.actions.cancel")}
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            <label className="block text-sm text-gray-700">
-              {t("admin.configSets.nameLabel")}
-              <input
-                value={form.name}
-                onChange={(e) => setForm((c) => ({ ...c, name: e.target.value }))}
-                className={INPUT_CLASS}
-              />
-            </label>
-
-            <label className="block text-sm text-gray-700">
-              {t("admin.settings.llmProvider")}
-              <select
-                value={form.provider}
-                onChange={(e) =>
-                  setForm((c) => ({ ...c, provider: e.target.value as LlmProvider }))
-                }
-                className={`${INPUT_CLASS} cursor-pointer`}
-              >
-                {LLM_PROVIDERS.map((p) => (
-                  <option key={p} value={p}>
-                    {formatters.provider(p)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <LlmProviderFields
-              provider={form.provider}
-              values={form}
-              onChange={(updates) => setForm((c) => ({ ...c, ...updates }))}
-            />
-
-            <button
-              type="button"
-              onClick={() => void handleSave()}
-              disabled={saving || !form.name.trim()}
-              className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-60"
-            >
-              {saving
-                ? t("admin.settings.saving")
-                : editingId
-                  ? t("admin.configSets.updateAction")
-                  : t("admin.configSets.createAction")}
-            </button>
-          </div>
-        </section>
-      )}
-
       {/* Feature Assignments */}
       <section className="rounded-xl border border-gray-200 bg-white p-6">
         <h2 className="mb-1 text-lg font-semibold text-gray-900">
@@ -364,6 +261,16 @@ export function ConfigSetManager({ onTestModal, onConfigSetsChange }: ConfigSetM
           ))}
         </div>
       </section>
+
+      {showForm && (
+        <ConfigSetFormModal
+          key={editingId ?? "create"}
+          editingId={editingId}
+          initialForm={form}
+          onClose={resetForm}
+          onSaved={() => void handleFormSaved()}
+        />
+      )}
     </div>
   );
 }
