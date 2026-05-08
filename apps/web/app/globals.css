@@ -58,6 +58,18 @@ body {
   background-color: #ffffff;
 }
 
+/* Inline code styling: BlockNote's shadcn theme only sets font-family,
+ * so add a subtle background, padding, and accent color to make inline
+ * code visually distinct from prose. */
+.block-editor .bn-inline-content code {
+  background-color: #f3f4f6;
+  color: #d6336c;
+  padding: 0.125em 0.375em;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
+  border: 1px solid #e5e7eb;
+}
+
 /* Heading sizes: tighter H1 and slightly larger H3–H6 for smoother scale.
  * Scoped to .block-editor to win specificity over BlockNote's own CSS
  * (which is injected later via next/dynamic). */
