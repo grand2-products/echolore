@@ -13,4 +13,5 @@ export * from "./llm-settings-service.js";
 export * from "./permission-service.js";
 export * from "./site-settings-service.js";
 export * from "./storage-settings-service.js";
+export * from "./tts-settings-service.js";
 export * from "./user-service.js";

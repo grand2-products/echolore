@@ -37,6 +37,13 @@ export const FieldCodecs = {
     write: (val: string | null | undefined): string | undefined => val ?? undefined,
   } satisfies FieldCodec<string | null>,
 
+  /** string | null that persists null as an empty DB value instead of skipping the update. */
+  nullableClearable: {
+    read: (raw: string | null): string | null => raw || null,
+    write: (val: string | null | undefined): string | undefined =>
+      val === undefined ? undefined : (val ?? ""),
+  } satisfies FieldCodec<string | null>,
+
   /** boolean that defaults to false when the DB value is absent. */
   boolFalse: {
     read: (raw: string | null): boolean => raw === "true",

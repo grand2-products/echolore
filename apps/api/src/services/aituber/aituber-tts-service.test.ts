@@ -1,15 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { ttsGatewayMock } = vi.hoisted(() => ({
-  ttsGatewayMock: {
+const { createTtsGatewayFromSettingsMock, ttsGatewayMock } = vi.hoisted(() => {
+  const ttsGatewayMock = {
     synthesize: vi.fn(),
-  },
-}));
+  };
 
-vi.mock("../../ai/gateway/google/google-text-to-speech-gateway.js", () => ({
-  GoogleTextToSpeechGateway: class MockGoogleTextToSpeechGateway {
-    synthesize = ttsGatewayMock.synthesize;
-  },
+  return {
+    createTtsGatewayFromSettingsMock: vi.fn(async () => ({
+      synthesize: ttsGatewayMock.synthesize,
+    })),
+    ttsGatewayMock,
+  };
+});
+
+vi.mock("../../ai/providers/index.js", () => ({
+  createDefaultTtsProvider: () => ({
+    synthesize: ttsGatewayMock.synthesize,
+  }),
+  createTtsGatewayFromSettings: createTtsGatewayFromSettingsMock,
 }));
 
 import { splitIntoSentences, synthesizeSpeech, textToVisemes } from "./aituber-tts-service.js";
@@ -18,6 +26,10 @@ describe("aituber-tts-service", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     ttsGatewayMock.synthesize.mockReset();
+    createTtsGatewayFromSettingsMock.mockReset();
+    createTtsGatewayFromSettingsMock.mockImplementation(async () => ({
+      synthesize: ttsGatewayMock.synthesize,
+    }));
   });
 
   describe("synthesizeSpeech", () => {
@@ -25,7 +37,7 @@ describe("aituber-tts-service", () => {
       const audioBuffer = Buffer.from("fake-audio-data");
       ttsGatewayMock.synthesize.mockResolvedValue({
         audio: audioBuffer,
-        mimeType: "audio/mp3",
+        mimeType: "audio/mpeg",
       });
 
       const result = await synthesizeSpeech("こんにちは", "ja-JP", "ja-JP-Wavenet-A");
@@ -36,7 +48,7 @@ describe("aituber-tts-service", () => {
         voice: "ja-JP-Wavenet-A",
       });
       expect(result.audio).toBe(audioBuffer);
-      expect(result.mimeType).toBe("audio/mp3");
+      expect(result.mimeType).toBe("audio/mpeg");
       expect(result.visemes).toBeDefined();
       expect(result.visemes.length).toBeGreaterThan(0);
     });
@@ -44,7 +56,7 @@ describe("aituber-tts-service", () => {
     it("passes undefined for voice when voiceName is null", async () => {
       ttsGatewayMock.synthesize.mockResolvedValue({
         audio: Buffer.from("audio"),
-        mimeType: "audio/mp3",
+        mimeType: "audio/mpeg",
       });
 
       await synthesizeSpeech("Hello", "en-US", null);
@@ -59,7 +71,7 @@ describe("aituber-tts-service", () => {
     it("passes undefined for voice when voiceName is not provided", async () => {
       ttsGatewayMock.synthesize.mockResolvedValue({
         audio: Buffer.from("audio"),
-        mimeType: "audio/mp3",
+        mimeType: "audio/mpeg",
       });
 
       await synthesizeSpeech("Hello", "en-US");
@@ -72,9 +84,30 @@ describe("aituber-tts-service", () => {
     });
 
     it("throws when gateway fails", async () => {
-      ttsGatewayMock.synthesize.mockRejectedValue(new Error("Google TTS API error"));
+      ttsGatewayMock.synthesize.mockRejectedValue(new Error("TTS API error"));
 
-      await expect(synthesizeSpeech("test", "ja-JP")).rejects.toThrow("Google TTS API error");
+      await expect(synthesizeSpeech("test", "ja-JP")).rejects.toThrow("TTS API error");
+    });
+
+    it("resolves the settings gateway for each synthesis call", async () => {
+      const firstSynthesize = vi.fn(async () => ({
+        audio: Buffer.from("first-audio"),
+        mimeType: "audio/mpeg",
+      }));
+      const secondSynthesize = vi.fn(async () => ({
+        audio: Buffer.from("second-audio"),
+        mimeType: "audio/mpeg",
+      }));
+      createTtsGatewayFromSettingsMock
+        .mockResolvedValueOnce({ synthesize: firstSynthesize })
+        .mockResolvedValueOnce({ synthesize: secondSynthesize });
+
+      const first = await synthesizeSpeech("first", "en-US");
+      const second = await synthesizeSpeech("second", "en-US");
+
+      expect(createTtsGatewayFromSettingsMock).toHaveBeenCalledTimes(2);
+      expect(first.audio.toString()).toBe("first-audio");
+      expect(second.audio.toString()).toBe("second-audio");
     });
   });
 
@@ -97,7 +130,6 @@ describe("aituber-tts-service", () => {
     it("generates consonant + vowel visemes for syllables", () => {
       const visemes = textToVisemes("か", "ja-JP", 0.5);
 
-      // か = k + a → viseme_kk, viseme_aa
       expect(visemes.length).toBe(2);
       expect(visemes[0]?.viseme).toBe("viseme_kk");
       expect(visemes[1]?.viseme).toBe("viseme_aa");
@@ -106,7 +138,6 @@ describe("aituber-tts-service", () => {
     it("skips consecutive identical visemes", () => {
       const visemes = textToVisemes("ああ", "ja-JP", 1.0);
 
-      // Two 'a' phonemes → only one viseme_aa entry
       const aaEntries = visemes.filter((v) => v.viseme === "viseme_aa");
       expect(aaEntries.length).toBe(1);
     });
@@ -120,7 +151,6 @@ describe("aituber-tts-service", () => {
     it("distributes visemes across audio duration", () => {
       const visemes = textToVisemes("あいうえお", "ja-JP", 2.0);
 
-      // 5 phonemes over 2 seconds = 0.4s each
       expect(visemes.length).toBe(5);
       expect(visemes[0]?.time).toBe(0);
       expect(visemes[1]?.time).toBeCloseTo(0.4, 1);
@@ -130,7 +160,6 @@ describe("aituber-tts-service", () => {
       const visemes = textToVisemes("hello", "en-US", 1.0);
 
       expect(visemes.length).toBeGreaterThan(0);
-      // 'h' → viseme_FF, 'e' → viseme_E, 'l' → ?, 'l' → skip, 'o' → viseme_O
     });
 
     it("handles ん as nasal viseme", () => {

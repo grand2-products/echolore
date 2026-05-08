@@ -35,6 +35,7 @@ import type {
   LlmSettings,
   SiteSettings,
   StorageSettings,
+  TtsSettings,
   UpdateAdminGroupRequest,
   UpdateAgentRequest,
   UpdateAuthSettingsRequest,
@@ -48,6 +49,7 @@ import type {
   UpdateLlmSettingsRequest,
   UpdateSiteSettingsRequest,
   UpdateStorageSettingsRequest,
+  UpdateTtsSettingsRequest,
 } from "./types";
 
 export const metricsApi = {
@@ -394,6 +396,22 @@ export const adminApi = {
     fetchApi<Array<{ full_name: string; default_branch: string }>>(
       `/admin/github/installation/${installationId}/repos`
     ),
+
+  // TTS settings
+  getTtsSettings: () => fetchApi<TtsSettings>("/admin/tts-settings"),
+
+  updateTtsSettings: (data: UpdateTtsSettingsRequest) =>
+    fetchApi<TtsSettings>("/admin/tts-settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  testTtsConnection: () =>
+    fetchApi<{ ok: boolean; provider?: string; error?: string }>("/admin/tts-settings/test", {
+      method: "POST",
+    }),
+
+  getGeminiTtsVoices: () => fetchApi<{ voices: string[] }>("/admin/tts-settings/gemini-voices"),
 
   // System update
   getSystemStatus: () => fetchApi<SystemStatusResponse>("/admin/system/status"),

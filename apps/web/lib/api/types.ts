@@ -507,6 +507,57 @@ export type CreateGithubRepoRequest = import("@echolore/shared/contracts").Creat
 export type UpdateGithubRepoRequest = import("@echolore/shared/contracts").UpdateGithubRepoRequest;
 export type GithubRepoStatus = import("@echolore/shared/contracts").GithubRepoStatusDto;
 
+export type TtsProvider = "google-cloud" | "gemini";
+
+export interface TtsSettings {
+  provider: TtsProvider;
+  geminiApiKey: string | null;
+  geminiModel: string | null;
+  geminiVoiceName: string | null;
+}
+
+export interface UpdateTtsSettingsRequest {
+  provider?: TtsProvider;
+  geminiApiKey?: string | null;
+  geminiModel?: string | null;
+  geminiVoiceName?: string | null;
+}
+
+export const TTS_PROVIDERS: readonly TtsProvider[] = ["google-cloud", "gemini"] as const;
+
+export const GEMINI_TTS_VOICES = [
+  "Zephyr",
+  "Puck",
+  "Charon",
+  "Kore",
+  "Fenrir",
+  "Leda",
+  "Orus",
+  "Aoede",
+  "Callirrhoe",
+  "Autonoe",
+  "Enceladus",
+  "Iapetus",
+  "Umbriel",
+  "Algieba",
+  "Despina",
+  "Erinome",
+  "Algenib",
+  "Rasalgethi",
+  "Laomedeia",
+  "Achernar",
+  "Alnilam",
+  "Schedar",
+  "Gacrux",
+  "Pulcherrima",
+  "Achird",
+  "Zubenelgenubi",
+  "Vindemiatrix",
+  "Sadachbia",
+  "Sadaltager",
+  "Sulafat",
+] as const;
+
 export type UserInvitation = UserInvitationDto;
 
 export type CreateAdminGroupRequest = import("@echolore/shared/contracts").CreateAdminGroupRequest;

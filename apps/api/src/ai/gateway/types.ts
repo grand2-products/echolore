@@ -1,4 +1,4 @@
-export type SpeechProvider = "google";
+export type SpeechProvider = "google" | "gemini";
 
 export interface SpeechToTextRequest {
   audio: Buffer;

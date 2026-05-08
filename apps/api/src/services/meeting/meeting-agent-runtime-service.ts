@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { UserRole } from "@echolore/shared/contracts";
 import { HumanMessage } from "@langchain/core/messages";
 import { createMeetingAgent } from "../../ai/agent/create-meeting-agent.js";
-import { createSpeechGatewayBundle } from "../../ai/gateway/index.js";
+import { createTtsGatewayFromSettings } from "../../ai/gateway/index.js";
 import { initLlmWithSettings } from "../../ai/llm/index.js";
 import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
 import { createAgentTools } from "../../ai/tools/index.js";
@@ -141,12 +141,8 @@ export async function generateMeetingAgentResponse(input: {
   let audio: { mimeType: string; base64: string } | null = null;
   if (input.triggerMode !== "autonomous") {
     try {
-      const speechProvider =
-        agent.defaultProvider === "zhipu" || agent.defaultProvider === "openai-compatible"
-          ? "google"
-          : agent.defaultProvider;
-      const gateways = createSpeechGatewayBundle(speechProvider);
-      const synthesized = await gateways.tts.synthesize({
+      const ttsGateway = await createTtsGatewayFromSettings();
+      const synthesized = await ttsGateway.synthesize({
         text: responseText,
         languageCode: input.languageCode ?? "ja-JP",
         voice: agent.voiceProfile ?? undefined,

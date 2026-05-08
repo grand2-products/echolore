@@ -12,6 +12,7 @@ import { SiteIconSection } from "./_components/SiteIconSection";
 import { SiteSettingsSection } from "./_components/SiteSettingsSection";
 import { StorageSettingsSection } from "./_components/StorageSettingsSection";
 import { TestConnectionModal, type TestModalState } from "./_components/TestConnectionModal";
+import { TtsSettingsSection } from "./_components/TtsSettingsSection";
 
 interface SiteLoadedData {
   hasSiteIcon: boolean;
@@ -68,6 +69,7 @@ export default function AdminSettingsPage() {
             initialFocusIdentity={siteData.cwFocusIdentity}
           />
           <StorageSettingsSection onTestModal={setTestModal} />
+          <TtsSettingsSection onTestModal={setTestModal} />
           <BackupSettingsSection onTestModal={setTestModal} />
           <GithubSettingsSection />
         </>

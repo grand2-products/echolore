@@ -214,3 +214,10 @@ export const updateAuthSettingsSchema = z.object({
   googleAndroidClientId: z.string().max(500).nullable().optional(),
   googleOauthAudiences: z.string().max(1000).nullable().optional(),
 });
+
+export const updateTtsSettingsSchema = z.object({
+  provider: z.enum(["google-cloud", "gemini"]).optional(),
+  geminiApiKey: z.string().max(500).nullable().optional(),
+  geminiModel: z.string().max(100).nullable().optional(),
+  geminiVoiceName: z.string().max(100).nullable().optional(),
+});

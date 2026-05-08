@@ -1,6 +1,6 @@
 export { defaultEmbeddingProvider } from "./default-embedding.js";
 export { defaultLlmProvider } from "./default-llm.js";
-export { createDefaultTtsProvider } from "./default-tts.js";
+export { createDefaultTtsProvider, createTtsGatewayFromSettings } from "./default-tts.js";
 export type {
   EmbeddingProvider,
   EmbedOptions,
