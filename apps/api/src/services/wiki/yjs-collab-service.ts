@@ -5,8 +5,10 @@ import * as awarenessProtocol from "y-protocols/awareness";
 import * as syncProtocol from "y-protocols/sync";
 import * as Y from "yjs";
 import type { SessionUser } from "../../lib/auth.js";
+import { getPageBlocks } from "../../repositories/wiki/wiki-repository.js";
 import { getYjsState, upsertYjsState } from "../../repositories/wiki/yjs-document-repository.js";
 import { indexPage } from "./embedding-service.js";
+import { createPageRevision } from "./wiki-service.js";
 import { syncBlocksFromYDoc } from "./yjs-block-sync.js";
 
 const MSG_SYNC = 0;
@@ -23,6 +25,8 @@ interface ConnInfo {
   user: SessionUser;
   /** Awareness clientIDs controlled by this connection */
   controlledIds: Set<number>;
+  /** Whether this connection produced any doc updates during its lifetime. */
+  didEdit: boolean;
 }
 
 interface DocEntry {
@@ -32,6 +36,14 @@ interface DocEntry {
   saveTimer: ReturnType<typeof setTimeout> | null;
   gcTimer: ReturnType<typeof setTimeout> | null;
   pingTimer: ReturnType<typeof setInterval> | null;
+  /**
+   * True while the doc is being populated from legacy blocks (page had blocks
+   * but no Yjs state when first opened). Doc updates during this window are
+   * the client bootstrapping the Y.Doc from initialBlocks, not a real edit —
+   * so we suppress didEdit attribution to avoid crediting the first viewer
+   * as the author of the entire page. Cleared after the first persist.
+   */
+  isMigrating: boolean;
 }
 
 const docs = new Map<string, DocEntry>();
@@ -85,22 +97,33 @@ async function getOrCreateDoc(pageId: string): Promise<DocEntry> {
     saveTimer: null,
     gcTimer: null,
     pingTimer: null,
+    isMigrating: false,
   };
   docs.set(pageId, entry);
 
-  // Load persisted Yjs state
+  // Load persisted Yjs state, or detect legacy migration scenario.
   const savedState = await getYjsState(pageId);
   if (savedState) {
     Y.applyUpdate(doc, new Uint8Array(savedState));
+  } else {
+    // No saved Yjs state. If legacy blocks exist, the first client will
+    // populate the Y.Doc from those blocks — that bootstrap should not be
+    // attributed to the user as an edit.
+    const legacyBlocks = await getPageBlocks(pageId);
+    entry.isMigrating = legacyBlocks.length > 0;
   }
-  // If no saved state exists, the doc starts empty.
-  // Legacy migration (blocks → Y.Doc) is handled client-side:
-  // the first client detects an empty fragment after sync and
-  // populates it from initialBlocks via the BlockNote editor API.
 
   // Broadcast doc updates to all connected clients (except origin)
   doc.on("update", (update: Uint8Array, origin: unknown) => {
     schedulePersist(pageId);
+
+    // Track which user produced this update so we can attribute the
+    // snapshot taken on their disconnect. Skip during legacy migration —
+    // those updates come from the client bootstrap, not real user typing.
+    if (origin && typeof origin === "object" && !entry.isMigrating) {
+      const conn = entry.conns.get(origin as WSContext);
+      if (conn) conn.didEdit = true;
+    }
 
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, MSG_SYNC);
@@ -147,32 +170,43 @@ async function persistDoc(pageId: string, retries = PERSIST_MAX_RETRIES): Promis
   const entry = docs.get(pageId);
   if (!entry) return;
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const state = Y.encodeStateAsUpdate(entry.doc);
-      await upsertYjsState(pageId, Buffer.from(state));
+  // Capture the doc state synchronously at the start so this persist operates
+  // on a point-in-time snapshot, even if concurrent updates land during the
+  // awaits below. Both the upsert and the block sync derive from this state,
+  // so the blocks table consistently reflects the captured moment.
+  const state = Y.encodeStateAsUpdate(entry.doc);
+  const snapshotDoc = new Y.Doc();
+  Y.applyUpdate(snapshotDoc, state);
 
-      // Sync blocks table for search indexing (best-effort, awaited so
-      // downstream indexPage reads fresh blocks)
-      await syncBlocksFromYDoc(pageId, entry.doc).catch((err) =>
-        console.warn(`[yjs-collab] Block sync failed for ${pageId}:`, err)
-      );
+  try {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        await upsertYjsState(pageId, Buffer.from(state));
+        await syncBlocksFromYDoc(pageId, snapshotDoc).catch((err) =>
+          console.warn(`[yjs-collab] Block sync failed for ${pageId}:`, err)
+        );
 
-      return;
-    } catch (err) {
-      if (attempt < retries) {
-        const delay = PERSIST_RETRY_BASE_MS * 2 ** (attempt - 1);
-        console.warn(
-          `[yjs-collab] Persist doc ${pageId} failed (attempt ${attempt}/${retries}), retrying in ${delay}ms`
-        );
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      } else {
-        console.error(
-          `[yjs-collab] Failed to persist doc ${pageId} after ${retries} attempts:`,
-          err
-        );
+        // Once any persist completes successfully, the page is no longer in
+        // legacy-migration state — future updates are genuine user edits.
+        entry.isMigrating = false;
+        return;
+      } catch (err) {
+        if (attempt < retries) {
+          const delay = PERSIST_RETRY_BASE_MS * 2 ** (attempt - 1);
+          console.warn(
+            `[yjs-collab] Persist doc ${pageId} failed (attempt ${attempt}/${retries}), retrying in ${delay}ms`
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          console.error(
+            `[yjs-collab] Failed to persist doc ${pageId} after ${retries} attempts:`,
+            err
+          );
+        }
       }
     }
+  } finally {
+    snapshotDoc.destroy();
   }
 }
 
@@ -182,7 +216,7 @@ export async function addConnection(
   user: SessionUser
 ): Promise<void> {
   const entry = await getOrCreateDoc(pageId);
-  entry.conns.set(ws, { ws, user, controlledIds: new Set() });
+  entry.conns.set(ws, { ws, user, controlledIds: new Set(), didEdit: false });
 
   // Start ping timer when first client connects
   if (!entry.pingTimer) {
@@ -328,21 +362,51 @@ export function removeConnection(pageId: string, ws: WSContext): void {
   }
 
   entry.conns.delete(ws);
+  const isLast = entry.conns.size === 0;
 
-  if (entry.conns.size === 0) {
+  // Cancel the pending debounced persist since we're about to run one
+  // explicitly. Avoids a redundant DB write a few seconds after disconnect.
+  if (entry.saveTimer) {
+    clearTimeout(entry.saveTimer);
+    entry.saveTimer = null;
+  }
+
+  // If this user actually edited during their session, persist the latest
+  // Y.Doc state (which syncs blocks) and then snapshot a revision attributed
+  // to them. This is what surfaces them as "last editor" in listings.
+  if (conn?.didEdit) {
+    const editor = conn.user;
+    void persistDoc(pageId)
+      .then(() => createPageRevision(pageId, editor.id))
+      .then(() => {
+        if (isLast) {
+          return indexPage(pageId).catch((err) =>
+            console.warn(`[yjs-collab] Embedding re-index failed for ${pageId}:`, err)
+          );
+        }
+        return undefined;
+      })
+      .catch((err) =>
+        console.warn(
+          `[yjs-collab] Disconnect snapshot failed for page ${pageId} by user ${editor.id}:`,
+          err
+        )
+      );
+  } else if (isLast) {
+    // Non-editing last viewer: still flush state and reindex.
+    void persistDoc(pageId).then(() => {
+      indexPage(pageId).catch((err) =>
+        console.warn(`[yjs-collab] Embedding re-index failed for ${pageId}:`, err)
+      );
+    });
+  }
+
+  if (isLast) {
     // Stop ping timer when no clients are connected
     if (entry.pingTimer) {
       clearInterval(entry.pingTimer);
       entry.pingTimer = null;
     }
-
-    // Persist immediately on last disconnect, then re-index embeddings
-    void persistDoc(pageId).then(() => {
-      // Re-index embeddings after blocks are synced (best-effort)
-      indexPage(pageId).catch((err) =>
-        console.warn(`[yjs-collab] Embedding re-index failed for ${pageId}:`, err)
-      );
-    });
 
     entry.gcTimer = setTimeout(() => {
       const e = docs.get(pageId);

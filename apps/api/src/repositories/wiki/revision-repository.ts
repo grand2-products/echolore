@@ -31,6 +31,18 @@ export async function getRevisionById(id: string): Promise<PageRevision | null> 
   );
 }
 
+export async function getLatestRevisionByPageId(pageId: string): Promise<PageRevision | null> {
+  return (
+    (await db
+      .selectFrom("page_revisions")
+      .selectAll()
+      .where("pageId", "=", pageId)
+      .orderBy("revisionNumber", "desc")
+      .limit(1)
+      .executeTakeFirst()) ?? null
+  );
+}
+
 export async function getNextRevisionNumber(pageId: string): Promise<number> {
   const result = await db
     .selectFrom("page_revisions")

@@ -43,6 +43,9 @@ const ID = {
   meeting: "00000000-0000-0000-0000-integration09",
 };
 
+const REVISION_AUTHOR_ID = "00000000-0000-0000-0000-integration11";
+const REVISION_ID = "00000000-0000-0000-0000-integration12";
+
 describe.skipIf(!hasDb)("CamelCasePlugin integration (real DB)", () => {
   beforeAll(async () => {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -93,6 +96,21 @@ describe.skipIf(!hasDb)("CamelCasePlugin integration (real DB)", () => {
       .onConflict((oc) => oc.column("id").doNothing())
       .execute();
 
+    // A second user to verify lastEditorName comes from the revision author,
+    // not the page author.
+    await db
+      .insertInto("users")
+      .values({
+        id: REVISION_AUTHOR_ID,
+        email: "revision-editor@test.local",
+        name: "Revision Editor",
+        role: "user",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .onConflict((oc) => oc.column("id").doNothing())
+      .execute();
+
     await db
       .insertInto("pages")
       .values({
@@ -116,6 +134,25 @@ describe.skipIf(!hasDb)("CamelCasePlugin integration (real DB)", () => {
         sortOrder: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
+      })
+      .onConflict((oc) => oc.column("id").doNothing())
+      .execute();
+
+    // Revision authored by REVISION_AUTHOR_ID — used to verify that
+    // listPagesOrderedByUpdatedAt resolves lastEditorName from the latest
+    // revision's author, not the page's original author.
+    await db
+      .insertInto("page_revisions")
+      .values({
+        id: REVISION_ID,
+        pageId: ID.page,
+        revisionNumber: 1,
+        title: "CamelCase検証ページ",
+        blocks: [
+          { type: "paragraph", content: "snapshot content", properties: null, sortOrder: 0 },
+        ],
+        authorId: REVISION_AUTHOR_ID,
+        createdAt: new Date(),
       })
       .onConflict((oc) => oc.column("id").doNothing())
       .execute();
@@ -188,10 +225,12 @@ describe.skipIf(!hasDb)("CamelCasePlugin integration (real DB)", () => {
     await db.deleteFrom("agents").where("id", "=", ID.agent).execute();
     await db.deleteFrom("meetings").where("id", "=", ID.meeting).execute();
     await db.deleteFrom("ai_chat_conversations").where("id", "=", ID.conversation).execute();
+    await db.deleteFrom("page_revisions").where("id", "=", REVISION_ID).execute();
     await db.deleteFrom("blocks").where("id", "=", ID.block).execute();
     await db.deleteFrom("pages").where("id", "=", ID.page).execute();
     await db.deleteFrom("auth_identities").where("id", "=", ID.identity).execute();
     await db.deleteFrom("users").where("id", "=", ID.user).execute();
+    await db.deleteFrom("users").where("id", "=", REVISION_AUTHOR_ID).execute();
     await db.deleteFrom("spaces").where("id", "=", ID.space).execute();
     await db.destroy();
   });
@@ -258,13 +297,12 @@ describe.skipIf(!hasDb)("CamelCasePlugin integration (real DB)", () => {
       const vectorStr = `[${vector.join(",")}]`;
       await db
         .insertInto("page_embeddings")
-        // biome-ignore lint/suspicious/noExplicitAny: pgvector column typed as string
         .values({
           id: EMBED_ID,
           pageId: ID.page,
           plainText: "Embedding integration test marker",
           embedding: vectorStr,
-        } as any)
+        })
         .onConflict((oc) => oc.column("id").doNothing())
         .execute();
     });
@@ -299,6 +337,15 @@ describe.skipIf(!hasDb)("CamelCasePlugin integration (real DB)", () => {
       expect(match).toBeDefined();
       expect(match?.authorName).toBe("Integration Tester");
       expect(match?.spaceName).toBe("Integration Test Space");
+    });
+
+    it("returns lastEditorName from the latest revision's author (not the page author)", async () => {
+      const pages = await listPagesOrderedByUpdatedAt();
+      const match = pages.find((p) => p.id === ID.page);
+      expect(match).toBeDefined();
+      // Distinct from authorName ("Integration Tester") — proves the LATERAL
+      // join correctly resolves the editor from page_revisions, not pages.
+      expect(match?.lastEditorName).toBe("Revision Editor");
     });
   });
 

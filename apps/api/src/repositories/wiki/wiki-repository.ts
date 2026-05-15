@@ -5,12 +5,33 @@ import type { Block, NewBlock, NewPage, Page } from "../../db/schema.js";
 import { escapeLikePattern, firstOrNull } from "../../lib/db-utils.js";
 
 export async function listPagesOrderedByUpdatedAt(): Promise<
-  Array<Page & { authorName: string | undefined; spaceName: string | undefined }>
+  Array<
+    Page & {
+      authorName: string | undefined;
+      spaceName: string | undefined;
+      lastEditorName: string | undefined;
+    }
+  >
 > {
   const rows = await db
     .selectFrom("pages")
     .leftJoin("users", "pages.authorId", "users.id")
     .leftJoin("spaces", "pages.spaceId", "spaces.id")
+    // LATERAL subquery: for each page, fetch the latest revision's editor name.
+    // Uses the unique index (page_id, revision_number) for an index-only
+    // backwards scan, one row per page.
+    .leftJoinLateral(
+      (eb) =>
+        eb
+          .selectFrom("page_revisions")
+          .innerJoin("users as editor", "editor.id", "page_revisions.authorId")
+          .select("editor.name as lastEditorName")
+          .whereRef("page_revisions.pageId", "=", "pages.id")
+          .orderBy("page_revisions.revisionNumber", "desc")
+          .limit(1)
+          .as("latest_rev"),
+      (join) => join.onTrue()
+    )
     .select([
       "pages.id",
       "pages.title",
@@ -23,6 +44,7 @@ export async function listPagesOrderedByUpdatedAt(): Promise<
       "pages.updatedAt",
       "users.name as authorName",
       "spaces.name as spaceName",
+      "latest_rev.lastEditorName",
     ])
     .where("pages.deletedAt", "is", null)
     .orderBy("pages.sortOrder", "asc")
@@ -33,6 +55,7 @@ export async function listPagesOrderedByUpdatedAt(): Promise<
     ...r,
     authorName: r.authorName ?? undefined,
     spaceName: r.spaceName ?? undefined,
+    lastEditorName: r.lastEditorName ?? undefined,
   }));
 }
 

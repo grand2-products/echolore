@@ -71,6 +71,8 @@ export interface PageDto {
   updatedAt: ISODateString;
   authorName?: string;
   spaceName?: string;
+  /** Name of the author of the most recent page revision, if any has been recorded. */
+  lastEditorName?: string;
 }
 
 export interface PageRevisionDto {

@@ -7,6 +7,7 @@ import { stripHtml } from "../../lib/html-utils.js";
 import { canReadPage } from "../../policies/authorization-policy.js";
 import {
   createRevision,
+  getLatestRevisionByPageId,
   getNextRevisionNumber,
   getRevisionById,
 } from "../../repositories/wiki/revision-repository.js";
@@ -253,7 +254,6 @@ export async function createPageRevision(pageId: string, authorId: string) {
   }
 
   const pageBlocks = await getPageBlocks(pageId);
-  const revisionNumber = await getNextRevisionNumber(pageId);
 
   const blocksSnapshot = pageBlocks.map((block) => ({
     type: block.type,
@@ -262,15 +262,95 @@ export async function createPageRevision(pageId: string, authorId: string) {
     sortOrder: block.sortOrder,
   }));
 
-  return createRevision({
-    id: `rev_${nanoid(12)}`,
-    pageId: pageId,
-    revisionNumber: revisionNumber,
+  return createPageRevisionWithDedup({
+    pageId,
+    authorId,
     title: page.title,
     blocks: blocksSnapshot,
-    authorId: authorId,
-    createdAt: new Date(),
   });
+}
+
+interface RevisionDraft {
+  pageId: string;
+  authorId: string;
+  title: string;
+  blocks: Array<{
+    type: string;
+    content: string | null;
+    properties: Record<string, unknown> | null;
+    sortOrder: number;
+  }>;
+}
+
+/**
+ * Insert a new revision unless the most recent revision is structurally
+ * identical (same title and blocks). Returns the existing latest revision in
+ * that case so callers always get a revision object back.
+ *
+ * Concurrent callers may race past the dedup check and both attempt to insert
+ * the same revisionNumber. On UNIQUE constraint violation we re-check dedup
+ * and retry with a freshly computed revisionNumber.
+ */
+async function createPageRevisionWithDedup(draft: RevisionDraft, maxAttempts = 3) {
+  const draftDigest = stableSerializeBlockSnapshot(draft.blocks);
+
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const latest = await getLatestRevisionByPageId(draft.pageId);
+    if (
+      latest &&
+      latest.title === draft.title &&
+      stableSerializeBlockSnapshot(latest.blocks) === draftDigest
+    ) {
+      return latest;
+    }
+
+    const revisionNumber = await getNextRevisionNumber(draft.pageId);
+    try {
+      return await createRevision({
+        id: `rev_${nanoid(12)}`,
+        pageId: draft.pageId,
+        revisionNumber,
+        title: draft.title,
+        blocks: draft.blocks,
+        authorId: draft.authorId,
+        createdAt: new Date(),
+      });
+    } catch (err) {
+      if (!isUniqueConstraintError(err)) throw err;
+      // Another caller inserted the same revisionNumber concurrently. Loop:
+      // the next dedup check may now match the just-inserted revision, or we
+      // recompute a fresh number.
+      lastErr = err;
+    }
+  }
+  throw lastErr ?? new Error("createPageRevisionWithDedup: exhausted retries");
+}
+
+/**
+ * Detect Postgres unique-constraint violations (SQLSTATE 23505). Used to
+ * recover from races in revisionNumber assignment between concurrent
+ * createPageRevision calls.
+ */
+function isUniqueConstraintError(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const e = err as { code?: string; cause?: { code?: string } };
+  return e.code === "23505" || e.cause?.code === "23505";
+}
+
+/**
+ * Deterministically serialize a block snapshot (the shape stored in
+ * page_revisions.blocks) with sorted object keys. Used to compare two
+ * revisions for structural equality. Not a general-purpose stable stringify —
+ * does not handle Date, undefined, Buffer, or other non-JSON values; safe
+ * only because BlockJson contains only JSON-serializable primitives.
+ */
+function stableSerializeBlockSnapshot(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableSerializeBlockSnapshot).join(",")}]`;
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableSerializeBlockSnapshot(obj[k])}`).join(",")}}`;
 }
 
 export async function restoreRevision(pageId: string, revisionId: string, actorUserId: string) {

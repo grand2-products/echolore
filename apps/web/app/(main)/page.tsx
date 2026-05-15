@@ -27,20 +27,31 @@ export default function HomePage() {
   const pages = pagesData?.pages ?? [];
   const meetings = meetingsData?.meetings ?? [];
 
-  const recentUpdates = [
-    ...pages.slice(0, 5).map((page) => ({
+  interface RecentUpdate {
+    id: string;
+    href: string;
+    date: string;
+    sortKey: number;
+    label: string;
+    actor: string | null;
+  }
+
+  const recentUpdates: RecentUpdate[] = [
+    ...pages.slice(0, 5).map<RecentUpdate>((page) => ({
       id: `wiki-${page.id}`,
       href: `/wiki/${page.id}`,
       date: date(page.updatedAt),
       sortKey: new Date(page.updatedAt).getTime(),
       label: t("home.recentUpdateWiki", { title: page.title }),
+      actor: page.lastEditorName ?? null,
     })),
-    ...meetings.slice(0, 5).map((meeting) => ({
+    ...meetings.slice(0, 5).map<RecentUpdate>((meeting) => ({
       id: `meeting-${meeting.id}`,
       href: `/meetings/${meeting.id}`,
       date: date(meeting.createdAt),
       sortKey: new Date(meeting.createdAt).getTime(),
       label: t("home.recentUpdateMeeting", { title: meeting.title }),
+      actor: null,
     })),
   ]
     .sort((a, b) => b.sortKey - a.sortKey)
@@ -97,8 +108,13 @@ export default function HomePage() {
                       : "text-gray-700 hover:text-blue-600"
                   }`}
                 >
-                  <span className="text-sm text-gray-500">{update.date}</span>
-                  <span>{update.label}</span>
+                  <span className="shrink-0 text-sm text-gray-500">{update.date}</span>
+                  <span className="flex-1 truncate">{update.label}</span>
+                  {update.actor && (
+                    <span className="max-w-[30%] shrink-0 truncate text-sm text-gray-500">
+                      {update.actor}
+                    </span>
+                  )}
                 </Link>
               ))}
               {recentUpdates.length === 0 && (
