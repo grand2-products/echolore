@@ -82,7 +82,7 @@ export default function NewWikiPage() {
       setError(null);
 
       wikiApi
-        .createPage({ title: "", spaceId })
+        .createPage({ title: t("wiki.newPage.defaultTitle"), spaceId })
         .then((res) => {
           router.replace(`/wiki/${res.page.id}`);
         })

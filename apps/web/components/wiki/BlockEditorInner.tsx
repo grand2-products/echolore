@@ -49,6 +49,8 @@ export default function BlockEditorInner({
   const queryClient = useQueryClient();
   const titleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const latestTitleRef = useRef(pageTitle);
+  latestTitleRef.current = pageTitle;
   const [titleSaveError, setTitleSaveError] = useState(false);
 
   // Auto-focus and select title for newly created pages
@@ -64,15 +66,22 @@ export default function BlockEditorInner({
     user: { name: userName, color: userColor },
   });
 
-  // Title change with debounced save
+  // Title change with debounced save. Empty titles are persisted as the default
+  // ("Untitled") because the server contract rejects empty strings.
   const handleTitleChange = useCallback(
     (newTitle: string) => {
       onTitleChange(newTitle);
 
       if (titleTimerRef.current) clearTimeout(titleTimerRef.current);
       titleTimerRef.current = setTimeout(async () => {
+        const titleToSave = newTitle.trim() || t("wiki.newPage.defaultTitle");
         try {
-          await wikiApi.updatePage(pageId, { title: newTitle });
+          await wikiApi.updatePage(pageId, { title: titleToSave });
+          // Only reflect the fallback back into the input if the user hasn't
+          // typed anything new while the save was in flight.
+          if (titleToSave !== newTitle && latestTitleRef.current === newTitle) {
+            onTitleChange(titleToSave);
+          }
           setTitleSaveError(false);
           void queryClient.invalidateQueries({ queryKey: ["wiki", "pages"] });
         } catch (error) {
@@ -82,7 +91,7 @@ export default function BlockEditorInner({
         }
       }, 2000);
     },
-    [onTitleChange, pageId, queryClient]
+    [onTitleChange, pageId, queryClient, t]
   );
 
   // Cleanup timers
