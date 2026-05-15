@@ -272,6 +272,7 @@ wiki:
     saveError: "Failed to save the page."
     loadError: "Failed to load the page."
     saved: "Page saved."
+    hierarchyTitle: "Page hierarchy"
   shorthand:
     placeholder: "Type a note and AI will insert it in the right place..."
     error: "Failed to process shorthand. Appended at the end."

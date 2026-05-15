@@ -272,6 +272,7 @@ wiki:
     saveError: "ページの保存に失敗しました。"
     loadError: "ページの読み込みに失敗しました。"
     saved: "ページを保存しました。"
+    hierarchyTitle: "ページ階層"
   shorthand:
     placeholder: "メモを入力してAIが適切な位置に挿入..."
     error: "速記の処理に失敗しました。末尾に追加しました。"

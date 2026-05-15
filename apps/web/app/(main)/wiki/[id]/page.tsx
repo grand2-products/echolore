@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BlockEditor, type EditorHandle } from "@/components/wiki/BlockEditor";
+import { PageHierarchyFooter } from "@/components/wiki/PageHierarchyFooter";
 import { PagePermissionsPanel } from "@/components/wiki/PagePermissionsPanel";
 import { TableOfContents } from "@/components/wiki/TableOfContents";
 import { VersionHistoryPanel } from "@/components/wiki/VersionHistoryPanel";
@@ -268,6 +269,8 @@ export default function WikiDetailPage() {
               userColor={userColor}
               onEditorReady={setEditorHandle}
             />
+
+            <PageHierarchyFooter pageId={pageId} />
           </div>
         </div>
 

@@ -272,6 +272,7 @@ wiki:
     saveError: "保存页面失败。"
     loadError: "加载页面失败。"
     saved: "页面已保存。"
+    hierarchyTitle: "页面层级"
   toc:
     title: "目录"
   collab:

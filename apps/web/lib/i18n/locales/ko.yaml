@@ -272,6 +272,7 @@ wiki:
     saveError: "페이지 저장에 실패했습니다."
     loadError: "페이지를 불러오지 못했습니다."
     saved: "페이지를 저장했습니다."
+    hierarchyTitle: "페이지 계층"
   toc:
     title: "목차"
   collab:
