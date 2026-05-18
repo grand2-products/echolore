@@ -66,14 +66,22 @@ export async function resolveAuthjsSession(
   try {
     // Cookie name detection must match Auth.js's signing-side logic, which
     // uses `__Secure-` prefix when the *original* request scheme is HTTPS.
-    // Behind a TLS-terminating reverse proxy the internal request URL is
-    // `http://...` even though the browser session is HTTPS, so honor
-    // `x-forwarded-proto` first, then fall back to the request URL scheme.
+    // Several signals can indicate this for both regular HTTP requests and
+    // WebSocket upgrade requests behind a reverse proxy:
+    //   - `x-forwarded-proto: https` (most proxies for HTTP)
+    //   - `x-forwarded-proto: wss`   (some proxies for WS upgrades)
+    //   - URL `https://...` or `wss://...` (direct TLS deploys)
+    //   - `Origin: https://...` (browser sets this from the page origin;
+    //     reliable for WS upgrades where the proxy didn't forward proto)
     // (Don't rely on NODE_ENV: dogfood is production-built over plain HTTP.)
     const forwardedProto = c.req.header("x-forwarded-proto");
+    const origin = c.req.header("origin");
     const isSecure =
       forwardedProto === "https" ||
-      (forwardedProto === undefined && c.req.url.startsWith("https://"));
+      forwardedProto === "wss" ||
+      c.req.url.startsWith("https://") ||
+      c.req.url.startsWith("wss://") ||
+      origin?.startsWith("https://") === true;
     const token = await getToken({
       req: new Request(c.req.url, { headers: c.req.raw.headers }),
       secret: AUTH_SECRET,
