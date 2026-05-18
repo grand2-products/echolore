@@ -64,13 +64,16 @@ export async function resolveAuthjsSession(
   c: Context
 ): Promise<{ user: SessionUser; authMode: SessionAuthMode } | null> {
   try {
-    // Cookie name follows Auth.js's URL-scheme detection (not NODE_ENV).
-    // Auth.js sets `__Secure-` prefix only when the request URL is HTTPS,
-    // which means dogfood (production build over HTTP) uses the plain name.
-    // Reading NODE_ENV here caused authGuard to look for the Secure-prefixed
-    // cookie while Auth.js had set the plain one — 401 for every browser
-    // request despite a valid session.
-    const isSecure = c.req.url.startsWith("https://");
+    // Cookie name detection must match Auth.js's signing-side logic, which
+    // uses `__Secure-` prefix when the *original* request scheme is HTTPS.
+    // Behind a TLS-terminating reverse proxy the internal request URL is
+    // `http://...` even though the browser session is HTTPS, so honor
+    // `x-forwarded-proto` first, then fall back to the request URL scheme.
+    // (Don't rely on NODE_ENV: dogfood is production-built over plain HTTP.)
+    const forwardedProto = c.req.header("x-forwarded-proto");
+    const isSecure =
+      forwardedProto === "https" ||
+      (forwardedProto === undefined && c.req.url.startsWith("https://"));
     const token = await getToken({
       req: new Request(c.req.url, { headers: c.req.raw.headers }),
       secret: AUTH_SECRET,
