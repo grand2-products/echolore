@@ -64,14 +64,18 @@ export async function resolveAuthjsSession(
   c: Context
 ): Promise<{ user: SessionUser; authMode: SessionAuthMode } | null> {
   try {
+    // Cookie name follows Auth.js's URL-scheme detection (not NODE_ENV).
+    // Auth.js sets `__Secure-` prefix only when the request URL is HTTPS,
+    // which means dogfood (production build over HTTP) uses the plain name.
+    // Reading NODE_ENV here caused authGuard to look for the Secure-prefixed
+    // cookie while Auth.js had set the plain one — 401 for every browser
+    // request despite a valid session.
+    const isSecure = c.req.url.startsWith("https://");
     const token = await getToken({
       req: new Request(c.req.url, { headers: c.req.raw.headers }),
       secret: AUTH_SECRET,
-      secureCookie: process.env.NODE_ENV === "production",
-      salt:
-        process.env.NODE_ENV === "production"
-          ? "__Secure-authjs.session-token"
-          : "authjs.session-token",
+      secureCookie: isSecure,
+      salt: isSecure ? "__Secure-authjs.session-token" : "authjs.session-token",
     });
     if (!token) return null;
 

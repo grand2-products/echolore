@@ -58,6 +58,28 @@ body {
   background-color: #ffffff;
 }
 
+/* Defensive: ensure all BlockNote popup-like containers render with a solid
+ * background. The shadcn integration applies `bg-popover` (via Tailwind
+ * @theme tokens) on these elements, but in some build/cache states the
+ * utility doesn't fully override BlockNote's defaults and the popup renders
+ * transparent over the page content. Hard-pin the background on the stable
+ * BlockNote class names that get used for floating/portaled UI. */
+.bn-toolbar,
+.bn-action-toolbar,
+.bn-formatting-toolbar,
+.bn-link-toolbar,
+.bn-file-panel,
+.bn-panel,
+.bn-suggestion-menu,
+.bn-grid-suggestion-menu,
+.bn-menu-dropdown,
+.bn-color-picker-dropdown,
+.bn-drag-handle-menu,
+.bn-emoji-picker-popover,
+.bn-table-handle-menu {
+  background-color: var(--color-popover, #ffffff);
+}
+
 /* Inline code styling: BlockNote's shadcn theme only sets font-family,
  * so add a subtle background, padding, and accent color to make inline
  * code visually distinct from prose. */
