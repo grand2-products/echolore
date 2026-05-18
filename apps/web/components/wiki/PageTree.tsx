@@ -52,7 +52,7 @@ function PageActionMenu({
   }, [open]);
 
   return (
-    <div ref={menuRef} className="relative">
+    <div ref={menuRef} className="relative z-10">
       <button
         type="button"
         onClick={(e) => {
@@ -327,7 +327,7 @@ function PageTreeItem(props: PageTreeItemProps) {
               props.onToggleExpand(props.page.id, next);
               props.onExpand?.(props.page.id, next);
             }}
-            className="flex h-4 w-4 items-center justify-center rounded hover:bg-gray-200"
+            className="relative z-10 flex h-4 w-4 items-center justify-center rounded hover:bg-gray-200"
           >
             <svg
               className={`h-3 w-3 transition-transform ${isExpanded ? "rotate-90" : ""}`}
@@ -350,7 +350,14 @@ function PageTreeItem(props: PageTreeItemProps) {
             onCancel={() => props.onRenameCancel?.()}
           />
         ) : (
-          <Link href={`/wiki/${props.page.id}`} className="flex-1 truncate">
+          // Stretched link: the ::after pseudo-element covers the entire row so
+          // clicking anywhere on the row (padding, gap, whitespace) navigates,
+          // matching the hover area. Sibling interactive elements (chevron,
+          // action menu) use `relative z-10` to stay clickable above the overlay.
+          <Link
+            href={`/wiki/${props.page.id}`}
+            className="flex-1 truncate after:absolute after:inset-0 after:content-['']"
+          >
             {props.page.title}
           </Link>
         )}
