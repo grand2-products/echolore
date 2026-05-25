@@ -129,16 +129,23 @@ export default function BlockEditorInner({
         </p>
       )}
 
-      {/* Connection status + collaborator avatars */}
-      {!readOnly && (
-        <div className="mb-3 flex items-center justify-between">
+      {/* Collaborator avatars + connection status badge.
+       *  The "connected" state is the normal/healthy state and doesn't warrant
+       *  a persistent indicator — only show the badge when something is off
+       *  (connecting or disconnected). The whole row is also dropped when
+       *  there's nothing to display, so the title sits flush against the
+       *  editor in the normal case. */}
+      {!readOnly && (provider || connectionStatus !== "connected") && (
+        <div className="mb-3 flex items-center gap-2">
           {provider && <CollaboratorAvatars provider={provider} />}
-          <span
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs ${statusConfig.className}`}
-          >
-            <span className={`inline-block h-2 w-2 rounded-full ${statusConfig.dotClassName}`} />
-            {statusConfig.label}
-          </span>
+          {connectionStatus !== "connected" && (
+            <span
+              className={`ml-auto flex items-center gap-1.5 rounded-full px-3 py-1 text-xs ${statusConfig.className}`}
+            >
+              <span className={`inline-block h-2 w-2 rounded-full ${statusConfig.dotClassName}`} />
+              {statusConfig.label}
+            </span>
+          )}
         </div>
       )}
 
