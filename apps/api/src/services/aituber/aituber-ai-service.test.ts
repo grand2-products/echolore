@@ -609,4 +609,124 @@ describe("aituber-ai-service", () => {
       expect(events).toContain("session-aborted");
     }, 15000);
   });
+
+  describe("citations on ai-complete", () => {
+    it("includes Wiki and Drive sources in the ai-complete data event", async () => {
+      const character = makeCharacter();
+      const viewerMsg = makeViewerMessage();
+
+      // Drive a non-empty RAG result so citations get populated.
+      searchVisibleChunksMock.mockResolvedValueOnce({
+        results: [
+          {
+            pageId: "page-A",
+            pageTitle: "Onboarding",
+            chunkText: "Welcome to the team.",
+            similarity: 0.91,
+          },
+          {
+            pageId: "page-B",
+            pageTitle: "Holidays",
+            chunkText: "PTO policy summary.",
+            similarity: 0.83,
+          },
+        ],
+        searchMode: "vector",
+      });
+      searchDriveForUserMock.mockResolvedValueOnce([
+        {
+          fileId: "drive-1",
+          fileName: "Q3 OKRs.pdf",
+          webViewLink: "https://drive.example/q3",
+          chunkText: "Q3 objectives.",
+          similarity: 0.78,
+        },
+      ]);
+
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([viewerMsg])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      chatModelMock.stream.mockResolvedValue(
+        (async function* () {
+          yield { content: "Here's an answer based on the docs." };
+        })()
+      );
+      ttsServiceMock.splitIntoSentences.mockReturnValue(["Here's an answer based on the docs."]);
+      ttsServiceMock.synthesizeSpeech.mockResolvedValue({
+        audio: Buffer.from("a"),
+        mimeType: "audio/mp3",
+        visemes: [],
+      });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-cite-1", character as never, "room-cite-1");
+      await new Promise((r) => setTimeout(r, 150));
+      stopProcessingLoop("session-cite-1");
+
+      const completeEvent = (
+        livekitServiceMock.sendDataToRoom.mock.calls as [string, Record<string, unknown>][]
+      )
+        .map(([, data]) => data)
+        .find((d) => d.type === "ai-complete");
+
+      expect(completeEvent).toBeDefined();
+      const citations = completeEvent?.citations as Array<Record<string, unknown>>;
+      expect(citations).toHaveLength(3);
+      expect(citations[0]).toMatchObject({
+        source: "wiki",
+        pageId: "page-A",
+        pageTitle: "Onboarding",
+      });
+      expect(citations[2]).toMatchObject({
+        source: "drive",
+        fileId: "drive-1",
+        fileName: "Q3 OKRs.pdf",
+        webViewLink: "https://drive.example/q3",
+      });
+    });
+
+    it("emits an ai-complete event with empty citations when RAG returned nothing", async () => {
+      const character = makeCharacter();
+      const viewerMsg = makeViewerMessage();
+
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([viewerMsg])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      chatModelMock.stream.mockResolvedValue(
+        (async function* () {
+          yield { content: "Plain answer." };
+        })()
+      );
+      ttsServiceMock.splitIntoSentences.mockReturnValue(["Plain answer."]);
+      ttsServiceMock.synthesizeSpeech.mockResolvedValue({
+        audio: Buffer.from("a"),
+        mimeType: "audio/mp3",
+        visemes: [],
+      });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-cite-2", character as never, "room-cite-2");
+      await new Promise((r) => setTimeout(r, 100));
+      stopProcessingLoop("session-cite-2");
+
+      const completeEvent = (
+        livekitServiceMock.sendDataToRoom.mock.calls as [string, Record<string, unknown>][]
+      )
+        .map(([, data]) => data)
+        .find((d) => d.type === "ai-complete");
+
+      expect(completeEvent).toBeDefined();
+      expect(completeEvent?.citations).toEqual([]);
+    });
+  });
 });

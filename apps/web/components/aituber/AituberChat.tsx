@@ -1,5 +1,7 @@
 "use client";
 
+import type { AituberCitation } from "@echolore/shared/contracts";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { ChatMessageBubble } from "@/components/ai-chat/chat-message-bubble";
 import { aituberApi } from "@/lib/api/aituber";
@@ -8,6 +10,52 @@ import { useEnterToSend } from "@/lib/hooks/use-enter-to-send";
 import { useT } from "@/lib/i18n";
 import type { AituberChatMessage } from "./use-aituber-store";
 import { useAituberStore } from "./use-aituber-store";
+
+function CitationList({ citations }: { citations: AituberCitation[] }) {
+  return (
+    <div className="ml-2 flex flex-wrap gap-1.5">
+      {citations.map((c) => {
+        if (c.source === "wiki") {
+          return (
+            <Link
+              key={`wiki-${c.pageId}`}
+              href={`/wiki/${c.pageId}`}
+              className="inline-flex max-w-[16rem] items-center gap-1 truncate rounded-full border border-indigo-400/30 bg-indigo-500/10 px-2 py-0.5 text-[11px] text-indigo-300 transition-colors hover:bg-indigo-500/20"
+              title={c.pageTitle}
+            >
+              <span aria-hidden>📄</span>
+              <span className="truncate">{c.pageTitle}</span>
+            </Link>
+          );
+        }
+        const href = c.webViewLink ?? null;
+        const className =
+          "inline-flex max-w-[16rem] items-center gap-1 truncate rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-300 transition-colors hover:bg-amber-500/20";
+        if (href) {
+          return (
+            <a
+              key={`drive-${c.fileId}`}
+              href={href}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={className}
+              title={c.fileName}
+            >
+              <span aria-hidden>📂</span>
+              <span className="truncate">{c.fileName}</span>
+            </a>
+          );
+        }
+        return (
+          <span key={`drive-${c.fileId}`} className={className} title={c.fileName}>
+            <span aria-hidden>📂</span>
+            <span className="truncate">{c.fileName}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 interface AituberChatProps {
   sessionId: string;
@@ -47,9 +95,19 @@ export function AituberChat({ sessionId }: AituberChatProps) {
     <div className="flex h-full flex-col bg-gray-950/50">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.map((msg: AituberChatMessage) => (
-          <ChatMessageBubble key={msg.id} message={msg} variant="aituber" />
-        ))}
+        {messages.map((msg: AituberChatMessage) => {
+          // Strip citations before handing to ChatMessageBubble — it consumes a
+          // different (AI Chat) citation shape. AITuber renders its own list below.
+          const { citations, ...bubbleMessage } = msg;
+          return (
+            <div key={msg.id} className="space-y-1">
+              <ChatMessageBubble message={bubbleMessage} variant="aituber" />
+              {msg.role === "assistant" && citations && citations.length > 0 && (
+                <CitationList citations={citations} />
+              )}
+            </div>
+          );
+        })}
         {streamingContent && (
           <div className="flex gap-2">
             <div className="max-w-[80%] rounded-xl bg-indigo-500/15 px-3.5 py-2.5 text-sm text-indigo-200">

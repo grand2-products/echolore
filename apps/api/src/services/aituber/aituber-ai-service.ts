@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import {
   AITUBER_VALID_EMOTIONS,
+  type AituberCitation,
   type AituberDataEvent,
   type AituberEmotionType,
   type UserRole,
@@ -145,7 +146,7 @@ async function processNextMessage(
 
   try {
     // Build context and generate response
-    const rawResponse = await generateStreamingResponse(
+    const { text: rawResponse, citations } = await generateStreamingResponse(
       sessionId,
       character,
       viewerMessage,
@@ -177,12 +178,13 @@ async function processNextMessage(
       await sendDataEvent(roomName, { type: "action", action });
     }
 
-    // Send completion event with cleaned text (no annotation tags)
+    // Send completion event with cleaned text and the sources we drew on.
     const assistantMsgId = crypto.randomUUID();
     await sendDataEvent(roomName, {
       type: "ai-complete",
       messageId: assistantMsgId,
       fullContent: responseText,
+      citations,
     });
 
     // Save assistant message to DB
@@ -223,16 +225,21 @@ async function processNextMessage(
   }
 }
 
+interface GenerateResult {
+  text: string;
+  citations: AituberCitation[];
+}
+
 async function generateStreamingResponse(
   sessionId: string,
   character: AituberCharacter,
   viewerMessage: AituberMessage,
   viewerUser: SessionUser | null,
   roomName: string
-): Promise<string> {
+): Promise<GenerateResult> {
   const result = await llm.init({ temperature: 0.7, maxTokens: 500, feature: "aituber" });
   if (!result) {
-    return "";
+    return { text: "", citations: [] };
   }
   const chatModel = result.model;
 
@@ -243,7 +250,7 @@ async function generateStreamingResponse(
   // Build messages with context
   const history = await aituberService.listMessageHistory(sessionId, 20);
   const langchainMessages = [
-    new SystemMessage(buildSystemPrompt(character, ragContext)),
+    new SystemMessage(buildSystemPrompt(character, ragContext.text)),
     ...history.map((msg) =>
       msg.role === "assistant"
         ? new AIMessage(msg.content)
@@ -271,13 +278,14 @@ async function generateStreamingResponse(
       event: "aituber-ai.generate",
       sessionId,
       viewerUserId: viewerUser?.id ?? null,
-      hasRagContext: ragContext.length > 0,
+      hasRagContext: ragContext.text.length > 0,
+      citationCount: ragContext.citations.length,
       responseChars: fullResponse.length,
       durationMs: Date.now() - generateStart,
     })
   );
 
-  return fullResponse;
+  return { text: fullResponse, citations: ragContext.citations };
 }
 
 /**
@@ -316,11 +324,18 @@ async function resolveViewerUser(senderUserId: string | null): Promise<SessionUs
  *   - Drive: searchDriveForUser(viewer.email, ...) — viewer のメールでフィルタ
  * を使う。Wiki Chat 経路と同じ権限境界。
  */
+interface RagContext {
+  /** Compact context string injected into the system prompt. */
+  text: string;
+  /** Sources referenced by the context; surfaced to viewers via ai-complete. */
+  citations: AituberCitation[];
+}
+
 async function buildRagContext(
   sessionId: string,
   query: string,
   viewer: SessionUser | null
-): Promise<string> {
+): Promise<RagContext> {
   if (!viewer) {
     console.log(
       JSON.stringify({
@@ -329,7 +344,7 @@ async function buildRagContext(
         reason: "viewer_unresolved",
       })
     );
-    return "";
+    return { text: "", citations: [] };
   }
 
   const searchStart = Date.now();
@@ -361,15 +376,28 @@ async function buildRagContext(
 
     const wikiResults = wikiOutcome.results;
     const parts: string[] = [];
+    const citations: AituberCitation[] = [];
     for (const r of wikiResults) {
       parts.push(
         `[Wiki: ${escapeXmlTags(r.pageTitle)}] ${escapeXmlTags(r.chunkText.slice(0, 300))}`
       );
+      citations.push({
+        source: "wiki",
+        pageId: r.pageId,
+        pageTitle: r.pageTitle,
+        similarity: r.similarity,
+      });
     }
     for (const r of driveResults) {
       parts.push(
         `[Drive: ${escapeXmlTags(r.fileName)}] ${escapeXmlTags(r.chunkText.slice(0, 300))}`
       );
+      citations.push({
+        source: "drive",
+        fileId: r.fileId,
+        fileName: r.fileName,
+        webViewLink: r.webViewLink ?? null,
+      });
     }
 
     console.log(
@@ -385,7 +413,7 @@ async function buildRagContext(
       })
     );
 
-    return parts.length > 0 ? parts.join("\n") : "";
+    return { text: parts.length > 0 ? parts.join("\n") : "", citations };
   } catch (err) {
     console.warn(
       JSON.stringify({
@@ -396,7 +424,7 @@ async function buildRagContext(
         durationMs: Date.now() - searchStart,
       })
     );
-    return "";
+    return { text: "", citations: [] };
   }
 }
 
