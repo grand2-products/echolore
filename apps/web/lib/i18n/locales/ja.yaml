@@ -399,6 +399,7 @@ meetings:
     respondSuccess: "エージェントの応答を生成しました。"
     leave: "エージェントを退出"
     leaving: "退出中..."
+    leaveSuccess: "エージェントがルームを退出しました。"
     invokeError: "エージェントの呼び出しに失敗しました"
     respondError: "エージェント応答の取得に失敗しました"
     leaveError: "エージェントの退出に失敗しました"

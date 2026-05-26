@@ -8,6 +8,7 @@
     "build": "turbo run build",
     "lint": "biome check .",
     "lint:i18n": "node ./scripts/dev/check-web-i18n.mjs",
+    "check:i18n": "node ./scripts/dev/check-i18n-key-parity.mjs",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "test": "turbo run test",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.7",
     "dotenv-cli": "^11.0.0",
+    "js-yaml": "^4.1.1",
     "lefthook": "^2.1.4",
     "turbo": "^2.8.17",
     "typescript": "^5.7.3"
