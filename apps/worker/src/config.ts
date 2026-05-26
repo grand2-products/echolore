@@ -8,6 +8,7 @@ export type WorkerConfig = {
   livekitApiKey: string;
   livekitApiSecret: string;
   pollIntervalMs: number;
+  reconcileGraceMs: number;
   webhookPort: number;
   healthPort: number;
   apiReadyTimeoutMs: number;
@@ -33,6 +34,10 @@ export function getWorkerConfig(): WorkerConfig {
     livekitApiKey: process.env.LIVEKIT_API_KEY || "",
     livekitApiSecret: process.env.LIVEKIT_API_SECRET || "",
     pollIntervalMs: Number(process.env.ROOM_AI_POLL_INTERVAL_MS || "15000"),
+    // Grace before an active meeting with no live LiveKit room is force-ended.
+    // Defaults to LiveKit's empty_timeout (300s) so we never end a meeting that
+    // LiveKit is still keeping alive during its empty-room countdown.
+    reconcileGraceMs: Number(process.env.ROOM_AI_RECONCILE_GRACE_MS || "300000"),
     apiReadyTimeoutMs: Number(process.env.ROOM_AI_API_READY_TIMEOUT_MS || "120000"),
     webhookPort: Number(process.env.ROOM_AI_WEBHOOK_PORT || "8787"),
     healthPort: Number(process.env.ROOM_AI_HEALTH_PORT || "8788"),

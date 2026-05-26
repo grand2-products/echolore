@@ -37,7 +37,13 @@
       "yaml": ">=2.8.3",
       "nodemailer": ">=8.0.4",
       "@tootallnate/once": ">=3.0.1",
-      "axios": ">=1.15.0"
+      "axios": ">=1.15.2 <2",
+      "protobufjs": ">=7.5.6 <8",
+      "next": ">=16.2.6 <16.3",
+      "fast-uri": ">=3.1.2 <4",
+      "kysely": ">=0.28.17 <0.29",
+      "langsmith": ">=0.6.0 <0.8",
+      "fast-xml-builder": ">=1.1.7 <2"
     }
   },
   "packageManager": "pnpm@9.15.9",
