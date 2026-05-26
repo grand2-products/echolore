@@ -21,6 +21,10 @@ import {
   createAiChatReadPageTool,
   createAiChatSearchTool,
 } from "../../ai/tools/ai-chat-tools.js";
+import {
+  createMeetingTranscriptLookupTool,
+  createRecentMeetingsTool,
+} from "../../ai/tools/aituber-meeting-tools.js";
 import type { AituberCharacter, AituberMessage } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { getUserById } from "../../repositories/user/user-repository.js";
@@ -232,6 +236,11 @@ async function generateStreamingResponse(
     } catch {
       // Drive not configured — continue without Drive tools.
     }
+
+    // Meeting tools (#73): viewer-scoped lookup of the viewer's own recent
+    // meetings + their transcripts. Permission is enforced per call inside the
+    // tools (creator / admin only) so a transcript never leaks to the room.
+    tools.push(createRecentMeetingsTool(viewerUser), createMeetingTranscriptLookupTool(viewerUser));
 
     // NOTE (review finding C5): `lookup_user` was previously added here, but
     // the /api/users route is admin-only — the employee directory is NOT open
