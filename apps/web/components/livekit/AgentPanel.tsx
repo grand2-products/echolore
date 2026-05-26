@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   type AgentDefinition,
   type MeetingAgentEvent,
@@ -31,6 +31,7 @@ export interface AgentPanelProps {
   activeAgentIds: string[];
   onAgentInvoked: (agentId: string) => void;
   onAgentLeft: (agentId: string) => void;
+  onAgentSpeak: (agentId: string, audio: { mimeType: string; base64: string }) => Promise<void>;
   events: MeetingAgentEvent[];
   open: boolean;
   onClose: () => void;
@@ -50,7 +51,6 @@ export default function AgentPanel(props: AgentPanelProps) {
   const [isResponding, setIsResponding] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEscapeKey(props.open, props.onClose);
 
@@ -97,11 +97,6 @@ export default function AgentPanel(props: AgentPanelProps) {
       setResponse(result);
       setNotice(t("meetings.room.respondSuccess"));
       if (result.audio) {
-        // Clean up previous audio element
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.src = "";
-        }
         const ALLOWED_AUDIO_TYPES = [
           "audio/mp3",
           "audio/mpeg",
@@ -112,10 +107,10 @@ export default function AgentPanel(props: AgentPanelProps) {
         if (!ALLOWED_AUDIO_TYPES.includes(result.audio.mimeType)) {
           setVoiceStatus(t("meetings.room.voiceUnavailable"));
         } else {
-          const audio = new Audio(`data:${result.audio.mimeType};base64,${result.audio.base64}`);
-          audioRef.current = audio;
           try {
-            await audio.play();
+            // Broadcast through LiveKit so every participant hears the agent (G2),
+            // rather than playing it only in this browser.
+            await props.onAgentSpeak(selectedAgentId, result.audio);
             setVoiceStatus(t("meetings.room.voicePlaying"));
           } catch {
             setVoiceStatus(t("meetings.room.voiceBlocked"));
