@@ -14,7 +14,7 @@ Temporary planning artifacts. Implemented behavior belongs in `docs/`.
 
 ## Retained Files
 
-- `ai-meeting-intervention.md` — AI Meeting Intervention (LiveKit エージェント参加・発話)
+- `ai-meeting-intervention.md` — AI Meeting Intervention の残件 G3 のみ (リアルタイム音声取込 #47); G1/G2/G4/G5 は実装済み
 - `aituber-motion-sota.md` — VRMA モーションクリップ生成 (Batch 4-B/4-C)
 - `backup-strategy.md` — バックアップ失敗通知 (残タスクのみ)
 - `google-drive-integration.md` — Google Drive 連携 Phase 2-3
