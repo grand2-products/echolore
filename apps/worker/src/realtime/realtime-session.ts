@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
   AudioChunk,
   AudioTranscriber,
@@ -15,6 +16,12 @@ export interface RealtimeTranscriptionSessionOptions {
   sink: SegmentSink;
   /** Provider label recorded on each segment. Defaults to "google". */
   provider?: string;
+  /**
+   * Unique token mixed into segmentKey so utterance indices from a *new*
+   * session (e.g. after a room re-activates) never collide with — and overwrite
+   * — a previous session's finalized segments. Defaults to a random id.
+   */
+  sessionId?: string;
   /** Injectable clock for testing. */
   now?: () => Date;
 }
@@ -35,12 +42,14 @@ interface ParticipantState {
 export class RealtimeTranscriptionSession {
   private readonly participants = new Map<string, ParticipantState>();
   private readonly provider: string;
+  private readonly sessionId: string;
   private readonly now: () => Date;
   private started = false;
   private stopped = false;
 
   constructor(private readonly opts: RealtimeTranscriptionSessionOptions) {
     this.provider = opts.provider ?? "google";
+    this.sessionId = opts.sessionId ?? randomUUID();
     this.now = opts.now ?? (() => new Date());
   }
 
@@ -92,6 +101,8 @@ export class RealtimeTranscriptionSession {
   }
 
   private async handleResult(participantIdentity: string, result: TranscriptResult): Promise<void> {
+    if (this.stopped) return;
+
     const state = this.participants.get(participantIdentity);
     if (!state) return;
 
@@ -99,8 +110,9 @@ export class RealtimeTranscriptionSession {
     if (!text) return;
 
     // Partials within one utterance reuse the same segmentKey so the server
-    // upserts in place; the final result closes the segment.
-    const segmentKey = `${participantIdentity}-${state.utterance}`;
+    // upserts in place; the final result closes the segment. The sessionId
+    // keeps keys unique across session restarts for the same participant.
+    const segmentKey = `${participantIdentity}-${this.sessionId}-${state.utterance}`;
 
     try {
       await this.opts.sink.submit({

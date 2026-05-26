@@ -45,5 +45,20 @@ ROOM_AI_WORKER_MODE=realtime
 ROOM_AI_LANGUAGE_CODE=ja-JP
 ```
 
-Point the LiveKit webhook at this worker's `:ROOM_AI_WEBHOOK_PORT/livekit/webhook`.
-See the `agent-worker` service in `docker-compose.yml`.
+**Webhook delivery is required.** Sessions start/stop from LiveKit
+`room_started` / `room_finished` events, so LiveKit's `webhook.urls` must include
+this worker's `:ROOM_AI_WEBHOOK_PORT/livekit/webhook`. The default deployment
+only points webhooks at the API (`/api/livekit/webhook`), which does **not**
+forward to this worker — add the `agent-worker` endpoint explicitly. See the
+`agent-worker` service in `docker-compose.yml`.
+
+> Note: LiveKit broadcasts every webhook to every configured URL, so this worker
+> will also receive `participant_joined` / `participant_left`; it only acts on
+> `room_started` / `room_finished`.
+
+## Segment keys
+
+Each session mixes a unique `sessionId` into the segmentKey
+(`{participant}-{sessionId}-{utterance}`). This prevents a re-activated room's
+fresh session (utterance counter reset to 0) from overwriting a previous
+session's finalized segments, since the server upserts on `(meetingId, segmentKey)`.
