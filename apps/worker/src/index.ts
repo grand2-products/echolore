@@ -11,6 +11,7 @@ import { startLiveKitWebhookServer } from "./livekit-webhook-server.js";
 import { createGoogleStreamingTranscriber } from "./realtime/google-stt-transcriber.js";
 import { RealtimeTranscriptionManager } from "./realtime/manager.js";
 import { createRtcNodeAudioSource } from "./realtime/rtc-node-audio-source.js";
+import { selectStaleActiveMeetings } from "./reconcile.js";
 
 function getArgValue(flag: string) {
   const index = process.argv.indexOf(flag);
@@ -51,31 +52,64 @@ async function runMonitorMode() {
         apiKey: config.livekitApiKey,
         apiSecret: config.livekitApiSecret,
       });
-      // Monitor only needs scheduled meetings — activation of already-active
-      // meetings is idempotent but wastes an API call. Ending is handled by
-      // the room_finished webhook after LiveKit's emptyTimeout (300s).
-      const openMeetings = await listMeetingsByStatus({
-        apiBaseUrl: config.apiBaseUrl,
-        workerSecret: config.roomAiWorkerSecret,
-        status: "scheduled",
-      });
+      // Fetch scheduled (to activate) and active (to reconcile/end) meetings.
+      const [scheduledMeetings, activeMeetings] = await Promise.all([
+        listMeetingsByStatus({
+          apiBaseUrl: config.apiBaseUrl,
+          workerSecret: config.roomAiWorkerSecret,
+          status: "scheduled",
+        }),
+        listMeetingsByStatus({
+          apiBaseUrl: config.apiBaseUrl,
+          workerSecret: config.roomAiWorkerSecret,
+          status: "active",
+        }),
+      ]);
 
+      // Promote scheduled meetings whose room has participants to active.
       for (const room of rooms) {
         if (room.participantCount === 0) {
           continue;
         }
 
-        const openMeeting = openMeetings.find((meeting) => meeting.roomName === room.roomName);
-        if (!openMeeting) {
+        const scheduledMeeting = scheduledMeetings.find(
+          (meeting) => meeting.roomName === room.roomName
+        );
+        if (!scheduledMeeting) {
           continue;
         }
 
         await syncMeetingStatus({
           apiBaseUrl: config.apiBaseUrl,
           workerSecret: config.roomAiWorkerSecret,
-          meetingId: openMeeting.id,
+          meetingId: scheduledMeeting.id,
           status: "active",
         });
+      }
+
+      // End "stale active" meetings: active in the DB but no live LiveKit room.
+      // This is the production end mechanism — LiveKit's room_finished event is
+      // not delivered to a handler that ends meetings, so without this an active
+      // meeting would stay active forever once everyone leaves.
+      const now = new Date();
+      const staleMeetings = selectStaleActiveMeetings({
+        activeMeetings,
+        liveRoomNames: rooms.map((room) => room.roomName),
+        now,
+        graceMs: config.reconcileGraceMs,
+      });
+
+      for (const meeting of staleMeetings) {
+        await syncMeetingStatus({
+          apiBaseUrl: config.apiBaseUrl,
+          workerSecret: config.roomAiWorkerSecret,
+          meetingId: meeting.id,
+          status: "ended",
+          endedAt: now.toISOString(),
+        });
+        console.log(
+          `[room-ai-worker] reconciled stale active meeting=${meeting.id} room=${meeting.roomName} -> ended`
+        );
       }
 
       setHealthy(true);
