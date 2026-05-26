@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useWikiTreeExpansion } from "@/lib/hooks/use-wiki-tree-expansion";
 import { useT } from "@/lib/i18n";
 
 export interface PageNode {
@@ -255,7 +256,7 @@ interface PageTreeItemProps {
   page: PageNode;
   level: number;
   activeId?: string;
-  expandedIds: Set<string>;
+  expandedIds: ReadonlySet<string>;
   draggingId: string | null;
   dropTarget: { id: string; position: DropPosition } | null;
   renamingId: string | null;
@@ -432,23 +433,6 @@ function findNodeById(nodes: PageNode[], id: string): PageNode | null {
   return null;
 }
 
-const EXPANDED_KEY = "echolore:wiki:tree-expanded";
-
-function readExpandedIds(): Set<string> {
-  try {
-    const raw = localStorage.getItem(EXPANDED_KEY);
-    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function writeExpandedIds(ids: Set<string>) {
-  try {
-    localStorage.setItem(EXPANDED_KEY, JSON.stringify([...ids]));
-  } catch {}
-}
-
 export function PageTree({
   pages,
   activeId,
@@ -462,15 +446,11 @@ export function PageTree({
   isCreating,
 }: PageTreeProps) {
   const t = useT();
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(readExpandedIds);
+  const { expandedIds, setExpanded } = useWikiTreeExpansion();
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ id: string; position: DropPosition } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    writeExpandedIds(expandedIds);
-  }, [expandedIds]);
 
   const handleDropTo = async (
     event: React.DragEvent<HTMLDivElement>,
@@ -570,14 +550,7 @@ export function PageTree({
           draggingId={draggingId}
           dropTarget={dropTarget}
           renamingId={renamingId}
-          onToggleExpand={(id, expanded) =>
-            setExpandedIds((prev) => {
-              const next = new Set(prev);
-              if (expanded) next.add(id);
-              else next.delete(id);
-              return next;
-            })
-          }
+          onToggleExpand={setExpanded}
           onDragStart={(event, id) => {
             setDraggingId(id);
             event.dataTransfer.setData(DRAG_MIME, id);

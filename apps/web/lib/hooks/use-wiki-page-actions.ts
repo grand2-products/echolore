@@ -7,6 +7,7 @@ import type { DropPosition } from "@/components/wiki/PageTree";
 import type { Page, Space } from "@/lib/api";
 import { queryKeys, wikiApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
+import { setPageExpanded } from "@/lib/hooks/use-wiki-tree-expansion";
 import { useT } from "@/lib/i18n";
 import { resolveSpaceLabel } from "@/lib/wiki-tree";
 
@@ -201,6 +202,9 @@ export function useWikiPageActions({
       if (creatingRef.current) return;
       creatingRef.current = true;
       setIsCreating(true);
+      // Expand the parent so the newly created sub-page is visible in the tree
+      // even if the parent was collapsed when the action was triggered.
+      if (parentId) setPageExpanded(parentId, true);
       wikiApi
         .createPage({ title: t("wiki.newPage.defaultTitle"), parentId, spaceId })
         .then(async (res) => {
