@@ -9,6 +9,8 @@ const {
   getUserByIdMock,
   searchVisibleChunksMock,
   searchDriveForUserMock,
+  createAituberAgentMock,
+  agentStreamMock,
 } = vi.hoisted(() => ({
   aituberServiceMock: {
     listUnprocessedMessages: vi.fn(),
@@ -33,6 +35,8 @@ const {
   getUserByIdMock: vi.fn(),
   searchVisibleChunksMock: vi.fn(),
   searchDriveForUserMock: vi.fn(),
+  createAituberAgentMock: vi.fn(),
+  agentStreamMock: vi.fn(),
 }));
 
 vi.mock("./aituber-service.js", () => aituberServiceMock);
@@ -58,6 +62,46 @@ vi.mock("../wiki/vector-search-service.js", () => ({
 vi.mock("../drive/drive-vector-search-service.js", () => ({
   searchDriveForUser: searchDriveForUserMock,
 }));
+
+vi.mock("../../ai/agent/create-aituber-agent.js", () => ({
+  createAituberAgent: createAituberAgentMock,
+}));
+
+// AI Chat tools build DynamicStructuredTool instances at module load — mock
+// them out so we don't drag in @langchain dependencies during the test.
+vi.mock("../../ai/tools/ai-chat-tools.js", () => ({
+  createAiChatSearchTool: () => ({ searchTool: { name: "wiki_search" }, referencedPages: [] }),
+  createAiChatListPagesTool: () => ({
+    listPagesTool: { name: "wiki_list_pages" },
+    referencedPages: [],
+  }),
+  createAiChatReadPageTool: () => ({
+    readPageTool: { name: "wiki_read_page" },
+    referencedPages: [],
+  }),
+}));
+
+/**
+ * Helper: configure what the next `agent.stream()` call yields.
+ * Pass an array of plain strings — each becomes an AI message chunk token.
+ */
+function setAgentTokens(tokens: string[]): void {
+  agentStreamMock.mockResolvedValueOnce(
+    (async function* () {
+      for (const token of tokens) {
+        yield [
+          {
+            _getType: () => "ai",
+            content: token,
+            tool_calls: [],
+            tool_call_chunks: [],
+          },
+          {},
+        ];
+      }
+    })()
+  );
+}
 
 vi.mock("@langchain/core/messages", () => ({
   SystemMessage: class SystemMessage {
@@ -174,17 +218,26 @@ describe("aituber-ai-service", () => {
     searchDriveForUserMock.mockResolvedValue([]);
 
     // Seed the motion registry so parseAnnotations() recognises action IDs
-    // without needing to touch the filesystem during tests.
+    // and the agent's actionListing is populated, without touching the filesystem.
     clearMotionRegistryCache();
     _seedMotionRegistry(TEST_MOTION_MANIFEST);
+
+    createAituberAgentMock.mockReset();
+    agentStreamMock.mockReset();
+    // Default: a single "OK" token, no tool calls.
+    agentStreamMock.mockImplementation(async () =>
+      (async function* () {
+        yield [{ _getType: () => "ai", content: "OK", tool_calls: [], tool_call_chunks: [] }, {}];
+      })()
+    );
+    createAituberAgentMock.mockReturnValue({ stream: agentStreamMock });
   });
 
-  describe("buildSystemPrompt (via generateStreamingResponse)", () => {
-    it("includes character name, personality, and speaking style in the prompt", async () => {
+  describe("agent persona (via generateStreamingResponse)", () => {
+    it("passes character name, personality, and speaking style to createAituberAgent", async () => {
       const character = makeCharacter();
       const viewerMsg = makeViewerMessage();
 
-      // First call returns a message, second returns empty to stop the loop
       aituberServiceMock.listUnprocessedMessages
         .mockResolvedValueOnce([viewerMsg])
         .mockResolvedValue([]);
@@ -197,13 +250,7 @@ describe("aituber-ai-service", () => {
         provider: "gemini",
       });
 
-      // Create an async iterable for the stream
-      const streamChunks = [{ content: "Hello " }, { content: "there!" }];
-      chatModelMock.stream.mockResolvedValue(
-        (async function* () {
-          for (const chunk of streamChunks) yield chunk;
-        })()
-      );
+      setAgentTokens(["Hello ", "there!"]);
 
       ttsServiceMock.splitIntoSentences.mockReturnValue(["Hello there!"]);
       ttsServiceMock.synthesizeSpeech.mockResolvedValue({
@@ -213,24 +260,21 @@ describe("aituber-ai-service", () => {
       });
       livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
 
-      // Start the loop and stop it immediately after one iteration
       await startProcessingLoop("session-1", character as never, "room-1");
-
-      // Give the async loop time to process one message
       await new Promise((r) => setTimeout(r, 100));
       stopProcessingLoop("session-1");
 
-      // Verify the stream was called with messages containing SystemMessage
-      expect(chatModelMock.stream).toHaveBeenCalledTimes(1);
-      const messages = chatModelMock.stream.mock.calls[0]?.[0] as Array<{ content: string }>;
-      expect(messages).toBeDefined();
-      expect(messages.length).toBeGreaterThanOrEqual(2);
-
-      // First message should be the system prompt containing character info
-      const systemMsg = messages[0];
-      expect(systemMsg?.content).toContain("TestChar");
-      expect(systemMsg?.content).toContain("Friendly");
-      expect(systemMsg?.content).toContain("polite");
+      expect(createAituberAgentMock).toHaveBeenCalledTimes(1);
+      const agentInput = createAituberAgentMock.mock.calls[0]?.[0];
+      expect(agentInput?.character).toEqual({
+        name: "TestChar",
+        personality: "Friendly",
+        systemPrompt: "You are a helpful character.",
+        speakingStyle: "polite",
+      });
+      // Action listing should be wired up from ACTION_REGISTRY.
+      expect(agentInput?.actionListing).toContain("greeting:");
+      expect(agentInput?.actionListing).toContain("idle:");
     });
   });
 
@@ -274,11 +318,7 @@ describe("aituber-ai-service", () => {
         provider: "gemini",
       });
 
-      chatModelMock.stream.mockResolvedValue(
-        (async function* () {
-          yield { content: "Response" };
-        })()
-      );
+      setAgentTokens(["Response"]);
 
       ttsServiceMock.splitIntoSentences.mockReturnValue(["Response"]);
       ttsServiceMock.synthesizeSpeech.mockResolvedValue({
@@ -292,14 +332,16 @@ describe("aituber-ai-service", () => {
       await new Promise((r) => setTimeout(r, 100));
       stopProcessingLoop("session-2");
 
-      expect(chatModelMock.stream).toHaveBeenCalledTimes(1);
-      const messages = chatModelMock.stream.mock.calls[0]?.[0] as Array<{ content: string }>;
-
-      // [SystemMessage, HumanMessage(history), AIMessage(history), HumanMessage(current)]
-      expect(messages).toHaveLength(4);
-      expect(messages[1]?.content).toBe("[Hanako] Previous question");
-      expect(messages[2]?.content).toBe("Previous answer");
-      expect(messages[3]?.content).toBe("[Taro] Hello!");
+      // Agent receives the history (no SystemMessage — createAituberAgent
+      // attaches the system prompt internally via createReactAgent's `prompt`).
+      expect(agentStreamMock).toHaveBeenCalledTimes(1);
+      const { messages } = agentStreamMock.mock.calls[0]?.[0] as {
+        messages: Array<{ content: string }>;
+      };
+      expect(messages).toHaveLength(3);
+      expect(messages[0]?.content).toBe("[Hanako] Previous question");
+      expect(messages[1]?.content).toBe("Previous answer");
+      expect(messages[2]?.content).toBe("[Taro] Hello!");
     });
   });
 
@@ -319,7 +361,7 @@ describe("aituber-ai-service", () => {
         provider: "gemini",
       });
 
-      chatModelMock.stream.mockRejectedValue(new Error("LLM provider error"));
+      agentStreamMock.mockRejectedValueOnce(new Error("LLM provider error"));
       livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
 
       await startProcessingLoop("session-3", character as never, "room-3");
@@ -355,11 +397,7 @@ describe("aituber-ai-service", () => {
         provider: "gemini",
       });
 
-      chatModelMock.stream.mockResolvedValue(
-        (async function* () {
-          yield { content: "OK" };
-        })()
-      );
+      setAgentTokens(["OK"]);
 
       ttsServiceMock.splitIntoSentences.mockReturnValue(["OK"]);
       ttsServiceMock.synthesizeSpeech.mockRejectedValue(new Error("TTS error"));
@@ -577,11 +615,7 @@ describe("aituber-ai-service", () => {
       aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
 
       initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
-      chatModelMock.stream.mockResolvedValue(
-        (async function* () {
-          yield { content: "OK" };
-        })()
-      );
+      setAgentTokens(["OK"]);
       ttsServiceMock.splitIntoSentences.mockReturnValue(["OK"]);
       ttsServiceMock.synthesizeSpeech.mockResolvedValue({
         audio: Buffer.from("audio"),
@@ -618,11 +652,7 @@ describe("aituber-ai-service", () => {
       aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
 
       initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
-      chatModelMock.stream.mockResolvedValue(
-        (async function* () {
-          yield { content: "OK" };
-        })()
-      );
+      setAgentTokens(["OK"]);
       ttsServiceMock.splitIntoSentences.mockReturnValue(["OK"]);
       ttsServiceMock.synthesizeSpeech.mockResolvedValue({
         audio: Buffer.from("a"),
@@ -662,11 +692,7 @@ describe("aituber-ai-service", () => {
       aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
 
       initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
-      chatModelMock.stream.mockResolvedValue(
-        (async function* () {
-          yield { content: "OK" };
-        })()
-      );
+      setAgentTokens(["OK"]);
       ttsServiceMock.splitIntoSentences.mockReturnValue(["OK"]);
       ttsServiceMock.synthesizeSpeech.mockResolvedValue({
         audio: Buffer.from("a"),
@@ -752,11 +778,7 @@ describe("aituber-ai-service", () => {
       aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
 
       initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
-      chatModelMock.stream.mockResolvedValue(
-        (async function* () {
-          yield { content: "Here's an answer based on the docs." };
-        })()
-      );
+      setAgentTokens(["Here's an answer based on the docs."]);
       ttsServiceMock.splitIntoSentences.mockReturnValue(["Here's an answer based on the docs."]);
       ttsServiceMock.synthesizeSpeech.mockResolvedValue({
         audio: Buffer.from("a"),
@@ -803,11 +825,7 @@ describe("aituber-ai-service", () => {
       aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
 
       initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
-      chatModelMock.stream.mockResolvedValue(
-        (async function* () {
-          yield { content: "Plain answer." };
-        })()
-      );
+      setAgentTokens(["Plain answer."]);
       ttsServiceMock.splitIntoSentences.mockReturnValue(["Plain answer."]);
       ttsServiceMock.synthesizeSpeech.mockResolvedValue({
         audio: Buffer.from("a"),
@@ -828,6 +846,129 @@ describe("aituber-ai-service", () => {
 
       expect(completeEvent).toBeDefined();
       expect(completeEvent?.citations).toEqual([]);
+    });
+  });
+
+  describe("ReAct agent tool exposure (regression: viewer scope governs tools)", () => {
+    it("hands the agent the 3 viewer-scoped Wiki tools when the viewer is resolved", async () => {
+      const character = makeCharacter();
+      const viewerMsg = makeViewerMessage();
+
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([viewerMsg])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      ttsServiceMock.splitIntoSentences.mockReturnValue(["OK"]);
+      ttsServiceMock.synthesizeSpeech.mockResolvedValue({
+        audio: Buffer.from("a"),
+        mimeType: "audio/mp3",
+        visemes: [],
+      });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-tools-1", character as never, "room-tools-1");
+      await new Promise((r) => setTimeout(r, 100));
+      stopProcessingLoop("session-tools-1");
+
+      expect(createAituberAgentMock).toHaveBeenCalledTimes(1);
+      const agentInput = createAituberAgentMock.mock.calls[0]?.[0];
+      const toolNames = (agentInput?.tools as Array<{ name: string }>).map((t) => t.name).sort();
+      expect(toolNames).toEqual(["wiki_list_pages", "wiki_read_page", "wiki_search"]);
+    });
+
+    it("hands the agent no tools when the viewer cannot be resolved (no permission to scope by)", async () => {
+      const character = makeCharacter();
+      const viewerMsg = makeViewerMessage({ senderUserId: "ghost" });
+
+      getUserByIdMock.mockResolvedValueOnce(null);
+
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([viewerMsg])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      ttsServiceMock.splitIntoSentences.mockReturnValue(["OK"]);
+      ttsServiceMock.synthesizeSpeech.mockResolvedValue({
+        audio: Buffer.from("a"),
+        mimeType: "audio/mp3",
+        visemes: [],
+      });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-tools-2", character as never, "room-tools-2");
+      await new Promise((r) => setTimeout(r, 100));
+      stopProcessingLoop("session-tools-2");
+
+      expect(createAituberAgentMock).toHaveBeenCalledTimes(1);
+      const agentInput = createAituberAgentMock.mock.calls[0]?.[0];
+      expect(agentInput?.tools).toEqual([]);
+    });
+
+    it("drops tool-call AI chunks from the token stream so viewers only hear text", async () => {
+      const character = makeCharacter();
+      const viewerMsg = makeViewerMessage();
+
+      // Mix of a tool-call chunk (must be skipped) and a content chunk.
+      agentStreamMock.mockResolvedValueOnce(
+        (async function* () {
+          yield [
+            {
+              _getType: () => "ai",
+              content: "",
+              tool_calls: [{ name: "wiki_search", args: { query: "x" }, id: "1" }],
+              tool_call_chunks: [],
+            },
+            {},
+          ];
+          // Tool result is a non-AI message — must also be skipped.
+          yield [{ _getType: () => "tool", content: "search result" }, {}];
+          yield [
+            {
+              _getType: () => "ai",
+              content: "final answer",
+              tool_calls: [],
+              tool_call_chunks: [],
+            },
+            {},
+          ];
+        })()
+      );
+
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([viewerMsg])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      ttsServiceMock.splitIntoSentences.mockReturnValue(["final answer"]);
+      ttsServiceMock.synthesizeSpeech.mockResolvedValue({
+        audio: Buffer.from("a"),
+        mimeType: "audio/mp3",
+        visemes: [],
+      });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-tools-3", character as never, "room-tools-3");
+      await new Promise((r) => setTimeout(r, 100));
+      stopProcessingLoop("session-tools-3");
+
+      const tokenEvents = (
+        livekitServiceMock.sendDataToRoom.mock.calls as [string, Record<string, unknown>][]
+      )
+        .map(([, data]) => data)
+        .filter((d) => d.type === "ai-token");
+
+      expect(tokenEvents).toHaveLength(1);
+      expect(tokenEvents[0]?.token).toBe("final answer");
     });
   });
 });
