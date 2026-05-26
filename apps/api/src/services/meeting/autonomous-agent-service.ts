@@ -9,6 +9,7 @@ import {
   listFinalSegmentsAfter,
   updateSessionEvalCursor,
 } from "../../repositories/meeting/meeting-realtime-repository.js";
+import { releaseLeadership, tryAcquireLeadership } from "./autonomous-leader.js";
 import { generateMeetingAgentResponse } from "./meeting-agent-runtime-service.js";
 import { onTranscriptFinalized } from "./meeting-events.js";
 
@@ -55,6 +56,7 @@ export function stopAutonomousAgentLoop(): void {
     clearTimeout(timer);
   }
   debounceTimers.clear();
+  void releaseLeadership();
   console.log("Autonomous agent loop stopped");
 }
 
@@ -67,7 +69,12 @@ function scheduleMeetingEvaluation(meetingId: string): void {
     meetingId,
     setTimeout(() => {
       debounceTimers.delete(meetingId);
-      void evaluateMeeting(meetingId);
+      void (async () => {
+        // Only the cluster-wide leader acts on events (G5).
+        if (await tryAcquireLeadership()) {
+          await evaluateMeeting(meetingId);
+        }
+      })();
     }, EVENT_DEBOUNCE_MS)
   );
 }
@@ -75,6 +82,11 @@ function scheduleMeetingEvaluation(meetingId: string): void {
 async function runEvaluationTick(): Promise<void> {
   tickRunning = true;
   try {
+    // Only one replica runs the evaluation at a time, even if the API is
+    // horizontally scaled (G5). Degrades to running locally if Valkey is down.
+    if (!(await tryAcquireLeadership())) {
+      return;
+    }
     const rows = await listAutonomousActiveSessions();
     const meetingIds = new Set(rows.map((row) => row.session.meetingId));
     for (const meetingId of meetingIds) {

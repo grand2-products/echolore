@@ -37,6 +37,12 @@ vi.mock("./meeting-agent-runtime-service.js", () => ({
   generateMeetingAgentResponse: generateMeetingAgentResponseMock,
 }));
 
+// No Valkey in unit tests → leader election degrades to local execution
+// (tryAcquireLeadership returns true), so evaluation runs as before.
+vi.mock("../../lib/valkey.js", () => ({
+  getValkey: () => null,
+}));
+
 describe("autonomous-agent-service", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
