@@ -81,6 +81,26 @@ vi.mock("../../ai/tools/ai-chat-tools.js", () => ({
   }),
 }));
 
+vi.mock("../../ai/tools/ai-chat-drive-tools.js", () => ({
+  createAiChatDriveSearchTool: () => ({
+    driveSearchTool: { name: "drive_search" },
+    referencedFiles: [],
+  }),
+  createAiChatDriveReadTool: () => ({
+    driveReadTool: { name: "drive_read" },
+    referencedFiles: [],
+  }),
+}));
+
+vi.mock("../../ai/tools/user-lookup-tool.js", () => ({
+  createUserLookupTool: () => ({ name: "lookup_user" }),
+}));
+
+const driveSettingsMock = vi.hoisted(() => ({
+  getResolvedDriveSettings: vi.fn(),
+}));
+vi.mock("../admin/drive-settings-service.js", () => driveSettingsMock);
+
 /**
  * Helper: configure what the next `agent.stream()` call yields.
  * Pass an array of plain strings — each becomes an AI message chunk token.
@@ -221,6 +241,14 @@ describe("aituber-ai-service", () => {
     // and the agent's actionListing is populated, without touching the filesystem.
     clearMotionRegistryCache();
     _seedMotionRegistry(TEST_MOTION_MANIFEST);
+
+    driveSettingsMock.getResolvedDriveSettings.mockReset();
+    // Default: Drive integration disabled, so drive_search / drive_read are
+    // not appended to the agent's tools.
+    driveSettingsMock.getResolvedDriveSettings.mockResolvedValue({
+      enabled: false,
+      sharedDriveIds: [],
+    });
 
     createAituberAgentMock.mockReset();
     agentStreamMock.mockReset();
@@ -877,7 +905,93 @@ describe("aituber-ai-service", () => {
       expect(createAituberAgentMock).toHaveBeenCalledTimes(1);
       const agentInput = createAituberAgentMock.mock.calls[0]?.[0];
       const toolNames = (agentInput?.tools as Array<{ name: string }>).map((t) => t.name).sort();
-      expect(toolNames).toEqual(["wiki_list_pages", "wiki_read_page", "wiki_search"]);
+      // Wiki 3 + lookup_user = 4 (Drive disabled by default in tests)
+      expect(toolNames).toEqual([
+        "lookup_user",
+        "wiki_list_pages",
+        "wiki_read_page",
+        "wiki_search",
+      ]);
+    });
+
+    it("appends drive_search / drive_read when Drive integration is enabled", async () => {
+      const character = makeCharacter();
+      const viewerMsg = makeViewerMessage();
+
+      driveSettingsMock.getResolvedDriveSettings.mockResolvedValueOnce({
+        enabled: true,
+        sharedDriveIds: ["drive-1"],
+      });
+
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([viewerMsg])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      ttsServiceMock.splitIntoSentences.mockReturnValue(["OK"]);
+      ttsServiceMock.synthesizeSpeech.mockResolvedValue({
+        audio: Buffer.from("a"),
+        mimeType: "audio/mp3",
+        visemes: [],
+      });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-drive-1", character as never, "room-drive-1");
+      await new Promise((r) => setTimeout(r, 100));
+      stopProcessingLoop("session-drive-1");
+
+      const agentInput = createAituberAgentMock.mock.calls[0]?.[0];
+      const toolNames = (agentInput?.tools as Array<{ name: string }>).map((t) => t.name).sort();
+      expect(toolNames).toEqual([
+        "drive_read",
+        "drive_search",
+        "lookup_user",
+        "wiki_list_pages",
+        "wiki_read_page",
+        "wiki_search",
+      ]);
+    });
+
+    it("falls back gracefully when getResolvedDriveSettings throws", async () => {
+      const character = makeCharacter();
+      const viewerMsg = makeViewerMessage();
+
+      driveSettingsMock.getResolvedDriveSettings.mockRejectedValueOnce(
+        new Error("settings service down")
+      );
+
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([viewerMsg])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      ttsServiceMock.splitIntoSentences.mockReturnValue(["OK"]);
+      ttsServiceMock.synthesizeSpeech.mockResolvedValue({
+        audio: Buffer.from("a"),
+        mimeType: "audio/mp3",
+        visemes: [],
+      });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-drive-2", character as never, "room-drive-2");
+      await new Promise((r) => setTimeout(r, 100));
+      stopProcessingLoop("session-drive-2");
+
+      // Wiki + lookup still work even if Drive settings throw.
+      const agentInput = createAituberAgentMock.mock.calls[0]?.[0];
+      const toolNames = (agentInput?.tools as Array<{ name: string }>).map((t) => t.name).sort();
+      expect(toolNames).toEqual([
+        "lookup_user",
+        "wiki_list_pages",
+        "wiki_read_page",
+        "wiki_search",
+      ]);
     });
 
     it("hands the agent no tools when the viewer cannot be resolved (no permission to scope by)", async () => {

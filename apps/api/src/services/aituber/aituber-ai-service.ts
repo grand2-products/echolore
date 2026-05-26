@@ -18,14 +18,21 @@ import { createAituberAgent } from "../../ai/agent/create-aituber-agent.js";
 import { defaultLlmProvider, type LlmProvider } from "../../ai/providers/index.js";
 import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
 import {
+  createAiChatDriveReadTool,
+  createAiChatDriveSearchTool,
+  type DriveToolResult,
+} from "../../ai/tools/ai-chat-drive-tools.js";
+import {
   type AiChatToolResult,
   createAiChatListPagesTool,
   createAiChatReadPageTool,
   createAiChatSearchTool,
 } from "../../ai/tools/ai-chat-tools.js";
+import { createUserLookupTool } from "../../ai/tools/user-lookup-tool.js";
 import type { AituberCharacter, AituberMessage } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { getUserById } from "../../repositories/user/user-repository.js";
+import { getResolvedDriveSettings } from "../admin/drive-settings-service.js";
 import { searchDriveForUser } from "../drive/drive-vector-search-service.js";
 import { searchVisibleChunks } from "../wiki/vector-search-service.js";
 import * as livekitService from "./aituber-livekit-service.js";
@@ -341,18 +348,38 @@ async function generateStreamingResponse(
     loadMotionRegistry().catch(() => null),
   ]);
 
-  // Viewer-scoped Wiki tools — the agent can deepen the search itself if the
+  // Viewer-scoped tools — the agent can deepen the search itself if the
   // pre-fetched RAG context isn't enough. Each tool checks `canReadPage(viewer, ...)`
-  // so an unresolved viewer must NOT receive any tools.
+  // / `searchDriveForUser(viewer.email, ...)` so an unresolved viewer must NOT
+  // receive any tools.
   const tools: DynamicStructuredTool[] = [];
-  const toolRefs: AiChatToolResult[] = [];
+  const wikiToolRefs: AiChatToolResult[] = [];
+  const driveToolRefs: DriveToolResult[] = [];
   if (viewerUser) {
     const { searchTool, referencedPages: searchRefs } = createAiChatSearchTool(viewerUser);
     const { listPagesTool, referencedPages: listRefs } = createAiChatListPagesTool(viewerUser);
     const { readPageTool, referencedPages: readRefs } = createAiChatReadPageTool(viewerUser);
     tools.push(searchTool, listPagesTool, readPageTool);
-    // refs are populated as side effects when the agent calls a tool.
-    toolRefs.push(...searchRefs, ...listRefs, ...readRefs);
+    wikiToolRefs.push(...searchRefs, ...listRefs, ...readRefs);
+
+    // Drive tools are only added when Drive is enabled and has at least one
+    // shared drive configured — matches the AI Chat guard.
+    try {
+      const driveSettings = await getResolvedDriveSettings();
+      if (driveSettings.enabled && driveSettings.sharedDriveIds.length > 0) {
+        const { driveSearchTool, referencedFiles: searchFiles } =
+          createAiChatDriveSearchTool(viewerUser);
+        const { driveReadTool, referencedFiles: readFiles } = createAiChatDriveReadTool(viewerUser);
+        tools.push(driveSearchTool, driveReadTool);
+        driveToolRefs.push(...searchFiles, ...readFiles);
+      }
+    } catch {
+      // Drive not configured — continue without Drive tools.
+    }
+
+    // User lookup — read-only, no permission scope needed (employee directory
+    // is open to all authenticated users).
+    tools.push(createUserLookupTool());
   }
 
   const agent = createAituberAgent({
@@ -407,13 +434,15 @@ async function generateStreamingResponse(
   }
 
   // Combine pre-fetched RAG citations with anything the agent pulled in via
-  // wiki_search / wiki_read_page / wiki_list_pages. Dedup by source+id.
+  // wiki_search / wiki_read_page / wiki_list_pages / drive_search / drive_read.
+  // Dedup by source+id so a page that appears in both RAG and a tool call is
+  // only cited once.
   const seenKeys = new Set<string>();
   for (const c of ragContext.citations) {
     seenKeys.add(c.source === "wiki" ? `wiki:${c.pageId}` : `drive:${c.fileId}`);
   }
   const toolCitations: AituberCitation[] = [];
-  for (const ref of toolRefs) {
+  for (const ref of wikiToolRefs) {
     const key = `wiki:${ref.pageId}`;
     if (seenKeys.has(key)) continue;
     seenKeys.add(key);
@@ -421,6 +450,17 @@ async function generateStreamingResponse(
       source: "wiki",
       pageId: ref.pageId,
       pageTitle: ref.pageTitle,
+    });
+  }
+  for (const ref of driveToolRefs) {
+    const key = `drive:${ref.driveFileId}`;
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    toolCitations.push({
+      source: "drive",
+      fileId: ref.driveFileId,
+      fileName: ref.driveFileName,
+      webViewLink: ref.driveLink ?? null,
     });
   }
   const citations = [...ragContext.citations, ...toolCitations];
