@@ -97,23 +97,34 @@ export default function AgentPanel(props: AgentPanelProps) {
       setResponse(result);
       setNotice(t("meetings.room.respondSuccess"));
       if (result.audio) {
-        const ALLOWED_AUDIO_TYPES = [
-          "audio/mp3",
-          "audio/mpeg",
-          "audio/wav",
-          "audio/webm",
-          "audio/ogg",
-        ];
+        // #70 G2: only advertise formats we can actually decode. The browser's
+        // decodeAudioData (used in publishAgentSpeech) reliably handles
+        // mp3/mpeg/wav; webm/ogg decoding is inconsistent across browsers.
+        // TTS currently emits mp3, so this is defensive — keep the list to the
+        // codecs we know decode everywhere.
+        const ALLOWED_AUDIO_TYPES = ["audio/mp3", "audio/mpeg", "audio/wav"];
         if (!ALLOWED_AUDIO_TYPES.includes(result.audio.mimeType)) {
           setVoiceStatus(t("meetings.room.voiceUnavailable"));
         } else {
+          // #70 G2: show "broadcasting" BEFORE awaiting playback. onAgentSpeak
+          // only resolves once playback finishes, so setting the status after
+          // the await meant "再生中" appeared only after the audio had already
+          // stopped. Announce at publish time instead.
+          setVoiceStatus(t("meetings.room.voiceBroadcasting"));
           try {
             // Broadcast through LiveKit so every participant hears the agent (G2),
             // rather than playing it only in this browser.
             await props.onAgentSpeak(selectedAgentId, result.audio);
-            setVoiceStatus(t("meetings.room.voicePlaying"));
-          } catch {
-            setVoiceStatus(t("meetings.room.voiceBlocked"));
+          } catch (speakError) {
+            // #70 G2: distinguish "the bot isn't in the room" from a genuine
+            // browser playback block, so the user isn't misdirected to retry
+            // a permission they never denied.
+            const message = speakError instanceof Error ? speakError.message : "";
+            setVoiceStatus(
+              message === "agent-not-connected"
+                ? t("meetings.room.voiceAgentNotConnected")
+                : t("meetings.room.voiceBlocked")
+            );
           }
         }
       } else {
