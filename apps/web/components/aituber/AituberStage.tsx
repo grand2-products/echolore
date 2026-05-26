@@ -22,6 +22,28 @@ interface AituberStageProps {
 
 const decoder = new TextDecoder();
 
+/**
+ * Map a backend tool name to a viewer-facing i18n key.
+ * Unknown tools fall back to a generic "thinking" label so the overlay still
+ * conveys *something* is happening.
+ */
+function toolCallLabelKey(toolName: string): string {
+  switch (toolName) {
+    case "wiki_search":
+      return "aituber.viewer.toolCall.wikiSearch";
+    case "wiki_list_pages":
+      return "aituber.viewer.toolCall.wikiListPages";
+    case "wiki_read_page":
+      return "aituber.viewer.toolCall.wikiReadPage";
+    case "drive_search":
+      return "aituber.viewer.toolCall.driveSearch";
+    case "drive_read":
+      return "aituber.viewer.toolCall.driveRead";
+    default:
+      return "aituber.viewer.toolCall.generic";
+  }
+}
+
 export function AituberStage({ session, livekitUrl }: AituberStageProps) {
   const t = useT();
   const roomRef = useRef<Room | null>(null);
@@ -37,6 +59,7 @@ export function AituberStage({ session, livekitUrl }: AituberStageProps) {
   const ttsAudioQueue = useAituberStore((s) => s.ttsAudioQueue);
   const dequeueTtsAudio = useAituberStore((s) => s.dequeueTtsAudio);
   const sessionAborted = useAituberStore((s) => s.sessionAborted);
+  const activeToolCalls = useAituberStore((s) => s.activeToolCalls);
 
   // Play TTS audio from queue
   const playNextAudio = useCallback(async () => {
@@ -143,6 +166,16 @@ export function AituberStage({ session, livekitUrl }: AituberStageProps) {
             </span>
           )}
         </div>
+
+        {/* Tool-call status — sits at top so it doesn't fight with the LIVE badge */}
+        {activeToolCalls.length > 0 && (
+          <div className="absolute top-4 left-4 right-4 flex justify-center">
+            <span className="inline-flex items-center gap-2 rounded-full bg-indigo-500/20 px-3 py-1 text-xs text-indigo-200 shadow-[0_0_8px_rgba(99,102,241,0.4)] backdrop-blur-sm">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-300" />
+              {t(toolCallLabelKey(activeToolCalls[0] ?? ""))}
+            </span>
+          </div>
+        )}
 
         {!connected && session.status === "live" && !sessionAborted && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">

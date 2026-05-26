@@ -971,4 +971,191 @@ describe("aituber-ai-service", () => {
       expect(tokenEvents[0]?.token).toBe("final answer");
     });
   });
+
+  describe("tool-call viewer feedback (#68)", () => {
+    it("emits tool-call started/finished events around an agent tool invocation", async () => {
+      const character = makeCharacter();
+      const viewerMsg = makeViewerMessage();
+
+      agentStreamMock.mockResolvedValueOnce(
+        (async function* () {
+          // Agent decides to call wiki_search.
+          yield [
+            {
+              _getType: () => "ai",
+              content: "",
+              tool_calls: [{ name: "wiki_search", args: { query: "x" }, id: "call-1" }],
+              tool_call_chunks: [],
+            },
+            {},
+          ];
+          // Tool returns.
+          yield [{ _getType: () => "tool", tool_call_id: "call-1", content: "result" }, {}];
+          // Final answer.
+          yield [
+            {
+              _getType: () => "ai",
+              content: "Here is the answer.",
+              tool_calls: [],
+              tool_call_chunks: [],
+            },
+            {},
+          ];
+        })()
+      );
+
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([viewerMsg])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      ttsServiceMock.splitIntoSentences.mockReturnValue(["Here is the answer."]);
+      ttsServiceMock.synthesizeSpeech.mockResolvedValue({
+        audio: Buffer.from("a"),
+        mimeType: "audio/mp3",
+        visemes: [],
+      });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-tc-1", character as never, "room-tc-1");
+      await new Promise((r) => setTimeout(r, 100));
+      stopProcessingLoop("session-tc-1");
+
+      const toolEvents = (
+        livekitServiceMock.sendDataToRoom.mock.calls as [string, Record<string, unknown>][]
+      )
+        .map(([, data]) => data)
+        .filter((d) => d.type === "tool-call");
+
+      expect(toolEvents).toHaveLength(2);
+      expect(toolEvents[0]).toEqual({
+        type: "tool-call",
+        toolName: "wiki_search",
+        phase: "started",
+      });
+      expect(toolEvents[1]).toEqual({
+        type: "tool-call",
+        toolName: "wiki_search",
+        phase: "finished",
+      });
+    });
+
+    it("flushes a finished event when the stream ends mid-tool (safety net)", async () => {
+      const character = makeCharacter();
+      const viewerMsg = makeViewerMessage();
+
+      // Agent starts a tool call but the stream ends before the ToolMessage arrives.
+      agentStreamMock.mockResolvedValueOnce(
+        (async function* () {
+          yield [
+            {
+              _getType: () => "ai",
+              content: "",
+              tool_calls: [{ name: "wiki_read_page", args: {}, id: "call-2" }],
+              tool_call_chunks: [],
+            },
+            {},
+          ];
+          // No ToolMessage and no final AI chunk — simulate a hung tool.
+        })()
+      );
+
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([viewerMsg])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-tc-2", character as never, "room-tc-2");
+      await new Promise((r) => setTimeout(r, 100));
+      stopProcessingLoop("session-tc-2");
+
+      const toolEvents = (
+        livekitServiceMock.sendDataToRoom.mock.calls as [string, Record<string, unknown>][]
+      )
+        .map(([, data]) => data)
+        .filter((d) => d.type === "tool-call");
+
+      // Even without a ToolMessage, the worker must emit `finished` so the
+      // viewer overlay clears.
+      expect(toolEvents.map((e) => e.phase)).toEqual(["started", "finished"]);
+      expect(toolEvents[1]?.toolName).toBe("wiki_read_page");
+    });
+
+    it("de-duplicates repeated tool_calls for the same id (single started)", async () => {
+      const character = makeCharacter();
+      const viewerMsg = makeViewerMessage();
+
+      agentStreamMock.mockResolvedValueOnce(
+        (async function* () {
+          // Agent yields the same tool_call across two chunks (LangGraph can
+          // accumulate the same call across deltas).
+          yield [
+            {
+              _getType: () => "ai",
+              content: "",
+              tool_calls: [{ name: "wiki_search", args: {}, id: "call-3" }],
+              tool_call_chunks: [],
+            },
+            {},
+          ];
+          yield [
+            {
+              _getType: () => "ai",
+              content: "",
+              tool_calls: [{ name: "wiki_search", args: { query: "y" }, id: "call-3" }],
+              tool_call_chunks: [],
+            },
+            {},
+          ];
+          yield [{ _getType: () => "tool", tool_call_id: "call-3", content: "result" }, {}];
+          yield [
+            {
+              _getType: () => "ai",
+              content: "done",
+              tool_calls: [],
+              tool_call_chunks: [],
+            },
+            {},
+          ];
+        })()
+      );
+
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([viewerMsg])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      ttsServiceMock.splitIntoSentences.mockReturnValue(["done"]);
+      ttsServiceMock.synthesizeSpeech.mockResolvedValue({
+        audio: Buffer.from("a"),
+        mimeType: "audio/mp3",
+        visemes: [],
+      });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-tc-3", character as never, "room-tc-3");
+      await new Promise((r) => setTimeout(r, 100));
+      stopProcessingLoop("session-tc-3");
+
+      const toolEvents = (
+        livekitServiceMock.sendDataToRoom.mock.calls as [string, Record<string, unknown>][]
+      )
+        .map(([, data]) => data)
+        .filter((d) => d.type === "tool-call");
+
+      // Exactly one started + one finished — no duplicates.
+      expect(toolEvents.map((e) => e.phase)).toEqual(["started", "finished"]);
+    });
+  });
 });

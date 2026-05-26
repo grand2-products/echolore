@@ -388,22 +388,61 @@ async function generateStreamingResponse(
   // letting the agent call tools mid-stream.
   const stream = await agent.stream({ messages: langchainMessages }, { streamMode: "messages" });
 
+  // Track tools that have a started event in-flight so we can emit `finished`
+  // exactly once when the corresponding ToolMessage comes back. Keyed by
+  // tool_call id; falls back to a counter when the id isn't present.
+  const inflightTools = new Map<string, string>();
+
   for await (const part of stream) {
     // Each yielded value is `[chunk, metadata]` for streamMode "messages".
     const chunk = Array.isArray(part) ? part[0] : (part as BaseMessage);
     if (!chunk) continue;
-    // Forward AI message tokens to the viewer; skip tool-call chunks and
-    // ToolMessage results — viewers should only hear the character's voice.
     const type = (chunk as BaseMessage)._getType?.();
+
+    // ToolMessage = a tool just returned. Pair it with its inflight `started`
+    // and emit `finished` so the viewer overlay can clear.
+    if (type === "tool") {
+      const toolMsg = chunk as { tool_call_id?: string; name?: string };
+      const id = toolMsg.tool_call_id ?? "";
+      const toolName = inflightTools.get(id) ?? toolMsg.name ?? "tool";
+      inflightTools.delete(id);
+      await sendDataEvent(roomName, { type: "tool-call", toolName, phase: "finished" });
+      continue;
+    }
+
     if (type !== "ai") continue;
     const aiChunk = chunk as AIMessageChunk;
-    if (aiChunk.tool_calls && aiChunk.tool_calls.length > 0) continue;
+
+    // Tool-call chunks: agent is deciding to invoke a tool. Forward a
+    // `started` event with the tool name so the viewer sees feedback during
+    // the search latency.
+    if (aiChunk.tool_calls && aiChunk.tool_calls.length > 0) {
+      for (const tc of aiChunk.tool_calls) {
+        const toolName = tc.name ?? "tool";
+        const id = tc.id ?? `__noid_${inflightTools.size}`;
+        // De-dup: agent may yield the same tool_call across multiple chunks.
+        if (!inflightTools.has(id)) {
+          inflightTools.set(id, toolName);
+          await sendDataEvent(roomName, { type: "tool-call", toolName, phase: "started" });
+        }
+      }
+      continue;
+    }
     if (aiChunk.tool_call_chunks && aiChunk.tool_call_chunks.length > 0) continue;
+
+    // Plain text token — forward to the viewer.
     const token = typeof aiChunk.content === "string" ? aiChunk.content : "";
     if (token) {
       fullResponse += token;
       await sendDataEvent(roomName, { type: "ai-token", token });
     }
+  }
+
+  // Safety: if the stream ended mid-tool (shouldn't happen, but defends
+  // against a hung tool), flush remaining `finished` events so the viewer UI
+  // doesn't get stuck on "検索中…".
+  for (const toolName of inflightTools.values()) {
+    await sendDataEvent(roomName, { type: "tool-call", toolName, phase: "finished" });
   }
 
   // Combine pre-fetched RAG citations with anything the agent pulled in via
