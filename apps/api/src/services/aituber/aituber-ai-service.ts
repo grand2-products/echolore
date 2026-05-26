@@ -5,7 +5,7 @@ import {
   type AituberCitation,
   type AituberDataEvent,
   type AituberEmotionType,
-  type UserRole,
+  UserRole,
 } from "@echolore/shared/contracts";
 import {
   AIMessage,
@@ -28,7 +28,6 @@ import {
   createAiChatReadPageTool,
   createAiChatSearchTool,
 } from "../../ai/tools/ai-chat-tools.js";
-import { createUserLookupTool } from "../../ai/tools/user-lookup-tool.js";
 import type { AituberCharacter, AituberMessage } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { getUserById } from "../../repositories/user/user-repository.js";
@@ -377,9 +376,12 @@ async function generateStreamingResponse(
       // Drive not configured — continue without Drive tools.
     }
 
-    // User lookup — read-only, no permission scope needed (employee directory
-    // is open to all authenticated users).
-    tools.push(createUserLookupTool());
+    // NOTE (review finding C5): `lookup_user` was previously added here, but
+    // the /api/users route is admin-only — the employee directory is NOT open
+    // to all authenticated users. Exposing it via AITuber meant viewers could
+    // mint employee email / role queries that were then broadcast to every
+    // participant in the room. Removed until a viewer-safe directory tool
+    // exists (see issue tracker — follow-up).
   }
 
   const agent = createAituberAgent({
@@ -399,12 +401,20 @@ async function generateStreamingResponse(
 
   const history = await aituberService.listMessageHistory(sessionId, 20);
   const langchainMessages: BaseMessage[] = [
+    // Sanitize viewer-supplied content before handing it to the LLM. `senderName`
+    // comes from the user's profile (OAuth-provider supplied) and `content` is
+    // raw viewer chat — both must be escaped so a viewer can't inject `[system]`
+    // /tag-shaped strings that the LLM might treat as instructions. Assistant
+    // history comes from our own TTS path so escaping is unnecessary, but we
+    // wrap it too for consistency. (M14)
     ...history.map((msg) =>
       msg.role === "assistant"
         ? new AIMessage(msg.content)
-        : new HumanMessage(`[${msg.senderName}] ${msg.content}`)
+        : new HumanMessage(`[${escapeXmlTags(msg.senderName)}] ${escapeXmlTags(msg.content)}`)
     ),
-    new HumanMessage(`[${viewerMessage.senderName}] ${viewerMessage.content}`),
+    new HumanMessage(
+      `[${escapeXmlTags(viewerMessage.senderName)}] ${escapeXmlTags(viewerMessage.content)}`
+    ),
   ];
 
   const generateStart = Date.now();
@@ -530,6 +540,19 @@ async function generateStreamingResponse(
  *   - the user has been deleted/suspended since posting.
  *
  * A null return causes RAG to be skipped — never fall back to admin-scoped search.
+ *
+ * ## H7: admin viewers are scope-downgraded to member
+ *
+ * AITuber responses are broadcast to **every viewer** on the LiveKit data
+ * channel. If an admin happens to send a viewer message, processing that
+ * message under their admin role would surface admin-only pages (or
+ * unfiltered Drive results) to non-admin viewers. The admin's intent for
+ * their own browsing scope shouldn't leak into the room broadcast.
+ *
+ * We downgrade `role` to `Member` here so all viewer messages are processed
+ * with the *least privilege* available, regardless of who sent them. Admins
+ * who genuinely need admin-scoped answers should use the AI Chat surface
+ * (which is a 1:1 surface, not broadcast).
  */
 async function resolveViewerUser(senderUserId: string | null): Promise<SessionUser | null> {
   if (!senderUserId) return null;
@@ -540,7 +563,7 @@ async function resolveViewerUser(senderUserId: string | null): Promise<SessionUs
     id: user.id,
     email: user.email,
     name: user.name,
-    role: user.role as UserRole,
+    role: UserRole.Member,
     avatarUrl: user.avatarUrl ?? null,
   };
 }

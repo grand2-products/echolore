@@ -80,8 +80,13 @@ export function createAiChatDriveReadTool(user: SessionUser) {
         driveLink: result.webViewLink ?? undefined,
       });
 
+      // Cap at 4000 chars to match `wiki_read_page` so a viewer-pointed
+      // large file can't blow the LLM context window via AITuber agent. The
+      // underlying repository already caps at 8000; we tighten further for
+      // agent surfaces. (M13)
+      const cappedText = result.text.slice(0, 4000);
       const linkPart = result.webViewLink ? `\nLink: ${result.webViewLink}` : "";
-      return `# ${escapeXmlTags(result.fileName)}${linkPart}\n\n${escapeXmlTags(result.text)}`;
+      return `# ${escapeXmlTags(result.fileName)}${linkPart}\n\n${escapeXmlTags(cappedText)}`;
     },
   });
 

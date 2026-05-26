@@ -9,8 +9,10 @@ import { requireRole } from "../lib/auth.js";
 import { roomService } from "../lib/livekit-client.js";
 import { livekitApiKey, livekitApiSecret } from "../lib/livekit-config.js";
 import { isOwnerOrAdmin } from "../lib/route-helpers.js";
+import { authorizeOwnerResource } from "../policies/authorization-policy.js";
 import * as coworkingMcu from "../services/coworking/coworking-mcu-service.js";
-import { getMeetingById } from "../services/meeting/meeting-service.js";
+import { COWORKING_ROOM } from "../services/coworking/coworking-mcu-service.js";
+import { getMeetingById, getMeetingByRoomName } from "../services/meeting/meeting-service.js";
 import * as recordingService from "../services/meeting/recording-service.js";
 import { generateHlsToken } from "./coworking-hls.js";
 
@@ -38,6 +40,47 @@ if (!livekitApiKey || !livekitApiSecret) {
 }
 
 // POST /api/livekit/token - Generate access token for a room
+//
+// Authorization: the requester must (a) be the participant they claim to be,
+// and (b) have **join authority** for the target room:
+//
+//   - `COWORKING_ROOM` is open to any authenticated user (current product
+//     behaviour — coworking is an org-wide space).
+//   - Any other room must map to a `meeting` row, and the requester must hold
+//     `read` authorization on that meeting (same gate as joining the meeting
+//     detail page or fetching agent events).
+//
+// Prior to this gate, any authenticated user could mint a `canPublish=true`
+// token for an arbitrary `roomName` they happened to know — enabling a third
+// party to inject audio into someone else's meeting (and, via PR #45/#46,
+// into the agent broadcast lane).
+type RoomJoinDecision =
+  | { allowed: true }
+  | { allowed: false; code: "ROOM_NOT_PERMITTED" | "MEETING_FORBIDDEN"; message: string };
+
+async function authorizeRoomJoin(
+  c: Parameters<typeof jsonError>[0],
+  roomName: string
+): Promise<RoomJoinDecision> {
+  if (roomName === COWORKING_ROOM) {
+    return { allowed: true };
+  }
+
+  const meeting = await getMeetingByRoomName(roomName);
+  if (!meeting) {
+    // Refuse to mint tokens for unknown rooms — legitimate ad-hoc rooms
+    // (LiveKit playground / coworking variants) should be added to a whitelist
+    // explicitly rather than treated as fallthrough.
+    return { allowed: false, code: "ROOM_NOT_PERMITTED", message: "Room is not joinable" };
+  }
+
+  const authz = await authorizeOwnerResource(c, "meeting", meeting.id, meeting.creatorId, "read");
+  if (!authz.allowed) {
+    return { allowed: false, code: "MEETING_FORBIDDEN", message: "Forbidden" };
+  }
+  return { allowed: true };
+}
+
 livekitRoutes.post(
   "/token",
   zValidator("json", livekitTokenSchema),
@@ -53,6 +96,11 @@ livekitRoutes.post(
         "IDENTITY_MISMATCH",
         "participantIdentity must match authenticated user"
       );
+    }
+
+    const gate = await authorizeRoomJoin(c, roomName);
+    if (!gate.allowed) {
+      return jsonError(c, 403, gate.code, gate.message);
     }
 
     const at = new AccessToken(livekitApiKey, livekitApiSecret, {

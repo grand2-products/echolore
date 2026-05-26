@@ -1052,3 +1052,67 @@ export async function searchPagesByIlike(
     similarity: Number(row.similarity),
   }));
 }
+
+/**
+ * Viewer-scoped ILIKE fallback. Mirrors the space-permission predicate used by
+ * `listRecentVisiblePagesForUser` so the fallback path can't leak pages the
+ * viewer wouldn't see through vector search.
+ *
+ * Use this from `searchVisibleChunks` (vector-search-service) whenever the
+ * embedding pipeline is unavailable — embedding outage or dimension mismatch
+ * during a migration. The previous fallback called the admin-equivalent
+ * `searchPagesByIlike` and silently broadcast admin-only pages to all viewers
+ * (review finding C4).
+ */
+export async function searchPagesByIlikeForUser(
+  userId: string,
+  queryText: string,
+  limit: number
+): Promise<VectorSearchResult[]> {
+  const escaped = queryText.replace(/[%_\\]/g, (ch) => `\\${ch}`);
+  const pattern = `%${escaped}%`;
+
+  const results = await sql`
+    SELECT DISTINCT p.id AS page_id, p.title AS page_title,
+      COALESCE(
+        (SELECT b.content FROM blocks b WHERE b.page_id = p.id AND b.content ILIKE ${pattern} LIMIT 1),
+        p.title
+      ) AS chunk_text,
+      0.5 AS similarity
+    FROM pages p
+    JOIN spaces s ON s.id = p.space_id
+    LEFT JOIN blocks b ON b.page_id = p.id
+    WHERE p.deleted_at IS NULL
+      AND (p.title ILIKE ${pattern} OR b.content ILIKE ${pattern})
+      AND (
+        p.author_id = ${userId}
+        OR s.type IN ('personal', 'general')
+        OR (s.type = 'team' AND s.group_id IN (
+          SELECT group_id FROM user_group_memberships WHERE user_id = ${userId}
+        ))
+        OR EXISTS (
+          SELECT 1 FROM space_permissions sp
+          JOIN user_group_memberships ugm ON ugm.group_id = sp.group_id
+          WHERE ugm.user_id = ${userId}
+            AND sp.space_id = s.id
+            AND sp.can_read = true
+        )
+      )
+    ORDER BY p.title
+    LIMIT ${limit}
+  `.execute(db);
+
+  return (
+    results.rows as Array<{
+      pageId: string;
+      pageTitle: string;
+      chunkText: string;
+      similarity: number;
+    }>
+  ).map((row) => ({
+    pageId: row.pageId,
+    pageTitle: row.pageTitle,
+    chunkText: row.chunkText || "",
+    similarity: Number(row.similarity),
+  }));
+}

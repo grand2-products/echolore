@@ -8,6 +8,7 @@ const {
   mockSearchByVectorForUser,
   mockFindPagesWithExplicitDeny,
   mockSearchPagesByIlike,
+  mockSearchPagesByIlikeForUser,
 } = vi.hoisted(() => ({
   mockEmbedText: vi.fn(),
   mockIsEmbeddingEnabled: vi.fn(),
@@ -15,6 +16,7 @@ const {
   mockSearchByVectorForUser: vi.fn(),
   mockFindPagesWithExplicitDeny: vi.fn(),
   mockSearchPagesByIlike: vi.fn(),
+  mockSearchPagesByIlikeForUser: vi.fn(),
 }));
 
 vi.mock("../../ai/embeddings.js", () => ({
@@ -27,6 +29,7 @@ vi.mock("../../repositories/wiki/wiki-repository.js", () => ({
   searchByVectorForUser: mockSearchByVectorForUser,
   findPagesWithExplicitDeny: mockFindPagesWithExplicitDeny,
   searchPagesByIlike: mockSearchPagesByIlike,
+  searchPagesByIlikeForUser: mockSearchPagesByIlikeForUser,
 }));
 
 vi.mock("../../lib/auth.js", () => ({}));
@@ -110,9 +113,9 @@ describe("vector-search-service", () => {
   });
 
   describe("searchVisibleChunks", () => {
-    it("falls back to ILIKE search when embeddings are disabled", async () => {
+    it("falls back to permission-scoped ILIKE search for members when embeddings are disabled (C4 regression)", async () => {
       mockIsEmbeddingEnabled.mockResolvedValue(false);
-      mockSearchPagesByIlike.mockResolvedValue([
+      mockSearchPagesByIlikeForUser.mockResolvedValue([
         {
           pageId: "p1",
           pageTitle: "Fallback",
@@ -133,7 +136,58 @@ describe("vector-search-service", () => {
           similarity: 0.5,
         },
       ]);
+      // C4 regression: member fallback MUST use the user-scoped repo function,
+      // never the admin-equivalent `searchPagesByIlike` (which would broadcast
+      // admin-only pages to all viewers during embedding outage).
+      expect(mockSearchPagesByIlikeForUser).toHaveBeenCalledWith("user_1", "search term", 5);
+      expect(mockSearchPagesByIlike).not.toHaveBeenCalled();
       expect(mockEmbedText).not.toHaveBeenCalled();
+    });
+
+    it("uses admin-scope ILIKE for admin users when embeddings are disabled", async () => {
+      mockIsEmbeddingEnabled.mockResolvedValue(false);
+      mockSearchPagesByIlike.mockResolvedValue([
+        { pageId: "p1", pageTitle: "Admin Page", chunkText: "secret", similarity: 0.5 },
+      ]);
+
+      const admin = makeUser({ role: UserRole.Admin });
+      const { results, searchMode } = await searchVisibleChunks(admin, "search term");
+
+      expect(searchMode).toBe("ilike_disabled");
+      expect(results).toHaveLength(1);
+      expect(mockSearchPagesByIlike).toHaveBeenCalledWith("search term", 5);
+      expect(mockSearchPagesByIlikeForUser).not.toHaveBeenCalled();
+    });
+
+    it("falls back to permission-scoped ILIKE on vector dimension error (C4 regression)", async () => {
+      const user = makeUser({ role: UserRole.Member });
+      mockIsEmbeddingEnabled.mockResolvedValue(true);
+      mockEmbedText.mockResolvedValue([0.1, 0.2]);
+      mockSearchByVectorForUser.mockRejectedValueOnce(new Error("different vector dimensions"));
+      mockSearchPagesByIlikeForUser.mockResolvedValue([
+        { pageId: "p1", pageTitle: "Allowed", chunkText: "c", similarity: 0.5 },
+      ]);
+
+      const { results, searchMode } = await searchVisibleChunks(user, "search term", 5);
+
+      expect(searchMode).toBe("ilike_fallback");
+      expect(results).toHaveLength(1);
+      expect(mockSearchPagesByIlikeForUser).toHaveBeenCalledWith("user_1", "search term", 5);
+      expect(mockSearchPagesByIlike).not.toHaveBeenCalled();
+    });
+
+    it("applies findPagesWithExplicitDeny to the ILIKE fallback path for members (C4 regression)", async () => {
+      const user = makeUser({ role: UserRole.Member });
+      mockIsEmbeddingEnabled.mockResolvedValue(false);
+      mockSearchPagesByIlikeForUser.mockResolvedValue([
+        { pageId: "p1", pageTitle: "Allowed", chunkText: "c1", similarity: 0.5 },
+        { pageId: "p2", pageTitle: "Denied", chunkText: "c2", similarity: 0.5 },
+      ]);
+      mockFindPagesWithExplicitDeny.mockResolvedValue(new Set(["p2"]));
+
+      const { results } = await searchVisibleChunks(user, "q");
+
+      expect(results.map((r) => r.pageId)).toEqual(["p1"]);
     });
 
     it("returns all results for admin users without per-page permission checks", async () => {
@@ -214,25 +268,27 @@ describe("vector-search-service", () => {
     });
   });
 
-  describe("LIKE wildcard escaping", () => {
+  describe("LIKE wildcard escaping (member fallback)", () => {
     it("escapes % and _ characters in fallback search", async () => {
       const user = makeUser();
       mockIsEmbeddingEnabled.mockResolvedValue(false);
-      mockSearchPagesByIlike.mockResolvedValue([]);
+      mockSearchPagesByIlikeForUser.mockResolvedValue([]);
 
       await searchVisibleChunks(user, "100% match_test");
 
-      expect(mockSearchPagesByIlike).toHaveBeenCalled();
+      // Member path now goes through searchPagesByIlikeForUser (C4).
+      // The repository implementation is responsible for actual escaping.
+      expect(mockSearchPagesByIlikeForUser).toHaveBeenCalledWith("user_1", "100% match_test", 5);
     });
 
     it("escapes backslash characters in fallback search", async () => {
       const user = makeUser();
       mockIsEmbeddingEnabled.mockResolvedValue(false);
-      mockSearchPagesByIlike.mockResolvedValue([]);
+      mockSearchPagesByIlikeForUser.mockResolvedValue([]);
 
       await searchVisibleChunks(user, "path\\to\\file");
 
-      expect(mockSearchPagesByIlike).toHaveBeenCalled();
+      expect(mockSearchPagesByIlikeForUser).toHaveBeenCalledWith("user_1", "path\\to\\file", 5);
     });
   });
 });

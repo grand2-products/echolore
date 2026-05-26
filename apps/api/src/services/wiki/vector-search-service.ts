@@ -6,6 +6,7 @@ import {
   searchByVectorForUser,
   searchByVector as searchByVectorRepo,
   searchPagesByIlike,
+  searchPagesByIlikeForUser,
   type VectorSearchResult,
 } from "../../repositories/wiki/wiki-repository.js";
 
@@ -41,7 +42,7 @@ export async function searchVisibleChunks(
   limit = 5
 ): Promise<VisibleChunksResult> {
   if (!(await isEmbeddingEnabled())) {
-    const results = await fallbackIlikeSearch(queryText, limit);
+    const results = await fallbackIlikeSearch(user, queryText, limit);
     return { results, searchMode: "ilike_disabled" };
   }
 
@@ -73,7 +74,10 @@ export async function searchVisibleChunks(
           error: err instanceof Error ? err.message : "Unknown",
         })
       );
-      return { results: await searchPagesByIlike(queryText, limit), searchMode: "ilike_fallback" };
+      return {
+        results: await fallbackIlikeSearch(user, queryText, limit),
+        searchMode: "ilike_fallback",
+      };
     }
   } else {
     try {
@@ -86,7 +90,10 @@ export async function searchVisibleChunks(
           error: err instanceof Error ? err.message : "Unknown",
         })
       );
-      return { results: await searchPagesByIlike(queryText, limit), searchMode: "ilike_fallback" };
+      return {
+        results: await fallbackIlikeSearch(user, queryText, limit),
+        searchMode: "ilike_fallback",
+      };
     }
 
     // Post-filter: exclude pages with explicit page-level deny
@@ -111,9 +118,33 @@ export async function searchVisibleChunks(
   };
 }
 
+/**
+ * Permission-scoped ILIKE fallback (review finding C4).
+ *
+ * The previous fallback used the admin-equivalent `searchPagesByIlike`, which
+ * meant that during embedding outage or pgvector dimension mismatch the
+ * AITuber RAG silently broadcast admin-only page content to all viewers
+ * (responses are pushed over the LiveKit data channel to every participant).
+ *
+ * - Admin: still uses unfiltered ILIKE — admin scope is intentional.
+ * - Member: uses `searchPagesByIlikeForUser` (space-permission scoped) +
+ *   `findPagesWithExplicitDeny` post-filter, matching the vector path.
+ */
 async function fallbackIlikeSearch(
+  user: SessionUser,
   queryText: string,
   limit: number
 ): Promise<VectorSearchResult[]> {
-  return searchPagesByIlike(queryText, limit);
+  if (user.role === UserRole.Admin) {
+    return searchPagesByIlike(queryText, limit);
+  }
+  let results = await searchPagesByIlikeForUser(user.id, queryText, limit);
+  if (results.length > 0) {
+    const pageIds = [...new Set(results.map((r) => r.pageId))];
+    const denied = await findPagesWithExplicitDeny(pageIds, user.id);
+    if (denied.size > 0) {
+      results = results.filter((r) => !denied.has(r.pageId));
+    }
+  }
+  return results;
 }
