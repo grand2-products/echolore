@@ -113,11 +113,9 @@ export default function MeetingRoomPage() {
 
     const botRoom = new Room();
     try {
-      const tokenValue = await fetchLiveKitToken({
-        roomName,
-        participantName: `${agent.name} (AI)`,
-        participantIdentity: `agent-${meetingId}-${agentId}`,
-      });
+      // The agent token is minted server-side (identity = agent-{meetingId}-{agentId}),
+      // since the user-facing /livekit/token route rejects non-user identities.
+      const { token: tokenValue } = await meetingsApi.getAgentLivekitToken(meetingId, agentId);
       await botRoom.connect(getLiveKitUrl(), tokenValue, { autoSubscribe: false });
       agentRoomMapRef.current.set(agentId, botRoom);
     } catch (connectError) {

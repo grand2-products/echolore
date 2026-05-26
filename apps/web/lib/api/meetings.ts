@@ -116,6 +116,15 @@ export const meetingsApi = {
       body: JSON.stringify({}),
     }),
 
+  getAgentLivekitToken: (id: string, agentId: string) =>
+    fetchApi<{ token: string; identity: string }>(
+      `/meetings/${id}/agents/${agentId}/livekit-token`,
+      {
+        method: "POST",
+        body: JSON.stringify({}),
+      }
+    ),
+
   leaveAgent: (id: string, agentId: string) =>
     fetchApi<{ session: { id: string; state: string; leftAt: string | null } }>(
       `/meetings/${id}/agents/${agentId}/leave`,
