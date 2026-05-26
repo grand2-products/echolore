@@ -1,6 +1,6 @@
 # Meeting Tool Implementation
 
-Last updated: 2026-03-13
+Last updated: 2026-05-26
 
 This document describes the currently implemented meeting tool behavior.
 
@@ -24,7 +24,8 @@ This document describes the currently implemented meeting tool behavior.
 - Auth/session: `apps/api/src/lib/auth.ts`
 - AI summary generation: `apps/api/src/ai/meeting-summary.ts`
 - Speech gateway and internal ingest: `apps/api/src/ai/gateway/*`, `apps/api/src/routes/internal-room-ai.ts`
-- Worker scaffold and webhook receiver: `apps/worker/src/*`
+- Agent realtime services: `apps/api/src/services/meeting/meeting-realtime-service.ts` (agent token issuance, transcript upsert + finalized event), `meeting-events.ts` (in-process event bus), `autonomous-agent-service.ts` (event-driven evaluation loop), `autonomous-leader.ts` (Valkey leader election)
+- Worker scaffold and webhook receiver: `apps/worker/src/*`; realtime transcription scaffold: `apps/worker/src/realtime/*`
 - Schema: `apps/api/src/db/schema.ts`
 
 ## Implemented Behaviors
@@ -56,10 +57,15 @@ This document describes the currently implemented meeting tool behavior.
 - persist agent session and event timeline records
 - expose active agent sessions through `GET /api/meetings/:id/agents/active`
 - generate text response and optional TTS audio through the speech gateway path
-- connect an AI agent bot participant to LiveKit when invoked
-- play synthesized voice responses in the room UI when audio is available
+- issue an agent LiveKit token server-side via `POST /api/meetings/:id/agents/:agentId/livekit-token` (meeting-write gated) so the bot joins as `agent-{meetingId}-{agentId}`; the meeting creator's client holds the single bot connection (avoids identity-collision evictions)
+- broadcast synthesized agent speech to all participants as a LiveKit audio track published on the bot connection (`apps/web/lib/agent-audio.ts`), instead of local-only `<audio>` playback
 - operator can see active agent status, invoke an agent, and leave an active agent session from the room UI
 - worker can resolve `roomName -> meeting`, receive LiveKit webhooks, and ingest transcript segments through internal routes
+
+### Autonomous Intervention
+- evaluate autonomous interventions event-driven on finalized transcript segments (in-process event bus + ~1s debounce), with a coarse 60s fallback interval rather than a fixed 20s poll
+- enforce a per-meeting in-flight guard plus minimum-new-segment count and per-agent cooldown to prevent double-firing
+- elect a single autonomous evaluator across API replicas via a Valkey lock (atomic acquire/renew/release; degrades to local execution when Valkey is unavailable), released on graceful shutdown for fast failover
 
 ### Reactions (Stamps)
 - `apps/web/components/livekit/ReactionPicker.tsx` renders the emoji picker UI
@@ -122,7 +128,8 @@ recordings. This is documented as a known limitation.
 
 ## Known Gaps
 - stronger regression test coverage
-- realtime transcript worker can receive webhooks and ingest segments, but direct LiveKit audio subscription is still not implemented
+- the agent-worker `realtime` mode scaffolds room-joining and per-participant streaming-STT orchestration (`apps/worker/src/realtime/`), but the LiveKit media binding (`@livekit/rtc-node`) and Google streaming STT are not yet wired, and LiveKit webhooks must additionally be delivered to the agent-worker endpoint; runtime verification is pending (#47)
+- autonomous interventions are text-only until server-side audio publish lands together with the realtime worker (#47); manual agent responses already broadcast voice via LiveKit
 - voice synthesis still depends on configured Google Cloud auth at runtime
 
 ## Related Files
