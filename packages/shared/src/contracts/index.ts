@@ -845,11 +845,32 @@ export interface AituberTokenResponse {
   token: string;
 }
 
+// AITuber citations — sources referenced when generating the response.
+// Surfaced to viewers so they can verify what the AI based its answer on.
+export type AituberCitation =
+  | {
+      source: "wiki";
+      pageId: string;
+      pageTitle: string;
+      similarity?: number;
+    }
+  | {
+      source: "drive";
+      fileId: string;
+      fileName: string;
+      webViewLink?: string | null;
+    };
+
 // AITuber Data Channel Events
 export type AituberDataEvent =
   | { type: "viewer-message"; messageId: string; senderName: string; content: string }
   | { type: "ai-token"; token: string }
-  | { type: "ai-complete"; messageId: string; fullContent: string }
+  | {
+      type: "ai-complete";
+      messageId: string;
+      fullContent: string;
+      citations?: AituberCitation[];
+    }
   | { type: "avatar-state"; state: AituberAvatarState }
   | { type: "image-share"; url: string; caption?: string }
   | { type: "viewer-count"; count: number }
