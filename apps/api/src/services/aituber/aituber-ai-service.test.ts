@@ -92,6 +92,11 @@ vi.mock("../../ai/tools/ai-chat-drive-tools.js", () => ({
   }),
 }));
 
+vi.mock("../../ai/tools/aituber-meeting-tools.js", () => ({
+  createRecentMeetingsTool: () => ({ name: "lookup_recent_meetings" }),
+  createMeetingTranscriptLookupTool: () => ({ name: "lookup_meeting_transcript" }),
+}));
+
 const driveSettingsMock = vi.hoisted(() => ({
   getResolvedDriveSettings: vi.fn(),
 }));
@@ -816,11 +821,17 @@ describe("aituber-ai-service", () => {
       expect(createAituberAgentMock).toHaveBeenCalledTimes(1);
       const agentInput = createAituberAgentMock.mock.calls[0]?.[0];
       const toolNames = (agentInput?.tools as Array<{ name: string }>).map((t) => t.name).sort();
-      // Wiki 3 only (Drive disabled by default in tests).
+      // Wiki 3 + meeting 2 (Drive disabled by default in tests).
       // `lookup_user` was removed in review finding C5 because the underlying
       // /api/users route is admin-only — exposing it via AITuber leaked
       // employee directory data to all room viewers.
-      expect(toolNames).toEqual(["wiki_list_pages", "wiki_read_page", "wiki_search"]);
+      expect(toolNames).toEqual([
+        "lookup_meeting_transcript",
+        "lookup_recent_meetings",
+        "wiki_list_pages",
+        "wiki_read_page",
+        "wiki_search",
+      ]);
     });
 
     it("appends drive_search / drive_read when Drive integration is enabled", async () => {
@@ -854,10 +865,12 @@ describe("aituber-ai-service", () => {
 
       const agentInput = createAituberAgentMock.mock.calls[0]?.[0];
       const toolNames = (agentInput?.tools as Array<{ name: string }>).map((t) => t.name).sort();
-      // Wiki 3 + Drive 2 (lookup_user removed — see C5).
+      // Wiki 3 + Drive 2 + meeting 2 (lookup_user removed — see C5).
       expect(toolNames).toEqual([
         "drive_read",
         "drive_search",
+        "lookup_meeting_transcript",
+        "lookup_recent_meetings",
         "wiki_list_pages",
         "wiki_read_page",
         "wiki_search",
@@ -892,10 +905,16 @@ describe("aituber-ai-service", () => {
       await new Promise((r) => setTimeout(r, 100));
       stopProcessingLoop("session-drive-2");
 
-      // Wiki tools still work even if Drive settings throw.
+      // Wiki + meeting tools still work even if Drive settings throw.
       const agentInput = createAituberAgentMock.mock.calls[0]?.[0];
       const toolNames = (agentInput?.tools as Array<{ name: string }>).map((t) => t.name).sort();
-      expect(toolNames).toEqual(["wiki_list_pages", "wiki_read_page", "wiki_search"]);
+      expect(toolNames).toEqual([
+        "lookup_meeting_transcript",
+        "lookup_recent_meetings",
+        "wiki_list_pages",
+        "wiki_read_page",
+        "wiki_search",
+      ]);
     });
 
     it("hands the agent no tools when the viewer cannot be resolved (no permission to scope by)", async () => {
