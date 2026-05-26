@@ -7,21 +7,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * agent identity.
  */
 
-const { getAgentByIdMock, addGrantMock, toJwtMock } = vi.hoisted(() => ({
-  getAgentByIdMock: vi.fn(),
-  addGrantMock: vi.fn(),
-  toJwtMock: vi.fn().mockResolvedValue("jwt-token-stub"),
-}));
+const { getAgentByIdMock, getActiveMeetingAgentSessionMock, addGrantMock, toJwtMock } = vi.hoisted(
+  () => ({
+    getAgentByIdMock: vi.fn(),
+    getActiveMeetingAgentSessionMock: vi.fn(),
+    addGrantMock: vi.fn(),
+    toJwtMock: vi.fn().mockResolvedValue("jwt-token-stub"),
+  })
+);
 
 vi.mock("../../repositories/meeting/meeting-realtime-repository.js", async () => {
-  // We only need getAgentById for issueAgentLiveKitToken; stub the rest.
+  // We only need getAgentById + getActiveMeetingAgentSession for
+  // issueAgentLiveKitToken; stub the rest.
   return {
     getAgentById: getAgentByIdMock,
     createAgent: vi.fn(),
     createMeetingAgentEvent: vi.fn(),
     createMeetingAgentSession: vi.fn(),
     createTranscriptSegment: vi.fn(),
-    getActiveMeetingAgentSession: vi.fn(),
+    getActiveMeetingAgentSession: getActiveMeetingAgentSessionMock,
     getTranscriptSegmentByKey: vi.fn(),
     listActiveAgents: vi.fn(),
     listActiveMeetingAgentSessions: vi.fn(),
@@ -49,14 +53,17 @@ vi.mock("../../lib/livekit-config.js", () => ({
   livekitApiSecret: "test-secret",
 }));
 
-describe("issueAgentLiveKitToken (M3 publish-source restriction)", () => {
+describe("issueAgentLiveKitToken (M3 publish-source restriction + #70 G1)", () => {
   beforeEach(() => {
     getAgentByIdMock.mockReset();
+    getActiveMeetingAgentSessionMock.mockReset();
     addGrantMock.mockReset();
     toJwtMock.mockClear();
+    // Default: an active session exists so the happy path is unblocked.
+    getActiveMeetingAgentSessionMock.mockResolvedValue({ id: "session-1", state: "active" });
   });
 
-  it("restricts the agent token to MICROPHONE publish-source", async () => {
+  it("restricts the agent token to MICROPHONE publish-source and drops canSubscribe", async () => {
     getAgentByIdMock.mockResolvedValue({
       id: "agent-1",
       name: "Agent",
@@ -77,7 +84,8 @@ describe("issueAgentLiveKitToken (M3 publish-source restriction)", () => {
       roomJoin: true,
       room: "room-x",
       canPublish: true,
-      canSubscribe: true,
+      // #70 G1: the speak-only bot does not need subscribe rights.
+      canSubscribe: false,
       canPublishData: true,
     });
     expect(grant.canPublishSources).toEqual([TrackSource.MICROPHONE]);
@@ -94,6 +102,22 @@ describe("issueAgentLiveKitToken (M3 publish-source restriction)", () => {
     });
 
     expect(result).toBeNull();
+    expect(addGrantMock).not.toHaveBeenCalled();
+  });
+
+  it("returns null when no active agent session exists for the meeting (#70 G1)", async () => {
+    getAgentByIdMock.mockResolvedValue({ id: "agent-1", name: "Agent", isActive: true });
+    getActiveMeetingAgentSessionMock.mockResolvedValue(null);
+
+    const { issueAgentLiveKitToken } = await import("./meeting-realtime-service.js");
+    const result = await issueAgentLiveKitToken({
+      meetingId: "meeting-1",
+      agentId: "agent-1",
+      roomName: "room-x",
+    });
+
+    expect(result).toBeNull();
+    expect(getActiveMeetingAgentSessionMock).toHaveBeenCalledWith("meeting-1", "agent-1");
     expect(addGrantMock).not.toHaveBeenCalled();
   });
 });

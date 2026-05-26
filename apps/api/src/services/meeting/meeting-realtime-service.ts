@@ -1,3 +1,4 @@
+import type { MeetingAgentTokenResponse } from "@echolore/shared/contracts";
 import { AccessToken, TrackSource } from "livekit-server-sdk";
 import { createSpeechGatewayBundle, resolveSpeechProvider } from "../../ai/gateway/index.js";
 import { livekitApiKey, livekitApiSecret } from "../../lib/livekit-config.js";
@@ -37,9 +38,19 @@ export async function issueAgentLiveKitToken(input: {
   meetingId: string;
   agentId: string;
   roomName: string;
-}): Promise<{ token: string; identity: string } | null> {
+}): Promise<MeetingAgentTokenResponse | null> {
   const agent = await getAgentById(input.agentId);
   if (!agent || !agent.isActive) {
+    return null;
+  }
+
+  // #70 G1: require an active agent session for this meeting before minting a
+  // token. The route comment claims the bot is connected for invoke / reload /
+  // autonomous sessions, all of which create a session row first. Without this
+  // check a writer could mint a bot token for an agent that was never invoked
+  // in this meeting, leaving an idle participant in the room.
+  const session = await getActiveMeetingAgentSession(input.meetingId, input.agentId);
+  if (!session) {
     return null;
   }
 
@@ -52,12 +63,17 @@ export async function issueAgentLiveKitToken(input: {
   // only ever publishes synthesized TTS audio (see apps/web/lib/agent-audio.ts);
   // a leaked or coerced token MUST NOT be usable to push camera / screen-share
   // tracks into a meeting under the agent identity.
+  //
+  // #70 G1: the bot is a speak-only participant — it never renders other
+  // participants' media — so it does not need subscribe rights. Dropping
+  // canSubscribe keeps the grant minimal and avoids the bot pulling audio it
+  // never uses.
   at.addGrant({
     roomJoin: true,
     room: input.roomName,
     canPublish: true,
     canPublishSources: [TrackSource.MICROPHONE],
-    canSubscribe: true,
+    canSubscribe: false,
     canPublishData: true,
   });
 

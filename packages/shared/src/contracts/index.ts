@@ -359,6 +359,16 @@ export interface GetMeetingResponse {
   summaries: SummaryDto[];
 }
 
+/**
+ * Response of `POST /api/meetings/:id/agents/:agentId/livekit-token`.
+ * The agent bot connects to the LiveKit room under this deterministic
+ * `identity` (not a user id) to broadcast synthesized speech.
+ */
+export interface MeetingAgentTokenResponse {
+  token: string;
+  identity: string;
+}
+
 export interface CreateMeetingRequest {
   title: string;
   scheduledAt?: string;

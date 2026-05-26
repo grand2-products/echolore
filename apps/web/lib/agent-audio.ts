@@ -53,14 +53,18 @@ export async function publishAgentSpeech(
       throw new Error("Failed to derive an audio track from TTS output");
     }
 
+    // #70 G2: resume the AudioContext BEFORE publishing the track. If the
+    // context is still suspended when the track goes live, LiveKit starts
+    // forwarding silent samples and the first fraction of a second of speech is
+    // clipped. Resuming first guarantees real samples flow from the moment the
+    // track is published.
+    await context.resume();
+
     localTrack = new LocalAudioTrack(mediaStreamTrack, undefined, true, context);
     await room.localParticipant.publishTrack(localTrack, {
       source: Track.Source.Microphone,
       name: "agent-speech",
     });
-
-    // AudioContext may start suspended; resume so samples flow into the stream.
-    await context.resume();
 
     // Compute a safe upper bound for playback completion. Even if onended is
     // never fired, the `finally` cleanup will still run after this timeout.
