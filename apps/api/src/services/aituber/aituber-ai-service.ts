@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { EventEmitter } from "node:events";
 import {
   AITUBER_VALID_EMOTIONS,
   type AituberDataEvent,
@@ -16,6 +17,7 @@ import { searchVisibleChunks } from "../wiki/vector-search-service.js";
 import * as livekitService from "./aituber-livekit-service.js";
 import * as aituberService from "./aituber-service.js";
 import * as ttsService from "./aituber-tts-service.js";
+import { getValidActionIdsSync, loadMotionRegistry } from "./motion-registry.js";
 
 // Replaceable for testing
 let llm: LlmProvider = defaultLlmProvider;
@@ -25,12 +27,56 @@ export function _setLlmProvider(p: LlmProvider) {
   llm = p;
 }
 
-// Active processing loops per session
-const activeLoops = new Map<string, { running: boolean }>();
+// Active processing workers per session.
+// Each session has at most one worker; new viewer messages arrive via
+// `notifyNewMessage(sessionId)` and the worker drains the queue then waits
+// for the next notification (no polling).
+interface SessionWorkerState {
+  running: boolean;
+  character: AituberCharacter;
+  roomName: string;
+}
+
+const activeLoops = new Map<string, SessionWorkerState>();
+const messageEvents = new EventEmitter();
+messageEvents.setMaxListeners(0);
+
+const SAFETY_TICK_MS = 60_000; // periodic re-check in case a notify was missed
 
 /**
- * Starts the AI processing loop for a session.
- * Polls for unprocessed messages and generates streaming responses.
+ * Wait until either an event on `channel` fires or `timeoutMs` elapses.
+ * Always cleans up the listener.
+ */
+function waitForMessageOrTimeout(channel: string, timeoutMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    const handler = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      messageEvents.off(channel, handler);
+      resolve();
+    }, timeoutMs);
+    messageEvents.once(channel, handler);
+  });
+}
+
+/**
+ * Notify the AI worker for `sessionId` that a new viewer message has arrived.
+ * Called by the HTTP route immediately after the message is persisted.
+ *
+ * Safe to call when no worker is active (no-op).
+ */
+export function notifyNewMessage(sessionId: string): void {
+  messageEvents.emit(`message:${sessionId}`);
+}
+
+/**
+ * Starts the AI processing worker for a session.
+ *
+ * The worker is event-driven: it drains all unprocessed messages on start,
+ * then waits on `messageEvents` until a viewer posts or `SAFETY_TICK_MS`
+ * elapses (recovery from missed events).
  *
  * RAG コンテキストは、メッセージを送った視聴者の SessionUser に解決した上で、
  * その視聴者の権限スコープで Wiki / Drive を検索する。視聴者が解決できない
@@ -44,52 +90,71 @@ export async function startProcessingLoop(
 ): Promise<void> {
   if (activeLoops.has(sessionId)) return;
 
-  const state = { running: true };
+  const state: SessionWorkerState = { running: true, character, roomName };
   activeLoops.set(sessionId, state);
 
-  console.log(`[aituber-ai] Starting processing loop for session ${sessionId}`);
+  // Best-effort: load the motion manifest so action-tag validation is active
+  // by the time the worker handles its first message.
+  void loadMotionRegistry().catch((err) =>
+    console.warn("[aituber-ai] Failed to load motion manifest:", err)
+  );
 
-  // Run the loop in background
-  void (async () => {
-    let consecutiveErrors = 0;
-    const MAX_CONSECUTIVE_ERRORS = 10;
-    let aborted = false;
-    while (state.running) {
-      try {
-        await processNextMessage(sessionId, character, roomName);
-        consecutiveErrors = 0;
-      } catch (error) {
-        consecutiveErrors++;
+  console.log(`[aituber-ai] Starting processing worker for session ${sessionId}`);
+
+  void runWorker(sessionId, state);
+}
+
+async function runWorker(sessionId: string, state: SessionWorkerState): Promise<void> {
+  const channel = `message:${sessionId}`;
+  let consecutiveErrors = 0;
+  const MAX_CONSECUTIVE_ERRORS = 10;
+  let aborted = false;
+
+  // Drain any messages already queued before the worker started.
+  while (state.running) {
+    let processed = false;
+    try {
+      processed = await processNextMessage(sessionId, state.character, state.roomName);
+      if (processed) consecutiveErrors = 0;
+    } catch (error) {
+      consecutiveErrors++;
+      console.error(
+        JSON.stringify({
+          event: "aituber-ai.error",
+          sessionId,
+          count: consecutiveErrors,
+          max: MAX_CONSECUTIVE_ERRORS,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
+      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
         console.error(
           JSON.stringify({
-            event: "aituber-ai.error",
+            event: "aituber-ai.aborted",
             sessionId,
-            count: consecutiveErrors,
-            max: MAX_CONSECUTIVE_ERRORS,
-            error: error instanceof Error ? error.message : String(error),
+            reason: "too_many_consecutive_errors",
           })
         );
-        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-          console.error(
-            JSON.stringify({
-              event: "aituber-ai.aborted",
-              sessionId,
-              reason: "too_many_consecutive_errors",
-            })
-          );
-          state.running = false;
-          aborted = true;
-        }
+        state.running = false;
+        aborted = true;
+        break;
       }
-      // Poll interval
-      await sleep(1000);
+      // Backoff briefly on transient errors so we don't spin on a poisonous
+      // message that keeps reappearing as unprocessed.
+      await sleep(Math.min(2000, 200 * consecutiveErrors));
+      continue;
     }
-    activeLoops.delete(sessionId);
-    if (aborted) {
-      await tearDownAbortedSession(sessionId, roomName);
+    if (!processed) {
+      // Queue is empty — wait for the next notification or a safety tick.
+      await waitForMessageOrTimeout(channel, SAFETY_TICK_MS);
     }
-    console.log(`[aituber-ai] Stopped processing loop for session ${sessionId}`);
-  })();
+  }
+
+  activeLoops.delete(sessionId);
+  if (aborted) {
+    await tearDownAbortedSession(sessionId, state.roomName);
+  }
+  console.log(`[aituber-ai] Stopped processing worker for session ${sessionId}`);
 }
 
 /**
@@ -112,26 +177,36 @@ async function tearDownAbortedSession(sessionId: string, roomName: string): Prom
 }
 
 /**
- * Stops the AI processing loop for a session.
+ * Stops the AI processing worker for a session.
+ *
+ * The worker exits cleanly the next time it checks `state.running`. We
+ * additionally fire a notification so a worker waiting on the channel wakes
+ * up immediately instead of holding the SAFETY_TICK_MS timer.
  */
 export function stopProcessingLoop(sessionId: string): void {
   const state = activeLoops.get(sessionId);
   if (state) {
     state.running = false;
-    // activeLoops entry is cleaned up by the loop itself after it exits
+    notifyNewMessage(sessionId);
+    // activeLoops entry is cleaned up by the worker itself after it exits.
   }
 }
 
+/**
+ * Processes a single unprocessed viewer message for the session, if one
+ * exists. Returns `true` when a message was processed, `false` when the queue
+ * was empty (so the caller knows to wait for a notification).
+ */
 async function processNextMessage(
   sessionId: string,
   character: AituberCharacter,
   roomName: string
-): Promise<void> {
+): Promise<boolean> {
   const messages = await aituberService.listUnprocessedMessages(sessionId);
-  if (messages.length === 0) return;
+  if (messages.length === 0) return false;
 
   const viewerMessage = messages[0];
-  if (!viewerMessage) return;
+  if (!viewerMessage) return false;
 
   // Mark as processing
   await aituberService.markMessageProcessed(viewerMessage.id);
@@ -157,7 +232,7 @@ async function processNextMessage(
     if (!rawResponse) {
       console.warn(`[aituber-ai] LLM returned empty response for session ${sessionId}, skipping`);
       await sendDataEvent(roomName, { type: "avatar-state", state: "idle" });
-      return;
+      return true;
     }
 
     // Parse emotion and action annotations from LLM response
@@ -216,6 +291,7 @@ async function processNextMessage(
 
     // Back to idle
     await sendDataEvent(roomName, { type: "avatar-state", state: "idle" });
+    return true;
   } catch (error) {
     // Reset to idle on error
     await sendDataEvent(roomName, { type: "avatar-state", state: "idle" });
@@ -238,12 +314,17 @@ async function generateStreamingResponse(
 
   // RAG: search Wiki + Drive in parallel, **scoped to the viewer's permissions**.
   // If the viewer can't be resolved, RAG is skipped entirely.
-  const ragContext = await buildRagContext(sessionId, viewerMessage.content, viewerUser);
+  // Motion manifest is loaded in parallel so the system prompt can advertise
+  // the current set of action IDs (kept in sync with public/motions/manifest.json).
+  const [ragContext, motion] = await Promise.all([
+    buildRagContext(sessionId, viewerMessage.content, viewerUser),
+    loadMotionRegistry().catch(() => null),
+  ]);
 
   // Build messages with context
   const history = await aituberService.listMessageHistory(sessionId, 20);
   const langchainMessages = [
-    new SystemMessage(buildSystemPrompt(character, ragContext)),
+    new SystemMessage(buildSystemPrompt(character, ragContext, motion?.promptListing ?? "")),
     ...history.map((msg) =>
       msg.role === "assistant"
         ? new AIMessage(msg.content)
@@ -400,7 +481,11 @@ async function buildRagContext(
   }
 }
 
-function buildSystemPrompt(character: AituberCharacter, ragContext = ""): string {
+function buildSystemPrompt(
+  character: AituberCharacter,
+  ragContext = "",
+  actionListing = ""
+): string {
   let prompt = character.systemPrompt;
   prompt += `\n\nキャラクター名: ${escapeXmlTags(character.name)}`;
   prompt += `\n性格: ${escapeXmlTags(character.personality)}`;
@@ -415,20 +500,19 @@ function buildSystemPrompt(character: AituberCharacter, ragContext = ""): string
   prompt += "\nTYPE: neutral, happy, sad, angry, surprised, relaxed のいずれか";
   prompt += "\nINTENSITY: 0.0〜1.0 の小数（感情の強さ）";
 
-  // Action annotation — dynamically generated from action registry
-  prompt +=
-    "\n\n応答にジェスチャーが自然な場合、emotionタグの後に [action:ACTION_ID] を付与してください。";
-  prompt += "\n以下のモーションから最適なものを選んでください:";
-  for (const [category, actions] of Object.entries(ACTION_REGISTRY)) {
-    const ids = actions.map((a) => a.id).join(", ");
-    prompt += `\n${category}: ${ids}`;
-  }
-  prompt +=
-    "\nアクションが不要な場合はタグを省略。同じアクションが連続しないようバリエーションを使い分けて。";
+  // Action annotation — only advertised when the motion manifest is loaded.
+  if (actionListing) {
+    prompt +=
+      "\n\n応答にジェスチャーが自然な場合、emotionタグの後に [action:ACTION_ID] を付与してください。";
+    prompt += "\n以下のモーションから最適なものを選んでください:";
+    prompt += `\n${actionListing}`;
+    prompt +=
+      "\nアクションが不要な場合はタグを省略。同じアクションが連続しないようバリエーションを使い分けて。";
 
-  prompt += "\n\n例: [emotion:happy:0.7][action:greeting-wave-casual] やっほー！元気？";
-  prompt += "\n例: [emotion:neutral:0.0][action:nod-gentle-1] うん、そうだね。";
-  prompt += "\n例: [emotion:sad:0.4] それは残念だね...";
+    prompt += "\n\n例: [emotion:happy:0.7][action:greeting-wave-casual] やっほー！元気？";
+    prompt += "\n例: [emotion:neutral:0.0][action:nod-gentle-1] うん、そうだね。";
+    prompt += "\n例: [emotion:sad:0.4] それは残念だね...";
+  }
 
   // RAG context — reference material from Wiki and Drive
   if (ragContext) {
@@ -447,115 +531,9 @@ async function sendDataEvent(
   await livekitService.sendDataToRoom(roomName, event);
 }
 
-// --- Action Registry ---
-// Defines valid motion clip IDs grouped by category.
-// Must be kept in sync with public/motions/manifest.json.
-
-interface ActionDef {
-  id: string;
-  description: string;
-}
-
-const ACTION_REGISTRY: Record<string, ActionDef[]> = {
-  greeting: [
-    { id: "greeting-bow-polite", description: "Polite bow" },
-    { id: "greeting-bow-casual", description: "Casual nod-bow" },
-    { id: "greeting-bow-deep", description: "Deep formal bow" },
-    { id: "greeting-wave-big", description: "Enthusiastic wave" },
-    { id: "greeting-wave-casual", description: "Casual wave" },
-    { id: "greeting-hand-raise", description: "Hand raise hello" },
-    { id: "farewell-wave", description: "Goodbye wave" },
-    { id: "farewell-bow", description: "Parting bow" },
-  ],
-  nod: [
-    { id: "nod-gentle-1", description: "Gentle nod" },
-    { id: "nod-gentle-2", description: "Nod with tilt" },
-    { id: "nod-deep", description: "Deep emphatic nod" },
-    { id: "nod-continuous", description: "Rapid triple nod" },
-    { id: "nod-with-tilt", description: "Thoughtful nod" },
-    { id: "nod-slow", description: "Slow deliberate nod" },
-    { id: "head-tilt-curious", description: "Curious head tilt" },
-    { id: "head-shake-gentle", description: "Gentle head shake" },
-  ],
-  laugh: [
-    { id: "laugh-low", description: "Barely visible amusement" },
-    { id: "laugh-low-mid", description: "Soft chuckle" },
-    { id: "laugh-mid", description: "Natural laugh" },
-    { id: "laugh-mid-high", description: "Hearty laugh" },
-    { id: "laugh-high", description: "Full burst laugh" },
-    { id: "laugh-shy", description: "Shy laugh" },
-    { id: "laugh-wry", description: "Wry half-laugh" },
-    { id: "laugh-stifled", description: "Stifled laugh" },
-  ],
-  surprise: [
-    { id: "surprise-low", description: "Subtle double-take" },
-    { id: "surprise-low-mid", description: "Mild lean back" },
-    { id: "surprise-mid", description: "Clear surprise" },
-    { id: "surprise-mid-high", description: "Visible shock" },
-    { id: "surprise-high", description: "Dramatic shock recoil" },
-  ],
-  sad: [
-    { id: "sad-low", description: "Slight posture sink" },
-    { id: "sad-low-mid", description: "Quiet disappointment" },
-    { id: "sad-mid", description: "Slumped dejection" },
-    { id: "sad-mid-high", description: "Heavy drooping sadness" },
-    { id: "sad-high", description: "Overwhelmed face cover" },
-    { id: "sad-sigh", description: "Deep sigh" },
-    { id: "sad-look-away", description: "Turn away withdrawing" },
-  ],
-  angry: [
-    { id: "angry-low", description: "Contained irritation" },
-    { id: "angry-low-mid", description: "Mild displeasure arms cross" },
-    { id: "angry-mid", description: "Fist clench frustration" },
-    { id: "angry-mid-high", description: "Aggressive lean forward" },
-    { id: "angry-high", description: "Furious fist slam" },
-    { id: "angry-sigh", description: "Exasperated sigh" },
-    { id: "angry-arms-crossed", description: "Defiant arms crossed" },
-  ],
-  think: [
-    { id: "think-chin-hand", description: "Chin on hand" },
-    { id: "think-arms-crossed", description: "Arms crossed thinking" },
-    { id: "think-head-scratch", description: "Head scratch puzzled" },
-    { id: "think-look-up", description: "Look up searching" },
-    { id: "think-fidget", description: "Chin tap mulling" },
-  ],
-  explain: [
-    { id: "explain-hands-forward", description: "Palms up explaining" },
-    { id: "explain-point", description: "Point for emphasis" },
-    { id: "explain-hands-spread", description: "Hands spread wide" },
-    { id: "explain-count-fingers", description: "Count on fingers" },
-    { id: "explain-hands-together", description: "Hands together organizing" },
-    { id: "explain-one-hand-wave", description: "One hand casual gesture" },
-  ],
-  reaction: [
-    { id: "react-impressed", description: "Impressed slow nod" },
-    { id: "react-confused", description: "Confused questioning" },
-    { id: "react-embarrassed", description: "Embarrassed neck touch" },
-    { id: "react-relieved", description: "Relieved exhale" },
-    { id: "react-excited", description: "Excited fist pump" },
-    { id: "react-sympathetic", description: "Sympathetic hand on heart" },
-    { id: "react-grateful", description: "Grateful hands together" },
-    { id: "react-determined", description: "Determined fist clench" },
-  ],
-  idle: [
-    { id: "idle-shift-1", description: "Weight shift" },
-    { id: "idle-shift-2", description: "Relaxed sway" },
-    { id: "idle-stretch", description: "Light stretch" },
-    { id: "idle-look-around", description: "Look around" },
-    { id: "idle-hair-touch", description: "Hair touch fidget" },
-    { id: "idle-arms-adjust", description: "Arms adjust" },
-    { id: "idle-shoulder-roll", description: "Shoulder roll" },
-  ],
-};
-
-// Flat set of all valid action IDs for validation
-const VALID_ACTION_IDS = new Set(
-  Object.values(ACTION_REGISTRY)
-    .flat()
-    .map((a) => a.id)
-);
-
 // --- Annotation Parsing ---
+// Action IDs and prompt listing are now loaded from
+// `public/motions/manifest.json` via `motion-registry.ts`. See #55.
 
 const EMOTION_TAG_RE = /^\[emotion:(\w+):([\d.]+)\]\s*/;
 const ACTION_TAG_RE = /^\[action:([\w-]+)\]\s*/;
@@ -587,12 +565,15 @@ export function parseAnnotations(rawText: string): ParsedAnnotations {
     text = text.slice(emotionMatch[0].length);
   }
 
-  // Parse action tag — only accept IDs registered in ACTION_REGISTRY
+  // Parse action tag — only accept IDs known to the loaded motion manifest.
+  // If the manifest hasn't been preloaded yet (or the file is missing) the
+  // action is dropped so we never broadcast an unknown clip ID to the client.
   let action: string | null = null;
   const actionMatch = text.match(ACTION_TAG_RE);
   if (actionMatch) {
     const actionId = actionMatch[1] ?? "";
-    if (VALID_ACTION_IDS.has(actionId)) {
+    const validIds = getValidActionIdsSync();
+    if (validIds?.has(actionId)) {
       action = actionId;
     }
     text = text.slice(actionMatch[0].length);

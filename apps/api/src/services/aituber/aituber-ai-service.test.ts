@@ -80,7 +80,38 @@ vi.mock("@langchain/core/messages", () => ({
   },
 }));
 
-import { parseAnnotations, startProcessingLoop, stopProcessingLoop } from "./aituber-ai-service.js";
+import {
+  notifyNewMessage,
+  parseAnnotations,
+  startProcessingLoop,
+  stopProcessingLoop,
+} from "./aituber-ai-service.js";
+import { _seedMotionRegistry, clearMotionRegistryCache } from "./motion-registry.js";
+
+const TEST_MOTION_MANIFEST = {
+  clips: [
+    "greeting-bow-polite",
+    "farewell-wave",
+    "nod-gentle-1",
+    "head-tilt-curious",
+    "laugh-mid",
+    "laugh-shy",
+    "surprise-mid",
+    "sad-mid",
+    "angry-mid",
+    "think-chin-hand",
+    "explain-point",
+    "react-impressed",
+    "react-embarrassed",
+    "idle-stretch",
+    "greeting-wave-casual",
+  ].map((id) => ({
+    id,
+    file: `${id}.vrma`,
+    category: id.split("-")[0] ?? "misc",
+    description: id,
+  })),
+};
 
 const makeCharacter = (overrides = {}) => ({
   id: "char-1",
@@ -141,6 +172,11 @@ describe("aituber-ai-service", () => {
     });
     searchVisibleChunksMock.mockResolvedValue({ results: [], searchMode: "vector" });
     searchDriveForUserMock.mockResolvedValue([]);
+
+    // Seed the motion registry so parseAnnotations() recognises action IDs
+    // without needing to touch the filesystem during tests.
+    clearMotionRegistryCache();
+    _seedMotionRegistry(TEST_MOTION_MANIFEST);
   });
 
   describe("buildSystemPrompt (via generateStreamingResponse)", () => {
@@ -429,6 +465,71 @@ describe("aituber-ai-service", () => {
         const result = parseAnnotations(`[emotion:neutral:0.0][action:${id}] test`);
         expect(result.action).toBe(id);
       }
+    });
+  });
+
+  describe("event-driven worker (regression: must wake on notify, not poll)", () => {
+    it("does not query the DB on a fixed interval — only after notifyNewMessage", async () => {
+      // Empty queue; the worker should call listUnprocessedMessages once at
+      // startup, find nothing, then sleep on the channel until notified.
+      aituberServiceMock.listUnprocessedMessages.mockResolvedValue([]);
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      const character = makeCharacter();
+      await startProcessingLoop("session-evt-1", character as never, "room-evt-1");
+
+      // After 1500ms (well past the old 1s poll cadence) we expect only the
+      // initial drain — no repeated polling.
+      await new Promise((r) => setTimeout(r, 1500));
+      const callsBeforeNotify = aituberServiceMock.listUnprocessedMessages.mock.calls.length;
+      expect(callsBeforeNotify).toBe(1);
+
+      // Notify → worker wakes and queries again.
+      notifyNewMessage("session-evt-1");
+      await new Promise((r) => setTimeout(r, 100));
+      expect(aituberServiceMock.listUnprocessedMessages.mock.calls.length).toBeGreaterThan(
+        callsBeforeNotify
+      );
+
+      stopProcessingLoop("session-evt-1");
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    it("drains all queued messages on a single notify before waiting again", async () => {
+      const character = makeCharacter();
+      const m1 = makeViewerMessage({ id: "m1", content: "first" });
+      const m2 = makeViewerMessage({ id: "m2", content: "second" });
+
+      // Two pending messages, then empty.
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([m1])
+        .mockResolvedValueOnce([m2])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      chatModelMock.stream.mockImplementation(async () =>
+        (async function* () {
+          yield { content: "OK" };
+        })()
+      );
+      ttsServiceMock.splitIntoSentences.mockReturnValue(["OK"]);
+      ttsServiceMock.synthesizeSpeech.mockResolvedValue({
+        audio: Buffer.from("a"),
+        mimeType: "audio/mp3",
+        visemes: [],
+      });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-evt-2", character as never, "room-evt-2");
+      await new Promise((r) => setTimeout(r, 200));
+
+      // Both messages should have been processed without needing extra notifies.
+      expect(aituberServiceMock.saveAssistantMessage).toHaveBeenCalledTimes(2);
+
+      stopProcessingLoop("session-evt-2");
+      await new Promise((r) => setTimeout(r, 50));
     });
   });
 
