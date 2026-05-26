@@ -6,12 +6,17 @@ const {
   livekitServiceMock,
   initLlmWithSettingsMock,
   chatModelMock,
+  getUserByIdMock,
+  searchVisibleChunksMock,
+  searchDriveForUserMock,
 } = vi.hoisted(() => ({
   aituberServiceMock: {
     listUnprocessedMessages: vi.fn(),
     markMessageProcessed: vi.fn(),
     saveAssistantMessage: vi.fn(),
     listMessageHistory: vi.fn(),
+    stopSession: vi.fn(),
+    abortSession: vi.fn(),
   },
   ttsServiceMock: {
     splitIntoSentences: vi.fn(),
@@ -19,11 +24,15 @@ const {
   },
   livekitServiceMock: {
     sendDataToRoom: vi.fn(),
+    deleteAituberRoom: vi.fn(),
   },
   initLlmWithSettingsMock: vi.fn(),
   chatModelMock: {
     stream: vi.fn(),
   },
+  getUserByIdMock: vi.fn(),
+  searchVisibleChunksMock: vi.fn(),
+  searchDriveForUserMock: vi.fn(),
 }));
 
 vi.mock("./aituber-service.js", () => aituberServiceMock);
@@ -38,12 +47,16 @@ vi.mock("../../ai/providers/index.js", () => ({
   },
 }));
 
+vi.mock("../../repositories/user/user-repository.js", () => ({
+  getUserById: getUserByIdMock,
+}));
+
 vi.mock("../wiki/vector-search-service.js", () => ({
-  searchByVector: vi.fn().mockResolvedValue([]),
+  searchVisibleChunks: searchVisibleChunksMock,
 }));
 
 vi.mock("../drive/drive-vector-search-service.js", () => ({
-  searchDriveAsSystem: vi.fn().mockResolvedValue([]),
+  searchDriveForUser: searchDriveForUserMock,
 }));
 
 vi.mock("@langchain/core/messages", () => ({
@@ -104,11 +117,30 @@ describe("aituber-ai-service", () => {
     aituberServiceMock.markMessageProcessed.mockReset();
     aituberServiceMock.saveAssistantMessage.mockReset();
     aituberServiceMock.listMessageHistory.mockReset();
+    aituberServiceMock.stopSession.mockReset();
+    aituberServiceMock.abortSession.mockReset();
     ttsServiceMock.splitIntoSentences.mockReset();
     ttsServiceMock.synthesizeSpeech.mockReset();
     livekitServiceMock.sendDataToRoom.mockReset();
+    livekitServiceMock.deleteAituberRoom.mockReset();
     initLlmWithSettingsMock.mockReset();
     chatModelMock.stream.mockReset();
+    getUserByIdMock.mockReset();
+    searchVisibleChunksMock.mockReset();
+    searchDriveForUserMock.mockReset();
+
+    // Default: viewer resolves to a valid member user and RAG returns nothing.
+    getUserByIdMock.mockResolvedValue({
+      id: "user-1",
+      email: "taro@example.com",
+      name: "Taro",
+      role: "member",
+      avatarUrl: null,
+      deletedAt: null,
+      suspendedAt: null,
+    });
+    searchVisibleChunksMock.mockResolvedValue({ results: [], searchMode: "vector" });
+    searchDriveForUserMock.mockResolvedValue([]);
   });
 
   describe("buildSystemPrompt (via generateStreamingResponse)", () => {
@@ -419,5 +451,162 @@ describe("aituber-ai-service", () => {
       await new Promise((r) => setTimeout(r, 50));
       stopProcessingLoop("session-5");
     });
+  });
+
+  describe("RAG permission scoping (regression: viewers must not bypass page permissions)", () => {
+    it("passes the viewer's SessionUser to searchVisibleChunks", async () => {
+      const character = makeCharacter();
+      const viewerMsg = makeViewerMessage({ senderUserId: "user-42", content: "secret topic" });
+
+      getUserByIdMock.mockResolvedValueOnce({
+        id: "user-42",
+        email: "hanako@example.com",
+        name: "Hanako",
+        role: "member",
+        avatarUrl: null,
+        deletedAt: null,
+        suspendedAt: null,
+      });
+
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([viewerMsg])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      chatModelMock.stream.mockResolvedValue(
+        (async function* () {
+          yield { content: "OK" };
+        })()
+      );
+      ttsServiceMock.splitIntoSentences.mockReturnValue(["OK"]);
+      ttsServiceMock.synthesizeSpeech.mockResolvedValue({
+        audio: Buffer.from("audio"),
+        mimeType: "audio/mp3",
+        visemes: [],
+      });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-rag-1", character as never, "room-rag-1");
+      await new Promise((r) => setTimeout(r, 100));
+      stopProcessingLoop("session-rag-1");
+
+      expect(searchVisibleChunksMock).toHaveBeenCalledTimes(1);
+      const [viewerArg, queryArg] = searchVisibleChunksMock.mock.calls[0] ?? [];
+      expect(viewerArg).toMatchObject({ id: "user-42", email: "hanako@example.com" });
+      expect(queryArg).toBe("secret topic");
+
+      expect(searchDriveForUserMock).toHaveBeenCalledTimes(1);
+      expect(searchDriveForUserMock.mock.calls[0]?.[0]).toBe("hanako@example.com");
+    });
+
+    it("skips RAG entirely when the viewer cannot be resolved (no admin-scoped fallback)", async () => {
+      const character = makeCharacter();
+      const viewerMsg = makeViewerMessage({ senderUserId: "ghost", content: "anything" });
+
+      // Viewer no longer in DB
+      getUserByIdMock.mockResolvedValueOnce(null);
+
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([viewerMsg])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      chatModelMock.stream.mockResolvedValue(
+        (async function* () {
+          yield { content: "OK" };
+        })()
+      );
+      ttsServiceMock.splitIntoSentences.mockReturnValue(["OK"]);
+      ttsServiceMock.synthesizeSpeech.mockResolvedValue({
+        audio: Buffer.from("a"),
+        mimeType: "audio/mp3",
+        visemes: [],
+      });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-rag-2", character as never, "room-rag-2");
+      await new Promise((r) => setTimeout(r, 100));
+      stopProcessingLoop("session-rag-2");
+
+      // Neither search must run when the viewer is unknown.
+      expect(searchVisibleChunksMock).not.toHaveBeenCalled();
+      expect(searchDriveForUserMock).not.toHaveBeenCalled();
+    });
+
+    it("skips RAG when the viewer is suspended or deleted", async () => {
+      const character = makeCharacter();
+      const viewerMsg = makeViewerMessage({ senderUserId: "user-99" });
+
+      getUserByIdMock.mockResolvedValueOnce({
+        id: "user-99",
+        email: "x@example.com",
+        name: "X",
+        role: "member",
+        avatarUrl: null,
+        deletedAt: new Date("2026-04-01"),
+        suspendedAt: null,
+      });
+
+      aituberServiceMock.listUnprocessedMessages
+        .mockResolvedValueOnce([viewerMsg])
+        .mockResolvedValue([]);
+      aituberServiceMock.markMessageProcessed.mockResolvedValue(undefined);
+      aituberServiceMock.listMessageHistory.mockResolvedValue([]);
+      aituberServiceMock.saveAssistantMessage.mockResolvedValue(undefined);
+
+      initLlmWithSettingsMock.mockResolvedValue({ model: chatModelMock, provider: "gemini" });
+      chatModelMock.stream.mockResolvedValue(
+        (async function* () {
+          yield { content: "OK" };
+        })()
+      );
+      ttsServiceMock.splitIntoSentences.mockReturnValue(["OK"]);
+      ttsServiceMock.synthesizeSpeech.mockResolvedValue({
+        audio: Buffer.from("a"),
+        mimeType: "audio/mp3",
+        visemes: [],
+      });
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-rag-3", character as never, "room-rag-3");
+      await new Promise((r) => setTimeout(r, 100));
+      stopProcessingLoop("session-rag-3");
+
+      expect(searchVisibleChunksMock).not.toHaveBeenCalled();
+      expect(searchDriveForUserMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("loop self-abort (regression: session must not stay live)", () => {
+    it("transitions session to ended and tears down LiveKit room after 10 consecutive errors", async () => {
+      const character = makeCharacter();
+
+      // Every poll throws — drives consecutiveErrors past MAX_CONSECUTIVE_ERRORS.
+      aituberServiceMock.listUnprocessedMessages.mockRejectedValue(new Error("DB down"));
+      livekitServiceMock.sendDataToRoom.mockResolvedValue(undefined);
+      aituberServiceMock.stopSession.mockResolvedValue({ id: "session-fail", status: "ended" });
+      livekitServiceMock.deleteAituberRoom.mockResolvedValue(undefined);
+
+      await startProcessingLoop("session-fail", character as never, "room-fail");
+
+      // 10 errors × 1s sleep = ~10s. Wait a little longer to ensure teardown ran.
+      await new Promise((r) => setTimeout(r, 11000));
+
+      // After abort: session must be transitioned to `ended` and the LiveKit room deleted.
+      expect(aituberServiceMock.stopSession).toHaveBeenCalledWith("session-fail");
+      expect(livekitServiceMock.deleteAituberRoom).toHaveBeenCalledWith("room-fail");
+
+      // A `session-aborted` event must be broadcast so viewers see the state change.
+      const events = (
+        livekitServiceMock.sendDataToRoom.mock.calls as [string, Record<string, unknown>][]
+      ).map(([, data]) => data.type);
+      expect(events).toContain("session-aborted");
+    }, 15000);
   });
 });

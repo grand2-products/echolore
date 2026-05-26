@@ -1,11 +1,18 @@
 import crypto from "node:crypto";
-import { AITUBER_VALID_EMOTIONS, type AituberDataEvent } from "@echolore/shared/contracts";
+import {
+  AITUBER_VALID_EMOTIONS,
+  type AituberDataEvent,
+  type AituberEmotionType,
+  type UserRole,
+} from "@echolore/shared/contracts";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { defaultLlmProvider, type LlmProvider } from "../../ai/providers/index.js";
 import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
 import type { AituberCharacter, AituberMessage } from "../../db/schema.js";
-import { searchDriveAsSystem } from "../drive/drive-vector-search-service.js";
-import { searchByVector } from "../wiki/vector-search-service.js";
+import type { SessionUser } from "../../lib/auth.js";
+import { getUserById } from "../../repositories/user/user-repository.js";
+import { searchDriveForUser } from "../drive/drive-vector-search-service.js";
+import { searchVisibleChunks } from "../wiki/vector-search-service.js";
 import * as livekitService from "./aituber-livekit-service.js";
 import * as aituberService from "./aituber-service.js";
 import * as ttsService from "./aituber-tts-service.js";
@@ -25,9 +32,10 @@ const activeLoops = new Map<string, { running: boolean }>();
  * Starts the AI processing loop for a session.
  * Polls for unprocessed messages and generates streaming responses.
  *
- * このループはサービスアカウント相当で動作する。RAG コンテキスト取得時の
- * Drive 検索はパーミッション不問（searchDriveAsSystem）で行う。
- * 特定ユーザーの認証情報には依存しない。
+ * RAG コンテキストは、メッセージを送った視聴者の SessionUser に解決した上で、
+ * その視聴者の権限スコープで Wiki / Drive を検索する。視聴者が解決できない
+ * 場合 (削除/停止/null) は RAG を完全にスキップし、admin 相当の検索には
+ * フォールバックしない。
  */
 export async function startProcessingLoop(
   sessionId: string,
@@ -45,6 +53,7 @@ export async function startProcessingLoop(
   void (async () => {
     let consecutiveErrors = 0;
     const MAX_CONSECUTIVE_ERRORS = 10;
+    let aborted = false;
     while (state.running) {
       try {
         await processNextMessage(sessionId, character, roomName);
@@ -52,22 +61,54 @@ export async function startProcessingLoop(
       } catch (error) {
         consecutiveErrors++;
         console.error(
-          `[aituber-ai] Error processing message for session ${sessionId} (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}):`,
-          error
+          JSON.stringify({
+            event: "aituber-ai.error",
+            sessionId,
+            count: consecutiveErrors,
+            max: MAX_CONSECUTIVE_ERRORS,
+            error: error instanceof Error ? error.message : String(error),
+          })
         );
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
           console.error(
-            `[aituber-ai] Too many consecutive errors, stopping loop for session ${sessionId}`
+            JSON.stringify({
+              event: "aituber-ai.aborted",
+              sessionId,
+              reason: "too_many_consecutive_errors",
+            })
           );
           state.running = false;
+          aborted = true;
         }
       }
       // Poll interval
       await sleep(1000);
     }
     activeLoops.delete(sessionId);
+    if (aborted) {
+      await tearDownAbortedSession(sessionId, roomName);
+    }
     console.log(`[aituber-ai] Stopped processing loop for session ${sessionId}`);
   })();
+}
+
+/**
+ * Clean up a session that the AI loop abandoned after MAX_CONSECUTIVE_ERRORS.
+ * Without this, the session stays `live` forever and viewers see a frozen avatar.
+ */
+async function tearDownAbortedSession(sessionId: string, roomName: string): Promise<void> {
+  // Notify viewers before we tear down the room.
+  await sendDataEvent(roomName, { type: "session-aborted" }).catch((err) =>
+    console.warn(`[aituber-ai] Failed to broadcast session-aborted for ${sessionId}:`, err)
+  );
+  // Best-effort transition `live` → `ended`. abortSession only fires on `created`,
+  // and stopSession only on `live`, so try both and ignore mismatches.
+  await aituberService
+    .stopSession(sessionId)
+    .catch(() => aituberService.abortSession(sessionId).catch(() => {}));
+  await livekitService
+    .deleteAituberRoom(roomName)
+    .catch((err) => console.warn(`[aituber-ai] Failed to delete LiveKit room ${roomName}:`, err));
 }
 
 /**
@@ -95,6 +136,10 @@ async function processNextMessage(
   // Mark as processing
   await aituberService.markMessageProcessed(viewerMessage.id);
 
+  // Resolve the viewer's SessionUser so RAG searches inherit their permission scope.
+  // Falling back to a no-RAG path is safer than running an admin-scoped search.
+  const viewerUser = await resolveViewerUser(viewerMessage.senderUserId);
+
   // Send thinking state
   await sendDataEvent(roomName, { type: "avatar-state", state: "thinking" });
 
@@ -104,6 +149,7 @@ async function processNextMessage(
       sessionId,
       character,
       viewerMessage,
+      viewerUser,
       roomName
     );
 
@@ -181,6 +227,7 @@ async function generateStreamingResponse(
   sessionId: string,
   character: AituberCharacter,
   viewerMessage: AituberMessage,
+  viewerUser: SessionUser | null,
   roomName: string
 ): Promise<string> {
   const result = await llm.init({ temperature: 0.7, maxTokens: 500, feature: "aituber" });
@@ -189,8 +236,9 @@ async function generateStreamingResponse(
   }
   const chatModel = result.model;
 
-  // RAG: search Wiki + Drive in parallel using viewer's message as query
-  const ragContext = await buildRagContext(viewerMessage.content);
+  // RAG: search Wiki + Drive in parallel, **scoped to the viewer's permissions**.
+  // If the viewer can't be resolved, RAG is skipped entirely.
+  const ragContext = await buildRagContext(sessionId, viewerMessage.content, viewerUser);
 
   // Build messages with context
   const history = await aituberService.listMessageHistory(sessionId, 20);
@@ -204,6 +252,8 @@ async function generateStreamingResponse(
     new HumanMessage(`[${viewerMessage.senderName}] ${viewerMessage.content}`),
   ];
 
+  const generateStart = Date.now();
+
   // Stream tokens
   let fullResponse = "";
   const stream = await chatModel.stream(langchainMessages);
@@ -216,27 +266,100 @@ async function generateStreamingResponse(
     }
   }
 
+  console.log(
+    JSON.stringify({
+      event: "aituber-ai.generate",
+      sessionId,
+      viewerUserId: viewerUser?.id ?? null,
+      hasRagContext: ragContext.length > 0,
+      responseChars: fullResponse.length,
+      durationMs: Date.now() - generateStart,
+    })
+  );
+
   return fullResponse;
 }
 
 /**
- * Search Wiki + Drive in parallel and build a compact RAG context string.
- * Returns empty string if no results or search fails (best-effort).
+ * Resolve the viewer's SessionUser from a viewer-message senderUserId.
  *
- * ## Drive 検索の権限モデル
- * AITuber の AI 処理ループはサービスアカウント相当で動作するため、
- * ユーザー権限によるフィルタ（searchDriveForUser）ではなく
- * パーミッション不問の searchDriveAsSystem を使用する。
- * これにより、インデックス済みの全 Drive ファイルが RAG コンテキストの
- * 対象となる。特定ユーザーのメールアドレスに依存しない設計。
+ * Returns null when:
+ *   - senderUserId is null (the message came from a non-authenticated path,
+ *     which shouldn't happen via /sessions/:id/messages but is defended anyway), or
+ *   - the user has been deleted/suspended since posting.
+ *
+ * A null return causes RAG to be skipped — never fall back to admin-scoped search.
  */
-async function buildRagContext(query: string): Promise<string> {
+async function resolveViewerUser(senderUserId: string | null): Promise<SessionUser | null> {
+  if (!senderUserId) return null;
+  const user = await getUserById(senderUserId).catch(() => null);
+  if (!user) return null;
+  if (user.deletedAt || user.suspendedAt) return null;
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role as UserRole,
+    avatarUrl: user.avatarUrl ?? null,
+  };
+}
+
+/**
+ * Search Wiki + Drive in parallel and build a compact RAG context string,
+ * scoped to the viewer's permissions. Returns empty string when the viewer
+ * cannot be resolved or when both searches return nothing.
+ *
+ * ## 権限モデル
+ * 視聴者が認証済みであっても、その視聴者が read 権限を持たない Wiki ページや
+ * Drive ファイルの内容が AI の応答経由で漏出してはならない。そのため、
+ *   - Wiki: searchVisibleChunks(viewer, ...) — viewer の SessionUser でフィルタ
+ *   - Drive: searchDriveForUser(viewer.email, ...) — viewer のメールでフィルタ
+ * を使う。Wiki Chat 経路と同じ権限境界。
+ */
+async function buildRagContext(
+  sessionId: string,
+  query: string,
+  viewer: SessionUser | null
+): Promise<string> {
+  if (!viewer) {
+    console.log(
+      JSON.stringify({
+        event: "aituber-ai.search.skipped",
+        sessionId,
+        reason: "viewer_unresolved",
+      })
+    );
+    return "";
+  }
+
+  const searchStart = Date.now();
   try {
-    const [wikiResults, driveResults] = await Promise.all([
-      searchByVector(query, 3).catch(() => []),
-      searchDriveAsSystem(query, 2).catch(() => []),
+    const [wikiOutcome, driveResults] = await Promise.all([
+      searchVisibleChunks(viewer, query, 3).catch((err) => {
+        console.warn(
+          JSON.stringify({
+            event: "aituber-ai.search.wiki-error",
+            sessionId,
+            viewerUserId: viewer.id,
+            error: err instanceof Error ? err.message : String(err),
+          })
+        );
+        return { results: [], searchMode: "ilike_fallback" as const };
+      }),
+      searchDriveForUser(viewer.email, query, 2).catch((err) => {
+        console.warn(
+          JSON.stringify({
+            event: "aituber-ai.search.drive-error",
+            sessionId,
+            viewerUserId: viewer.id,
+            error: err instanceof Error ? err.message : String(err),
+          })
+        );
+        return [] as Awaited<ReturnType<typeof searchDriveForUser>>;
+      }),
     ]);
 
+    const wikiResults = wikiOutcome.results;
     const parts: string[] = [];
     for (const r of wikiResults) {
       parts.push(
@@ -249,8 +372,30 @@ async function buildRagContext(query: string): Promise<string> {
       );
     }
 
+    console.log(
+      JSON.stringify({
+        event: "aituber-ai.search",
+        sessionId,
+        viewerUserId: viewer.id,
+        wikiResultCount: wikiResults.length,
+        driveResultCount: driveResults.length,
+        topWikiSimilarity: wikiResults[0]?.similarity ?? null,
+        searchMode: wikiOutcome.searchMode,
+        durationMs: Date.now() - searchStart,
+      })
+    );
+
     return parts.length > 0 ? parts.join("\n") : "";
-  } catch {
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        event: "aituber-ai.search.error",
+        sessionId,
+        viewerUserId: viewer.id,
+        error: err instanceof Error ? err.message : String(err),
+        durationMs: Date.now() - searchStart,
+      })
+    );
     return "";
   }
 }
@@ -415,11 +560,15 @@ const VALID_ACTION_IDS = new Set(
 const EMOTION_TAG_RE = /^\[emotion:(\w+):([\d.]+)\]\s*/;
 const ACTION_TAG_RE = /^\[action:([\w-]+)\]\s*/;
 
-const VALID_EMOTIONS: readonly string[] = AITUBER_VALID_EMOTIONS;
+const VALID_EMOTIONS: readonly AituberEmotionType[] = AITUBER_VALID_EMOTIONS;
+
+function isAituberEmotionType(value: string): value is AituberEmotionType {
+  return (VALID_EMOTIONS as readonly string[]).includes(value);
+}
 
 interface ParsedAnnotations {
   text: string;
-  emotion: { type: string; intensity: number } | null;
+  emotion: { type: AituberEmotionType; intensity: number } | null;
   action: string | null;
 }
 
@@ -427,12 +576,12 @@ export function parseAnnotations(rawText: string): ParsedAnnotations {
   let text = rawText;
 
   // Parse emotion tag at beginning
-  let emotion: { type: string; intensity: number } | null = null;
+  let emotion: { type: AituberEmotionType; intensity: number } | null = null;
   const emotionMatch = text.match(EMOTION_TAG_RE);
   if (emotionMatch) {
     const type = emotionMatch[1] ?? "";
     const intensity = Math.min(Math.max(Number.parseFloat(emotionMatch[2] ?? "0"), 0), 1);
-    if (VALID_EMOTIONS.includes(type)) {
+    if (isAituberEmotionType(type)) {
       emotion = { type, intensity };
     }
     text = text.slice(emotionMatch[0].length);

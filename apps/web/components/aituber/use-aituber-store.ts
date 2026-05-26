@@ -28,6 +28,8 @@ interface AituberStoreState {
   streamingContent: string;
   viewerCount: number;
   ttsAudioQueue: Array<{ audio: string; mimeType: string; visemes?: VisemeEntry[] }>;
+  /** Set by the `session-aborted` data event when the server-side AI loop self-terminates. */
+  sessionAborted: boolean;
 
   setConnected: (connected: boolean) => void;
   setAvatarState: (state: AituberAvatarState) => void;
@@ -53,6 +55,7 @@ export const useAituberStore = create<AituberStoreState>((set, get) => ({
   streamingContent: "",
   viewerCount: 0,
   ttsAudioQueue: [],
+  sessionAborted: false,
 
   setConnected: (connected) => set({ connected }),
   setAvatarState: (avatarState) => set({ avatarState }),
@@ -145,6 +148,9 @@ export const useAituberStore = create<AituberStoreState>((set, get) => ({
       case "action":
         set({ pendingAction: String(e.action ?? "") || null });
         break;
+      case "session-aborted":
+        set({ sessionAborted: true });
+        break;
     }
   },
 
@@ -159,5 +165,6 @@ export const useAituberStore = create<AituberStoreState>((set, get) => ({
       streamingContent: "",
       viewerCount: 0,
       ttsAudioQueue: [],
+      sessionAborted: false,
     }),
 }));
