@@ -33,6 +33,11 @@ interface AituberStoreState {
   ttsAudioQueue: Array<{ audio: string; mimeType: string; visemes?: VisemeEntry[] }>;
   /** Set by the `session-aborted` data event when the server-side AI loop self-terminates. */
   sessionAborted: boolean;
+  /**
+   * Tools the agent is currently executing, in start order.
+   * Empty when the agent isn't calling any tools right now.
+   */
+  activeToolCalls: string[];
 
   setConnected: (connected: boolean) => void;
   setAvatarState: (state: AituberAvatarState) => void;
@@ -63,6 +68,7 @@ export const useAituberStore = create<AituberStoreState>((set, get) => ({
   viewerCount: 0,
   ttsAudioQueue: [],
   sessionAborted: false,
+  activeToolCalls: [],
 
   setConnected: (connected) => set({ connected }),
   setAvatarState: (avatarState) => set({ avatarState }),
@@ -163,6 +169,24 @@ export const useAituberStore = create<AituberStoreState>((set, get) => ({
       case "session-aborted":
         set({ sessionAborted: true });
         break;
+      case "tool-call": {
+        const toolName = String(e.toolName ?? "");
+        const phase = e.phase === "finished" ? "finished" : "started";
+        if (!toolName) break;
+        set((s) => {
+          if (phase === "started") {
+            return { activeToolCalls: [...s.activeToolCalls, toolName] };
+          }
+          // finished: remove the first matching entry (FIFO so concurrent
+          // calls of the same tool clear in order).
+          const idx = s.activeToolCalls.indexOf(toolName);
+          if (idx < 0) return s;
+          const next = s.activeToolCalls.slice();
+          next.splice(idx, 1);
+          return { activeToolCalls: next };
+        });
+        break;
+      }
     }
   },
 
@@ -178,5 +202,6 @@ export const useAituberStore = create<AituberStoreState>((set, get) => ({
       viewerCount: 0,
       ttsAudioQueue: [],
       sessionAborted: false,
+      activeToolCalls: [],
     }),
 }));

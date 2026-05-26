@@ -882,7 +882,21 @@ export type AituberDataEvent =
     }
   | { type: "emotion"; emotion: AituberEmotionType; intensity: number }
   | { type: "action"; action: string }
-  | { type: "session-aborted" };
+  | { type: "session-aborted" }
+  | {
+      /**
+       * Fired while the AI agent is invoking a tool (e.g. wiki_search).
+       * Lets viewers see "Wiki を調べています…" rather than a silent pause
+       * between their message and the AI's spoken response.
+       *
+       * `started` is emitted when the agent decides to call the tool.
+       * `finished` is emitted when the tool returns (success or error) and
+       * the agent resumes generation.
+       */
+      type: "tool-call";
+      toolName: string;
+      phase: "started" | "finished";
+    };
 
 // --- Knowledge Suggestions ---
 

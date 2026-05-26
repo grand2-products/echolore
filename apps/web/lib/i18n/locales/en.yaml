@@ -1207,6 +1207,13 @@ aituber:
     disconnected: "Disconnected"
     viewers: "Viewers: {count}"
     sessionAborted: "Session ended due to an error"
+    toolCall:
+      wikiSearch: "Searching the wiki..."
+      wikiListPages: "Browsing wiki pages..."
+      wikiReadPage: "Reading a wiki page..."
+      driveSearch: "Searching Drive..."
+      driveRead: "Reading a Drive file..."
+      generic: "Thinking..."
   avatar:
     loading: "Loading avatar..."
     loadError: "Failed to load avatar."
