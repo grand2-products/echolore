@@ -2,9 +2,8 @@ import { UserRole } from "@echolore/shared/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { jsonError, tryCatchResponse, withErrorHandler } from "../../lib/api-error.js";
-import { auditAction } from "../../lib/audit.js";
+import { auditAction, extractRequestMeta } from "../../lib/audit.js";
 import type { AppEnv } from "../../lib/auth.js";
-import { roomService } from "../../lib/livekit-client.js";
 import { parsePaginationParams } from "../../lib/pagination.js";
 import { authorizeOwnerResource } from "../../policies/authorization-policy.js";
 import {
@@ -13,7 +12,7 @@ import {
   updateCalendarEvent,
 } from "../../services/calendar/google-calendar-sync-service.js";
 import {
-  closeAllParticipantSessions,
+  closeMeetingWithSideEffects,
   countAllMeetings,
   countMeetingsByUser,
   createMeeting,
@@ -278,29 +277,20 @@ meetingCrudRoutes.post(
       return jsonError(c, 400, "MEETING_NOT_ACTIVE", "Meeting is not currently active");
     }
 
+    const user = c.get("user");
     const now = new Date();
 
-    // Update meeting + close participant sessions concurrently
-    const [updatedMeeting] = await Promise.all([
-      updateMeeting(id, { status: "ended", endedAt: now }),
-      closeAllParticipantSessions(id, now),
-    ]);
-
-    // Delete LiveKit room to force-disconnect all participants
-    try {
-      await roomService.deleteRoom(meeting.roomName);
-    } catch {
-      // Room may already be empty — best-effort
-    }
-
-    // Best-effort calendar sync
-    try {
-      await updateCalendarEvent(id, c.get("user").id);
-    } catch {
-      // Calendar sync is optional
-    }
-
-    await auditAction(c, "meeting.end_for_all", "meeting", id);
+    // Centralized close path: CAS on status + close sessions + delete LiveKit
+    // room + calendar sync + audit log. Shared with the room_finished webhook
+    // fast path so the audit trail is consistent regardless of who closed it.
+    const updatedMeeting = await closeMeetingWithSideEffects(meeting, {
+      reason: "end_for_all",
+      endedAt: now,
+      actor: { userId: user.id, email: user.email },
+      deleteLiveKitRoom: true,
+      syncCalendar: true,
+      audit: extractRequestMeta(c),
+    });
 
     return c.json({ meeting: updatedMeeting ? toMeetingDto(updatedMeeting) : null });
   }

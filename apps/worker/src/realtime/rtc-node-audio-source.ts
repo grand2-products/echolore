@@ -1,4 +1,10 @@
-import type { AudioFrame, RemoteParticipant, RemoteTrack, Room } from "@livekit/rtc-node";
+import type {
+  AudioFrame,
+  RemoteParticipant,
+  RemoteTrack,
+  RemoteTrackPublication,
+  Room,
+} from "@livekit/rtc-node";
 import { AccessToken } from "livekit-server-sdk";
 import type { AudioChunk, RoomAudioSource } from "./types.js";
 
@@ -10,6 +16,13 @@ export interface RtcNodeAudioSourceOptions {
   livekitApiSecret: string;
   /** Identity the worker joins as. Hidden from the participant list. */
   identity?: string;
+  /**
+   * Notified when LiveKit reports the connection is gone (token expiry,
+   * network drop, server-side disconnect). The manager uses this to stop and
+   * potentially re-attach the session. Receives a free-form reason string for
+   * logging.
+   */
+  onDisconnected?: (reason: string) => void;
 }
 
 // Resample participant audio to 16 kHz mono — the format Google streaming STT
@@ -33,6 +46,13 @@ class RtcNodeAudioSource implements RoomAudioSource {
   private audioHandler: ((chunk: AudioChunk) => void) | null = null;
   private leftHandler: ((participantIdentity: string) => void) | null = null;
   private readonly readers = new Set<ReadableStreamDefaultReader<AudioFrame>>();
+  /**
+   * Track the reader bound to each (participantIdentity, trackSid) so we can
+   * tear it down on `TrackUnsubscribed` (mute / republish / participant gone).
+   * Without this, a stuck reader sits in `reader.read()` forever after the
+   * peer republishes its track and we miss the replacement audio.
+   */
+  private readonly trackReaders = new Map<string, ReadableStreamDefaultReader<AudioFrame>>();
   private closed = false;
 
   constructor(private readonly options: RtcNodeAudioSourceOptions) {}
@@ -67,13 +87,48 @@ class RtcNodeAudioSource implements RoomAudioSource {
 
     room.on(
       RoomEvent.TrackSubscribed,
-      (track: RemoteTrack, _pub, participant: RemoteParticipant) => {
+      (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
         if (track.kind !== TrackKind.KIND_AUDIO) return;
-        this.consumeTrack(new AudioStream(track, STT_SAMPLE_RATE, 1), participant.identity);
+        const sid =
+          (publication as { sid?: string }).sid ?? (track as unknown as { sid?: string }).sid ?? "";
+        this.consumeTrack(new AudioStream(track, STT_SAMPLE_RATE, 1), participant.identity, sid);
+      }
+    );
+    room.on(
+      RoomEvent.TrackUnsubscribed,
+      (
+        _track: RemoteTrack,
+        publication: RemoteTrackPublication,
+        participant: RemoteParticipant
+      ) => {
+        // Cancel the bound reader so the consume loop unblocks. Without this,
+        // a peer that mutes-then-unmutes (republishes) leaves the previous
+        // reader hanging on `reader.read()` forever.
+        const sid =
+          (publication as { sid?: string }).sid ??
+          (publication as unknown as { trackSid?: string }).trackSid ??
+          "";
+        const key = this.readerKey(participant.identity, sid);
+        const reader = this.trackReaders.get(key);
+        if (reader) {
+          this.trackReaders.delete(key);
+          void reader.cancel().catch(() => {});
+        }
       }
     );
     room.on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
       this.leftHandler?.(participant.identity);
+    });
+    room.on(RoomEvent.Disconnected, (reason: unknown) => {
+      // LiveKit fires this for token expiry, network drop, or server-side
+      // disconnect. Surface it so the manager can stop the session and decide
+      // whether to re-attach. We avoid auto-reconnecting here — the SDK
+      // already does that for transient drops; this event means it gave up.
+      const reasonText = String(reason ?? "unknown");
+      console.warn(
+        `[realtime] LiveKit disconnected room=${this.options.roomName} reason=${reasonText}`
+      );
+      this.options.onDisconnected?.(reasonText);
     });
 
     await room.connect(this.options.livekitHost, await token.toJwt(), {
@@ -82,9 +137,25 @@ class RtcNodeAudioSource implements RoomAudioSource {
     });
   }
 
-  private consumeTrack(stream: ReadableStream<AudioFrame>, participantIdentity: string): void {
+  private readerKey(participantIdentity: string, trackSid: string): string {
+    return `${participantIdentity}::${trackSid}`;
+  }
+
+  private consumeTrack(
+    stream: ReadableStream<AudioFrame>,
+    participantIdentity: string,
+    trackSid: string
+  ): void {
     const reader = stream.getReader();
     this.readers.add(reader);
+    const key = this.readerKey(participantIdentity, trackSid);
+    // If a previous track for this sid is still being read (republish without
+    // an explicit unsubscribe), cancel it before we replace it.
+    const previous = this.trackReaders.get(key);
+    if (previous) {
+      void previous.cancel().catch(() => {});
+    }
+    this.trackReaders.set(key, reader);
     void (async () => {
       try {
         while (!this.closed) {
@@ -101,6 +172,9 @@ class RtcNodeAudioSource implements RoomAudioSource {
         // Reader cancelled or stream errored (e.g. on disconnect) — stop reading.
       } finally {
         this.readers.delete(reader);
+        if (this.trackReaders.get(key) === reader) {
+          this.trackReaders.delete(key);
+        }
       }
     })();
   }
@@ -111,6 +185,7 @@ class RtcNodeAudioSource implements RoomAudioSource {
       await reader.cancel().catch(() => {});
     }
     this.readers.clear();
+    this.trackReaders.clear();
     await this.room?.disconnect().catch(() => {});
     this.room = null;
   }

@@ -14,6 +14,14 @@ export type WorkerConfig = {
   apiReadyTimeoutMs: number;
   /** Default STT language for realtime transcription (G3). */
   languageCode: string;
+  /**
+   * Valkey/Redis URL used to coordinate per-room ownership across HA realtime
+   * workers. Empty falls back to in-process locking — fine for single-worker
+   * deployments, but two workers without Valkey will double-ingest.
+   */
+  realtimeRedisUrl: string;
+  /** Identifier of this worker process; used as the ownership-lock value. */
+  workerId: string;
 };
 
 function requireEnv(name: string) {
@@ -42,5 +50,8 @@ export function getWorkerConfig(): WorkerConfig {
     webhookPort: Number(process.env.ROOM_AI_WEBHOOK_PORT || "8787"),
     healthPort: Number(process.env.ROOM_AI_HEALTH_PORT || "8788"),
     languageCode: process.env.ROOM_AI_LANGUAGE_CODE || "ja-JP",
+    realtimeRedisUrl: process.env.REALTIME_REDIS_URL || "",
+    // Default to hostname + pid so two pods on the same host still differ.
+    workerId: process.env.ROOM_AI_WORKER_ID || `${process.env.HOSTNAME || "worker"}-${process.pid}`,
   };
 }
