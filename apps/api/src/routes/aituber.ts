@@ -506,6 +506,10 @@ aituberRoutes.post(
       content: safeContent,
     });
 
+    // Wake the AI worker so it picks up this message immediately instead of
+    // waiting for the next safety tick.
+    aiService.notifyNewMessage(id);
+
     return c.json({ message }, 201);
   }
 );
