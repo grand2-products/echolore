@@ -113,6 +113,16 @@ export class RealtimeTranscriptionSession {
     // upserts in place; the final result closes the segment. The sessionId
     // keeps keys unique across session restarts for the same participant.
     const segmentKey = `${participantIdentity}-${this.sessionId}-${state.utterance}`;
+    const startedAt = state.startedAt;
+    const finalizedAt = result.isFinal ? this.now().toISOString() : null;
+
+    // Advance the utterance window synchronously, before the await, so a result
+    // that arrives while this submit is in flight gets the next key instead of
+    // colliding with the segment we just finalized.
+    if (result.isFinal) {
+      state.utterance += 1;
+      state.startedAt = this.now().toISOString();
+    }
 
     try {
       await this.opts.sink.submit({
@@ -123,16 +133,11 @@ export class RealtimeTranscriptionSession {
         segmentKey,
         provider: this.provider,
         confidence: result.confidence ?? null,
-        startedAt: state.startedAt,
-        finalizedAt: result.isFinal ? this.now().toISOString() : null,
+        startedAt,
+        finalizedAt,
       });
     } catch (err) {
       console.error(`[realtime] failed to submit segment for ${participantIdentity}`, err);
-    }
-
-    if (result.isFinal) {
-      state.utterance += 1;
-      state.startedAt = this.now().toISOString();
     }
   }
 
