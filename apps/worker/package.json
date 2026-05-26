@@ -13,6 +13,8 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
+    "@google-cloud/speech": "^7.3.0",
+    "@livekit/rtc-node": "^0.13.28",
     "livekit-server-sdk": "^2.9.7"
   },
   "devDependencies": {
