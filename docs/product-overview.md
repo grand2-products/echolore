@@ -44,6 +44,14 @@ This document describes the currently implemented product shape of `echolore`.
 - available tools: wiki search, meeting transcript retrieval, user lookup
 - LLM provider is configurable (Google Gemini, Z.ai GLM-5)
 
+### AITuber
+- admin-managed AI characters (text persona, VRM avatar, voice, motion profile)
+- single-active live streaming session backed by LiveKit
+- server-side AI response loop with permission-scoped RAG over Wiki and Drive
+- TTS synthesis with viseme-driven lip-sync; per-sentence streaming over the LiveKit data channel
+- layered VRM animation (blink, breathing, idle, emotion, VRMA motion clips)
+- session self-aborts and notifies viewers if the AI loop fails repeatedly
+
 ### Administration
 - admin-protected backend routes
 - group, membership, and page permission APIs
@@ -70,3 +78,4 @@ This document describes the currently implemented product shape of `echolore`.
 - `../docs/wiki-implementation.md`
 - `../docs/meeting-tool-implementation.md`
 - `../docs/admin-user-management-implementation.md`
+- `../docs/aituber-implementation.md`

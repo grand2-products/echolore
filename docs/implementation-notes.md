@@ -18,6 +18,7 @@ This document captures durable implementation notes that do not belong in short-
 - `docs/wiki-implementation.md`
 - `docs/meeting-tool-implementation.md`
 - `docs/admin-user-management-implementation.md`
+- `docs/aituber-implementation.md`
 - `docs/release-workflows.md`
 - `docs/ops-runbook.md`
 - `docs/site-map.md`
