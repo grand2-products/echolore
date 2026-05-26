@@ -36,6 +36,7 @@ export function AituberStage({ session, livekitUrl }: AituberStageProps) {
   const reset = useAituberStore((s) => s.reset);
   const ttsAudioQueue = useAituberStore((s) => s.ttsAudioQueue);
   const dequeueTtsAudio = useAituberStore((s) => s.dequeueTtsAudio);
+  const sessionAborted = useAituberStore((s) => s.sessionAborted);
 
   // Play TTS audio from queue
   const playNextAudio = useCallback(async () => {
@@ -143,12 +144,18 @@ export function AituberStage({ session, livekitUrl }: AituberStageProps) {
           )}
         </div>
 
-        {!connected && session.status === "live" && (
+        {!connected && session.status === "live" && !sessionAborted && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-500 border-t-indigo-400" />
               <p className="text-sm text-gray-300">{t("aituber.viewer.connecting")}</p>
             </div>
+          </div>
+        )}
+
+        {sessionAborted && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/75 backdrop-blur-sm">
+            <p className="text-sm text-gray-200">{t("aituber.viewer.sessionAborted")}</p>
           </div>
         )}
 

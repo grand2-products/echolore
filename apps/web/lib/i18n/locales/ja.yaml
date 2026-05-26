@@ -1205,6 +1205,7 @@ aituber:
     connecting: "接続中..."
     disconnected: "切断されました"
     viewers: "視聴者: {count}"
+    sessionAborted: "セッションがエラーで終了しました"
   avatar:
     loading: "アバターを読み込み中..."
     loadError: "アバターの読み込みに失敗しました。"

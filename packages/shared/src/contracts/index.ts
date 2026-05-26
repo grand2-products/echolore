@@ -860,7 +860,8 @@ export type AituberDataEvent =
       visemes?: VisemeEntry[];
     }
   | { type: "emotion"; emotion: AituberEmotionType; intensity: number }
-  | { type: "action"; action: string };
+  | { type: "action"; action: string }
+  | { type: "session-aborted" };
 
 // --- Knowledge Suggestions ---
 
