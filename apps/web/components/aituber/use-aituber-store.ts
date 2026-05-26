@@ -3,6 +3,7 @@
 import {
   AITUBER_VALID_EMOTIONS,
   type AituberAvatarState,
+  type AituberCitation,
   type AituberDataEvent,
 } from "@echolore/shared/contracts";
 import { create } from "zustand";
@@ -15,6 +16,8 @@ export interface AituberChatMessage {
   content: string;
   isStreaming?: boolean;
   createdAt: string;
+  /** Set on assistant messages when the response was grounded in RAG sources. */
+  citations?: AituberCitation[];
 }
 
 interface AituberStoreState {
@@ -36,7 +39,11 @@ interface AituberStoreState {
   setAudioSampleRate: (rate: number) => void;
   addViewerMessage: (msg: { id: string; senderName: string; content: string }) => void;
   appendAiToken: (token: string) => void;
-  completeAiMessage: (messageId: string, fullContent: string) => void;
+  completeAiMessage: (
+    messageId: string,
+    fullContent: string,
+    citations?: AituberCitation[]
+  ) => void;
   setViewerCount: (count: number) => void;
   enqueueTtsAudio: (audio: string, mimeType: string, visemes?: VisemeEntry[]) => void;
   dequeueTtsAudio: () => { audio: string; mimeType: string; visemes?: VisemeEntry[] } | undefined;
@@ -77,7 +84,7 @@ export const useAituberStore = create<AituberStoreState>((set, get) => ({
 
   appendAiToken: (token) => set((s) => ({ streamingContent: s.streamingContent + token })),
 
-  completeAiMessage: (messageId, fullContent) =>
+  completeAiMessage: (messageId, fullContent, citations) =>
     set((s) => ({
       messages: [
         ...s.messages,
@@ -87,6 +94,7 @@ export const useAituberStore = create<AituberStoreState>((set, get) => ({
           senderName: "AI",
           content: fullContent,
           createdAt: new Date().toISOString(),
+          citations: citations && citations.length > 0 ? citations : undefined,
         },
       ],
       streamingContent: "",
@@ -123,9 +131,13 @@ export const useAituberStore = create<AituberStoreState>((set, get) => ({
       case "ai-token":
         store.appendAiToken(String(e.token ?? ""));
         break;
-      case "ai-complete":
-        store.completeAiMessage(String(e.messageId ?? ""), String(e.fullContent ?? ""));
+      case "ai-complete": {
+        const citations = Array.isArray(e.citations)
+          ? (e.citations as AituberCitation[])
+          : undefined;
+        store.completeAiMessage(String(e.messageId ?? ""), String(e.fullContent ?? ""), citations);
         break;
+      }
       case "avatar-state":
         set({ avatarState: String(e.state ?? "idle") as AituberAvatarState });
         break;
