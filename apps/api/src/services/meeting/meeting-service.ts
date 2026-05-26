@@ -1,4 +1,5 @@
 import type { Meeting, Summary } from "../../db/schema.js";
+import { closeActiveMeetingAgentSessions } from "../../repositories/meeting/meeting-realtime-repository.js";
 import {
   closeAllParticipantSessions,
   createMeetingSummaryArtifactsTx,
@@ -55,9 +56,13 @@ export async function endMeetingByRoomName(
     return null;
   }
 
+  // H2: also close any still-active agent sessions so the autonomous
+  // evaluator stops touching this meeting even before listAutonomousActiveSessions'
+  // status filter picks up the meeting-ended state.
   const [updated] = await Promise.all([
     updateMeeting(meeting.id, { status: "ended", endedAt }),
     closeAllParticipantSessions(meeting.id, endedAt),
+    closeActiveMeetingAgentSessions(meeting.id, endedAt),
   ]);
 
   return updated;

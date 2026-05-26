@@ -9,6 +9,14 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
+// M4: bound how long we wait on `source.onended`. In rare cases (tab back-
+// grounded right before playback, MediaStreamTrack lifecycle bug, browser
+// throttling) `onended` never fires, which would leak the LocalAudioTrack and
+// keep the AudioContext open. Cap at twice the buffer duration plus a fixed
+// floor, with an absolute ceiling so we never wait absurdly long.
+const PLAYBACK_TIMEOUT_FLOOR_MS = 5_000;
+const PLAYBACK_TIMEOUT_CEILING_MS = 30_000;
+
 /**
  * Publish synthesized agent speech into the LiveKit room on behalf of the
  * agent's bot participant, so every participant hears it through their normal
@@ -54,8 +62,24 @@ export async function publishAgentSpeech(
     // AudioContext may start suspended; resume so samples flow into the stream.
     await context.resume();
 
+    // Compute a safe upper bound for playback completion. Even if onended is
+    // never fired, the `finally` cleanup will still run after this timeout.
+    const expectedMs = audioBuffer.duration * 1000;
+    const timeoutMs = Math.min(
+      PLAYBACK_TIMEOUT_CEILING_MS,
+      Math.max(PLAYBACK_TIMEOUT_FLOOR_MS, Math.ceil(expectedMs * 2))
+    );
+
     await new Promise<void>((resolve) => {
-      source.onended = () => resolve();
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(finish, timeoutMs);
+      source.onended = finish;
       source.start();
     });
   } finally {

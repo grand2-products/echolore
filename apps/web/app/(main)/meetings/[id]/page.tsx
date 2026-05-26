@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useAuthContext } from "@/lib/auth-context";
+import { useMeetingTabLeader } from "@/lib/hooks/use-meeting-tab-leader";
 import { useStableEvent } from "@/lib/hooks/use-stable-event";
 import { translate, useLocale, useT } from "@/lib/i18n";
 import { fetchLiveKitToken, getLiveKitUrl } from "@/lib/livekit";
@@ -43,6 +44,10 @@ export default function MeetingRoomPage() {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
   const agentRoomMapRef = useRef<Map<string, Room>>(new Map());
+  // M5: only the elected tab in this browser holds the bot connection so two
+  // tabs of the same creator don't fight over the agent's single LiveKit
+  // identity.
+  const isTabLeader = useMeetingTabLeader(meetingId);
 
   useEffect(() => {
     void retryNonce; // re-trigger dependency
@@ -117,6 +122,12 @@ export default function MeetingRoomPage() {
     if (!user || user.id !== creatorId) {
       return;
     }
+    // M5: when the creator has the same meeting open in multiple tabs, only
+    // the leader tab connects the bot. Non-leader tabs still render the agent
+    // as a normal remote participant via the leader tab's published track.
+    if (!isTabLeader) {
+      return;
+    }
 
     const agent = agents.find((item) => item.id === agentId);
     if (!agent) {
@@ -162,6 +173,15 @@ export default function MeetingRoomPage() {
   useEffect(() => {
     const activeIds = new Set(activeAgentSessions.map((session) => session.agentId));
 
+    // If this tab lost leadership while bots were connected, tear them down
+    // so the new leader tab can claim the agent identity without eviction.
+    if (!isTabLeader) {
+      for (const agentId of agentRoomMapRef.current.keys()) {
+        void disconnectAgentParticipant(agentId);
+      }
+      return;
+    }
+
     for (const agentId of activeIds) {
       void connectAgentParticipant(agentId);
     }
@@ -171,7 +191,7 @@ export default function MeetingRoomPage() {
         void disconnectAgentParticipant(agentId);
       }
     }
-  }, [activeAgentSessions, connectAgentParticipant, disconnectAgentParticipant]);
+  }, [activeAgentSessions, connectAgentParticipant, disconnectAgentParticipant, isTabLeader]);
 
   useEffect(() => {
     return () => {

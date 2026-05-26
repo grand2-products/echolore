@@ -150,6 +150,24 @@ export async function listActiveMeetingAgentSessions(
     .execute();
 }
 
+/**
+ * H2: Mark every active agent session for a meeting as ended. Called on
+ * meeting end so the autonomous loop stops evaluating those sessions even if
+ * the meetings.status filter is somehow bypassed, and so the UI reflects the
+ * end state immediately.
+ */
+export async function closeActiveMeetingAgentSessions(
+  meetingId: string,
+  leftAt: Date
+): Promise<void> {
+  await db
+    .updateTable("meeting_agent_sessions")
+    .set({ state: "ended", leftAt })
+    .where("meetingId", "=", meetingId)
+    .where("state", "=", "active")
+    .execute();
+}
+
 export async function updateMeetingAgentSession(
   id: string,
   input: Partial<NewMeetingAgentSession>
@@ -218,9 +236,15 @@ export async function listFinalSegmentsAfter(
 export async function listAutonomousActiveSessions(): Promise<
   Array<{ session: MeetingAgentSession; agent: Agent }>
 > {
+  // H2: Join `meetings` and filter out ended meetings. Sessions can linger in
+  // the `active` state if endMeetingByRoomName fires before the session is
+  // explicitly closed (e.g. LiveKit room_finished webhook races a manual end);
+  // without this guard the autonomous loop would keep evaluating finished
+  // meetings indefinitely.
   const rows = await db
     .selectFrom("meeting_agent_sessions")
     .innerJoin("agents", "meeting_agent_sessions.agentId", "agents.id")
+    .innerJoin("meetings", "meeting_agent_sessions.meetingId", "meetings.id")
     .select([
       "meeting_agent_sessions.id as sessionId",
       "meeting_agent_sessions.meetingId",
@@ -249,6 +273,7 @@ export async function listAutonomousActiveSessions(): Promise<
     .where("meeting_agent_sessions.state", "=", "active")
     .where("agents.autonomousEnabled", "=", true)
     .where("agents.isActive", "=", true)
+    .where("meetings.status", "!=", "ended")
     .execute();
 
   return rows.map((r) => ({
