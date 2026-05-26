@@ -107,6 +107,17 @@ export default function MeetingRoomPage() {
       return;
     }
 
+    // Only the meeting creator holds the agent's bot connection (and publishes
+    // its speech, G2). The agent participant has a single deterministic identity
+    // (agent-{meetingId}-{agentId}); if every viewer connected it, LiveKit would
+    // evict all but the last, making audio publish unreliable. Other
+    // participants still hear the agent as a normal remote audio track, so they
+    // don't need their own bot connection — and non-writers would only get a 403
+    // from the token endpoint anyway.
+    if (!user || user.id !== creatorId) {
+      return;
+    }
+
     const agent = agents.find((item) => item.id === agentId);
     if (!agent) {
       return;
