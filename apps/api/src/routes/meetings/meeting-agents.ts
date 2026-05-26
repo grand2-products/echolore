@@ -6,6 +6,7 @@ import { authorizeOwnerResource } from "../../policies/authorization-policy.js";
 import { generateMeetingAgentResponse } from "../../services/meeting/meeting-agent-runtime-service.js";
 import {
   invokeMeetingAgent,
+  issueAgentLiveKitToken,
   leaveMeetingAgent,
   listActiveAgentSessions,
   listMeetingAgentTimeline,
@@ -81,6 +82,42 @@ meetingAgentRoutes.post(
       );
     }
     return c.json(result, result.reused ? 200 : 201);
+  }
+);
+
+// POST /api/meetings/:id/agents/:agentId/livekit-token
+// Issues a LiveKit token for the agent participant so the client can connect it
+// to the room. Guarded by meeting write authorization so only authorized users
+// (meeting owner/admin) can mint agent tokens. Works for manual invoke,
+// page reloads, and autonomous sessions discovered via polling.
+meetingAgentRoutes.post(
+  "/:id/agents/:agentId/livekit-token",
+  withErrorHandler("MEETING_AGENT_TOKEN_FAILED", "Failed to issue agent LiveKit token"),
+  async (c) => {
+    const { id, agentId } = c.req.param();
+
+    const meeting = await getMeetingById(id);
+    if (!meeting) return jsonError(c, 404, "MEETING_NOT_FOUND", "Meeting not found");
+
+    const authz = await authorizeOwnerResource(c, "meeting", id, meeting.creatorId, "write");
+    if (!authz.allowed) return jsonError(c, 403, "MEETING_FORBIDDEN", "Forbidden");
+
+    const issued = await issueAgentLiveKitToken({
+      meetingId: id,
+      agentId,
+      roomName: meeting.roomName,
+    });
+
+    if (!issued) {
+      return jsonError(
+        c,
+        404,
+        "MEETING_AGENT_NOT_FOUND_OR_INACTIVE",
+        "Agent not found or inactive"
+      );
+    }
+
+    return c.json({ token: issued.token, identity: issued.identity });
   }
 );
 

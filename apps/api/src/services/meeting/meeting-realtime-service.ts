@@ -1,4 +1,6 @@
+import { AccessToken } from "livekit-server-sdk";
 import { createSpeechGatewayBundle, resolveSpeechProvider } from "../../ai/gateway/index.js";
+import { livekitApiKey, livekitApiSecret } from "../../lib/livekit-config.js";
 import {
   createAgent,
   createMeetingAgentEvent,
@@ -15,6 +17,47 @@ import {
   updateMeetingAgentSession,
   updateTranscriptSegment,
 } from "../../repositories/meeting/meeting-realtime-repository.js";
+import { emitTranscriptFinalized } from "./meeting-events.js";
+
+/**
+ * Stable LiveKit participant identity for an agent within a meeting.
+ * The frontend and any server-side audio publisher must use the same scheme.
+ */
+export function agentParticipantIdentity(meetingId: string, agentId: string): string {
+  return `agent-${meetingId}-${agentId}`;
+}
+
+/**
+ * Issue a LiveKit access token for an agent participant so it can join the
+ * meeting room. Unlike the user-facing `/livekit/token` route, the identity is
+ * the agent's deterministic identity rather than a user id. Callers must
+ * authorize the requester against the meeting before invoking this.
+ */
+export async function issueAgentLiveKitToken(input: {
+  meetingId: string;
+  agentId: string;
+  roomName: string;
+}): Promise<{ token: string; identity: string } | null> {
+  const agent = await getAgentById(input.agentId);
+  if (!agent || !agent.isActive) {
+    return null;
+  }
+
+  const identity = agentParticipantIdentity(input.meetingId, input.agentId);
+  const at = new AccessToken(livekitApiKey, livekitApiSecret, {
+    identity,
+    name: `${agent.name} (AI)`,
+  });
+  at.addGrant({
+    roomJoin: true,
+    room: input.roomName,
+    canPublish: true,
+    canSubscribe: true,
+    canPublishData: true,
+  });
+
+  return { token: await at.toJwt(), identity };
+}
 
 export async function upsertTranscriptSegment(input: {
   meetingId: string;
@@ -31,34 +74,40 @@ export async function upsertTranscriptSegment(input: {
 }) {
   const existing = await getTranscriptSegmentByKey(input.meetingId, input.segmentKey);
 
-  if (!existing) {
-    return createTranscriptSegment({
-      id: crypto.randomUUID(),
-      meetingId: input.meetingId,
-      participantIdentity: input.participantIdentity,
-      speakerUserId: input.speakerUserId ?? null,
-      speakerLabel: input.speakerLabel,
-      content: input.content,
-      isPartial: input.isPartial,
-      segmentKey: input.segmentKey,
-      provider: input.provider,
-      confidence: input.confidence ?? null,
-      startedAt: input.startedAt,
-      finalizedAt: input.finalizedAt ?? null,
-      createdAt: new Date(),
-    });
+  const segment = existing
+    ? await updateTranscriptSegment(existing.id, {
+        speakerUserId: input.speakerUserId ?? existing.speakerUserId,
+        speakerLabel: input.speakerLabel,
+        content: input.content,
+        isPartial: input.isPartial,
+        provider: input.provider,
+        confidence: input.confidence ?? existing.confidence,
+        startedAt: input.startedAt,
+        finalizedAt: input.finalizedAt ?? existing.finalizedAt,
+      })
+    : await createTranscriptSegment({
+        id: crypto.randomUUID(),
+        meetingId: input.meetingId,
+        participantIdentity: input.participantIdentity,
+        speakerUserId: input.speakerUserId ?? null,
+        speakerLabel: input.speakerLabel,
+        content: input.content,
+        isPartial: input.isPartial,
+        segmentKey: input.segmentKey,
+        provider: input.provider,
+        confidence: input.confidence ?? null,
+        startedAt: input.startedAt,
+        finalizedAt: input.finalizedAt ?? null,
+        createdAt: new Date(),
+      });
+
+  // Notify event-driven autonomous evaluation as soon as a segment is finalized
+  // (G4), so the agent can react without waiting for the periodic fallback tick.
+  if (!input.isPartial) {
+    emitTranscriptFinalized(input.meetingId);
   }
 
-  return updateTranscriptSegment(existing.id, {
-    speakerUserId: input.speakerUserId ?? existing.speakerUserId,
-    speakerLabel: input.speakerLabel,
-    content: input.content,
-    isPartial: input.isPartial,
-    provider: input.provider,
-    confidence: input.confidence ?? existing.confidence,
-    startedAt: input.startedAt,
-    finalizedAt: input.finalizedAt ?? existing.finalizedAt,
-  });
+  return segment;
 }
 
 export async function transcribeMeetingAudioSegment(input: {

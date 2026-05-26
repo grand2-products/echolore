@@ -252,6 +252,39 @@ services:
     networks:
       - backend
 
+  # Realtime transcription worker (G3). Same image as `worker` but runs in
+  # `realtime` mode: joins live rooms, subscribes to audio, and ingests
+  # streaming-STT transcript segments. Requires the @livekit/rtc-node +
+  # Google STT bindings to be wired (runtime-verification boundary).
+  agent-worker:
+    image: ${WORKER_IMAGE:-ghcr.io/grand2-products/echolore/worker:latest}
+    container_name: echolore-agent-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      ROOM_AI_WORKER_MODE: realtime
+      ROOM_AI_API_BASE_URL: http://api:3001
+      ROOM_AI_WORKER_SECRET: ${ROOM_AI_WORKER_SECRET:-}
+      ROOM_AI_WEBHOOK_PORT: 8787
+      ROOM_AI_HEALTH_PORT: 8788
+      ROOM_AI_LANGUAGE_CODE: ${ROOM_AI_LANGUAGE_CODE:-ja-JP}
+      LIVEKIT_HOST: http://livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?LIVEKIT_API_KEY must be set}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?LIVEKIT_API_SECRET must be set}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8788/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      api:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+    networks:
+      - backend
+
   updater:
     image: ${UPDATER_IMAGE:-ghcr.io/grand2-products/echolore/updater:latest}
     container_name: echolore-updater

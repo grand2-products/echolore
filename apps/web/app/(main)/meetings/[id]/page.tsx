@@ -4,6 +4,7 @@ import { LiveKitRoom } from "@livekit/components-react";
 import { Room } from "livekit-client";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { publishAgentSpeech } from "@/lib/agent-audio";
 import {
   type AgentDefinition,
   adminApi,
@@ -113,11 +114,9 @@ export default function MeetingRoomPage() {
 
     const botRoom = new Room();
     try {
-      const tokenValue = await fetchLiveKitToken({
-        roomName,
-        participantName: `${agent.name} (AI)`,
-        participantIdentity: `agent-${meetingId}-${agentId}`,
-      });
+      // The agent token is minted server-side (identity = agent-{meetingId}-{agentId}),
+      // since the user-facing /livekit/token route rejects non-user identities.
+      const { token: tokenValue } = await meetingsApi.getAgentLivekitToken(meetingId, agentId);
       await botRoom.connect(getLiveKitUrl(), tokenValue, { autoSubscribe: false });
       agentRoomMapRef.current.set(agentId, botRoom);
     } catch (connectError) {
@@ -135,6 +134,19 @@ export default function MeetingRoomPage() {
     agentRoomMapRef.current.delete(agentId);
     await room.disconnect();
   });
+
+  // Broadcast the agent's synthesized speech to all participants by publishing
+  // it on the agent's bot connection (G2), instead of playing it only in the
+  // requesting user's browser. Requires the agent to be connected (G1).
+  const speakAsAgent = useStableEvent(
+    async (agentId: string, audio: { mimeType: string; base64: string }) => {
+      const botRoom = agentRoomMapRef.current.get(agentId);
+      if (!botRoom) {
+        throw new Error("agent-not-connected");
+      }
+      await publishAgentSpeech(botRoom, audio);
+    }
+  );
 
   useEffect(() => {
     const activeIds = new Set(activeAgentSessions.map((session) => session.agentId));
@@ -258,6 +270,7 @@ export default function MeetingRoomPage() {
             current.filter((session) => session.agentId !== agentId)
           )
         }
+        onAgentSpeak={speakAsAgent}
         transcriptSegments={transcriptSegments}
         agentEvents={agentEvents}
         syncError={syncError}

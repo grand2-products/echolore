@@ -36,6 +36,7 @@ export interface RoomBodyProps {
   activeAgentIds: string[];
   onAgentInvoked: (agentId: string) => void;
   onAgentLeft: (agentId: string) => void;
+  onAgentSpeak: (agentId: string, audio: { mimeType: string; base64: string }) => Promise<void>;
   transcriptSegments: RealtimeTranscriptSegment[];
   agentEvents: MeetingAgentEvent[];
   syncError: string | null;
@@ -490,6 +491,7 @@ export default function RoomBody(props: RoomBodyProps) {
         activeAgentIds={props.activeAgentIds}
         onAgentInvoked={props.onAgentInvoked}
         onAgentLeft={props.onAgentLeft}
+        onAgentSpeak={props.onAgentSpeak}
         events={props.agentEvents}
         open={openPanel === "agent"}
         onClose={closePanel}

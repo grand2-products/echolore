@@ -13,6 +13,9 @@ export type LiveKitWebhookServerConfig = {
   livekitApiSecret: string;
   apiBaseUrl: string;
   roomAiWorkerSecret: string;
+  /** Optional realtime-transcription lifecycle hooks (G3). */
+  onRoomStarted?: (roomName: string, meetingId: string) => void;
+  onRoomFinished?: (roomName: string, meetingId: string) => void;
 };
 
 function readRequestBody(request: IncomingMessage) {
@@ -67,6 +70,7 @@ export async function startLiveKitWebhookServer(config: LiveKitWebhookServerConf
               status: "active",
               startedAt: now,
             });
+            config.onRoomStarted?.(roomName, meeting.id);
           }
 
           // Track participant join and sync status concurrently
@@ -123,6 +127,7 @@ export async function startLiveKitWebhookServer(config: LiveKitWebhookServerConf
               status: "ended",
               endedAt: now,
             });
+            config.onRoomFinished?.(roomName, meeting.id);
           }
 
           console.log(
