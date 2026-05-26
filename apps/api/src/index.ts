@@ -37,7 +37,10 @@ import { buildStorageConfig, getStorageSettings } from "./services/admin/admin-s
 import { startDriveSyncScheduler } from "./services/drive/drive-sync-service.js";
 import { startGithubSyncScheduler } from "./services/github/github-sync-service.js";
 import { startKnowledgeScanLoop } from "./services/knowledge/knowledge-scan-service.js";
-import { startAutonomousAgentLoop } from "./services/meeting/autonomous-agent-service.js";
+import {
+  startAutonomousAgentLoop,
+  stopAutonomousAgentLoop,
+} from "./services/meeting/autonomous-agent-service.js";
 import { shutdownCollab } from "./services/wiki/yjs-collab-service.js";
 
 // ---------------------------------------------------------------------------
@@ -254,6 +257,9 @@ async function gracefulShutdown(signal: string) {
     process.exit(1);
   }, SHUTDOWN_TIMEOUT_MS);
   try {
+    // Release the autonomous-eval leader lock so another replica takes over
+    // quickly, then persist Yjs documents.
+    await stopAutonomousAgentLoop();
     await shutdownCollab();
   } catch (err) {
     console.error("[server] Error during shutdown", err);

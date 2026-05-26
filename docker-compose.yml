@@ -254,8 +254,12 @@ services:
 
   # Realtime transcription worker (G3). Same image as `worker` but runs in
   # `realtime` mode: joins live rooms, subscribes to audio, and ingests
-  # streaming-STT transcript segments. Requires the @livekit/rtc-node +
-  # Google STT bindings to be wired (runtime-verification boundary).
+  # streaming-STT transcript segments.
+  # PREREQUISITES (not yet wired — runtime-verification boundary):
+  #   1. @livekit/rtc-node + Google STT bindings (see apps/worker/src/realtime/).
+  #   2. LiveKit `webhook.urls` MUST include this service's webhook endpoint
+  #      (http://agent-worker:8787/livekit/webhook). Without it, room_started /
+  #      room_finished never reach this worker and no session ever starts.
   agent-worker:
     image: ${WORKER_IMAGE:-ghcr.io/grand2-products/echolore/worker:latest}
     container_name: echolore-agent-worker

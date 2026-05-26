@@ -51,7 +51,14 @@ export class RealtimeTranscriptionManager {
     });
 
     this.sessions.set(roomName, session);
-    await session.start();
+    try {
+      await session.start();
+    } catch (err) {
+      // Don't leave a half-started session in the map — it would block restart
+      // (startForRoom is idempotent on presence) until an explicit stop.
+      this.sessions.delete(roomName);
+      throw err;
+    }
     console.log(`[realtime] started transcription room=${roomName} meeting=${meetingId}`);
   }
 

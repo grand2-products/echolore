@@ -13,6 +13,7 @@ const {
   getMeetingSummariesMock,
   getMeetingTranscriptsMock,
   invokeMeetingAgentMock,
+  issueAgentLiveKitTokenMock,
   leaveMeetingAgentMock,
   listActiveAgentSessionsMock,
   listAllMeetingsMock,
@@ -34,6 +35,7 @@ const {
   getMeetingSummariesMock: vi.fn(),
   getMeetingTranscriptsMock: vi.fn(),
   invokeMeetingAgentMock: vi.fn(),
+  issueAgentLiveKitTokenMock: vi.fn(),
   leaveMeetingAgentMock: vi.fn(),
   listActiveAgentSessionsMock: vi.fn(),
   listAllMeetingsMock: vi.fn(),
@@ -63,6 +65,7 @@ vi.mock("../services/meeting/meeting-service.js", () => ({
 
 vi.mock("../services/meeting/meeting-realtime-service.js", () => ({
   invokeMeetingAgent: invokeMeetingAgentMock,
+  issueAgentLiveKitToken: issueAgentLiveKitTokenMock,
   leaveMeetingAgent: leaveMeetingAgentMock,
   listActiveAgentSessions: listActiveAgentSessionsMock,
   listMeetingAgentTimeline: listMeetingAgentTimelineMock,
@@ -114,6 +117,7 @@ describe("meetingsRoutes", () => {
     getMeetingSummariesMock.mockReset();
     getMeetingTranscriptsMock.mockReset();
     invokeMeetingAgentMock.mockReset();
+    issueAgentLiveKitTokenMock.mockReset();
     leaveMeetingAgentMock.mockReset();
     listActiveAgentSessionsMock.mockReset();
     listAllMeetingsMock.mockReset();
@@ -411,6 +415,107 @@ describe("meetingsRoutes", () => {
       meetingId: "meeting_1",
       agentId: "agent_1",
       triggeredByUserId: "user_1",
+    });
+  });
+
+  it("rejects agent LiveKit token issuance for non-writers", async () => {
+    const app = createApp(memberUser({ id: "user_2" }));
+
+    getMeetingByIdMock.mockResolvedValue({
+      id: "meeting_1",
+      title: "Planning",
+      creatorId: "user_1",
+      roomName: "room-1",
+      status: "active",
+      startedAt: null,
+      endedAt: null,
+      createdAt: new Date("2026-03-12T08:50:00.000Z"),
+    });
+
+    const response = await app.request(
+      "http://localhost/api/meetings/meeting_1/agents/agent_1/livekit-token",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      code: "MEETING_FORBIDDEN",
+      error: "Forbidden",
+    });
+    expect(issueAgentLiveKitTokenMock).not.toHaveBeenCalled();
+  });
+
+  it("issues an agent LiveKit token for meeting writers", async () => {
+    const app = createApp(memberUser({ email: "owner@example.com", name: "Owner" }));
+
+    getMeetingByIdMock.mockResolvedValue({
+      id: "meeting_1",
+      title: "Planning",
+      creatorId: "user_1",
+      roomName: "room-1",
+      status: "active",
+      startedAt: null,
+      endedAt: null,
+      createdAt: new Date("2026-03-12T08:50:00.000Z"),
+    });
+    issueAgentLiveKitTokenMock.mockResolvedValue({
+      token: "jwt-token",
+      identity: "agent-meeting_1-agent_1",
+    });
+
+    const response = await app.request(
+      "http://localhost/api/meetings/meeting_1/agents/agent_1/livekit-token",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      token: "jwt-token",
+      identity: "agent-meeting_1-agent_1",
+    });
+    expect(issueAgentLiveKitTokenMock).toHaveBeenCalledWith({
+      meetingId: "meeting_1",
+      agentId: "agent_1",
+      roomName: "room-1",
+    });
+  });
+
+  it("returns 404 when issuing a token for a missing or inactive agent", async () => {
+    const app = createApp(memberUser({ email: "owner@example.com", name: "Owner" }));
+
+    getMeetingByIdMock.mockResolvedValue({
+      id: "meeting_1",
+      title: "Planning",
+      creatorId: "user_1",
+      roomName: "room-1",
+      status: "active",
+      startedAt: null,
+      endedAt: null,
+      createdAt: new Date("2026-03-12T08:50:00.000Z"),
+    });
+    issueAgentLiveKitTokenMock.mockResolvedValue(null);
+
+    const response = await app.request(
+      "http://localhost/api/meetings/meeting_1/agents/agent_1/livekit-token",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      code: "MEETING_AGENT_NOT_FOUND_OR_INACTIVE",
+      error: "Agent not found or inactive",
     });
   });
 });

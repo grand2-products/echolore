@@ -11,6 +11,28 @@ const LEADER_TTL_MS = 90_000;
 // Unique per process; identifies this API replica as the lock holder.
 const instanceId = randomUUID();
 
+// Atomically acquire (when free) or renew (when already held by us) the leader
+// lock. Running it as a single Redis script removes the GET→SET race window of
+// a check-then-set in app code, so two replicas can never both treat
+// themselves as leader. Returns 1 when we are the leader, 0 otherwise.
+const ACQUIRE_OR_RENEW_LUA = `
+local current = redis.call('get', KEYS[1])
+if current == false or current == ARGV[1] then
+  redis.call('set', KEYS[1], ARGV[1], 'PX', tonumber(ARGV[2]))
+  return 1
+end
+return 0
+`;
+
+// Atomically release the lock only if we still hold it, so we never delete
+// another instance's freshly-acquired lock.
+const RELEASE_LUA = `
+if redis.call('get', KEYS[1]) == ARGV[1] then
+  return redis.call('del', KEYS[1])
+end
+return 0
+`;
+
 export function getInstanceId(): string {
   return instanceId;
 }
@@ -19,31 +41,27 @@ export function getInstanceId(): string {
  * Try to acquire or renew leadership for the autonomous evaluator (G5).
  * Returns true if this instance may run the evaluation this round.
  *
- * Uses Valkey `SET key val PX ttl NX` for the lock, refreshing the TTL when we
- * already hold it. If Valkey is unavailable, degrades to `true` so
- * single-instance / dev deployments keep working — matching the
- * graceful-degradation pattern in lib/valkey.ts. With multiple replicas and a
- * reachable Valkey, only the lock holder returns true, so the loop runs once
- * cluster-wide.
+ * If Valkey is unavailable, degrades to `true` so single-instance / dev
+ * deployments keep working — matching the graceful-degradation pattern in
+ * lib/valkey.ts. CAVEAT: when Valkey is *down* in a multi-replica deployment,
+ * every replica falls through to `true` and they all run the evaluation. The
+ * DB-persisted cooldown and per-session eval cursor bound repeated
+ * interventions, but simultaneous same-round firing across replicas is possible
+ * while Valkey is unreachable (availability favoured over strict single-firing).
  */
 export async function tryAcquireLeadership(ttlMs: number = LEADER_TTL_MS): Promise<boolean> {
   const valkey = getValkey();
   if (!valkey) return true;
 
   try {
-    const acquired = await valkey.set(LEADER_KEY, instanceId, "PX", ttlMs, "NX");
-    if (acquired === "OK") {
-      return true;
-    }
-
-    // Lock is held by someone — refresh the TTL only if it is us.
-    const current = await valkey.get(LEADER_KEY);
-    if (current === instanceId) {
-      await valkey.set(LEADER_KEY, instanceId, "PX", ttlMs);
-      return true;
-    }
-
-    return false;
+    const result = await valkey.eval(
+      ACQUIRE_OR_RENEW_LUA,
+      1,
+      LEADER_KEY,
+      instanceId,
+      String(ttlMs)
+    );
+    return result === 1;
   } catch {
     // Valkey error → degrade to local execution rather than stalling everyone.
     return true;
@@ -56,10 +74,7 @@ export async function releaseLeadership(): Promise<void> {
   if (!valkey) return;
 
   try {
-    const current = await valkey.get(LEADER_KEY);
-    if (current === instanceId) {
-      await valkey.del(LEADER_KEY);
-    }
+    await valkey.eval(RELEASE_LUA, 1, LEADER_KEY, instanceId);
   } catch {
     // ignore teardown errors
   }

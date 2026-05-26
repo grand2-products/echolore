@@ -101,9 +101,12 @@ export async function upsertTranscriptSegment(input: {
         createdAt: new Date(),
       });
 
-  // Notify event-driven autonomous evaluation as soon as a segment is finalized
-  // (G4), so the agent can react without waiting for the periodic fallback tick.
-  if (!input.isPartial) {
+  // Notify event-driven autonomous evaluation only on the partial→final
+  // transition (G4): a brand-new final segment, or one that was previously
+  // partial. Re-upserting an already-final segment with the same final value
+  // must not re-emit, to avoid redundant evaluation churn.
+  const becameFinal = !input.isPartial && (!existing || existing.isPartial);
+  if (becameFinal) {
     emitTranscriptFinalized(input.meetingId);
   }
 
