@@ -10,36 +10,100 @@ import {
   updateSessionEvalCursor,
 } from "../../repositories/meeting/meeting-realtime-repository.js";
 import { generateMeetingAgentResponse } from "./meeting-agent-runtime-service.js";
+import { onTranscriptFinalized } from "./meeting-events.js";
 
 const MIN_NEW_SEGMENTS = 3;
-const DEFAULT_INTERVAL_MS = 20_000;
+// Fallback safety-net interval. The primary trigger is event-driven (G4): a new
+// finalized transcript segment schedules an evaluation. The interval only
+// catches missed events / edge cases, so it can be much coarser than before.
+const DEFAULT_INTERVAL_MS = 60_000;
+// Collapse bursts of finalized segments into a single evaluation.
+const EVENT_DEBOUNCE_MS = 1_000;
+
+type ActiveSessionRow = Awaited<ReturnType<typeof listAutonomousActiveSessions>>[number];
 
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
+let unsubscribe: (() => void) | null = null;
 let tickRunning = false;
+const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const meetingsInFlight = new Set<string>();
 
 export function startAutonomousAgentLoop(intervalMs?: number): void {
   if (intervalHandle) return;
   const ms = intervalMs ?? DEFAULT_INTERVAL_MS;
-  console.log(`Autonomous agent loop started (interval: ${ms}ms)`);
+  console.log(`Autonomous agent loop started (fallback interval: ${ms}ms, event-driven primary)`);
   intervalHandle = setInterval(() => {
     if (tickRunning) return; // skip if previous tick still running
     void runEvaluationTick();
   }, ms);
+
+  unsubscribe = onTranscriptFinalized((event) => {
+    scheduleMeetingEvaluation(event.meetingId);
+  });
 }
 
 export function stopAutonomousAgentLoop(): void {
   if (intervalHandle) {
     clearInterval(intervalHandle);
     intervalHandle = null;
-    console.log("Autonomous agent loop stopped");
   }
+  if (unsubscribe) {
+    unsubscribe();
+    unsubscribe = null;
+  }
+  for (const timer of debounceTimers.values()) {
+    clearTimeout(timer);
+  }
+  debounceTimers.clear();
+  console.log("Autonomous agent loop stopped");
+}
+
+function scheduleMeetingEvaluation(meetingId: string): void {
+  const existing = debounceTimers.get(meetingId);
+  if (existing) {
+    clearTimeout(existing);
+  }
+  debounceTimers.set(
+    meetingId,
+    setTimeout(() => {
+      debounceTimers.delete(meetingId);
+      void evaluateMeeting(meetingId);
+    }, EVENT_DEBOUNCE_MS)
+  );
 }
 
 async function runEvaluationTick(): Promise<void> {
   tickRunning = true;
   try {
     const rows = await listAutonomousActiveSessions();
+    const meetingIds = new Set(rows.map((row) => row.session.meetingId));
+    for (const meetingId of meetingIds) {
+      await evaluateMeeting(meetingId, rows);
+    }
+  } catch (err) {
+    console.error("Autonomous tick error:", err);
+  } finally {
+    tickRunning = false;
+  }
+}
+
+/**
+ * Evaluate all active autonomous sessions for a single meeting. Guarded by a
+ * per-meeting in-flight set so the event-driven path and the fallback tick
+ * never evaluate the same meeting concurrently (which could double-fire an
+ * intervention before the eval cursor / cooldown is persisted).
+ */
+async function evaluateMeeting(meetingId: string, prefetched?: ActiveSessionRow[]): Promise<void> {
+  if (meetingsInFlight.has(meetingId)) {
+    return;
+  }
+  meetingsInFlight.add(meetingId);
+  try {
+    const rows = prefetched ?? (await listAutonomousActiveSessions());
     for (const row of rows) {
+      if (row.session.meetingId !== meetingId) {
+        continue;
+      }
       try {
         await evaluateAgent(row.session, row.agent);
       } catch (err) {
@@ -47,9 +111,9 @@ async function runEvaluationTick(): Promise<void> {
       }
     }
   } catch (err) {
-    console.error("Autonomous tick error:", err);
+    console.error(`Autonomous eval error for meeting ${meetingId}:`, err);
   } finally {
-    tickRunning = false;
+    meetingsInFlight.delete(meetingId);
   }
 }
 
