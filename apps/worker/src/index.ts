@@ -2,11 +2,15 @@ import { getWorkerConfig } from "./config.js";
 import { setHealthy, startHealthServer } from "./health.js";
 import {
   listMeetingsByStatus,
+  resolveMeetingByRoomName,
   submitAudioFileForTranscription,
   syncMeetingStatus,
 } from "./internal-api-client.js";
 import { inspectRooms } from "./livekit-monitor.js";
 import { startLiveKitWebhookServer } from "./livekit-webhook-server.js";
+import { createGoogleStreamingTranscriber } from "./realtime/google-stt-transcriber.js";
+import { RealtimeTranscriptionManager } from "./realtime/manager.js";
+import { createRtcNodeAudioSource } from "./realtime/rtc-node-audio-source.js";
 
 function getArgValue(flag: string) {
   const index = process.argv.indexOf(flag);
@@ -127,6 +131,65 @@ async function runWebhookMode() {
   });
 }
 
+// Holds the active realtime manager so graceful shutdown can stop sessions.
+let realtimeManager: RealtimeTranscriptionManager | null = null;
+
+// Realtime mode (G3): runs the webhook server and, on room_started/room_finished,
+// starts/stops a per-room transcription session that subscribes to participant
+// audio and ingests transcript segments. The media (@livekit/rtc-node) and STT
+// (Google streaming) bindings are runtime-verification boundaries; see
+// src/realtime/*-source.ts / *-transcriber.ts.
+async function runRealtimeMode() {
+  const config = getWorkerConfig();
+  await waitForApiReady(config.apiBaseUrl, config.apiReadyTimeoutMs);
+
+  const manager = new RealtimeTranscriptionManager({
+    apiBaseUrl: config.apiBaseUrl,
+    workerSecret: config.roomAiWorkerSecret,
+    languageCode: config.languageCode,
+    resolveMeetingId: async (roomName) => {
+      try {
+        const meeting = await resolveMeetingByRoomName({
+          apiBaseUrl: config.apiBaseUrl,
+          workerSecret: config.roomAiWorkerSecret,
+          roomName,
+        });
+        return meeting.id;
+      } catch {
+        return null;
+      }
+    },
+    createSource: ({ roomName, meetingId }) =>
+      createRtcNodeAudioSource({
+        roomName,
+        meetingId,
+        livekitHost: config.livekitHost,
+        livekitApiKey: config.livekitApiKey,
+        livekitApiSecret: config.livekitApiSecret,
+      }),
+    createTranscriber: createGoogleStreamingTranscriber,
+  });
+  realtimeManager = manager;
+
+  await startLiveKitWebhookServer({
+    port: config.webhookPort,
+    livekitApiKey: config.livekitApiKey,
+    livekitApiSecret: config.livekitApiSecret,
+    apiBaseUrl: config.apiBaseUrl,
+    roomAiWorkerSecret: config.roomAiWorkerSecret,
+    onRoomStarted: (roomName) => {
+      void manager.startForRoom(roomName).catch((err) => {
+        console.error(`[room-ai-worker] realtime startForRoom failed room=${roomName}`, err);
+      });
+    },
+    onRoomFinished: (roomName) => {
+      void manager.stopForRoom(roomName).catch((err) => {
+        console.error(`[room-ai-worker] realtime stopForRoom failed room=${roomName}`, err);
+      });
+    },
+  });
+}
+
 async function main() {
   const config = getWorkerConfig();
 
@@ -147,6 +210,11 @@ async function main() {
     return;
   }
 
+  if (config.mode === "realtime") {
+    await runRealtimeMode();
+    return;
+  }
+
   await runMonitorMode();
 }
 
@@ -155,6 +223,7 @@ function gracefulShutdown(signal: string) {
   console.log(`[room-ai-worker] ${signal} received, shutting down`);
   setHealthy(false);
   shutdownController.abort();
+  void realtimeManager?.stopAll().catch(() => {});
   // Allow in-flight operations to finish
   setTimeout(() => process.exit(0), 5000);
 }

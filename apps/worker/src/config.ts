@@ -1,4 +1,4 @@
-export type WorkerMode = "monitor" | "transcribe-file" | "webhook";
+export type WorkerMode = "monitor" | "transcribe-file" | "webhook" | "realtime";
 
 export type WorkerConfig = {
   mode: WorkerMode;
@@ -11,6 +11,8 @@ export type WorkerConfig = {
   webhookPort: number;
   healthPort: number;
   apiReadyTimeoutMs: number;
+  /** Default STT language for realtime transcription (G3). */
+  languageCode: string;
 };
 
 function requireEnv(name: string) {
@@ -34,5 +36,6 @@ export function getWorkerConfig(): WorkerConfig {
     apiReadyTimeoutMs: Number(process.env.ROOM_AI_API_READY_TIMEOUT_MS || "120000"),
     webhookPort: Number(process.env.ROOM_AI_WEBHOOK_PORT || "8787"),
     healthPort: Number(process.env.ROOM_AI_HEALTH_PORT || "8788"),
+    languageCode: process.env.ROOM_AI_LANGUAGE_CODE || "ja-JP",
   };
 }
