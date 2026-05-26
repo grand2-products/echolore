@@ -1,12 +1,5 @@
 import crypto from "node:crypto";
-import { EventEmitter } from "node:events";
-import {
-  AITUBER_VALID_EMOTIONS,
-  type AituberCitation,
-  type AituberDataEvent,
-  type AituberEmotionType,
-  UserRole,
-} from "@echolore/shared/contracts";
+import { type AituberCitation, UserRole } from "@echolore/shared/contracts";
 import {
   AIMessage,
   type AIMessageChunk,
@@ -32,190 +25,54 @@ import type { AituberCharacter, AituberMessage } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { getUserById } from "../../repositories/user/user-repository.js";
 import { getResolvedDriveSettings } from "../admin/drive-settings-service.js";
-import { searchDriveForUser } from "../drive/drive-vector-search-service.js";
-import { searchVisibleChunks } from "../wiki/vector-search-service.js";
+import { parseAnnotations } from "./aituber-annotations.js";
 import * as livekitService from "./aituber-livekit-service.js";
+import { buildRagContext } from "./aituber-rag-context.js";
 import * as aituberService from "./aituber-service.js";
 import * as ttsService from "./aituber-tts-service.js";
-import { getValidActionIdsSync, loadMotionRegistry } from "./motion-registry.js";
-
-// Replaceable for testing
-let llm: LlmProvider = defaultLlmProvider;
-
-/** @internal Override LLM provider (test-only) */
-export function _setLlmProvider(p: LlmProvider) {
-  llm = p;
-}
-
-// Active processing workers per session.
-// Each session has at most one worker; new viewer messages arrive via
-// `notifyNewMessage(sessionId)` and the worker drains the queue then waits
-// for the next notification (no polling).
-interface SessionWorkerState {
-  running: boolean;
-  character: AituberCharacter;
-  roomName: string;
-}
-
-const activeLoops = new Map<string, SessionWorkerState>();
-const messageEvents = new EventEmitter();
-messageEvents.setMaxListeners(0);
-
-const SAFETY_TICK_MS = 60_000; // periodic re-check in case a notify was missed
+import {
+  notifyNewMessage,
+  startProcessingLoop as startWorker,
+  stopProcessingLoop,
+} from "./aituber-worker.js";
+import { loadMotionRegistry } from "./motion-registry.js";
 
 /**
- * Wait until either an event on `channel` fires or `timeoutMs` elapses.
- * Always cleans up the listener.
+ * AITuber AI service — owns the *per-message* path:
+ *
+ *   resolve viewer → build RAG context → run ReAct agent → stream tokens →
+ *   parse annotations → save assistant message → synthesize TTS
+ *
+ * The worker lifecycle (start / stop / event channel) lives in
+ * `aituber-worker.ts`; annotation parsing in `aituber-annotations.ts`;
+ * permission-scoped RAG search in `aituber-rag-context.ts`. We re-export
+ * the public worker / annotation API here so existing callers
+ * (routes + tests) don't have to change import paths.
  */
-function waitForMessageOrTimeout(channel: string, timeoutMs: number): Promise<void> {
-  return new Promise((resolve) => {
-    const handler = () => {
-      clearTimeout(timer);
-      resolve();
-    };
-    const timer = setTimeout(() => {
-      messageEvents.off(channel, handler);
-      resolve();
-    }, timeoutMs);
-    messageEvents.once(channel, handler);
-  });
-}
+
+export { parseAnnotations } from "./aituber-annotations.js";
+// Re-exports for callers that imported the old monolithic module.
+export { notifyNewMessage, stopProcessingLoop };
+
+const llm: LlmProvider = defaultLlmProvider;
 
 /**
- * Notify the AI worker for `sessionId` that a new viewer message has arrived.
- * Called by the HTTP route immediately after the message is persisted.
- *
- * Safe to call when no worker is active (no-op).
+ * Public entry point for the route layer: spin up an event-driven processing
+ * worker for the given session. The worker calls back into
+ * `processNextMessage` for each viewer message.
  */
-export function notifyNewMessage(sessionId: string): void {
-  messageEvents.emit(`message:${sessionId}`);
-}
-
-/**
- * Starts the AI processing worker for a session.
- *
- * The worker is event-driven: it drains all unprocessed messages on start,
- * then waits on `messageEvents` until a viewer posts or `SAFETY_TICK_MS`
- * elapses (recovery from missed events).
- *
- * RAG コンテキストは、メッセージを送った視聴者の SessionUser に解決した上で、
- * その視聴者の権限スコープで Wiki / Drive を検索する。視聴者が解決できない
- * 場合 (削除/停止/null) は RAG を完全にスキップし、admin 相当の検索には
- * フォールバックしない。
- */
-export async function startProcessingLoop(
+export function startProcessingLoop(
   sessionId: string,
   character: AituberCharacter,
   roomName: string
-): Promise<void> {
-  if (activeLoops.has(sessionId)) return;
-
-  const state: SessionWorkerState = { running: true, character, roomName };
-  activeLoops.set(sessionId, state);
-
-  // Best-effort: load the motion manifest so action-tag validation is active
-  // by the time the worker handles its first message.
-  void loadMotionRegistry().catch((err) =>
-    console.warn("[aituber-ai] Failed to load motion manifest:", err)
-  );
-
-  console.log(`[aituber-ai] Starting processing worker for session ${sessionId}`);
-
-  void runWorker(sessionId, state);
-}
-
-async function runWorker(sessionId: string, state: SessionWorkerState): Promise<void> {
-  const channel = `message:${sessionId}`;
-  let consecutiveErrors = 0;
-  const MAX_CONSECUTIVE_ERRORS = 10;
-  let aborted = false;
-
-  // Drain any messages already queued before the worker started.
-  while (state.running) {
-    let processed = false;
-    try {
-      processed = await processNextMessage(sessionId, state.character, state.roomName);
-      if (processed) consecutiveErrors = 0;
-    } catch (error) {
-      consecutiveErrors++;
-      console.error(
-        JSON.stringify({
-          event: "aituber-ai.error",
-          sessionId,
-          count: consecutiveErrors,
-          max: MAX_CONSECUTIVE_ERRORS,
-          error: error instanceof Error ? error.message : String(error),
-        })
-      );
-      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-        console.error(
-          JSON.stringify({
-            event: "aituber-ai.aborted",
-            sessionId,
-            reason: "too_many_consecutive_errors",
-          })
-        );
-        state.running = false;
-        aborted = true;
-        break;
-      }
-      // Backoff briefly on transient errors so we don't spin on a poisonous
-      // message that keeps reappearing as unprocessed.
-      await sleep(Math.min(2000, 200 * consecutiveErrors));
-      continue;
-    }
-    if (!processed) {
-      // Queue is empty — wait for the next notification or a safety tick.
-      await waitForMessageOrTimeout(channel, SAFETY_TICK_MS);
-    }
-  }
-
-  activeLoops.delete(sessionId);
-  if (aborted) {
-    await tearDownAbortedSession(sessionId, state.roomName);
-  }
-  console.log(`[aituber-ai] Stopped processing worker for session ${sessionId}`);
-}
-
-/**
- * Clean up a session that the AI loop abandoned after MAX_CONSECUTIVE_ERRORS.
- * Without this, the session stays `live` forever and viewers see a frozen avatar.
- */
-async function tearDownAbortedSession(sessionId: string, roomName: string): Promise<void> {
-  // Notify viewers before we tear down the room.
-  await sendDataEvent(roomName, { type: "session-aborted" }).catch((err) =>
-    console.warn(`[aituber-ai] Failed to broadcast session-aborted for ${sessionId}:`, err)
-  );
-  // Best-effort transition `live` → `ended`. abortSession only fires on `created`,
-  // and stopSession only on `live`, so try both and ignore mismatches.
-  await aituberService
-    .stopSession(sessionId)
-    .catch(() => aituberService.abortSession(sessionId).catch(() => {}));
-  await livekitService
-    .deleteAituberRoom(roomName)
-    .catch((err) => console.warn(`[aituber-ai] Failed to delete LiveKit room ${roomName}:`, err));
-}
-
-/**
- * Stops the AI processing worker for a session.
- *
- * The worker exits cleanly the next time it checks `state.running`. We
- * additionally fire a notification so a worker waiting on the channel wakes
- * up immediately instead of holding the SAFETY_TICK_MS timer.
- */
-export function stopProcessingLoop(sessionId: string): void {
-  const state = activeLoops.get(sessionId);
-  if (state) {
-    state.running = false;
-    notifyNewMessage(sessionId);
-    // activeLoops entry is cleaned up by the worker itself after it exits.
-  }
+): void {
+  startWorker(sessionId, character, roomName, processNextMessage);
 }
 
 /**
  * Processes a single unprocessed viewer message for the session, if one
  * exists. Returns `true` when a message was processed, `false` when the queue
- * was empty (so the caller knows to wait for a notification).
+ * was empty (so the worker knows to wait for a notification).
  */
 async function processNextMessage(
   sessionId: string,
@@ -568,187 +425,6 @@ async function resolveViewerUser(senderUserId: string | null): Promise<SessionUs
   };
 }
 
-/**
- * Search Wiki + Drive in parallel and build a compact RAG context string,
- * scoped to the viewer's permissions. Returns empty string when the viewer
- * cannot be resolved or when both searches return nothing.
- *
- * ## 権限モデル
- * 視聴者が認証済みであっても、その視聴者が read 権限を持たない Wiki ページや
- * Drive ファイルの内容が AI の応答経由で漏出してはならない。そのため、
- *   - Wiki: searchVisibleChunks(viewer, ...) — viewer の SessionUser でフィルタ
- *   - Drive: searchDriveForUser(viewer.email, ...) — viewer のメールでフィルタ
- * を使う。Wiki Chat 経路と同じ権限境界。
- */
-interface RagContext {
-  /** Compact context string injected into the system prompt. */
-  text: string;
-  /** Sources referenced by the context; surfaced to viewers via ai-complete. */
-  citations: AituberCitation[];
-}
-
-async function buildRagContext(
-  sessionId: string,
-  query: string,
-  viewer: SessionUser | null
-): Promise<RagContext> {
-  if (!viewer) {
-    console.log(
-      JSON.stringify({
-        event: "aituber-ai.search.skipped",
-        sessionId,
-        reason: "viewer_unresolved",
-      })
-    );
-    return { text: "", citations: [] };
-  }
-
-  const searchStart = Date.now();
-  try {
-    const [wikiOutcome, driveResults] = await Promise.all([
-      searchVisibleChunks(viewer, query, 3).catch((err) => {
-        console.warn(
-          JSON.stringify({
-            event: "aituber-ai.search.wiki-error",
-            sessionId,
-            viewerUserId: viewer.id,
-            error: err instanceof Error ? err.message : String(err),
-          })
-        );
-        return { results: [], searchMode: "ilike_fallback" as const };
-      }),
-      searchDriveForUser(viewer.email, query, 2).catch((err) => {
-        console.warn(
-          JSON.stringify({
-            event: "aituber-ai.search.drive-error",
-            sessionId,
-            viewerUserId: viewer.id,
-            error: err instanceof Error ? err.message : String(err),
-          })
-        );
-        return [] as Awaited<ReturnType<typeof searchDriveForUser>>;
-      }),
-    ]);
-
-    const wikiResults = wikiOutcome.results;
-    const parts: string[] = [];
-    const citations: AituberCitation[] = [];
-    for (const r of wikiResults) {
-      parts.push(
-        `[Wiki: ${escapeXmlTags(r.pageTitle)}] ${escapeXmlTags(r.chunkText.slice(0, 300))}`
-      );
-      citations.push({
-        source: "wiki",
-        pageId: r.pageId,
-        pageTitle: r.pageTitle,
-        similarity: r.similarity,
-      });
-    }
-    for (const r of driveResults) {
-      parts.push(
-        `[Drive: ${escapeXmlTags(r.fileName)}] ${escapeXmlTags(r.chunkText.slice(0, 300))}`
-      );
-      citations.push({
-        source: "drive",
-        fileId: r.fileId,
-        fileName: r.fileName,
-        webViewLink: r.webViewLink ?? null,
-      });
-    }
-
-    console.log(
-      JSON.stringify({
-        event: "aituber-ai.search",
-        sessionId,
-        viewerUserId: viewer.id,
-        wikiResultCount: wikiResults.length,
-        driveResultCount: driveResults.length,
-        topWikiSimilarity: wikiResults[0]?.similarity ?? null,
-        searchMode: wikiOutcome.searchMode,
-        durationMs: Date.now() - searchStart,
-      })
-    );
-
-    return { text: parts.length > 0 ? parts.join("\n") : "", citations };
-  } catch (err) {
-    console.warn(
-      JSON.stringify({
-        event: "aituber-ai.search.error",
-        sessionId,
-        viewerUserId: viewer.id,
-        error: err instanceof Error ? err.message : String(err),
-        durationMs: Date.now() - searchStart,
-      })
-    );
-    return { text: "", citations: [] };
-  }
-}
-
-async function sendDataEvent(
-  roomName: string,
-  event: AituberDataEvent | Record<string, unknown>
-): Promise<void> {
+async function sendDataEvent(roomName: string, event: Record<string, unknown>): Promise<void> {
   await livekitService.sendDataToRoom(roomName, event);
-}
-// --- Annotation Parsing ---
-// Action IDs and prompt listing are now loaded from
-// `public/motions/manifest.json` via `motion-registry.ts`. See #55.
-
-const EMOTION_TAG_RE = /^\[emotion:(\w+):([\d.]+)\]\s*/;
-const ACTION_TAG_RE = /^\[action:([\w-]+)\]\s*/;
-
-const VALID_EMOTIONS: readonly AituberEmotionType[] = AITUBER_VALID_EMOTIONS;
-
-function isAituberEmotionType(value: string): value is AituberEmotionType {
-  return (VALID_EMOTIONS as readonly string[]).includes(value);
-}
-
-interface ParsedAnnotations {
-  text: string;
-  emotion: { type: AituberEmotionType; intensity: number } | null;
-  action: string | null;
-}
-
-export function parseAnnotations(rawText: string): ParsedAnnotations {
-  let text = rawText;
-
-  // Parse emotion tag at beginning
-  let emotion: { type: AituberEmotionType; intensity: number } | null = null;
-  const emotionMatch = text.match(EMOTION_TAG_RE);
-  if (emotionMatch) {
-    const type = emotionMatch[1] ?? "";
-    const intensity = Math.min(Math.max(Number.parseFloat(emotionMatch[2] ?? "0"), 0), 1);
-    if (isAituberEmotionType(type)) {
-      emotion = { type, intensity };
-    }
-    text = text.slice(emotionMatch[0].length);
-  }
-
-  // Parse action tag — only accept IDs known to the loaded motion manifest.
-  // If the manifest hasn't been preloaded yet (or the file is missing) the
-  // action is dropped so we never broadcast an unknown clip ID to the client.
-  let action: string | null = null;
-  const actionMatch = text.match(ACTION_TAG_RE);
-  if (actionMatch) {
-    const actionId = actionMatch[1] ?? "";
-    const validIds = getValidActionIdsSync();
-    if (validIds?.has(actionId)) {
-      action = actionId;
-    }
-    text = text.slice(actionMatch[0].length);
-  }
-
-  // Strip any remaining annotation tags at the beginning that LLM may have duplicated
-  while (/^\[emotion:\w+:[\d.]+\]\s*/.test(text)) {
-    text = text.replace(/^\[emotion:\w+:[\d.]+\]\s*/, "");
-  }
-  while (/^\[action:[\w-]+\]\s*/.test(text)) {
-    text = text.replace(/^\[action:[\w-]+\]\s*/, "");
-  }
-
-  return { text: text.trim(), emotion, action };
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

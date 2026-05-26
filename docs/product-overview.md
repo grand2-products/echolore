@@ -1,6 +1,6 @@
 # Product Overview
 
-Last updated: 2026-03-13
+Last updated: 2026-05-26
 
 This document describes the currently implemented product shape of `echolore`.
 
@@ -33,6 +33,14 @@ This document describes the currently implemented product shape of `echolore`.
 - stamps/reactions: emoji reactions broadcast to all participants via WebRTC data channel
 - screen share annotations: real-time annotation overlay with markers drawn on shared screens
 - recording: LiveKit Egress captures room to MP4, Gemini multimodal STT produces transcription, AI summary pipeline consumes the result
+- **Meeting AI intervention (Epic #44, G1–G5):**
+  - participants can summon an AI agent into the meeting room; agent tokens are minted server-side and gated by writer authorization
+  - real-time transcript ingest (worker realtime mode) feeds finalized segments into an in-process event bus
+  - autonomous-intervention loop runs event-driven on finalized segments with a coarse 60s fallback, deciding when to speak without being summoned
+  - a single autonomous evaluator is elected across API replicas via a Valkey lock; degrades to local execution when Valkey is unavailable
+  - the agent bot only connects when the meeting creator (tab-leader) is present, so a single backend handles all agent traffic for a room
+  - LiveKit `room_finished` webhook is honored as a fast-path so the agent / transcript pipeline tears down immediately on hangup
+  - see `docs/meeting-tool-implementation.md` for the full design
 
 ### Files
 - file upload metadata and protected access paths
