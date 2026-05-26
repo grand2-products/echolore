@@ -1,9 +1,12 @@
 import type { Meeting, Summary } from "../../db/schema.js";
 import {
+  closeAllParticipantSessions,
   createMeetingSummaryArtifactsTx,
   ensureMeetingNotesPage,
   getLatestMeetingSummary,
+  getMeetingByRoomName,
   getRoomAiWikiPageByMeetingId,
+  updateMeeting,
 } from "../../repositories/meeting/meeting-repository.js";
 import { GENERAL_SPACE_ID } from "../wiki/space-service.js";
 
@@ -32,6 +35,33 @@ export {
 
 /** Fixed ID for the "Meeting Notes" parent page in General Space. */
 export const MEETING_NOTES_PAGE_ID = "00000000-0000-0000-0000-000000000002";
+
+/**
+ * End a meeting in response to LiveKit's `room_finished` webhook.
+ *
+ * In production LiveKit posts webhooks to the API, so this is the fast path that
+ * ends a meeting the moment its room is torn down (after empty_timeout). The
+ * worker monitor's reconciliation remains the safety net for missed webhooks.
+ *
+ * Idempotent: returns null when the room maps to no meeting (e.g. the coworking
+ * or an aituber room) or the meeting is already ended.
+ */
+export async function endMeetingByRoomName(
+  roomName: string,
+  endedAt: Date
+): Promise<Meeting | null> {
+  const meeting = await getMeetingByRoomName(roomName);
+  if (!meeting || meeting.status === "ended") {
+    return null;
+  }
+
+  const [updated] = await Promise.all([
+    updateMeeting(meeting.id, { status: "ended", endedAt }),
+    closeAllParticipantSessions(meeting.id, endedAt),
+  ]);
+
+  return updated;
+}
 
 export interface RoomAiPipelineResult {
   summary: Summary;

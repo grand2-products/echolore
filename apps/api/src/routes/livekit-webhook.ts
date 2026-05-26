@@ -7,6 +7,7 @@ import {
   handleCoworkingEgressEnded,
   stopCoworkingComposite,
 } from "../services/coworking/coworking-mcu-service.js";
+import { endMeetingByRoomName } from "../services/meeting/meeting-service.js";
 import { handleEgressWebhook } from "../services/meeting/recording-service.js";
 
 const webhookReceiver = new WebhookReceiver(livekitApiKey, livekitApiSecret);
@@ -76,6 +77,18 @@ livekitWebhookRoutes.post("/", async (c) => {
           `[livekit-webhook] Coworking room has ${remainingCount} participant(s) left, stopping composite`
         );
         await stopCoworkingComposite();
+      }
+    } else if (event.event === "room_finished" && event.room?.name) {
+      // Fast path: end the meeting as soon as LiveKit tears down the room (after
+      // empty_timeout). The worker monitor's reconciliation is the safety net for
+      // missed webhooks. Non-meeting rooms (coworking/aituber) resolve to no
+      // meeting and are skipped by endMeetingByRoomName.
+      const roomName = event.room.name;
+      if (roomName !== COWORKING_ROOM) {
+        const ended = await endMeetingByRoomName(roomName, new Date());
+        if (ended) {
+          console.log(`[livekit-webhook] room_finished ended meeting=${ended.id} room=${roomName}`);
+        }
       }
     } else {
       console.log(`[livekit-webhook] Received event: ${event.event} (no handler)`);
