@@ -68,8 +68,12 @@ describe("autonomous-leader", () => {
     it("runs the CAS-delete script with this instance's id", async () => {
       const evalFn = vi.fn().mockResolvedValue(1);
       getValkeyMock.mockReturnValue({ eval: evalFn });
-      const { releaseLeadership, getInstanceId } = await import("./autonomous-leader.js");
+      const { releaseLeadership, getInstanceId, tryAcquireLeadership } = await import(
+        "./autonomous-leader.js"
+      );
 
+      // Acquire first so the release transition is taken (mirrors real flow).
+      await tryAcquireLeadership();
       await releaseLeadership();
       expect(evalFn).toHaveBeenCalledWith(
         expect.stringContaining("redis.call('del'"),
@@ -85,6 +89,67 @@ describe("autonomous-leader", () => {
       const { releaseLeadership } = await import("./autonomous-leader.js");
 
       await expect(releaseLeadership()).resolves.toBeUndefined();
+    });
+  });
+
+  describe("structured logging (H3)", () => {
+    let logSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    });
+
+    const parseLogged = (calls: unknown[][]): Array<Record<string, unknown>> => {
+      const out: Array<Record<string, unknown>> = [];
+      for (const args of calls) {
+        const first = args[0];
+        if (typeof first !== "string") continue;
+        try {
+          const parsed = JSON.parse(first);
+          if (parsed && typeof parsed === "object") out.push(parsed as Record<string, unknown>);
+        } catch {
+          // ignore non-JSON noise
+        }
+      }
+      return out;
+    };
+
+    it("emits meeting-leader.acquired on first successful acquisition", async () => {
+      const evalFn = vi.fn().mockResolvedValue(1);
+      getValkeyMock.mockReturnValue({ eval: evalFn });
+      const { tryAcquireLeadership, getInstanceId } = await import("./autonomous-leader.js");
+
+      await tryAcquireLeadership(1000);
+      const logs = parseLogged(logSpy.mock.calls);
+      const acquired = logs.find((l) => l.event === "meeting-leader.acquired");
+      expect(acquired).toBeDefined();
+      expect(acquired?.instanceId).toBe(getInstanceId());
+      expect(acquired?.lockKey).toBe(LEADER_KEY);
+      expect(acquired?.ttlMs).toBe(1000);
+    });
+
+    it("emits meeting-leader.lost when the lock changes hands", async () => {
+      const evalFn = vi.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+      getValkeyMock.mockReturnValue({ eval: evalFn });
+      const { tryAcquireLeadership } = await import("./autonomous-leader.js");
+
+      await tryAcquireLeadership();
+      logSpy.mockClear();
+      await tryAcquireLeadership();
+      const logs = parseLogged(logSpy.mock.calls);
+      expect(logs.some((l) => l.event === "meeting-leader.lost")).toBe(true);
+    });
+
+    it("emits meeting-leader.acquire-error when Lua eval throws", async () => {
+      const evalFn = vi.fn().mockRejectedValue(new Error("connection refused"));
+      getValkeyMock.mockReturnValue({ eval: evalFn });
+      const { tryAcquireLeadership } = await import("./autonomous-leader.js");
+
+      await tryAcquireLeadership();
+      const logs = parseLogged(logSpy.mock.calls);
+      const errLog = logs.find((l) => l.event === "meeting-leader.acquire-error");
+      expect(errLog).toBeDefined();
+      expect(errLog?.error).toBe("connection refused");
     });
   });
 });

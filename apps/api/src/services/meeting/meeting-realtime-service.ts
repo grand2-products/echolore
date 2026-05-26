@@ -1,4 +1,4 @@
-import { AccessToken } from "livekit-server-sdk";
+import { AccessToken, TrackSource } from "livekit-server-sdk";
 import { createSpeechGatewayBundle, resolveSpeechProvider } from "../../ai/gateway/index.js";
 import { livekitApiKey, livekitApiSecret } from "../../lib/livekit-config.js";
 import {
@@ -48,10 +48,15 @@ export async function issueAgentLiveKitToken(input: {
     identity,
     name: `${agent.name} (AI)`,
   });
+  // M3: lock the agent bot's publish capability to MICROPHONE only. The bot
+  // only ever publishes synthesized TTS audio (see apps/web/lib/agent-audio.ts);
+  // a leaked or coerced token MUST NOT be usable to push camera / screen-share
+  // tracks into a meeting under the agent identity.
   at.addGrant({
     roomJoin: true,
     room: input.roomName,
     canPublish: true,
+    canPublishSources: [TrackSource.MICROPHONE],
     canSubscribe: true,
     canPublishData: true,
   });
