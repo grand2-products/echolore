@@ -63,6 +63,9 @@ jobs:
       - name: Run Biome lint
         run: pnpm lint
 
+      - name: Check i18n key parity
+        run: pnpm check:i18n
+
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest

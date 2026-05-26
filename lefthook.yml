@@ -6,3 +6,7 @@ pre-commit:
 
     - name: typecheck
       run: pnpm typecheck
+
+    - name: i18n key parity
+      glob: "apps/web/lib/i18n/locales/*.yaml"
+      run: pnpm check:i18n
