@@ -28,6 +28,7 @@ const {
   mockSearchByVectorForUser,
   mockFindPagesWithExplicitDeny,
   mockSearchPagesByIlike,
+  mockSearchPagesByIlikeForUser,
 } = vi.hoisted(() => ({
   mockEmbedText: vi.fn(),
   mockIsEmbeddingEnabled: vi.fn(),
@@ -40,6 +41,7 @@ const {
   mockSearchByVectorForUser: vi.fn(),
   mockFindPagesWithExplicitDeny: vi.fn(),
   mockSearchPagesByIlike: vi.fn(),
+  mockSearchPagesByIlikeForUser: vi.fn(),
 }));
 
 vi.mock("../../ai/embeddings.js", () => ({
@@ -57,6 +59,7 @@ vi.mock("../../repositories/wiki/wiki-repository.js", () => ({
   searchByVectorForUser: mockSearchByVectorForUser,
   findPagesWithExplicitDeny: mockFindPagesWithExplicitDeny,
   searchPagesByIlike: mockSearchPagesByIlike,
+  searchPagesByIlikeForUser: mockSearchPagesByIlikeForUser,
   listNonDeletedPageIds: vi.fn(async () => []),
 }));
 
@@ -163,13 +166,14 @@ describe("AI Chat search pipeline", () => {
     expect(mockGetPageById).not.toHaveBeenCalled();
     expect(mockReplacePageEmbeddings).not.toHaveBeenCalled();
 
-    // searchVisibleChunks should fall back to ILIKE
-    mockSearchPagesByIlike.mockResolvedValue([]);
+    // searchVisibleChunks should fall back to permission-scoped ILIKE (C4).
+    mockSearchPagesByIlikeForUser.mockResolvedValue([]);
     const { results, searchMode } = await searchVisibleChunks(makeUser(), "test query");
 
     expect(results).toEqual([]);
     expect(searchMode).toBe("ilike_disabled");
-    expect(mockSearchPagesByIlike).toHaveBeenCalled();
+    expect(mockSearchPagesByIlikeForUser).toHaveBeenCalled();
+    expect(mockSearchPagesByIlike).not.toHaveBeenCalled();
     expect(mockSearchByVectorForUser).not.toHaveBeenCalled();
   });
 
@@ -221,9 +225,9 @@ describe("AI Chat search pipeline", () => {
     expect(mockFindPagesWithExplicitDeny).not.toHaveBeenCalled();
   });
 
-  it("falls back to ILIKE when vector search throws", async () => {
+  it("falls back to permission-scoped ILIKE when vector search throws (C4 regression)", async () => {
     mockSearchByVectorForUser.mockRejectedValue(new Error("dimension mismatch"));
-    mockSearchPagesByIlike.mockResolvedValue([
+    mockSearchPagesByIlikeForUser.mockResolvedValue([
       { pageId: "page_1", pageTitle: "Fallback", chunkText: "keyword hit", similarity: 0.5 },
     ]);
 
@@ -232,5 +236,7 @@ describe("AI Chat search pipeline", () => {
     expect(results).toHaveLength(1);
     expect(results[0]?.pageTitle).toBe("Fallback");
     expect(searchMode).toBe("ilike_fallback");
+    expect(mockSearchPagesByIlikeForUser).toHaveBeenCalledWith("user_1", "query", 5);
+    expect(mockSearchPagesByIlike).not.toHaveBeenCalled();
   });
 });
