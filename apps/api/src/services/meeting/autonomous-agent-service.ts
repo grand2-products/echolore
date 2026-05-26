@@ -43,7 +43,7 @@ export function startAutonomousAgentLoop(intervalMs?: number): void {
   });
 }
 
-export function stopAutonomousAgentLoop(): void {
+export async function stopAutonomousAgentLoop(): Promise<void> {
   if (intervalHandle) {
     clearInterval(intervalHandle);
     intervalHandle = null;
@@ -56,7 +56,9 @@ export function stopAutonomousAgentLoop(): void {
     clearTimeout(timer);
   }
   debounceTimers.clear();
-  void releaseLeadership();
+  // Await so the lock is actually released before the process exits (callers on
+  // the shutdown path await this), enabling fast failover to another replica.
+  await releaseLeadership();
   console.log("Autonomous agent loop stopped");
 }
 
@@ -74,7 +76,9 @@ function scheduleMeetingEvaluation(meetingId: string): void {
         if (await tryAcquireLeadership()) {
           await evaluateMeeting(meetingId);
         }
-      })();
+      })().catch((err) => {
+        console.error(`Autonomous event-driven eval error for meeting ${meetingId}:`, err);
+      });
     }, EVENT_DEBOUNCE_MS)
   );
 }
