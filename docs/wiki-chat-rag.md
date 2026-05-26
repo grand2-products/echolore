@@ -117,3 +117,15 @@ Wiki Chatリクエスト時に以下のstructured logが出力される:
 curl -X POST http://localhost:3001/api/admin/reindex-wiki \
   -H "Authorization: Bearer <admin-token>"
 ```
+
+## AITuber との共有
+
+AITuber の AI 応答ループも同じ vector search infrastructure を利用するが、
+権限境界は **視聴者の SessionUser** で適用される:
+
+- Wiki: `searchVisibleChunks(viewer, query, ...)` で page-level deny / personal space を尊重
+- Drive: `searchDriveForUser(viewer.email, query, ...)` で Drive 側 permission を尊重
+- 視聴者が解決できない (削除/停止/null) 場合は RAG を完全スキップする
+  (admin-scoped フォールバックは行わない)
+
+詳細は [`aituber-implementation.md`](./aituber-implementation.md#rag-permission-scoped) を参照。

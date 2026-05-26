@@ -32,6 +32,17 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - AI employee invocation and active-session controls
 - `/meetings/coworking`
   - shared coworking room
+- `/aituber`
+  - AITuber landing
+  - shows the active live session (Stage + viewer chat) when one exists
+  - admin-only: select a character and start a live session
+- `/aituber/characters`
+  - character list (admin / owner-visible)
+  - entry points to `/aituber/characters/new` and `/aituber/characters/[id]`
+- `/aituber/characters/new`
+  - create a new AITuber character (persona, voice, motion profile)
+- `/aituber/characters/[id]`
+  - edit an existing character, upload / replace VRM avatar, preview voice
 - `/admin`
   - admin index (redirects to `/admin/users`)
   - shared admin layout with tab navigation (users / access / agents / kpi / settings)
@@ -63,6 +74,7 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - `/`
   - `/wiki`
   - `/meetings`
+  - `/aituber`
   - `/search`
   - `/admin` for admin only (tab nav: users, access, agents, kpi, settings)
 - Header account menu:
@@ -89,6 +101,9 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - `/meetings` -> `/meetings/[id]`
   - `/meetings` -> `/meetings/coworking`
   - `/meetings/[id]` -> AI employee actions -> Room AI summary to Wiki
+- AITuber flow:
+  - `/aituber` -> select character (admin) -> Live Stage
+  - `/aituber` -> `/aituber/characters` -> `/aituber/characters/new` | `/aituber/characters/[id]`
 - Admin flow:
   - `/admin` -> `/admin/users`
   - `/admin/access`
@@ -107,6 +122,10 @@ This document maps the currently implemented frontend routes in `apps/web`.
 - `apps/web/app/(main)/meetings/page.tsx`
 - `apps/web/app/(main)/meetings/[id]/page.tsx`
 - `apps/web/app/(main)/meetings/coworking/page.tsx`
+- `apps/web/app/(main)/aituber/page.tsx`
+- `apps/web/app/(main)/aituber/characters/page.tsx`
+- `apps/web/app/(main)/aituber/characters/new/page.tsx`
+- `apps/web/app/(main)/aituber/characters/[id]/page.tsx`
 - `apps/web/app/(main)/admin/layout.tsx`
 - `apps/web/app/(main)/admin/page.tsx`
 - `apps/web/app/(main)/admin/users/page.tsx`
