@@ -6,9 +6,22 @@ import {
   type AituberEmotionType,
   type UserRole,
 } from "@echolore/shared/contracts";
-import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
+import {
+  AIMessage,
+  type AIMessageChunk,
+  type BaseMessage,
+  HumanMessage,
+} from "@langchain/core/messages";
+import type { DynamicStructuredTool } from "@langchain/core/tools";
+import { createAituberAgent } from "../../ai/agent/create-aituber-agent.js";
 import { defaultLlmProvider, type LlmProvider } from "../../ai/providers/index.js";
 import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
+import {
+  type AiChatToolResult,
+  createAiChatListPagesTool,
+  createAiChatReadPageTool,
+  createAiChatSearchTool,
+} from "../../ai/tools/ai-chat-tools.js";
 import type { AituberCharacter, AituberMessage } from "../../db/schema.js";
 import type { SessionUser } from "../../lib/auth.js";
 import { getUserById } from "../../repositories/user/user-repository.js";
@@ -247,10 +260,35 @@ async function generateStreamingResponse(
   // If the viewer can't be resolved, RAG is skipped entirely.
   const ragContext = await buildRagContext(sessionId, viewerMessage.content, viewerUser);
 
-  // Build messages with context
+  // Viewer-scoped Wiki tools — the agent can deepen the search itself if the
+  // pre-fetched RAG context isn't enough. Each tool checks `canReadPage(viewer, ...)`
+  // so an unresolved viewer must NOT receive any tools.
+  const tools: DynamicStructuredTool[] = [];
+  const toolRefs: AiChatToolResult[] = [];
+  if (viewerUser) {
+    const { searchTool, referencedPages: searchRefs } = createAiChatSearchTool(viewerUser);
+    const { listPagesTool, referencedPages: listRefs } = createAiChatListPagesTool(viewerUser);
+    const { readPageTool, referencedPages: readRefs } = createAiChatReadPageTool(viewerUser);
+    tools.push(searchTool, listPagesTool, readPageTool);
+    // refs are populated as side effects when the agent calls a tool.
+    toolRefs.push(...searchRefs, ...listRefs, ...readRefs);
+  }
+
+  const agent = createAituberAgent({
+    chatModel,
+    tools,
+    ragContext: ragContext.text,
+    character: {
+      name: character.name,
+      personality: character.personality,
+      systemPrompt: character.systemPrompt,
+      speakingStyle: character.speakingStyle,
+    },
+    actionListing: ACTION_PROMPT_LISTING,
+  });
+
   const history = await aituberService.listMessageHistory(sessionId, 20);
-  const langchainMessages = [
-    new SystemMessage(buildSystemPrompt(character, ragContext.text)),
+  const langchainMessages: BaseMessage[] = [
     ...history.map((msg) =>
       msg.role === "assistant"
         ? new AIMessage(msg.content)
@@ -260,18 +298,49 @@ async function generateStreamingResponse(
   ];
 
   const generateStart = Date.now();
-
-  // Stream tokens
   let fullResponse = "";
-  const stream = await chatModel.stream(langchainMessages);
 
-  for await (const chunk of stream) {
-    const token = typeof chunk.content === "string" ? chunk.content : "";
+  // streamMode "messages" yields each LLM token as an AIMessageChunk plus
+  // metadata, so we can forward tokens to viewers in real time while still
+  // letting the agent call tools mid-stream.
+  const stream = await agent.stream({ messages: langchainMessages }, { streamMode: "messages" });
+
+  for await (const part of stream) {
+    // Each yielded value is `[chunk, metadata]` for streamMode "messages".
+    const chunk = Array.isArray(part) ? part[0] : (part as BaseMessage);
+    if (!chunk) continue;
+    // Forward AI message tokens to the viewer; skip tool-call chunks and
+    // ToolMessage results — viewers should only hear the character's voice.
+    const type = (chunk as BaseMessage)._getType?.();
+    if (type !== "ai") continue;
+    const aiChunk = chunk as AIMessageChunk;
+    if (aiChunk.tool_calls && aiChunk.tool_calls.length > 0) continue;
+    if (aiChunk.tool_call_chunks && aiChunk.tool_call_chunks.length > 0) continue;
+    const token = typeof aiChunk.content === "string" ? aiChunk.content : "";
     if (token) {
       fullResponse += token;
       await sendDataEvent(roomName, { type: "ai-token", token });
     }
   }
+
+  // Combine pre-fetched RAG citations with anything the agent pulled in via
+  // wiki_search / wiki_read_page / wiki_list_pages. Dedup by source+id.
+  const seenKeys = new Set<string>();
+  for (const c of ragContext.citations) {
+    seenKeys.add(c.source === "wiki" ? `wiki:${c.pageId}` : `drive:${c.fileId}`);
+  }
+  const toolCitations: AituberCitation[] = [];
+  for (const ref of toolRefs) {
+    const key = `wiki:${ref.pageId}`;
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    toolCitations.push({
+      source: "wiki",
+      pageId: ref.pageId,
+      pageTitle: ref.pageTitle,
+    });
+  }
+  const citations = [...ragContext.citations, ...toolCitations];
 
   console.log(
     JSON.stringify({
@@ -279,13 +348,15 @@ async function generateStreamingResponse(
       sessionId,
       viewerUserId: viewerUser?.id ?? null,
       hasRagContext: ragContext.text.length > 0,
-      citationCount: ragContext.citations.length,
+      ragCitationCount: ragContext.citations.length,
+      toolCitationCount: toolCitations.length,
+      toolsAvailable: tools.length,
       responseChars: fullResponse.length,
       durationMs: Date.now() - generateStart,
     })
   );
 
-  return { text: fullResponse, citations: ragContext.citations };
+  return { text: fullResponse, citations };
 }
 
 /**
@@ -428,46 +499,6 @@ async function buildRagContext(
   }
 }
 
-function buildSystemPrompt(character: AituberCharacter, ragContext = ""): string {
-  let prompt = character.systemPrompt;
-  prompt += `\n\nキャラクター名: ${escapeXmlTags(character.name)}`;
-  prompt += `\n性格: ${escapeXmlTags(character.personality)}`;
-  if (character.speakingStyle) {
-    prompt += `\n話し方: ${escapeXmlTags(character.speakingStyle)}`;
-  }
-  prompt += "\n\n視聴者からのメッセージに対して、キャラクターとして自然に応答してください。";
-  prompt += "\n応答は簡潔にし、1-3文程度で返してください。";
-
-  // Emotion annotation
-  prompt += "\n\n【重要】応答の先頭に必ず [emotion:TYPE:INTENSITY] を付与してください。";
-  prompt += "\nTYPE: neutral, happy, sad, angry, surprised, relaxed のいずれか";
-  prompt += "\nINTENSITY: 0.0〜1.0 の小数（感情の強さ）";
-
-  // Action annotation — dynamically generated from action registry
-  prompt +=
-    "\n\n応答にジェスチャーが自然な場合、emotionタグの後に [action:ACTION_ID] を付与してください。";
-  prompt += "\n以下のモーションから最適なものを選んでください:";
-  for (const [category, actions] of Object.entries(ACTION_REGISTRY)) {
-    const ids = actions.map((a) => a.id).join(", ");
-    prompt += `\n${category}: ${ids}`;
-  }
-  prompt +=
-    "\nアクションが不要な場合はタグを省略。同じアクションが連続しないようバリエーションを使い分けて。";
-
-  prompt += "\n\n例: [emotion:happy:0.7][action:greeting-wave-casual] やっほー！元気？";
-  prompt += "\n例: [emotion:neutral:0.0][action:nod-gentle-1] うん、そうだね。";
-  prompt += "\n例: [emotion:sad:0.4] それは残念だね...";
-
-  // RAG context — reference material from Wiki and Drive
-  if (ragContext) {
-    prompt += "\n\n## 参考情報（社内Wiki・共有ドライブ）";
-    prompt += "\n以下の情報を参考にして回答できますが、キャラクターの口調は崩さないでください。";
-    prompt += `\n${ragContext}`;
-  }
-
-  return prompt;
-}
-
 async function sendDataEvent(
   roomName: string,
   event: AituberDataEvent | Record<string, unknown>
@@ -582,6 +613,11 @@ const VALID_ACTION_IDS = new Set(
     .flat()
     .map((a) => a.id)
 );
+
+// Pre-formatted listing fed into the agent's system prompt.
+const ACTION_PROMPT_LISTING = Object.entries(ACTION_REGISTRY)
+  .map(([category, defs]) => `${category}: ${defs.map((d) => d.id).join(", ")}`)
+  .join("\n");
 
 // --- Annotation Parsing ---
 
