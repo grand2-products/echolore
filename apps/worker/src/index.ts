@@ -10,6 +10,12 @@ import { inspectRooms } from "./livekit-monitor.js";
 import { startLiveKitWebhookServer } from "./livekit-webhook-server.js";
 import { createGoogleStreamingTranscriber } from "./realtime/google-stt-transcriber.js";
 import { RealtimeTranscriptionManager } from "./realtime/manager.js";
+import { reconcileOrphanRooms } from "./realtime/reconcile.js";
+import {
+  createInMemoryRoomOwnership,
+  createValkeyRoomOwnership,
+  type RoomOwnership,
+} from "./realtime/room-ownership.js";
 import { createRtcNodeAudioSource } from "./realtime/rtc-node-audio-source.js";
 import { selectStaleActiveMeetings } from "./reconcile.js";
 
@@ -177,10 +183,26 @@ async function runRealtimeMode() {
   const config = getWorkerConfig();
   await waitForApiReady(config.apiBaseUrl, config.apiReadyTimeoutMs);
 
+  // HA-safe room ownership. With one worker the in-memory implementation is
+  // fine; with two or more REALTIME_REDIS_URL must be set so they coordinate
+  // through Valkey and don't both attach to the same room.
+  let ownership: RoomOwnership;
+  if (config.realtimeRedisUrl) {
+    ownership = await createValkeyRoomOwnership({
+      redisUrl: config.realtimeRedisUrl,
+      workerId: config.workerId,
+    });
+    console.log(`[room-ai-worker] realtime ownership: valkey (workerId=${config.workerId})`);
+  } else {
+    ownership = createInMemoryRoomOwnership();
+    console.log("[room-ai-worker] realtime ownership: in-memory (single-worker)");
+  }
+
   const manager = new RealtimeTranscriptionManager({
     apiBaseUrl: config.apiBaseUrl,
     workerSecret: config.roomAiWorkerSecret,
     languageCode: config.languageCode,
+    ownership,
     resolveMeetingId: async (roomName) => {
       try {
         const meeting = await resolveMeetingByRoomName({
@@ -193,13 +215,14 @@ async function runRealtimeMode() {
         return null;
       }
     },
-    createSource: ({ roomName, meetingId }) =>
+    createSource: ({ roomName, meetingId, onDisconnected }) =>
       createRtcNodeAudioSource({
         roomName,
         meetingId,
         livekitHost: config.livekitHost,
         livekitApiKey: config.livekitApiKey,
         livekitApiSecret: config.livekitApiSecret,
+        onDisconnected,
       }),
     createTranscriber: createGoogleStreamingTranscriber,
   });
@@ -220,6 +243,25 @@ async function runRealtimeMode() {
       void manager.stopForRoom(roomName).catch((err) => {
         console.error(`[room-ai-worker] realtime stopForRoom failed room=${roomName}`, err);
       });
+    },
+  });
+
+  // Pick up rooms that were live before this worker started (crash recovery /
+  // rolling deploy). Ownership lock dedupes against still-running siblings.
+  void reconcileOrphanRooms({
+    manager,
+    listLiveRoomNames: async () => {
+      try {
+        const rooms = await inspectRooms({
+          host: config.livekitHost,
+          apiKey: config.livekitApiKey,
+          apiSecret: config.livekitApiSecret,
+        });
+        return rooms.map((r) => r.roomName);
+      } catch (err) {
+        console.error("[room-ai-worker] orphan reconcile inspectRooms failed", err);
+        return [];
+      }
     },
   });
 }

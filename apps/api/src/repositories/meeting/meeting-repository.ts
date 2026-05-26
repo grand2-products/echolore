@@ -158,6 +158,27 @@ export async function updateMeeting(
   );
 }
 
+/**
+ * Atomic compare-and-swap end: mark the meeting `ended` only if it isn't
+ * already. Used by the room_finished webhook fast path so duplicate webhook
+ * deliveries (LiveKit can fan out to multiple subscribers, and clients may
+ * retry on 5xx) don't overwrite `endedAt` or re-fire side effects.
+ *
+ * Returns the updated row when the CAS won the race, `null` when the meeting
+ * was already ended or doesn't exist.
+ */
+export async function endMeetingIfNotEnded(id: string, endedAt: Date): Promise<Meeting | null> {
+  return firstOrNull(
+    await db
+      .updateTable("meetings")
+      .set({ status: "ended", endedAt })
+      .where("id", "=", id)
+      .where("status", "!=", "ended")
+      .returningAll()
+      .execute()
+  );
+}
+
 export async function deleteMeeting(id: string): Promise<Meeting | null> {
   return firstOrNull(await db.deleteFrom("meetings").where("id", "=", id).returningAll().execute());
 }

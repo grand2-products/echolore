@@ -15,9 +15,11 @@
   "dependencies": {
     "@google-cloud/speech": "^7.3.0",
     "@livekit/rtc-node": "^0.13.28",
+    "ioredis": "^5.10.0",
     "livekit-server-sdk": "^2.9.7"
   },
   "devDependencies": {
+    "@types/ioredis": "^5.0.0",
     "@types/node": "^22.13.4",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",

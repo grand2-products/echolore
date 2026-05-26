@@ -10,10 +10,22 @@ COPY tsconfig.json ./
 
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
+# @livekit/rtc-node ships its native binary via per-platform optional deps
+# (@livekit/rtc-ffi-bindings-*) that may need their install scripts to drop the
+# `.node` binary into place. The repo-wide install runs `--ignore-scripts` to
+# avoid running lefthook / husky hooks for monorepo packages, so we rebuild the
+# realtime worker's native deps here. `pnpm rebuild` only runs install scripts
+# for the targeted package tree — monorepo prepare hooks are not touched.
+RUN pnpm rebuild @livekit/rtc-node || true
+
 COPY apps/worker ./apps/worker
 
 RUN pnpm --filter @echolore/worker build
 RUN pnpm deploy --filter @echolore/worker --prod --ignore-scripts /prod/worker
+
+# pnpm deploy copies only declared dependencies — re-run rebuild against the
+# deployed worker tree so the runner image carries the extracted native binary.
+RUN pnpm --dir /prod/worker rebuild @livekit/rtc-node || true
 
 FROM node:22-alpine AS runner
 

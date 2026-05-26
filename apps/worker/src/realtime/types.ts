@@ -46,12 +46,23 @@ export interface RoomAudioSource {
   connect(): Promise<void>;
   onAudioChunk(handler: (chunk: AudioChunk) => void): void;
   onParticipantLeft(handler: (participantIdentity: string) => void): void;
+  /**
+   * Notified when the underlying connection to LiveKit is lost (token expiry,
+   * network drop, or server-side disconnect). The manager stops the session
+   * and may re-attach. Optional: not every source implementation reports it.
+   */
+  onDisconnected?(handler: (reason: string) => void): void;
   disconnect(): Promise<void>;
 }
 
 export type RoomAudioSourceFactory = (input: {
   roomName: string;
   meetingId: string;
+  /**
+   * Forwarded by the manager. The source calls this when LiveKit reports the
+   * connection is lost so the manager can react (stop + optional re-attach).
+   */
+  onDisconnected?: (reason: string) => void;
 }) => RoomAudioSource;
 
 /** Persists a transcript segment (implementation: internal room-ai API). */
