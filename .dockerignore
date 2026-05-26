@@ -9,3 +9,15 @@ node_modules
 **/coverage
 *.log
 pnpm-debug.log*
+
+# Local env files must never leak into a build. Next.js auto-loads
+# apps/web/.env.local at `next build` time, which previously baked dev ports
+# (e.g. :17721) into the image. Compose passes runtime env via --env-file, so
+# build contexts never need these.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+!.env.dogfood.example
