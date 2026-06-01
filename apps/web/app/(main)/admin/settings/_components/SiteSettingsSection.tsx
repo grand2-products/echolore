@@ -24,6 +24,7 @@ interface SiteSettingsSectionProps {
     cwMcuHeight: number;
     cwMcuFps: number;
     cwFocusIdentity: string;
+    pngAutoCompress: boolean;
   }) => void;
 }
 
@@ -55,6 +56,7 @@ export function SiteSettingsSection({
         cwMcuHeight: data.livekitCoworkingMcuHeight ?? 720,
         cwMcuFps: data.livekitCoworkingMcuFps ?? 15,
         cwFocusIdentity: data.livekitCoworkingFocusIdentity ?? "",
+        pngAutoCompress: data.pngAutoCompress ?? false,
       });
     },
     save: async () => {

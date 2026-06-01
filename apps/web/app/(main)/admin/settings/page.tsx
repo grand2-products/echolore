@@ -7,6 +7,7 @@ import { BackupSettingsSection } from "./_components/BackupSettingsSection";
 import { CoworkingVideoSection } from "./_components/CoworkingVideoSection";
 import { EmailSettingsSection } from "./_components/EmailSettingsSection";
 import { GithubSettingsSection } from "./_components/GithubSettingsSection";
+import { ImageSettingsSection } from "./_components/ImageSettingsSection";
 import { MeetingVideoSection } from "./_components/MeetingVideoSection";
 import { SiteIconSection } from "./_components/SiteIconSection";
 import { SiteSettingsSection } from "./_components/SiteSettingsSection";
@@ -27,6 +28,7 @@ interface SiteLoadedData {
   cwMcuHeight: number;
   cwMcuFps: number;
   cwFocusIdentity: string;
+  pngAutoCompress: boolean;
 }
 
 export default function AdminSettingsPage() {
@@ -69,13 +71,14 @@ export default function AdminSettingsPage() {
             initialFocusIdentity={siteData.cwFocusIdentity}
           />
           <StorageSettingsSection onTestModal={setTestModal} />
+          <ImageSettingsSection initialPngAutoCompress={siteData.pngAutoCompress} />
           <TtsSettingsSection onTestModal={setTestModal} />
           <BackupSettingsSection onTestModal={setTestModal} />
           <GithubSettingsSection />
         </>
       ) : (
         <div className="space-y-6">
-          {["s0", "s1", "s2", "s3", "s4", "s5"].map((key) => (
+          {["s0", "s1", "s2", "s3", "s4", "s5", "s6"].map((key) => (
             <div key={key} className="rounded-xl border border-gray-200 bg-white p-6">
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center text-gray-500">
                 {t("admin.settings.loading")}
