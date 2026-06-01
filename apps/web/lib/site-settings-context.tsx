@@ -29,6 +29,7 @@ const defaultSettings: SiteSettings = {
   hasSiteIcon: false,
   googleOAuthEnabled: false,
   llmEnabled: false,
+  pngAutoCompress: false,
 };
 
 interface SiteSettingsContextValue {
@@ -59,6 +60,7 @@ function applyDefaults(data: SiteSettings): SiteSettings {
     hasSiteIcon: data.hasSiteIcon ?? false,
     googleOAuthEnabled: data.googleOAuthEnabled ?? false,
     llmEnabled: data.llmEnabled ?? false,
+    pngAutoCompress: data.pngAutoCompress ?? false,
   };
 }
 

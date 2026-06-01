@@ -4,6 +4,7 @@ import { jsonError, withErrorHandler } from "../lib/api-error.js";
 import { auditAction } from "../lib/audit.js";
 import type { AppEnv } from "../lib/auth.js";
 import { buildStoragePath, loadFile, removeFile, saveFile } from "../lib/file-storage.js";
+import { compressPngToWebp } from "../lib/image-compress.js";
 import { parsePaginationParams } from "../lib/pagination.js";
 import { authorizeOwnerResource } from "../policies/authorization-policy.js";
 import {
@@ -15,6 +16,7 @@ import {
   listFiles,
   listFilesByUploader,
 } from "../repositories/file/file-repository.js";
+import { getImageSettings } from "../services/admin/image-settings-service.js";
 
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 
@@ -99,25 +101,48 @@ filesRoutes.post(
     }
 
     const fileId = crypto.randomUUID();
-    // Sanitize original filename: strip path separators and control characters
+
+    const arrayBuffer = await uploadedFile.arrayBuffer();
+    let buffer: Buffer = Buffer.from(arrayBuffer);
+    let finalContentType = uploadedFile.type;
+    let finalFilename = uploadedFile.name;
+    let finalSize = uploadedFile.size;
+    let compressed = false;
+
+    if (uploadedFile.type === "image/png") {
+      // Cached 60s — avoids a DB round-trip per upload.
+      const { pngAutoCompress } = await getImageSettings();
+      if (pngAutoCompress) {
+        try {
+          const result = await compressPngToWebp(buffer, uploadedFile.name);
+          if (result) {
+            buffer = result.buffer;
+            finalContentType = result.contentType;
+            finalFilename = result.filename;
+            finalSize = result.buffer.length;
+            compressed = true;
+          }
+        } catch (err) {
+          console.error("[files] PNG→WebP compression failed, storing original:", err);
+        }
+      }
+    }
+
     const safeName =
-      uploadedFile.name
+      finalFilename
         .replace(/[/\\]/g, "_")
         .replace(/[^\x20-\x7e\x80-\uffff]/g, "")
         .replace(/\.{2,}/g, ".") || "file";
     const filename = `${fileId}-${safeName}`;
     const storagePath = buildStoragePath(`uploads/${filename}`);
 
-    const arrayBuffer = await uploadedFile.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
     await saveFile(storagePath, buffer);
 
     const newFile = await createFile({
       id: fileId,
-      filename: uploadedFile.name,
-      contentType: uploadedFile.type,
-      size: uploadedFile.size,
+      filename: finalFilename,
+      contentType: finalContentType,
+      size: finalSize,
       storagePath,
       uploaderId: user.id,
       createdAt: new Date(),
@@ -157,6 +182,12 @@ filesRoutes.post(
       filename: uploadedFile.name,
       size: uploadedFile.size,
       contentType: uploadedFile.type,
+      ...(compressed && {
+        storedFilename: finalFilename,
+        storedSize: finalSize,
+        storedContentType: finalContentType,
+        compression: "png-to-webp",
+      }),
     });
 
     return c.json({ file: newFile }, 201);

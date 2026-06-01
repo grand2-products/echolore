@@ -1,4 +1,5 @@
 import { getSiteSetting, upsertSiteSetting } from "../../repositories/admin/admin-repository.js";
+import { getImageSettings, updateImageSettings } from "./image-settings-service.js";
 
 // Re-export repository functions for route layer access
 export {
@@ -25,6 +26,7 @@ export async function getSiteSettings() {
     siteIconPath,
     googleClientId,
     googleClientSecret,
+    imageSettings,
   ] = await Promise.all([
     getSiteSetting("siteTitle"),
     getSiteSetting("siteTagline"),
@@ -42,6 +44,7 @@ export async function getSiteSettings() {
     getSiteSetting("siteIconStoragePath"),
     getSiteSetting("authGoogleClientId"),
     getSiteSetting("authGoogleClientSecret"),
+    getImageSettings(),
   ]);
   return {
     siteTitle: title?.value ?? null,
@@ -59,6 +62,7 @@ export async function getSiteSettings() {
     livekitCoworkingFocusIdentity: coworkingFocusIdentity?.value ?? null,
     hasSiteIcon: Boolean(siteIconPath?.value),
     googleOAuthEnabled: Boolean(googleClientId?.value && googleClientSecret?.value),
+    pngAutoCompress: imageSettings.pngAutoCompress,
   };
 }
 
@@ -76,6 +80,7 @@ export async function updateSiteSettings(input: {
   livekitCoworkingMcuHeight?: number;
   livekitCoworkingMcuFps?: number;
   livekitCoworkingFocusIdentity?: string | null;
+  pngAutoCompress?: boolean;
 }) {
   const results: Record<string, string | boolean | number> = {};
   if (input.siteTitle !== undefined) {
@@ -121,6 +126,11 @@ export async function updateSiteSettings(input: {
     const value = input.livekitCoworkingFocusIdentity ?? "";
     await upsertSiteSetting("livekitCoworkingFocusIdentity", value);
     results.livekitCoworkingFocusIdentity = value;
+  }
+  if (input.pngAutoCompress !== undefined) {
+    // Routes through the typed cache so the 60s cache is invalidated.
+    await updateImageSettings({ pngAutoCompress: input.pngAutoCompress });
+    results.pngAutoCompress = input.pngAutoCompress;
   }
   return results;
 }

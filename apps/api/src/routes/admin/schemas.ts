@@ -69,6 +69,7 @@ export const updateSiteSettingsSchema = z.object({
   livekitCoworkingMcuHeight: z.number().int().min(240).max(1080).optional(),
   livekitCoworkingMcuFps: z.number().int().min(1).max(30).optional(),
   livekitCoworkingFocusIdentity: z.string().max(200).nullable().optional(),
+  pngAutoCompress: z.boolean().optional(),
 });
 
 export const replaceSpacePermissionsSchema = z.object({
