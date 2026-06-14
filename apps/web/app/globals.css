@@ -48,6 +48,13 @@ body {
 
 .block-editor .bn-editor {
   font-family: var(--font-noto-sans-jp), system-ui, sans-serif;
+  padding-inline: 12px;
+}
+
+@media (min-width: 768px) {
+  .block-editor .bn-editor {
+    padding-inline: 54px;
+  }
 }
 
 .block-editor .bn-block-group > .bn-block-outer:first-child {

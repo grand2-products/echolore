@@ -41,7 +41,7 @@ export default function HelpLayout({ children }: HelpLayoutProps) {
           })}
         </nav>
       </aside>
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
         <div className="mx-auto max-w-3xl">{children}</div>
       </div>
     </div>

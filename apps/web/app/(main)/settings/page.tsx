@@ -182,7 +182,7 @@ export default function SettingsPage() {
         : "settings.sessionDescription";
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-3xl">
         <h1 className="mb-2 text-3xl font-bold text-gray-900">{t("settings.title")}</h1>
         <p className="mb-8 text-gray-600">{t("settings.description")}</p>

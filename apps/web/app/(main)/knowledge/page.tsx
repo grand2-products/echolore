@@ -97,7 +97,7 @@ export default function KnowledgeSuggestionsPage() {
 
   if (forbidden) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-6 md:p-8">
         <div className="mx-auto max-w-4xl rounded-xl border border-red-200 bg-red-50 p-8 text-center text-red-700">
           {t("admin.knowledge.forbidden")}
         </div>
@@ -107,7 +107,7 @@ export default function KnowledgeSuggestionsPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-6 md:p-8">
         <div className="mx-auto max-w-4xl rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-500">
           {t("admin.knowledge.loading")}
         </div>
@@ -116,7 +116,7 @@ export default function KnowledgeSuggestionsPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-4xl space-y-4">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">{t("admin.knowledge.pageTitle")}</h1>

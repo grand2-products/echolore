@@ -85,7 +85,7 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-3xl">
         <h1 className="mb-6 text-3xl font-bold text-gray-900">{t("search.title")}</h1>
         <form onSubmit={handleSearch} className="mb-8">

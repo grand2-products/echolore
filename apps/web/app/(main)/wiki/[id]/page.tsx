@@ -219,7 +219,7 @@ export default function WikiDetailPage() {
     <>
       <div className="flex flex-1 overflow-hidden">
         <div ref={scrollContainerRef} className="flex-1 overflow-auto">
-          <div className="mx-auto max-w-4xl p-8">
+          <div className="mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-gray-500">
                 {t("wiki.detail.updatedAt", { value: dateTime(currentPage.updatedAt) })}

@@ -38,7 +38,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-7xl">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">{t("admin.title")}</h1>

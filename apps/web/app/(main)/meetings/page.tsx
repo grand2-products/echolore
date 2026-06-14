@@ -129,7 +129,7 @@ export default function MeetingsPage() {
   };
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 flex items-center justify-between">
           <div>

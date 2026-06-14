@@ -198,6 +198,15 @@ function CollabEditor({
   const pageIdRef = useRef(pageId);
   pageIdRef.current = pageId;
 
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mql.matches);
+    update();
+    mql.addEventListener("change", update);
+    return () => mql.removeEventListener("change", update);
+  }, []);
+
   const uploadFile = useCallback(async (file: File) => {
     const res = await filesApi.upload(file);
     return getWikiFileDownloadUrl(pageIdRef.current, res.file.id);
@@ -294,6 +303,7 @@ function CollabEditor({
         editor={editor}
         editable={!readOnly}
         theme="light"
+        sideMenu={!isMobile}
         onKeyDownCapture={handleKeyDown}
       />
       {!readOnly && settings.llmEnabled && (

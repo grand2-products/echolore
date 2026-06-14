@@ -58,7 +58,7 @@ export default function HomePage() {
     .slice(0, 5);
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-4xl">
         <h1 className="mb-4 text-3xl font-bold text-gray-900">{siteTitle}</h1>
         <p className="text-gray-600">{siteTagline}</p>

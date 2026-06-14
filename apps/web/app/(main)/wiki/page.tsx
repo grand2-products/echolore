@@ -91,7 +91,7 @@ export default function WikiListPage() {
     : pages;
 
   return (
-    <div className="flex-1 overflow-auto p-8">
+    <div className="flex-1 overflow-auto p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-4xl">
         <h1 className="mb-4 text-3xl font-bold text-gray-900">{t("wiki.list.title")}</h1>
         <p className="mb-8 text-gray-600">{t("wiki.list.description")}</p>
