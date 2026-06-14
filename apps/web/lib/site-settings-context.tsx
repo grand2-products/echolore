@@ -30,6 +30,7 @@ const defaultSettings: SiteSettings = {
   googleOAuthEnabled: false,
   llmEnabled: false,
   pngAutoCompress: false,
+  pngCompressThresholdKb: 1024,
 };
 
 interface SiteSettingsContextValue {
@@ -61,6 +62,7 @@ function applyDefaults(data: SiteSettings): SiteSettings {
     googleOAuthEnabled: data.googleOAuthEnabled ?? false,
     llmEnabled: data.llmEnabled ?? false,
     pngAutoCompress: data.pngAutoCompress ?? false,
+    pngCompressThresholdKb: data.pngCompressThresholdKb ?? 1024,
   };
 }
 

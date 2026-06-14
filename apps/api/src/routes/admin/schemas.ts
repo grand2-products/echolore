@@ -70,6 +70,8 @@ export const updateSiteSettingsSchema = z.object({
   livekitCoworkingMcuFps: z.number().int().min(1).max(30).optional(),
   livekitCoworkingFocusIdentity: z.string().max(200).nullable().optional(),
   pngAutoCompress: z.boolean().optional(),
+  // 0–51200 KB (= up to the 50 MB max upload). 0 means "compress every PNG".
+  pngCompressThresholdKb: z.number().int().min(0).max(51200).optional(),
 });
 
 export const replaceSpacePermissionsSchema = z.object({

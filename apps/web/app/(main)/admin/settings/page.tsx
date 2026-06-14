@@ -29,6 +29,7 @@ interface SiteLoadedData {
   cwMcuFps: number;
   cwFocusIdentity: string;
   pngAutoCompress: boolean;
+  pngCompressThresholdKb: number;
 }
 
 export default function AdminSettingsPage() {
@@ -71,7 +72,10 @@ export default function AdminSettingsPage() {
             initialFocusIdentity={siteData.cwFocusIdentity}
           />
           <StorageSettingsSection onTestModal={setTestModal} />
-          <ImageSettingsSection initialPngAutoCompress={siteData.pngAutoCompress} />
+          <ImageSettingsSection
+            initialPngAutoCompress={siteData.pngAutoCompress}
+            initialThresholdKb={siteData.pngCompressThresholdKb}
+          />
           <TtsSettingsSection onTestModal={setTestModal} />
           <BackupSettingsSection onTestModal={setTestModal} />
           <GithubSettingsSection />

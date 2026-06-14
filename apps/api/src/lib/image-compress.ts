@@ -4,8 +4,9 @@ import sharp from "sharp";
 const WEBP_QUALITY = 90;
 
 /**
- * Below this size, re-encoding is unlikely to repay the CPU cost, so we
- * pass the original through unchanged.
+ * Default threshold below which re-encoding is unlikely to repay the CPU cost,
+ * so we pass the original through unchanged. The caller (`routes/files.ts`)
+ * overrides this with the admin-configurable per-site value.
  */
 const PNG_COMPRESS_THRESHOLD_BYTES = 1 * 1024 * 1024;
 
@@ -42,7 +43,7 @@ function hasPngMagic(buffer: Buffer): boolean {
  * Convert a PNG buffer to WebP if doing so would shrink it.
  *
  * Returns `null` (= caller stores original) when any of:
- *  - buffer is below {@link PNG_COMPRESS_THRESHOLD_BYTES}
+ *  - buffer is below `thresholdBytes` (defaults to {@link PNG_COMPRESS_THRESHOLD_BYTES})
  *  - buffer is not actually a PNG (header sniff)
  *  - the WebP output is not smaller than the input (avoid silent inflation)
  *
@@ -53,9 +54,10 @@ function hasPngMagic(buffer: Buffer): boolean {
  */
 export async function compressPngToWebp(
   buffer: Buffer,
-  originalFilename: string
+  originalFilename: string,
+  thresholdBytes: number = PNG_COMPRESS_THRESHOLD_BYTES
 ): Promise<CompressResult | null> {
-  if (buffer.length < PNG_COMPRESS_THRESHOLD_BYTES) return null;
+  if (buffer.length < thresholdBytes) return null;
   if (!hasPngMagic(buffer)) return null;
 
   // Animated PNGs (APNG) collapse to a still on WebP-lossy here. Detect and

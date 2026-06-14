@@ -105,7 +105,10 @@ describe("POST /files/upload — PNG→WebP safety", () => {
   });
 
   it("never invokes the compressor when the toggle is OFF, regardless of MIME", async () => {
-    getImageSettingsMock.mockResolvedValue({ pngAutoCompress: false });
+    getImageSettingsMock.mockResolvedValue({
+      pngAutoCompress: false,
+      pngCompressThresholdKb: 1024,
+    });
 
     const buf = pngLikeBuffer(2 * 1024 * 1024);
     const res = await uploadFile(makeFile(buf, "shot.png", "image/png"));
@@ -126,7 +129,7 @@ describe("POST /files/upload — PNG→WebP safety", () => {
   });
 
   it("never invokes the compressor when MIME is not image/png", async () => {
-    getImageSettingsMock.mockResolvedValue({ pngAutoCompress: true });
+    getImageSettingsMock.mockResolvedValue({ pngAutoCompress: true, pngCompressThresholdKb: 1024 });
 
     const buf = Buffer.alloc(2 * 1024 * 1024);
     const res = await uploadFile(makeFile(buf, "doc.pdf", "application/pdf"));
@@ -140,7 +143,7 @@ describe("POST /files/upload — PNG→WebP safety", () => {
   });
 
   it("stores the original when the compressor returns null (e.g. would inflate)", async () => {
-    getImageSettingsMock.mockResolvedValue({ pngAutoCompress: true });
+    getImageSettingsMock.mockResolvedValue({ pngAutoCompress: true, pngCompressThresholdKb: 1024 });
     compressPngToWebpMock.mockResolvedValue(null);
 
     const buf = pngLikeBuffer(2 * 1024 * 1024);
@@ -164,8 +167,19 @@ describe("POST /files/upload — PNG→WebP safety", () => {
     expect(auditMeta).not.toHaveProperty("compression");
   });
 
+  it("passes the admin-configured threshold to the compressor, converted to bytes", async () => {
+    getImageSettingsMock.mockResolvedValue({ pngAutoCompress: true, pngCompressThresholdKb: 500 });
+    compressPngToWebpMock.mockResolvedValue(null);
+
+    const buf = pngLikeBuffer(2 * 1024 * 1024);
+    const res = await uploadFile(makeFile(buf, "shot.png", "image/png"));
+
+    expect(res.status).toBe(201);
+    expect(compressPngToWebpMock).toHaveBeenCalledWith(expect.anything(), "shot.png", 500 * 1024);
+  });
+
   it("stores the original when the compressor throws (does not 5xx the upload)", async () => {
-    getImageSettingsMock.mockResolvedValue({ pngAutoCompress: true });
+    getImageSettingsMock.mockResolvedValue({ pngAutoCompress: true, pngCompressThresholdKb: 1024 });
     compressPngToWebpMock.mockRejectedValue(new Error("sharp decode failed"));
 
     // Silence the console.error from the route's catch — it's expected here.
@@ -187,7 +201,7 @@ describe("POST /files/upload — PNG→WebP safety", () => {
   });
 
   it("records both original and stored representations in audit on successful compression", async () => {
-    getImageSettingsMock.mockResolvedValue({ pngAutoCompress: true });
+    getImageSettingsMock.mockResolvedValue({ pngAutoCompress: true, pngCompressThresholdKb: 1024 });
     const webpBuffer = Buffer.alloc(200_000); // smaller than the original
     compressPngToWebpMock.mockResolvedValue({
       buffer: webpBuffer,

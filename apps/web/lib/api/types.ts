@@ -225,6 +225,7 @@ export interface SiteSettings {
   googleOAuthEnabled: boolean;
   llmEnabled: boolean;
   pngAutoCompress: boolean;
+  pngCompressThresholdKb: number;
 }
 
 export interface UpdateSiteSettingsRequest {
@@ -242,6 +243,7 @@ export interface UpdateSiteSettingsRequest {
   livekitCoworkingMcuFps?: number;
   livekitCoworkingFocusIdentity?: string | null;
   pngAutoCompress?: boolean;
+  pngCompressThresholdKb?: number;
 }
 
 export type EmailProvider = "none" | "resend" | "smtp";

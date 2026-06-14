@@ -45,6 +45,25 @@ describe("compressPngToWebp — size threshold", () => {
     const result = await compressPngToWebp(small, "small.png");
     expect(result).toBeNull();
   });
+
+  it("honours a custom threshold below the default — compresses a sub-1 MB PNG", async () => {
+    // A solid-colour PNG (compresses tiny) padded to ~500 KB with appended
+    // zero bytes — those sit after IEND so sharp still decodes the image, but
+    // they let us land the byte size between a small custom threshold and the
+    // 1 MB default deterministically.
+    const flat = await makeSolidPng(2000, 2000);
+    const padded = Buffer.concat([flat, Buffer.alloc(500 * 1024)]);
+    expect(padded.length).toBeLessThan(THRESHOLD);
+
+    // With the default threshold it would pass through untouched...
+    expect(await compressPngToWebp(padded, "flat.png")).toBeNull();
+
+    // ...but lowering the threshold below its size opts it in.
+    const result = await compressPngToWebp(padded, "flat.png", 10 * 1024);
+    expect(result).not.toBeNull();
+    expect(result?.filename).toBe("flat.webp");
+    expect(result?.buffer.length).toBeLessThan(padded.length);
+  });
 });
 
 describe("compressPngToWebp — content sniffing (header guard)", () => {

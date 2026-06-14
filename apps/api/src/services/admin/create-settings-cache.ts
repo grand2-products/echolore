@@ -73,6 +73,16 @@ export const FieldCodecs = {
       write: (val: S | undefined): string | undefined => val,
     };
   },
+
+  /** A number with a default fallback when the DB value is absent or non-numeric. */
+  numberWithDefault(defaultValue: number): FieldCodec<number> {
+    return {
+      read: (raw: string | null): number =>
+        raw && Number.isFinite(Number(raw)) ? Number(raw) : defaultValue,
+      write: (val: number | undefined): string | undefined =>
+        val != null ? String(val) : undefined,
+    };
+  },
 };
 
 /** A single field mapping: DB key -> settings key + codec. */

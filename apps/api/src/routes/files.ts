@@ -111,10 +111,14 @@ filesRoutes.post(
 
     if (uploadedFile.type === "image/png") {
       // Cached 60s — avoids a DB round-trip per upload.
-      const { pngAutoCompress } = await getImageSettings();
+      const { pngAutoCompress, pngCompressThresholdKb } = await getImageSettings();
       if (pngAutoCompress) {
         try {
-          const result = await compressPngToWebp(buffer, uploadedFile.name);
+          const result = await compressPngToWebp(
+            buffer,
+            uploadedFile.name,
+            pngCompressThresholdKb * 1024
+          );
           if (result) {
             buffer = result.buffer;
             finalContentType = result.contentType;

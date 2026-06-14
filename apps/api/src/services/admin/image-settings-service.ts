@@ -1,5 +1,8 @@
 import { createTypedSettingsService, FieldCodecs, field } from "./create-settings-cache.js";
 
+/** Default minimum PNG size (KB) above which WebP re-encoding is attempted. */
+export const DEFAULT_PNG_COMPRESS_THRESHOLD_KB = 1024;
+
 /**
  * Image-handling settings.
  *
@@ -8,12 +11,21 @@ import { createTypedSettingsService, FieldCodecs, field } from "./create-setting
  * round-trip per request to read the PNG auto-compression toggle.
  */
 export interface ImageSettings {
-  /** Whether PNG uploads ≥1 MB should be re-encoded to WebP on the API side. */
+  /** Whether PNG uploads at/above the threshold should be re-encoded to WebP. */
   pngAutoCompress: boolean;
+  /**
+   * Minimum PNG size in KB to attempt WebP re-encoding. Uploads smaller than
+   * this are passed through unchanged (re-encoding unlikely to repay the CPU).
+   */
+  pngCompressThresholdKb: number;
 }
 
 const cache = createTypedSettingsService({
   pngAutoCompress: field("imagePngAutoCompress", FieldCodecs.boolFalse),
+  pngCompressThresholdKb: field(
+    "imagePngCompressThresholdKb",
+    FieldCodecs.numberWithDefault(DEFAULT_PNG_COMPRESS_THRESHOLD_KB)
+  ),
 });
 
 export const getImageSettings = cache.get;

@@ -63,6 +63,7 @@ export async function getSiteSettings() {
     hasSiteIcon: Boolean(siteIconPath?.value),
     googleOAuthEnabled: Boolean(googleClientId?.value && googleClientSecret?.value),
     pngAutoCompress: imageSettings.pngAutoCompress,
+    pngCompressThresholdKb: imageSettings.pngCompressThresholdKb,
   };
 }
 
@@ -81,6 +82,7 @@ export async function updateSiteSettings(input: {
   livekitCoworkingMcuFps?: number;
   livekitCoworkingFocusIdentity?: string | null;
   pngAutoCompress?: boolean;
+  pngCompressThresholdKb?: number;
 }) {
   const results: Record<string, string | boolean | number> = {};
   if (input.siteTitle !== undefined) {
@@ -131,6 +133,11 @@ export async function updateSiteSettings(input: {
     // Routes through the typed cache so the 60s cache is invalidated.
     await updateImageSettings({ pngAutoCompress: input.pngAutoCompress });
     results.pngAutoCompress = input.pngAutoCompress;
+  }
+  if (input.pngCompressThresholdKb !== undefined) {
+    // Routes through the typed cache so the 60s cache is invalidated.
+    await updateImageSettings({ pngCompressThresholdKb: input.pngCompressThresholdKb });
+    results.pngCompressThresholdKb = input.pngCompressThresholdKb;
   }
   return results;
 }
