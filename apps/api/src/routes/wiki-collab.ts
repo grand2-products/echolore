@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import type { AppEnv } from "../lib/auth.js";
 import { resolveAuthjsSession } from "../lib/auth.js";
-import { evaluatePageWriteAccess } from "../policies/authorization-policy.js";
+import { canReadPage, evaluatePageWriteAccess } from "../policies/authorization-policy.js";
 import { getUserById } from "../repositories/user/user-repository.js";
 import { getPageById } from "../services/wiki/wiki-service.js";
 import {
@@ -43,7 +43,9 @@ export function createWikiCollabRoutes(upgradeWebSocket: UpgradeWebSocket) {
           };
         }
 
-        // Check page exists and user has write access
+        // Check page exists and user has read access (viewing the document
+        // requires only read; write is enforced per-connection so read-only
+        // viewers can sync the doc without mutating it).
         const page = await getPageById(pageId);
         if (!page) {
           console.warn(`[wiki-collab] Page not found: ${pageId}`);
@@ -54,8 +56,8 @@ export function createWikiCollabRoutes(upgradeWebSocket: UpgradeWebSocket) {
           };
         }
 
-        const authResult = await evaluatePageWriteAccess(user, pageId, page.authorId);
-        if (!authResult.allowed) {
+        const canRead = await canReadPage(user, pageId, page.authorId);
+        if (!canRead) {
           console.warn(`[wiki-collab] Access denied for user ${user.id} on page ${pageId}`);
           return {
             onOpen(_evt: unknown, ws: { close(code: number, reason: string): void }) {
@@ -64,11 +66,18 @@ export function createWikiCollabRoutes(upgradeWebSocket: UpgradeWebSocket) {
           };
         }
 
-        console.log(`[wiki-collab] Connection authorized: user=${user.id} page=${pageId}`);
+        // Read-only viewers connect without write permission; their update
+        // messages are rejected in the collab service to prevent mutation.
+        const writeResult = await evaluatePageWriteAccess(user, pageId, page.authorId);
+        const readOnly = !writeResult.allowed;
+
+        console.log(
+          `[wiki-collab] Connection authorized: user=${user.id} page=${pageId} readOnly=${readOnly}`
+        );
 
         return {
           onOpen(_evt, ws) {
-            addConnection(pageId, ws, user).catch((err) => {
+            addConnection(pageId, ws, user, readOnly).catch((err) => {
               console.error(`[wiki-collab] addConnection failed for page ${pageId}:`, err);
             });
           },

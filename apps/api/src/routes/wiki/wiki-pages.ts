@@ -3,7 +3,10 @@ import { Hono } from "hono";
 import { jsonError, tryCatchResponse, withErrorHandler } from "../../lib/api-error.js";
 import { auditAction, extractRequestMeta, writeAuditLog } from "../../lib/audit.js";
 import type { AppEnv } from "../../lib/auth.js";
-import { authorizePageResource } from "../../policies/authorization-policy.js";
+import {
+  authorizePageResource,
+  evaluatePageWriteAccess,
+} from "../../policies/authorization-policy.js";
 import {
   deletePageEmbeddings,
   indexPageBackground,
@@ -96,7 +99,13 @@ wikiPageRoutes.get(
 
     await auditAction(c, "wiki.page.view", "wiki-page", id, { blockCount: pageBlocks.length });
 
-    return c.json({ page, blocks: pageBlocks });
+    // canWrite is informational (drives read-only editor rendering). It must
+    // NOT be logged as an authz decision — read-only viewers legitimately
+    // reading a page would otherwise emit "authz.denied" on every view and
+    // pollute the security metric (authzDeniedTotal / alerts).
+    const writeResult = await evaluatePageWriteAccess(c.get("user"), id, page.authorId);
+
+    return c.json({ page, blocks: pageBlocks, canWrite: writeResult.allowed });
   }
 );
 

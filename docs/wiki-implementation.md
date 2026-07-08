@@ -62,6 +62,8 @@ This document describes the currently implemented Wiki behavior.
 ### Security and Permissions
 - page read permission enforced in list/search/detail
 - page write/delete permission enforced in mutations
+- real-time collaboration WebSocket (`/api/ws/wiki/collab/:pageId`) admits any user with page read access; viewers without write access connect as read-only and their sync step 2 / update messages are dropped server-side so they cannot mutate the document
+- `GET /api/wiki/:id` reports `canWrite` so the web editor renders non-editable for read-only viewers
 - wiki attachment download is authorized through page read permission and only for files referenced by that page's blocks
 - newly created root pages map the creator's current groups into initial page permissions
 - newly created child pages get explicit parent inheritance defaults

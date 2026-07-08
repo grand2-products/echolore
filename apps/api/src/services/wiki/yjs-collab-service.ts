@@ -27,6 +27,13 @@ interface ConnInfo {
   controlledIds: Set<number>;
   /** Whether this connection produced any doc updates during its lifetime. */
   didEdit: boolean;
+  /**
+   * True when the connected user has read access but not write access.
+   * Read-only connections receive the doc (sync step 1 response) and
+   * awareness, but their sync step 2 / update messages are rejected so they
+   * cannot mutate the document.
+   */
+  readOnly: boolean;
 }
 
 interface DocEntry {
@@ -213,10 +220,11 @@ async function persistDoc(pageId: string, retries = PERSIST_MAX_RETRIES): Promis
 export async function addConnection(
   pageId: string,
   ws: WSContext,
-  user: SessionUser
+  user: SessionUser,
+  readOnly: boolean
 ): Promise<void> {
   const entry = await getOrCreateDoc(pageId);
-  entry.conns.set(ws, { ws, user, controlledIds: new Set(), didEdit: false });
+  entry.conns.set(ws, { ws, user, controlledIds: new Set(), didEdit: false, readOnly });
 
   // Start ping timer when first client connects
   if (!entry.pingTimer) {
@@ -264,6 +272,17 @@ export function handleMessage(pageId: string, ws: WSContext, data: ArrayBuffer |
 
     switch (msgType) {
       case MSG_SYNC: {
+        const conn = entry.conns.get(ws);
+        // Read-only connections may only request the server document (sync
+        // step 1), which replies with the server's state vector and lets them
+        // receive the doc. Sync step 2 and update messages would mutate the
+        // doc, so they are dropped for read-only viewers.
+        if (conn?.readOnly) {
+          const syncType = decoding.peekVarUint(decoder);
+          if (syncType !== syncProtocol.messageYjsSyncStep1) {
+            break;
+          }
+        }
         const encoder = encoding.createEncoder();
         encoding.writeVarUint(encoder, MSG_SYNC);
         // Pass `ws` as transactionOrigin so doc.on('update') can exclude sender
