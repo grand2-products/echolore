@@ -265,6 +265,7 @@ export default function WikiDetailPage() {
               pageTitle={resolvedTitle}
               onTitleChange={setPageTitle}
               autoFocusTitle={isNewPage}
+              readOnly={!pageData?.canWrite}
               userName={userName}
               userColor={userColor}
               onEditorReady={setEditorHandle}

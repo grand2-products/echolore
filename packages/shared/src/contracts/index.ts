@@ -209,6 +209,7 @@ export interface ListPagesResponse {
 export interface GetPageResponse {
   page: PageDto;
   blocks: BlockDto[];
+  canWrite: boolean;
 }
 
 export interface CreatePageRequest {
