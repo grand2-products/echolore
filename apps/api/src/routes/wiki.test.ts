@@ -6,6 +6,7 @@ import { wikiRoutes } from "./wiki/index.js";
 
 const {
   authorizePageResourceMock,
+  evaluatePageWriteAccessMock,
   createBlockMock,
   deleteBlockMock,
   deletePageMock,
@@ -27,6 +28,7 @@ const {
   getSpaceByIdMock,
 } = vi.hoisted(() => ({
   authorizePageResourceMock: vi.fn(),
+  evaluatePageWriteAccessMock: vi.fn(),
   createBlockMock: vi.fn(),
   createPageWithAccessDefaultsMock: vi.fn(),
   deleteBlockMock: vi.fn(),
@@ -57,6 +59,7 @@ vi.mock("../lib/file-storage.js", () => ({
 
 vi.mock("../policies/authorization-policy.js", () => ({
   authorizePageResource: authorizePageResourceMock,
+  evaluatePageWriteAccess: evaluatePageWriteAccessMock,
 }));
 
 vi.mock("../services/wiki/wiki-service.js", () => ({
@@ -116,6 +119,7 @@ function createApp(sessionUser: SessionUser) {
 describe("wikiRoutes", () => {
   beforeEach(() => {
     authorizePageResourceMock.mockReset();
+    evaluatePageWriteAccessMock.mockReset();
     createBlockMock.mockReset();
     createPageWithAccessDefaultsMock.mockReset();
     deleteBlockMock.mockReset();
@@ -154,6 +158,7 @@ describe("wikiRoutes", () => {
       updatedAt: new Date("2026-03-11T09:05:00.000Z"),
     });
     authorizePageResourceMock.mockResolvedValue({ allowed: true, reason: "owner" });
+    evaluatePageWriteAccessMock.mockResolvedValue({ allowed: true, reason: "owner" });
     getPageBlocksMock.mockResolvedValue([
       {
         id: "block_1",
@@ -191,6 +196,7 @@ describe("wikiRoutes", () => {
           updatedAt: "2026-03-11T09:01:00.000Z",
         },
       ],
+      canWrite: true,
     });
   });
 
