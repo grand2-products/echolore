@@ -37,7 +37,7 @@
       "handlebars": ">=4.7.9",
       "brace-expansion": ">=2.0.3",
       "yaml": ">=2.8.3",
-      "nodemailer": ">=8.0.4",
+      "nodemailer": ">=9.0.1",
       "@tootallnate/once": ">=3.0.1",
       "axios": ">=1.15.2 <2",
       "protobufjs": ">=7.5.6 <8",
@@ -45,7 +45,13 @@
       "fast-uri": ">=3.1.2 <4",
       "kysely": ">=0.28.17 <0.29",
       "langsmith": ">=0.6.0 <0.8",
-      "fast-xml-builder": ">=1.1.7 <2"
+      "fast-xml-builder": ">=1.1.7 <2",
+      "hono": ">=4.12.25",
+      "@grpc/grpc-js": ">=1.14.4",
+      "ws": ">=8.21.0",
+      "form-data": ">=4.0.6",
+      "vite": ">=8.0.16",
+      "linkify-it": ">=5.0.1"
     }
   },
   "packageManager": "pnpm@9.15.9",
