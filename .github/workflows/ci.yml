@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# PR に続けて push したら、 古い run は止める (main / develop への push は最後まで流す)
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.head_ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   audit:
     name: Security Audit
@@ -24,9 +29,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
+      # pnpm audit は pnpm-lock.yaml だけを読む。 node_modules は要らないので install しない
       - name: Run security audit
         run: pnpm audit --audit-level=high
 
