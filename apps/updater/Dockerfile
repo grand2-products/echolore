@@ -20,7 +20,9 @@ EXPOSE 8787
 # Run as the built-in non-root deno user (uid 1000)
 USER deno
 
+# Use 127.0.0.1: the server binds IPv4 only and "localhost" resolves to ::1
+# first in this image, which left the container permanently unhealthy.
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8787/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:8787/health || exit 1
 
 CMD ["deno", "run", "--allow-net", "--allow-read", "--allow-write", "--allow-run", "--allow-env", "src/main.ts"]
