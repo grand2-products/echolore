@@ -26,6 +26,7 @@ import { internalRoomAiRoutes } from "./routes/internal-room-ai.js";
 import { knowledgeSuggestionsRoutes } from "./routes/knowledge-suggestions.js";
 import { livekitRoutes } from "./routes/livekit.js";
 import { livekitWebhookRoutes } from "./routes/livekit-webhook.js";
+import { marketingRoutes } from "./routes/marketing/index.js";
 import { meetingGuestRoutes } from "./routes/meeting-guest.js";
 import { meetingsRoutes } from "./routes/meetings/index.js";
 import { metricsRoutes } from "./routes/metrics.js";
@@ -37,6 +38,7 @@ import { buildStorageConfig, getStorageSettings } from "./services/admin/admin-s
 import { startDriveSyncScheduler } from "./services/drive/drive-sync-service.js";
 import { startGithubSyncScheduler } from "./services/github/github-sync-service.js";
 import { startKnowledgeScanLoop } from "./services/knowledge/knowledge-scan-service.js";
+import { startMarketingSyncScheduler } from "./services/marketing/marketing-sync-service.js";
 import {
   startAutonomousAgentLoop,
   stopAutonomousAgentLoop,
@@ -190,6 +192,7 @@ app.route("/api/livekit", livekitRoutes);
 app.route("/api/calendar", calendarRoutes);
 app.route("/api/aituber", aituberRoutes);
 app.route("/api/knowledge-suggestions", knowledgeSuggestionsRoutes);
+app.route("/api/marketing", marketingRoutes);
 app.route("/api/admin", adminRoutes);
 app.route("/api/admin/metrics", metricsRoutes);
 
@@ -244,6 +247,9 @@ startDriveSyncScheduler();
 
 // Start periodic GitHub sync scheduler
 startGithubSyncScheduler();
+
+// Start marketing connector scheduler (daily fetch, LP checks, retention)
+startMarketingSyncScheduler();
 
 // Graceful shutdown: persist all Yjs documents before exit
 const SHUTDOWN_TIMEOUT_MS = 30_000;

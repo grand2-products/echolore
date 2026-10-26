@@ -8,6 +8,7 @@
   - Notion-style Wiki
   - Meetings with LiveKit
   - AI agent (LangChain) for meeting transcript summarization and Wiki integration
+  - Marketing operations: asset register, generic media/GA4/LP/CSV connectors, versioned dashboards, change approval, Wiki knowledge governance (`docs/marketing-operations.md`)
 
 ## Monorepo Structure
 - `apps/web`: Next.js frontend
@@ -63,6 +64,7 @@
 - API identity must be server-authoritative.
 - Do not accept actor identity such as `authorId`, `creatorId`, or `uploaderId` from clients for business writes.
 - Authorization is enforced in API routes for wiki, meetings, files, and users.
+- Marketing access is granted through `marketing.*` group permissions; approvals must never be self-approvals (enforced server-side).
 - Frontend auth state is sourced from real session user via Auth.js session.
 
 ## Security-Sensitive Paths
@@ -79,6 +81,9 @@
 - `apps/api/src/routes/users.ts`
 - `apps/api/src/routes/livekit.ts`
 - `apps/api/src/routes/internal-room-ai.ts`
+- `apps/api/src/routes/marketing/`
+- `apps/api/src/policies/marketing-policy.ts`
+- `apps/api/src/services/marketing/connectors/` (credentials, outbound requests)
 - `apps/api/src/routes/github-webhook.ts`
 - `apps/api/src/routes/admin/admin-github-settings.ts`
 - `apps/api/src/routes/admin/admin-github-repos.ts`

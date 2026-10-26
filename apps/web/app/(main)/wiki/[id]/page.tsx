@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BlockEditor, type EditorHandle } from "@/components/wiki/BlockEditor";
+import { KnowledgeGovernanceBanner } from "@/components/wiki/KnowledgeGovernanceBanner";
 import { PageHierarchyFooter } from "@/components/wiki/PageHierarchyFooter";
 import { PagePermissionsPanel } from "@/components/wiki/PagePermissionsPanel";
 import { TableOfContents } from "@/components/wiki/TableOfContents";
@@ -258,6 +259,8 @@ export default function WikiDetailPage() {
                 ]}
               />
             </div>
+
+            <KnowledgeGovernanceBanner pageId={pageId} />
 
             <BlockEditor
               pageId={pageId}

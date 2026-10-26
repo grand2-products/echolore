@@ -43,6 +43,26 @@ This document maps the currently implemented frontend routes in `apps/web`.
   - create a new AITuber character (persona, voice, motion profile)
 - `/aituber/characters/[id]`
   - edit an existing character, upload / replace VRM avatar, preview voice
+- `/marketing`
+  - visible only with the `marketing.view` group permission
+  - operating-health tiles and the default dashboard
+  - tabs: dashboards / assets / connectors / changes / knowledge / reconciliations / metrics / settings
+- `/marketing/dashboards`, `/marketing/dashboards/[id]`
+  - composable, versioned dashboards (edit, history, JSON export / import)
+- `/marketing/assets`
+  - asset register with external access list (`?asset=<id>` opens the detail)
+- `/marketing/connectors`
+  - data connectors, run history, CSV import
+- `/marketing/changes`, `/marketing/changes/[id]`
+  - change / issue approval workflow
+- `/marketing/knowledge`
+  - wiki knowledge registry (6 layers) and initial tree creation
+- `/marketing/reconciliations`
+  - reconciliation against source consoles
+- `/marketing/metrics`
+  - KPI dictionary
+- `/marketing/settings`
+  - retention and freshness settings (`marketing.manage`)
 - `/admin`
   - admin index (redirects to `/admin/users`)
   - shared admin layout with tab navigation (users / access / agents / kpi / settings)
