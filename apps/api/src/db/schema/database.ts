@@ -590,6 +590,223 @@ export interface SiteSettingsTable {
   updatedAt: Generated<Date>;
 }
 
+// ─── Marketing operations ────────────────────────────────────────
+
+export interface MarketingAssetsTable {
+  id: string;
+  type: string;
+  name: string;
+  externalId: string | null;
+  purpose: string | null;
+  ownerEntity: string | null;
+  billingEntity: string | null;
+  primaryOwnerUserId: string | null;
+  secondaryOwnerUserId: string | null;
+  agencyName: string | null;
+  agencyRelationship: string | null;
+  relatedAssetIds: Generated<string[]>;
+  measurementIds: Generated<string[]>;
+  consoleUrl: string | null;
+  publicUrl: string | null;
+  secretReference: string | null;
+  emergencyContact: string | null;
+  wikiPageId: string | null;
+  notes: string | null;
+  status: Generated<string>;
+  verificationIntervalDays: Generated<number>;
+  lastVerifiedAt: Date | null;
+  lastVerifiedByUserId: string | null;
+  createdByUserId: string | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface MarketingAssetAccessTable {
+  id: string;
+  assetId: string;
+  principal: string;
+  principalType: string;
+  role: string;
+  scope: string | null;
+  approvedByUserId: string | null;
+  expiresAt: Date | null;
+  revokedAt: Date | null;
+  createdAt: Generated<Date>;
+}
+
+export interface MarketingConnectorsTable {
+  id: string;
+  name: string;
+  type: string;
+  assetId: string | null;
+  config: Generated<Record<string, unknown>>;
+  /** AES-256-GCM encrypted JSON object of secret fields. */
+  secretsEnc: string | null;
+  enabled: Generated<boolean>;
+  syncIntervalHours: Generated<number>;
+  lookbackDays: Generated<number>;
+  timezone: Generated<string>;
+  currency: string | null;
+  lastRunAt: Date | null;
+  lastSuccessAt: Date | null;
+  lastStatus: string | null;
+  lastError: string | null;
+  runLockUntil: Date | null;
+  createdByUserId: string | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface MarketingQualityJson {
+  rowCount: number;
+  duplicateKeys: number;
+  negativeValues: number;
+  invalidRows: number;
+  emptyDates: string[];
+  warnings: string[];
+}
+
+export interface MarketingSyncRunsTable {
+  id: string;
+  connectorId: string;
+  trigger: string;
+  status: string;
+  rangeFrom: string;
+  rangeTo: string;
+  rowsFetched: Generated<number>;
+  rowsWritten: Generated<number>;
+  quality: MarketingQualityJson | null;
+  errorMessage: string | null;
+  triggeredByUserId: string | null;
+  startedAt: Date;
+  finishedAt: Date | null;
+}
+
+export interface MarketingMetricsDailyTable {
+  connectorId: string;
+  /** YYYY-MM-DD in the connector's timezone */
+  date: string;
+  source: string;
+  accountId: Generated<string>;
+  campaignId: Generated<string>;
+  campaignName: string | null;
+  segment: Generated<string>;
+  metric: string;
+  value: number;
+  currency: string | null;
+  fetchedAt: Generated<Date>;
+}
+
+export interface MarketingMetricCoverageTable {
+  connectorId: string;
+  date: string;
+  runId: string | null;
+  fetchedAt: Generated<Date>;
+}
+
+export interface MarketingDashboardsTable {
+  id: string;
+  name: string;
+  description: string | null;
+  wikiPageId: string | null;
+  defaultRange: Generated<string>;
+  widgets: Generated<unknown[]>;
+  version: Generated<number>;
+  createdByUserId: string | null;
+  updatedByUserId: string | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface MarketingDashboardRevisionsTable {
+  id: string;
+  dashboardId: string;
+  version: number;
+  definition: Record<string, unknown>;
+  changeNote: string;
+  authorUserId: string | null;
+  createdAt: Generated<Date>;
+}
+
+export interface MarketingChangeRequestsTable {
+  id: string;
+  type: string;
+  title: string;
+  purpose: string | null;
+  assetId: string | null;
+  severity: string | null;
+  beforeState: string | null;
+  afterState: string | null;
+  impact: string | null;
+  rollbackPlan: string | null;
+  scheduledAt: Date | null;
+  status: Generated<string>;
+  requestedByUserId: string | null;
+  approvedByUserId: string | null;
+  approvedAt: Date | null;
+  implementedByUserId: string | null;
+  implementedAt: Date | null;
+  verifiedByUserId: string | null;
+  verifiedAt: Date | null;
+  verificationNote: string | null;
+  evidenceUrls: Generated<string[]>;
+  wikiPageId: string | null;
+  postReviewDueAt: Date | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface MarketingChangeEventsTable {
+  id: string;
+  changeId: string;
+  action: string;
+  fromStatus: string | null;
+  toStatus: string | null;
+  actorUserId: string | null;
+  comment: string | null;
+  createdAt: Generated<Date>;
+}
+
+export interface MarketingKnowledgePagesTable {
+  id: string;
+  pageId: string;
+  layer: string;
+  docType: Generated<string>;
+  purpose: string | null;
+  scope: string | null;
+  ownerUserId: string | null;
+  deputyUserId: string | null;
+  status: Generated<string>;
+  reviewIntervalDays: Generated<number>;
+  lastReviewedAt: Date | null;
+  nextReviewAt: Date | null;
+  approvedByUserId: string | null;
+  approvedAt: Date | null;
+  replacedByPageId: string | null;
+  relatedAssetIds: Generated<string[]>;
+  notes: string | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface MarketingReconciliationsTable {
+  id: string;
+  connectorId: string;
+  metric: string;
+  periodFrom: string;
+  periodTo: string;
+  systemValue: number;
+  sourceValue: number;
+  tolerancePct: Generated<number>;
+  explanation: string | null;
+  status: Generated<string>;
+  createdByUserId: string | null;
+  reviewedByUserId: string | null;
+  reviewedAt: Date | null;
+  reviewComment: string | null;
+  createdAt: Generated<Date>;
+}
+
 // ─── Database interface ──────────────────────────────────────────
 
 export interface Database {
@@ -639,4 +856,16 @@ export interface Database {
   github_sync_logs: GithubSyncLogsTable;
   llm_config_sets: LlmConfigSetsTable;
   site_settings: SiteSettingsTable;
+  marketing_assets: MarketingAssetsTable;
+  marketing_asset_access: MarketingAssetAccessTable;
+  marketing_connectors: MarketingConnectorsTable;
+  marketing_sync_runs: MarketingSyncRunsTable;
+  marketing_metrics_daily: MarketingMetricsDailyTable;
+  marketing_metric_coverage: MarketingMetricCoverageTable;
+  marketing_dashboards: MarketingDashboardsTable;
+  marketing_dashboard_revisions: MarketingDashboardRevisionsTable;
+  marketing_change_requests: MarketingChangeRequestsTable;
+  marketing_change_events: MarketingChangeEventsTable;
+  marketing_knowledge_pages: MarketingKnowledgePagesTable;
+  marketing_reconciliations: MarketingReconciliationsTable;
 }

@@ -2,7 +2,13 @@ import type { Insertable, Selectable, Updateable } from "kysely";
 import type { Database } from "./database.js";
 
 // Re-export database and JSONB types
-export type { BlockJson, CitationJson, Database, ToolStepJson } from "./database.js";
+export type {
+  BlockJson,
+  CitationJson,
+  Database,
+  MarketingQualityJson,
+  ToolStepJson,
+} from "./database.js";
 
 // ─── Users ───────────────────────────────────────────────────────
 export type User = Selectable<Database["users"]>;
@@ -166,3 +172,16 @@ export type GithubRepoPermission = Selectable<Database["github_repo_permissions"
 export type NewGithubRepoPermission = Insertable<Database["github_repo_permissions"]>;
 export type GithubSyncLog = Selectable<Database["github_sync_logs"]>;
 export type NewGithubSyncLog = Insertable<Database["github_sync_logs"]>;
+
+// ─── Marketing ──────────────────────────────────────────────────
+export type MarketingAsset = Selectable<Database["marketing_assets"]>;
+export type MarketingAssetAccess = Selectable<Database["marketing_asset_access"]>;
+export type MarketingConnector = Selectable<Database["marketing_connectors"]>;
+export type MarketingSyncRun = Selectable<Database["marketing_sync_runs"]>;
+export type NewMarketingMetricDaily = Insertable<Database["marketing_metrics_daily"]>;
+export type MarketingDashboard = Selectable<Database["marketing_dashboards"]>;
+export type MarketingDashboardRevision = Selectable<Database["marketing_dashboard_revisions"]>;
+export type MarketingChangeRequest = Selectable<Database["marketing_change_requests"]>;
+export type MarketingChangeEvent = Selectable<Database["marketing_change_events"]>;
+export type MarketingKnowledgePage = Selectable<Database["marketing_knowledge_pages"]>;
+export type MarketingReconciliation = Selectable<Database["marketing_reconciliations"]>;

@@ -9,6 +9,12 @@ export interface NavigationItem {
   href: string;
   icon: ReactNode;
   adminOnly?: boolean;
+  /** Shown only to users holding marketing.view (resolved from /marketing/access). */
+  requiresMarketing?: boolean;
+}
+
+export interface NavigationVisibilityOptions {
+  canViewMarketing?: boolean;
 }
 
 export const navigationItems: NavigationItem[] = [
@@ -133,6 +139,27 @@ export const navigationItems: NavigationItem[] = [
     ),
   },
   {
+    label: "marketing",
+    href: "/marketing",
+    requiresMarketing: true,
+    icon: (
+      <svg
+        aria-hidden="true"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M3 3v18h18M7 15l4-4 3 3 5-6"
+        />
+      </svg>
+    ),
+  },
+  {
     label: "search",
     href: "/search",
     icon: (
@@ -201,6 +228,13 @@ export const navigationItems: NavigationItem[] = [
   },
 ];
 
-export function getVisibleNavigationItems(user?: SessionUser | null) {
-  return navigationItems.filter((item) => !item.adminOnly || user?.role === "admin");
+export function getVisibleNavigationItems(
+  user?: SessionUser | null,
+  options: NavigationVisibilityOptions = {}
+) {
+  return navigationItems.filter(
+    (item) =>
+      (!item.adminOnly || user?.role === "admin") &&
+      (!item.requiresMarketing || options.canViewMarketing === true)
+  );
 }

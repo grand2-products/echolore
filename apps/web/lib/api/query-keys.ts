@@ -8,4 +8,6 @@ export const queryKeys = {
   wikiPage: (id: string) => ["wiki", "pages", id] as const,
   aiChatConversations: ["ai-chat", "conversations"] as const,
   aiChatConversation: (id: string) => ["ai-chat", "conversations", id] as const,
+  marketingAccess: ["marketing", "access"] as const,
+  marketing: ["marketing"] as const,
 };

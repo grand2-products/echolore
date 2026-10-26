@@ -45,4 +45,18 @@ describe("navigation visibility", () => {
       "/admin",
     ]);
   });
+
+  it("shows the marketing section only with marketing.view", () => {
+    const member = {
+      id: "user_3",
+      email: "marketer@example.com",
+      name: "Marketer",
+      role: "member" as const,
+      avatarUrl: null,
+    };
+    expect(getVisibleNavigationItems(member).map((item) => item.href)).not.toContain("/marketing");
+    expect(
+      getVisibleNavigationItems(member, { canViewMarketing: true }).map((item) => item.href)
+    ).toContain("/marketing");
+  });
 });

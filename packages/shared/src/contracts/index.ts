@@ -16,6 +16,10 @@ export const GroupPermission = {
   FileUpload: "file.upload",
   FileDownload: "file.download",
   KnowledgeApprove: "knowledge.approve",
+  MarketingView: "marketing.view",
+  MarketingOperate: "marketing.operate",
+  MarketingReview: "marketing.review",
+  MarketingManage: "marketing.manage",
 } as const;
 export type GroupPermission = (typeof GroupPermission)[keyof typeof GroupPermission];
 export const ALL_GROUP_PERMISSIONS = Object.values(GroupPermission);
@@ -1081,3 +1085,5 @@ export interface GithubSyncLogDto {
   finishedAt: string | null;
   createdAt: string;
 }
+
+export * from "./marketing.js";

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { getVisibleNavigationItems } from "@/components/layout/navigation";
 import type { SessionUser } from "@/lib/api";
 import { useCoworkingRoom } from "@/lib/coworking-room-context";
+import { useMarketingAccess } from "@/lib/hooks/use-marketing-access";
 import { useT } from "@/lib/i18n";
 
 interface SidebarProps {
@@ -15,7 +16,8 @@ interface SidebarProps {
 export function Sidebar({ children, user }: SidebarProps) {
   const pathname = usePathname();
   const t = useT();
-  const visibleNavItems = getVisibleNavigationItems(user);
+  const { canView: canViewMarketing } = useMarketingAccess(Boolean(user));
+  const visibleNavItems = getVisibleNavigationItems(user, { canViewMarketing });
   const { isConnected: isCoworkingConnected } = useCoworkingRoom();
 
   return (

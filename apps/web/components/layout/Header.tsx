@@ -9,6 +9,7 @@ import type { AuthMeResponse, Page, SessionUser, Space } from "@/lib/api";
 import { useSpacesQuery, wikiApi } from "@/lib/api";
 import { resolveAvatarSrc } from "@/lib/api/fetch";
 import { useAuthActions } from "@/lib/hooks/use-auth-actions";
+import { useMarketingAccess } from "@/lib/hooks/use-marketing-access";
 import { useT } from "@/lib/i18n";
 import { useSiteTitle } from "@/lib/site-settings-context";
 
@@ -118,7 +119,8 @@ export function Header({ user }: HeaderProps) {
   const [query, setQuery] = useState("");
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const mobileNavItems = getVisibleNavigationItems(user);
+  const { canView: canViewMarketing } = useMarketingAccess(Boolean(user));
+  const mobileNavItems = getVisibleNavigationItems(user, { canViewMarketing });
 
   // Space map for search suggestions
   const { data: spacesData } = useSpacesQuery();

@@ -13,6 +13,7 @@ export * from "./fetch";
 export * from "./files";
 export * from "./hooks";
 export * from "./knowledge";
+export * from "./marketing";
 export * from "./meetings";
 export * from "./query-keys";
 export * from "./site-settings";
