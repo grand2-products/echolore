@@ -23,10 +23,13 @@ import {
   ExternalLink,
   Field,
   inputClass,
+  loadingPanelClass,
   Modal,
   Notice,
   PageHeader,
   Pill,
+  StatusDot,
+  tableWrapClass,
   UserSelect,
   useAction,
   useMarketingAssets,
@@ -451,7 +454,10 @@ function AssetDetail({
               {t(`marketing.assetStatus.${asset.status}`)}
             </Pill>
             {asset.verificationOverdue ? (
-              <Pill tone="amber">⚠ {t("marketing.assets.verifyDue")}</Pill>
+              <Pill tone="amber">
+                <StatusDot />
+                {t("marketing.assets.verifyDue")}
+              </Pill>
             ) : null}
             <span className="flex-1" />
             {can("marketing.operate") ? (
@@ -650,8 +656,6 @@ export default function MarketingAssetsPage() {
   return (
     <div>
       <PageHeader
-        title={t("marketing.assets.title")}
-        description={t("marketing.assets.description")}
         actions={
           <>
             <select
@@ -678,14 +682,14 @@ export default function MarketingAssetsPage() {
         <ErrorBanner message={t("marketing.common.loadFailed")} onRetry={() => void refetch()} />
       ) : null}
       {isLoading ? (
-        <div className="h-32 animate-pulse rounded-xl bg-white" />
+        <div className={`h-32 ${loadingPanelClass}`} />
       ) : assets.length === 0 ? (
         <EmptyState
           title={t("marketing.assets.empty")}
           description={t("marketing.assets.emptyDescription")}
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <div className={tableWrapClass}>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-xs text-gray-500">
               <tr className="text-left">
@@ -721,12 +725,18 @@ export default function MarketingAssetsPage() {
                   </td>
                   <td className="px-4 py-2">
                     {a.primaryOwnerName ?? (
-                      <span className="text-amber-700">⚠ {t("marketing.common.unassigned")}</span>
+                      <span className="inline-flex items-center gap-1.5 text-amber-800">
+                        <StatusDot />
+                        {t("marketing.common.unassigned")}
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-2">
                     {a.secondaryOwnerName ?? (
-                      <span className="text-amber-700">⚠ {t("marketing.common.unassigned")}</span>
+                      <span className="inline-flex items-center gap-1.5 text-amber-800">
+                        <StatusDot />
+                        {t("marketing.common.unassigned")}
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-2">{a.billingEntity ?? "—"}</td>

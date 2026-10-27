@@ -16,10 +16,11 @@ import {
   EmptyState,
   Field,
   inputClass,
+  loadingPanelClass,
   Modal,
-  Notice,
   PageHeader,
   Pill,
+  StatusDot,
   UserSelect,
   useAction,
   useMarketingMembers,
@@ -337,8 +338,6 @@ export default function MarketingKnowledgePage() {
   return (
     <div>
       <PageHeader
-        title={t("marketing.knowledge.title")}
-        description={t("marketing.knowledge.description")}
         actions={
           <>
             {settings.data?.knowledgeRootPageId ? (
@@ -346,7 +345,7 @@ export default function MarketingKnowledgePage() {
                 href={`/wiki/${settings.data.knowledgeRootPageId}`}
                 className="text-sm text-blue-600 hover:underline"
               >
-                {t("marketing.knowledge.openRoot")} →
+                {t("marketing.knowledge.openRoot")}
               </Link>
             ) : null}
             {can("marketing.operate") ? (
@@ -360,15 +359,12 @@ export default function MarketingKnowledgePage() {
       {settings.data && !settings.data.knowledgeRootPageId && can("marketing.manage") ? (
         <BootstrapCard onDone={() => void refresh()} />
       ) : null}
-      <div className="mb-4">
-        <Notice tone="info">{t("marketing.knowledge.rules")}</Notice>
-      </div>
       {action.error ? <ErrorBanner message={action.error} className="mb-4" /> : null}
       {error ? (
         <ErrorBanner message={t("marketing.common.loadFailed")} onRetry={() => void refetch()} />
       ) : null}
       {isLoading ? (
-        <div className="h-32 animate-pulse rounded-xl bg-white" />
+        <div className={`h-32 ${loadingPanelClass}`} />
       ) : !data?.length ? (
         <EmptyState
           title={t("marketing.knowledge.empty")}
@@ -379,15 +375,16 @@ export default function MarketingKnowledgePage() {
           {byLayer.map(({ layer, pages }) => (
             <Card
               key={layer}
+              flush
               title={t(`marketing.layers.${layer}`)}
               actions={
                 <span className="text-xs text-gray-500">{t(`marketing.layerOwners.${layer}`)}</span>
               }
             >
               {pages.length === 0 ? (
-                <p className="text-sm text-gray-500">—</p>
+                <p className="px-3 py-2 text-sm text-gray-500">—</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto px-3">
                   <table className="w-full text-sm">
                     <thead className="text-xs text-gray-500">
                       <tr className="border-b border-gray-100 text-left">
@@ -453,8 +450,9 @@ export default function MarketingKnowledgePage() {
                           </td>
                           <td className="py-2 pr-2 text-xs">
                             {k.ownerName ?? (
-                              <span className="text-amber-700">
-                                ⚠ {t("marketing.common.unassigned")}
+                              <span className="inline-flex items-center gap-1.5 text-amber-800">
+                                <StatusDot />
+                                {t("marketing.common.unassigned")}
                               </span>
                             )}
                             <span className="block text-gray-500">
@@ -464,8 +462,10 @@ export default function MarketingKnowledgePage() {
                           <td
                             className={`py-2 pr-2 text-xs ${k.reviewOverdue ? "text-red-700" : "text-gray-700"}`}
                           >
-                            {k.reviewOverdue ? "⚠ " : ""}
-                            {k.nextReviewAt ? date(k.nextReviewAt) : "—"}
+                            <span className="inline-flex items-center gap-1.5">
+                              {k.reviewOverdue ? <StatusDot tone="red" /> : null}
+                              {k.nextReviewAt ? date(k.nextReviewAt) : "—"}
+                            </span>
                             <span className="block text-gray-500">
                               {t("marketing.knowledge.everyDays", { days: k.reviewIntervalDays })}
                             </span>

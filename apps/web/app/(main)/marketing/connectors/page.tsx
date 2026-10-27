@@ -23,11 +23,14 @@ import {
   EmptyState,
   Field,
   inputClass,
+  loadingPanelClass,
   Modal,
   Notice,
   PageHeader,
   Pill,
+  StatusDot,
   splitList,
+  tableWrapClass,
   useAction,
   useMarketingAssets,
 } from "@/components/marketing/ui";
@@ -638,8 +641,6 @@ export default function MarketingConnectorsPage() {
   return (
     <div>
       <PageHeader
-        title={t("marketing.connectors.title")}
-        description={t("marketing.connectors.description")}
         actions={
           can("marketing.manage") ? (
             <Button
@@ -657,118 +658,150 @@ export default function MarketingConnectorsPage() {
         <ErrorBanner message={t("marketing.common.loadFailed")} onRetry={() => void refetch()} />
       ) : null}
       {isLoading ? (
-        <div className="h-32 animate-pulse rounded-xl bg-white" />
+        <div className={`h-32 ${loadingPanelClass}`} />
       ) : !data?.length ? (
         <EmptyState
           title={t("marketing.connectors.empty")}
           description={t("marketing.connectors.emptyDescription")}
         />
       ) : (
-        <div className="space-y-3">
-          {data.map((c) => {
-            const spec = types.data?.find((x) => x.type === c.type);
-            return (
-              <div key={c.id} className="rounded-xl border border-gray-200 bg-white p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-medium text-gray-900">{c.name}</h3>
-                      <Pill tone="blue">{t(`marketing.sources.${c.type}`)}</Pill>
-                      <RunStatusPill status={c.lastStatus} />
-                      {c.stale ? (
-                        <Pill tone="amber">⚠ {t("marketing.connectors.stale")}</Pill>
+        <div className={tableWrapClass}>
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-gray-200 bg-gray-50 text-[11px] font-medium text-gray-500">
+              <tr>
+                <th className="px-3 py-2 font-medium">{t("marketing.connectors.fields.name")}</th>
+                <th className="px-3 py-2 font-medium">{t("marketing.connectors.fields.type")}</th>
+                <th className="px-3 py-2 font-medium">{t("marketing.assets.fields.status")}</th>
+                <th className="px-3 py-2 font-medium">{t("marketing.connectors.lastSuccess")}</th>
+                <th className="px-3 py-2 font-medium">
+                  {t("marketing.connectors.fields.syncIntervalHours")}
+                </th>
+                <th className="px-3 py-2 font-medium">{t("marketing.connectors.fields.asset")}</th>
+                <th className="px-3 py-2 font-medium">
+                  <span className="sr-only">{t("marketing.common.edit")}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((c) => {
+                const spec = types.data?.find((x) => x.type === c.type);
+                const schedule = !spec?.supportsSync
+                  ? "—"
+                  : c.type === "lp_monitor"
+                    ? t("marketing.connectors.scheduleChecks", { hours: c.syncIntervalHours })
+                    : t("marketing.connectors.schedule", {
+                        hours: c.syncIntervalHours,
+                        days: c.lookbackDays,
+                      });
+                return (
+                  <tr key={c.id} className="border-t border-gray-100 align-top hover:bg-gray-50">
+                    <td className="px-3 py-2">
+                      <div className="font-medium text-gray-900">{c.name}</div>
+                      {c.lastError ? (
+                        <p className="mt-0.5 max-w-sm text-xs text-red-700">{c.lastError}</p>
                       ) : null}
-                      {!c.enabled ? (
-                        <Pill tone="gray">{t("marketing.connectors.disabled")}</Pill>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {c.assetName
-                        ? `${t("marketing.connectors.fields.asset")}: ${c.assetName} · `
-                        : ""}
-                      {t("marketing.connectors.lastSuccess")}:{" "}
-                      {c.lastSuccessAt ? dateTime(c.lastSuccessAt) : t("marketing.common.never")}
-                      {spec?.supportsSync
-                        ? ` · ${
-                            c.type === "lp_monitor"
-                              ? t("marketing.connectors.scheduleChecks", {
-                                  hours: c.syncIntervalHours,
-                                })
-                              : t("marketing.connectors.schedule", {
-                                  hours: c.syncIntervalHours,
-                                  days: c.lookbackDays,
-                                })
-                          }`
-                        : ""}
-                      {` · ${c.timezone}${c.currency ? ` / ${c.currency}` : ""}`}
-                    </p>
-                    {c.lastError ? (
-                      <p className="mt-1 text-xs text-red-700">{c.lastError}</p>
-                    ) : null}
-                    {testResult?.id === c.id ? (
-                      <p
-                        className={`mt-1 text-xs ${testResult.ok ? "text-emerald-700" : "text-red-700"}`}
-                      >
-                        {testResult.ok ? "✓" : "✗"} {testResult.message}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Button size="sm" onClick={() => setRunsFor(c)}>
-                      {t("marketing.connectors.history")}
-                    </Button>
-                    {can("marketing.operate") ? (
-                      <Button size="sm" onClick={() => setCsvFor(c)}>
-                        {t("marketing.connectors.importCsv")}
-                      </Button>
-                    ) : null}
-                    {can("marketing.manage") ? (
-                      <>
-                        <Button
-                          size="sm"
-                          disabled={action.pending}
-                          onClick={() =>
-                            void action.run(async () => {
-                              const res = await marketingApi.testConnector(c.id);
-                              setTestResult({ id: c.id, ...res });
-                            })
-                          }
+                      {testResult?.id === c.id ? (
+                        <p
+                          className={`mt-0.5 flex items-start gap-1.5 text-xs ${testResult.ok ? "text-emerald-700" : "text-red-700"}`}
                         >
-                          {t("marketing.connectors.test")}
+                          <StatusDot tone={testResult.ok ? "emerald" : "red"} />
+                          <span>{testResult.message}</span>
+                        </p>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Pill tone="gray">{t(`marketing.sources.${c.type}`)}</Pill>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <RunStatusPill status={c.lastStatus} />
+                        {c.stale ? (
+                          <Pill tone="amber">
+                            <StatusDot />
+                            {t("marketing.connectors.stale")}
+                          </Pill>
+                        ) : null}
+                        {!c.enabled ? (
+                          <Pill tone="gray">{t("marketing.connectors.disabled")}</Pill>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-xs tabular-nums text-gray-700">
+                      {c.lastSuccessAt ? dateTime(c.lastSuccessAt) : t("marketing.common.never")}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-gray-700">
+                      <div>{schedule}</div>
+                      <div className="text-gray-500">
+                        {c.timezone}
+                        {c.currency ? ` ${c.currency}` : ""}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-gray-800">{c.assetName ?? "—"}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => setRunsFor(c)}>
+                          {t("marketing.connectors.history")}
                         </Button>
-                        {spec?.supportsSync ? (
-                          <Button
-                            size="sm"
-                            disabled={action.pending}
-                            onClick={() =>
-                              void action.run(async () => {
-                                await marketingApi.syncConnector(c.id);
-                                await refresh();
-                                setRunsFor(c);
-                              })
-                            }
-                          >
-                            {t("marketing.connectors.syncNow")}
+                        {can("marketing.operate") ? (
+                          <Button size="sm" variant="ghost" onClick={() => setCsvFor(c)}>
+                            {t("marketing.connectors.importCsv")}
                           </Button>
                         ) : null}
-                        <Button size="sm" onClick={() => setForm({ connector: c })}>
-                          {t("marketing.common.edit")}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-600"
-                          onClick={() => setDeleting(c)}
-                        >
-                          {t("marketing.common.delete")}
-                        </Button>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                        {can("marketing.manage") ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={action.pending}
+                              onClick={() =>
+                                void action.run(async () => {
+                                  const res = await marketingApi.testConnector(c.id);
+                                  setTestResult({ id: c.id, ...res });
+                                })
+                              }
+                            >
+                              {t("marketing.connectors.test")}
+                            </Button>
+                            {spec?.supportsSync ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={action.pending}
+                                onClick={() =>
+                                  void action.run(async () => {
+                                    await marketingApi.syncConnector(c.id);
+                                    await refresh();
+                                    setRunsFor(c);
+                                  })
+                                }
+                              >
+                                {t("marketing.connectors.syncNow")}
+                              </Button>
+                            ) : null}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setForm({ connector: c })}
+                            >
+                              {t("marketing.common.edit")}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600"
+                              onClick={() => setDeleting(c)}
+                            >
+                              {t("marketing.common.delete")}
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 

@@ -7,7 +7,7 @@ import {
   type MarketingWidgetDto,
 } from "@echolore/shared/contracts";
 import { useMemo, useState } from "react";
-import { useFormatters, useT } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import { type DateWindow, previousWindow, resolveDateRange } from "./format";
 import { BreakdownWidget, FunnelWidget, KpiWidget, TimeseriesWidget } from "./metric-widgets";
 import {
@@ -18,7 +18,7 @@ import {
   NoteWidget,
   ReviewsWidget,
 } from "./ops-widgets";
-import { inputClass, WikiLink } from "./ui";
+import { inputClass, panelClass, WikiLink } from "./ui";
 
 const SPAN: Record<1 | 2 | 3, string> = {
   1: "md:col-span-1",
@@ -69,18 +69,18 @@ export function WidgetFrame({
   compareWindow: DateWindow;
 }) {
   const t = useT();
+  const title = widget.title.trim();
+  const hasHeader = title.length > 0 || Boolean(widget.wikiPageId);
   return (
-    <section
-      className={`min-w-0 rounded-xl border border-gray-200 bg-white ${SPAN[widget.width] ?? SPAN[1]}`}
-    >
-      <header className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-2.5">
-        <h3 className="truncate text-sm font-semibold text-gray-900">
-          {widget.title || t(`marketing.widgetTypes.${widget.type}`)}
-        </h3>
-        {/* 根拠への導線: every widget can point at its Wiki procedure / definition. */}
-        <WikiLink pageId={widget.wikiPageId} label={t("marketing.widgets.evidence")} />
-      </header>
-      <div className="p-4">
+    <section className={`min-w-0 bg-white ${SPAN[widget.width] ?? SPAN[1]}`}>
+      {hasHeader ? (
+        <header className="flex items-center justify-between gap-2 px-3 pt-2">
+          {title ? <h3 className="truncate text-xs text-gray-500">{title}</h3> : <span />}
+          {/* 根拠への導線: every widget can point at its Wiki procedure / definition. */}
+          <WikiLink pageId={widget.wikiPageId} label={t("marketing.widgets.evidence")} />
+        </header>
+      ) : null}
+      <div className="px-3 py-3">
         <WidgetBody widget={widget} window={window} compareWindow={compareWindow} />
       </div>
     </section>
@@ -115,6 +115,7 @@ export function DateRangeSelect({
 export function DashboardView({
   dashboard,
   actions,
+  showName = false,
 }: {
   dashboard: Pick<
     MarketingDashboardDto,
@@ -122,46 +123,33 @@ export function DashboardView({
   > &
     Partial<Pick<MarketingDashboardDto, "version" | "updatedAt" | "updatedByName">>;
   actions?: React.ReactNode;
+  /** Record name. Off on the overview, where the board itself is the page. */
+  showName?: boolean;
 }) {
   const t = useT();
-  const { dateTime } = useFormatters();
   const [range, setRange] = useState<MarketingDateRange>(dashboard.defaultRange);
   const window = useMemo(() => resolveDateRange(range), [range]);
   const compareWindow = useMemo(() => previousWindow(window), [window]);
 
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-gray-900">{dashboard.name}</h2>
-          {dashboard.description ? (
-            <p className="mt-0.5 text-sm text-gray-600">{dashboard.description}</p>
-          ) : null}
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-gray-500">
-            {dashboard.version ? (
-              <span>
-                {t("marketing.dashboards.release", { version: dashboard.version })}
-                {dashboard.updatedAt ? ` · ${dateTime(dashboard.updatedAt)}` : ""}
-                {dashboard.updatedByName ? ` · ${dashboard.updatedByName}` : ""}
-              </span>
-            ) : null}
-            <span>
-              {t("marketing.dashboards.period")}: {window.from} – {window.to}
-            </span>
-            <WikiLink pageId={dashboard.wikiPageId} label={t("marketing.dashboards.procedures")} />
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <DateRangeSelect value={range} onChange={setRange} />
-          {actions}
-        </div>
+    <div className={panelClass}>
+      <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 border-b border-gray-200 px-3 py-2">
+        {showName ? (
+          <p className="mr-auto min-w-0 truncate text-sm text-gray-900">{dashboard.name}</p>
+        ) : null}
+        <span className="text-xs tabular-nums text-gray-500">
+          {window.from} – {window.to}
+        </span>
+        <WikiLink pageId={dashboard.wikiPageId} label={t("marketing.dashboards.procedures")} />
+        <DateRangeSelect value={range} onChange={setRange} />
+        {actions}
       </div>
       {dashboard.widgets.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
+        <p className="px-3 py-8 text-center text-sm text-gray-500">
           {t("marketing.dashboards.noWidgets")}
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-px bg-gray-200 md:grid-cols-3">
           {dashboard.widgets.map((w) => (
             <WidgetFrame key={w.id} widget={w} window={window} compareWindow={compareWindow} />
           ))}

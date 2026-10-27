@@ -3,15 +3,7 @@
 import type { MarketingSettingsDto } from "@echolore/shared/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import {
-  Button,
-  Card,
-  Field,
-  inputClass,
-  Notice,
-  PageHeader,
-  useAction,
-} from "@/components/marketing/ui";
+import { Button, Card, Field, inputClass, Notice, useAction } from "@/components/marketing/ui";
 import { ErrorBanner } from "@/components/ui";
 import { marketingApi, queryKeys } from "@/lib/api";
 import { useMarketingAccess } from "@/lib/hooks/use-marketing-access";
@@ -34,7 +26,7 @@ function SettingsForm({ initial }: { initial: MarketingSettingsDto }) {
   });
 
   return (
-    <Card title={t("marketing.settings.dataTitle")}>
+    <Card>
       {action.error ? <ErrorBanner message={action.error} className="mb-3" /> : null}
       <div className="grid gap-3 sm:grid-cols-3">
         <Field
@@ -78,7 +70,7 @@ function SettingsForm({ initial }: { initial: MarketingSettingsDto }) {
           {t("marketing.common.save")}
         </Button>
         {saved ? (
-          <span className="text-sm text-emerald-700">✓ {t("marketing.common.saved")}</span>
+          <span className="text-sm text-emerald-700">{t("marketing.common.saved")}</span>
         ) : null}
       </div>
     </Card>
@@ -99,10 +91,6 @@ export default function MarketingSettingsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title={t("marketing.settings.title")}
-        description={t("marketing.settings.description")}
-      />
       {error ? (
         <ErrorBanner message={t("marketing.common.loadFailed")} onRetry={() => void refetch()} />
       ) : null}

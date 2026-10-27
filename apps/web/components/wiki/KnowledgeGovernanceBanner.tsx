@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { StatusDot } from "@/components/marketing/ui";
 import { marketingApi, queryKeys } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
 
@@ -24,8 +25,11 @@ export function KnowledgeGovernanceBanner({ pageId }: { pageId: string }) {
 
   if (g.status === "deprecated") {
     return (
-      <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-        <p className="font-medium">⚠ {t("marketing.banner.deprecated")}</p>
+      <div className="mb-4 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p className="flex items-center gap-1.5 font-medium">
+          <StatusDot tone="red" />
+          {t("marketing.banner.deprecated")}
+        </p>
         {g.replacedByPageId ? (
           <p className="mt-1">
             {t("marketing.banner.movedTo")}{" "}
@@ -47,18 +51,20 @@ export function KnowledgeGovernanceBanner({ pageId }: { pageId: string }) {
 
   return (
     <div
-      className={`mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border px-4 py-2 text-xs ${tone}`}
+      className={`mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 border px-3 py-2 text-xs ${tone}`}
     >
       <span className="font-medium">
-        {g.status === "approved" ? "✓ " : ""}
-        {t(`marketing.docStatus.${g.status}`)} · {t(`marketing.layers.${g.layer}`)}
+        {t(`marketing.docStatus.${g.status}`)}
+        <span className="ml-2 font-normal">{t(`marketing.layers.${g.layer}`)}</span>
       </span>
       <span>
-        {t("marketing.knowledge.fields.owner")}: {g.ownerName ?? "—"} /{" "}
-        {t("marketing.knowledge.fields.deputy")}: {g.deputyName ?? "—"}
+        {t("marketing.knowledge.fields.owner")}: {g.ownerName ?? "—"}
+        <span className="ml-3">
+          {t("marketing.knowledge.fields.deputy")}: {g.deputyName ?? "—"}
+        </span>
       </span>
-      <span>
-        {g.reviewOverdue ? "⚠ " : ""}
+      <span className="inline-flex items-center gap-1.5">
+        {g.reviewOverdue ? <StatusDot tone="red" /> : null}
         {t("marketing.knowledge.nextReview")}: {g.nextReviewAt ? date(g.nextReviewAt) : "—"}
       </span>
       {g.approvedAt ? (
@@ -68,7 +74,10 @@ export function KnowledgeGovernanceBanner({ pageId }: { pageId: string }) {
         </span>
       ) : null}
       {g.changedSinceApproval ? (
-        <span>⚠ {t("marketing.knowledge.changedSinceApproval")}</span>
+        <span className="inline-flex items-center gap-1.5">
+          <StatusDot />
+          {t("marketing.knowledge.changedSinceApproval")}
+        </span>
       ) : null}
     </div>
   );

@@ -14,10 +14,13 @@ import {
   EmptyState,
   Field,
   inputClass,
+  loadingPanelClass,
   Modal,
   Notice,
   PageHeader,
   Pill,
+  StatusDot,
+  tableWrapClass,
   useAction,
 } from "@/components/marketing/ui";
 import { ErrorBanner } from "@/components/ui";
@@ -227,8 +230,6 @@ export default function MarketingReconciliationsPage() {
   return (
     <div>
       <PageHeader
-        title={t("marketing.reconciliations.title")}
-        description={t("marketing.reconciliations.description")}
         actions={
           can("marketing.operate") ? (
             <Button variant="primary" onClick={() => setCreating(true)}>
@@ -241,11 +242,11 @@ export default function MarketingReconciliationsPage() {
         <ErrorBanner message={t("marketing.common.loadFailed")} onRetry={() => void refetch()} />
       ) : null}
       {isLoading ? (
-        <div className="h-32 animate-pulse rounded-xl bg-white" />
+        <div className={`h-32 ${loadingPanelClass}`} />
       ) : !data?.length ? (
         <EmptyState title={t("marketing.reconciliations.empty")} />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <div className={tableWrapClass}>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-xs text-gray-500">
               <tr className="text-left">
@@ -291,9 +292,9 @@ export default function MarketingReconciliationsPage() {
                   <td className="px-4 py-2 text-right tabular-nums">
                     {formatMetric(r.metric, r.difference)}
                     <span
-                      className={`block text-xs ${r.withinTolerance ? "text-emerald-700" : "text-red-700"}`}
+                      className={`mt-0.5 flex items-center justify-end gap-1 text-xs ${r.withinTolerance ? "text-emerald-700" : "text-red-700"}`}
                     >
-                      {r.withinTolerance ? "✓" : "✗"}{" "}
+                      <StatusDot tone={r.withinTolerance ? "emerald" : "red"} />
                       {r.differenceRatio === null
                         ? "—"
                         : `${(r.differenceRatio * 100).toFixed(2)}%`}{" "}
@@ -303,7 +304,8 @@ export default function MarketingReconciliationsPage() {
                   <td className="max-w-[260px] px-4 py-2 text-xs text-gray-700">
                     <span className="whitespace-pre-wrap">{r.explanation ?? "—"}</span>
                     <span className="mt-1 block text-gray-500">
-                      {r.createdByName ?? "—"} · {date(r.createdAt)}
+                      {r.createdByName ?? "—"}
+                      <span className="ml-2 tabular-nums">{date(r.createdAt)}</span>
                     </span>
                   </td>
                   <td className="px-4 py-2 text-xs">
