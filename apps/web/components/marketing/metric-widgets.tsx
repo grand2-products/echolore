@@ -23,6 +23,7 @@ import {
   sourceColor,
   useMarketingFormat,
 } from "./format";
+import { StatusDot } from "./ui";
 
 export function useMetricsQuery(req: MarketingMetricsQueryRequest | null) {
   return useQuery({
@@ -57,8 +58,8 @@ export function CoverageNote({ coverage }: { coverage: MarketingCoverageDto[] | 
   return (
     <div className="mt-2 space-y-0.5 text-xs text-amber-800">
       {stale.map((c) => (
-        <p key={`s-${c.connectorId}`}>
-          ⚠{" "}
+        <p key={`s-${c.connectorId}`} className="flex items-start gap-1.5">
+          <StatusDot />
           {t("marketing.coverage.stale", {
             name: c.connectorName,
             at: c.lastSuccessAt ? dateTime(c.lastSuccessAt) : t("marketing.common.never"),
@@ -91,7 +92,7 @@ function rowLabel(
     return row.dims[d] || "—";
   });
   if (showCurrency && row.currency) parts.push(row.currency);
-  return parts.join(" · ");
+  return parts.join(" / ");
 }
 
 // ─── KPI ─────────────────────────────────────────────────────────
@@ -116,7 +117,8 @@ function KpiTile({
   const data = current.data;
 
   const body = (() => {
-    if (current.isLoading) return <p className="mt-2 text-2xl font-semibold text-gray-300">…</p>;
+    if (current.isLoading)
+      return <p className="mt-1 text-[1.75rem] font-semibold leading-none text-gray-300">…</p>;
     if (current.error || !data)
       return <p className="mt-2 text-sm text-red-600">{t("marketing.common.loadFailed")}</p>;
     if (data.coverage.length === 0) {
@@ -126,7 +128,7 @@ function KpiTile({
     if (data.rows.length === 0) {
       const isBase = MARKETING_METRIC_MAP[metric]?.kind === "base";
       return (
-        <p className="mt-2 text-2xl font-semibold text-gray-900">
+        <p className="mt-1 text-[1.75rem] font-semibold leading-none tracking-tight text-gray-900">
           {anyMissing ? (
             <span className="text-base text-amber-700">{t("marketing.common.notFetched")}</span>
           ) : isBase ? (
@@ -167,7 +169,7 @@ function KpiTile({
                 </span>
               ) : null}
               <span
-                className={`${multi ? "text-lg" : "text-2xl"} font-semibold tabular-nums text-gray-900`}
+                className={`${multi ? "text-lg" : "text-[1.75rem] leading-none tracking-tight"} font-semibold tabular-nums text-gray-900`}
               >
                 {formatMetric(metric, value, row.currency)}
               </span>
@@ -189,8 +191,8 @@ function KpiTile({
   })();
 
   return (
-    <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-3">
-      <p className="text-xs font-medium text-gray-600">
+    <div className="min-w-0 bg-white px-3 py-2.5">
+      <p className="text-[11px] leading-4 text-gray-500">
         {metricLabel(metric)}
         {!isSummableAcrossSources(metric) ? (
           <span className="ml-1 text-[11px] text-gray-400">{t("marketing.kpi.perSource")}</span>
@@ -215,7 +217,7 @@ export function KpiWidget({
 }) {
   const metrics = widget.metrics?.length ? widget.metrics : ["cost"];
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+    <div className="-mx-3 -my-3 grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-px bg-gray-200">
       {metrics.map((m) => (
         <KpiTile
           key={m}
@@ -270,7 +272,7 @@ function MetricSeriesChart({
       );
       return {
         key,
-        label: labelParts.join(" · "),
+        label: labelParts.join(" / "),
         color: source ? sourceColor(source) : SINGLE_SERIES_COLOR,
         values: dates.map((d) => {
           if (byDate.has(d)) return byDate.get(d) ?? null;
@@ -402,7 +404,7 @@ export function BreakdownTable({
         <thead className="text-xs text-gray-500">
           <tr className="border-b border-gray-100">
             <th className="py-2 pr-3 text-left font-medium">
-              {dims.map((d) => t(`marketing.dimensions.${d}`)).join(" · ")}
+              {dims.map((d) => t(`marketing.dimensions.${d}`)).join(" / ")}
             </th>
             {metrics.map((m) => (
               <th key={m} className="whitespace-nowrap py-2 pl-3 text-right font-medium">

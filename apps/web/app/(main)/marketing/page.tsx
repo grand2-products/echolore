@@ -4,7 +4,15 @@ import type { MarketingOverviewDto } from "@echolore/shared/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { DashboardView } from "@/components/marketing/DashboardView";
-import { Button, buttonClass, EmptyState, Notice, useAction } from "@/components/marketing/ui";
+import {
+  Button,
+  buttonClass,
+  EmptyState,
+  loadingPanelClass,
+  Notice,
+  StatusDot,
+  useAction,
+} from "@/components/marketing/ui";
 import { ErrorBanner } from "@/components/ui";
 import { marketingApi, queryKeys } from "@/lib/api";
 import { useMarketingAccess } from "@/lib/hooks/use-marketing-access";
@@ -20,23 +28,29 @@ function HealthTile({
   detail,
   warn,
   href,
+  className = "",
 }: {
   label: string;
   value: string;
   detail: string;
   warn?: boolean;
   href: string;
+  className?: string;
 }) {
   return (
     <Link
       href={href}
-      className="block rounded-xl border border-gray-200 bg-white p-4 transition hover:border-blue-300"
+      className={`block min-w-0 bg-white px-3 py-3 hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-blue-600 ${className}`}
     >
-      <p className="text-xs font-medium text-gray-600">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">{value}</p>
-      <p className={`mt-1 text-xs ${warn ? "text-amber-700" : "text-gray-500"}`}>
-        {warn ? "⚠ " : ""}
-        {detail}
+      <p className="text-[11px] leading-4 text-gray-500">{label}</p>
+      <p className="mt-1 text-xl font-semibold tabular-nums tracking-tight text-gray-900">
+        {value}
+      </p>
+      <p
+        className={`mt-1 flex items-start gap-1.5 text-[11px] leading-4 ${warn ? "text-amber-800" : "text-gray-500"}`}
+      >
+        {warn ? <StatusDot /> : <span aria-hidden className="inline-block h-1.5 w-1.5 shrink-0" />}
+        <span>{detail}</span>
       </p>
     </Link>
   );
@@ -47,7 +61,7 @@ function HealthTiles({ overview }: { overview: MarketingOverviewDto }) {
   const t = useT();
   const { connectors, assets, knowledge, changes, reconciliations } = overview;
   return (
-    <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="mb-4 grid grid-cols-1 gap-px border border-gray-200 bg-gray-200 sm:grid-cols-2 lg:grid-cols-5">
       <HealthTile
         label={t("marketing.overview.updateRate")}
         value={
@@ -100,6 +114,7 @@ function HealthTiles({ overview }: { overview: MarketingOverviewDto }) {
         detail={t("marketing.overview.reconciliationsDetail")}
         warn={reconciliations.pending > 0}
         href="/marketing/reconciliations"
+        className="sm:col-span-2 lg:col-span-1"
       />
     </div>
   );
@@ -158,7 +173,7 @@ export default function MarketingOverviewPage() {
       {action.error ? <ErrorBanner message={action.error} className="mb-4" /> : null}
 
       {dashboards.isLoading ? (
-        <div className="h-40 animate-pulse rounded-xl bg-white" />
+        <div className={`h-40 ${loadingPanelClass}`} />
       ) : defaultDashboard ? (
         <DashboardView
           key={defaultDashboard.id}

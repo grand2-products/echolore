@@ -23,52 +23,47 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   const { isLoading, canView, can, error } = useMarketingAccess();
 
   if (isLoading) {
-    return <div className="p-8 text-sm text-gray-500">{t("common.status.loading")}</div>;
+    return <div className="px-6 py-4 text-sm text-gray-500">{t("common.status.loading")}</div>;
   }
 
   if (error || !canView) {
     return (
       <div className="flex flex-1 items-center justify-center p-8">
-        <div className="max-w-md rounded-xl border border-gray-200 bg-white p-6 text-center">
-          <h1 className="text-lg font-semibold text-gray-900">{t("marketing.forbidden.title")}</h1>
-          <p className="mt-2 text-sm text-gray-600">{t("marketing.forbidden.description")}</p>
+        <div className="max-w-md border border-gray-200 bg-white px-6 py-5 text-center">
+          <h1 className="text-base font-semibold text-gray-900">
+            {t("marketing.forbidden.title")}
+          </h1>
+          <p className="mt-1 text-sm text-gray-600">{t("marketing.forbidden.description")}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 md:p-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-5">
-          <h1 className="text-3xl font-bold text-gray-900">{t("marketing.title")}</h1>
-          <p className="mt-1 text-sm text-gray-600">{t("marketing.description")}</p>
-        </div>
-        <nav className="mb-6 flex gap-1 overflow-x-auto border-b border-gray-200">
-          {tabs
-            .filter((tab) => !("manageOnly" in tab) || can("marketing.manage"))
-            .map((tab) => {
-              const isActive =
-                tab.href === "/marketing"
-                  ? pathname === "/marketing"
-                  : pathname.startsWith(tab.href);
-              return (
-                <Link
-                  key={tab.key}
-                  href={tab.href}
-                  className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition ${
-                    isActive
-                      ? "border-blue-600 text-blue-600"
-                      : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                  }`}
-                >
-                  {t(`marketing.tabs.${tab.key}`)}
-                </Link>
-              );
-            })}
-        </nav>
-        {children}
-      </div>
+    <div className="flex min-h-full flex-col">
+      <nav className="sticky top-0 z-20 flex gap-1 overflow-x-auto border-b border-gray-200 bg-white px-3 py-2">
+        {tabs
+          .filter((tab) => !("manageOnly" in tab) || can("marketing.manage"))
+          .map((tab) => {
+            const isActive =
+              tab.href === "/marketing" ? pathname === "/marketing" : pathname.startsWith(tab.href);
+            return (
+              <Link
+                key={tab.key}
+                href={tab.href}
+                aria-current={isActive ? "page" : undefined}
+                className={`whitespace-nowrap rounded-md px-2.5 py-1 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
+                  isActive
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                }`}
+              >
+                {t(`marketing.tabs.${tab.key}`)}
+              </Link>
+            );
+          })}
+      </nav>
+      <div className="px-4 py-4 sm:px-5">{children}</div>
     </div>
   );
 }

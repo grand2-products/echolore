@@ -6,7 +6,15 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ChangeForm } from "@/components/marketing/ChangeForm";
 import { CHANGE_STATUS_TONE } from "@/components/marketing/ops-widgets";
-import { Button, EmptyState, inputClass, PageHeader, Pill } from "@/components/marketing/ui";
+import {
+  Button,
+  EmptyState,
+  inputClass,
+  loadingPanelClass,
+  PageHeader,
+  Pill,
+  tableWrapClass,
+} from "@/components/marketing/ui";
 import { ErrorBanner } from "@/components/ui";
 import { marketingApi, queryKeys } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
@@ -33,8 +41,6 @@ export default function MarketingChangesPage() {
   return (
     <div>
       <PageHeader
-        title={t("marketing.changes.title")}
-        description={t("marketing.changes.description")}
         actions={
           <>
             <select
@@ -54,16 +60,15 @@ export default function MarketingChangesPage() {
           </>
         }
       />
-      <p className="-mt-3 mb-4 text-xs text-gray-500">{t("marketing.changes.flow")}</p>
       {error ? (
         <ErrorBanner message={t("marketing.common.loadFailed")} onRetry={() => void refetch()} />
       ) : null}
       {isLoading ? (
-        <div className="h-32 animate-pulse rounded-xl bg-white" />
+        <div className={`h-32 ${loadingPanelClass}`} />
       ) : !data?.length ? (
         <EmptyState title={t("marketing.changes.empty")} />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+        <div className={tableWrapClass}>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-xs text-gray-500">
               <tr className="text-left">
@@ -89,7 +94,7 @@ export default function MarketingChangesPage() {
                     </Link>
                     {c.postReviewOverdue ? (
                       <span className="ml-2">
-                        <Pill tone="red">⚠ {t("marketing.changes.postReviewOverdue")}</Pill>
+                        <Pill tone="red">{t("marketing.changes.postReviewOverdue")}</Pill>
                       </span>
                     ) : null}
                   </td>

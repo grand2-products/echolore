@@ -6,7 +6,15 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DashboardEditor } from "@/components/marketing/DashboardEditor";
 import { DashboardView } from "@/components/marketing/DashboardView";
-import { Button, Field, inputClass, Modal, useAction } from "@/components/marketing/ui";
+import {
+  Button,
+  Field,
+  inputClass,
+  loadingPanelClass,
+  Modal,
+  panelClass,
+  useAction,
+} from "@/components/marketing/ui";
 import { ErrorBanner } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { marketingApi, queryKeys } from "@/lib/api";
@@ -115,7 +123,7 @@ export default function MarketingDashboardPage() {
       router.push("/marketing/dashboards");
     });
 
-  if (isLoading) return <div className="h-40 animate-pulse rounded-xl bg-white" />;
+  if (isLoading) return <div className={`h-40 ${loadingPanelClass}`} />;
   if (error || !dashboard) {
     return (
       <ErrorBanner message={t("marketing.common.loadFailed")} onRetry={() => void refetch()} />
@@ -125,16 +133,13 @@ export default function MarketingDashboardPage() {
   if (editing && draft) {
     return (
       <div>
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <h2 className="text-xl font-semibold text-gray-900">{t("marketing.editor.title")}</h2>
-          <div className="flex flex-wrap items-end gap-2">
-            <Button onClick={() => setPreview((v) => !v)}>
-              {preview ? t("marketing.editor.backToEdit") : t("marketing.editor.preview")}
-            </Button>
-            <Button variant="ghost" onClick={() => setDraft(null)}>
-              {t("marketing.common.cancel")}
-            </Button>
-          </div>
+        <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+          <Button onClick={() => setPreview((v) => !v)}>
+            {preview ? t("marketing.editor.backToEdit") : t("marketing.editor.preview")}
+          </Button>
+          <Button variant="ghost" onClick={() => setDraft(null)}>
+            {t("marketing.common.cancel")}
+          </Button>
         </div>
         {action.error ? <ErrorBanner message={action.error} className="mb-4" /> : null}
         {preview ? (
@@ -142,7 +147,9 @@ export default function MarketingDashboardPage() {
         ) : (
           <DashboardEditor draft={draft} onChange={setDraft} />
         )}
-        <div className="sticky bottom-0 mt-6 flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div
+          className={`sticky bottom-0 mt-4 flex flex-wrap items-end gap-3 px-3 py-3 ${panelClass}`}
+        >
           <div className="min-w-[240px] flex-1">
             <Field
               label={t("marketing.editor.changeNote")}
@@ -175,6 +182,7 @@ export default function MarketingDashboardPage() {
       <DashboardView
         key={`${dashboard.id}-${dashboard.version}`}
         dashboard={dashboard}
+        showName
         actions={
           <>
             <Button size="sm" onClick={() => setShowHistory(true)}>

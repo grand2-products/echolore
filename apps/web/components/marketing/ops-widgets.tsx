@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { marketingApi, queryKeys } from "@/lib/api";
 import { useFormatters, useT } from "@/lib/i18n";
-import { ExternalLink, Pill, useMarketingAssets, WikiLink } from "./ui";
+import { ExternalLink, Pill, StatusDot, useMarketingAssets, WikiLink } from "./ui";
 
 const RUN_TONE: Record<MarketingRunStatus, "green" | "amber" | "red" | "blue"> = {
   success: "green",
@@ -59,18 +59,24 @@ export function FreshnessWidget() {
   if (!data?.length)
     return <p className="text-sm text-gray-500">{t("marketing.connectors.empty")}</p>;
   return (
-    <ul className="space-y-2">
+    <ul className="divide-y divide-gray-100">
       {data.map((c) => (
-        <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span className="min-w-0 truncate text-gray-800">{c.name}</span>
-          <span className="flex items-center gap-2">
-            {c.stale ? <Pill tone="amber">⚠ {t("marketing.connectors.stale")}</Pill> : null}
-            <RunStatusPill status={c.lastStatus} />
-          </span>
-          <span className="w-full text-xs text-gray-500">
-            {t("marketing.connectors.lastSuccess")}:{" "}
+        <li key={c.id} className="py-1.5 text-sm">
+          <div className="flex items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-gray-900">{c.name}</span>
+            <span className="flex shrink-0 items-center gap-1.5">
+              {c.stale ? (
+                <Pill tone="amber">
+                  <StatusDot />
+                  {t("marketing.connectors.stale")}
+                </Pill>
+              ) : null}
+              <RunStatusPill status={c.lastStatus} />
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs tabular-nums text-gray-500">
             {c.lastSuccessAt ? dateTime(c.lastSuccessAt) : t("marketing.common.never")}
-          </span>
+          </p>
         </li>
       ))}
     </ul>
@@ -85,13 +91,13 @@ export function AssetsWidget({ widget }: { widget: MarketingWidgetDto }) {
   if (assets.length === 0)
     return <p className="text-sm text-gray-500">{t("marketing.assets.empty")}</p>;
   return (
-    <ul className="space-y-2">
+    <ul className="divide-y divide-gray-100">
       {assets.map((a) => (
-        <li key={a.id} className="text-sm">
+        <li key={a.id} className="py-1.5 text-sm">
           <div className="flex items-center justify-between gap-2">
             <Link
               href={`/marketing/assets?asset=${a.id}`}
-              className="truncate text-gray-900 hover:underline"
+              className="min-w-0 truncate text-gray-900 hover:underline"
             >
               {a.name}
             </Link>
@@ -99,10 +105,14 @@ export function AssetsWidget({ widget }: { widget: MarketingWidgetDto }) {
               <Pill tone="amber">{t("marketing.assets.verifyDue")}</Pill>
             ) : null}
           </div>
-          <p className="text-xs text-gray-500">
-            {t(`marketing.assetTypes.${a.type}`)} · {t("marketing.assets.primary")}:{" "}
-            {a.primaryOwnerName ?? "—"} / {t("marketing.assets.secondary")}:{" "}
-            {a.secondaryOwnerName ?? "—"}
+          <p className="mt-0.5 text-xs text-gray-500">
+            {t(`marketing.assetTypes.${a.type}`)}
+            <span className="ml-3">
+              {t("marketing.assets.primary")}: {a.primaryOwnerName ?? "—"}
+            </span>
+            <span className="ml-3">
+              {t("marketing.assets.secondary")}: {a.secondaryOwnerName ?? "—"}
+            </span>
           </p>
         </li>
       ))}
@@ -124,13 +134,13 @@ export function ChangesWidget({ widget }: { widget: MarketingWidgetDto }) {
   if (items.length === 0)
     return <p className="text-sm text-gray-500">{t("marketing.changes.emptyActive")}</p>;
   return (
-    <ul className="space-y-2">
+    <ul className="divide-y divide-gray-100">
       {items.map((c) => (
-        <li key={c.id} className="text-sm">
+        <li key={c.id} className="py-1.5 text-sm">
           <div className="flex items-center justify-between gap-2">
             <Link
               href={`/marketing/changes/${c.id}`}
-              className="truncate text-gray-900 hover:underline"
+              className="min-w-0 truncate text-gray-900 hover:underline"
             >
               {c.title}
             </Link>
@@ -138,12 +148,13 @@ export function ChangesWidget({ widget }: { widget: MarketingWidgetDto }) {
               {t(`marketing.changeStatus.${c.status}`)}
             </Pill>
           </div>
-          <p className="text-xs text-gray-500">
-            {t(`marketing.changeTypes.${c.type}`)} · {c.requestedByName ?? "—"} ·{" "}
-            {date(c.updatedAt)}
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-gray-500">
+            <span>{t(`marketing.changeTypes.${c.type}`)}</span>
+            <span className="tabular-nums">{date(c.updatedAt)}</span>
             {c.postReviewOverdue ? (
-              <span className="ml-1 text-red-700">
-                · {t("marketing.changes.postReviewOverdue")}
+              <span className="inline-flex items-center gap-1 text-red-700">
+                <StatusDot tone="red" />
+                {t("marketing.changes.postReviewOverdue")}
               </span>
             ) : null}
           </p>
@@ -168,19 +179,26 @@ export function ReviewsWidget({ widget }: { widget: MarketingWidgetDto }) {
   if (items.length === 0)
     return <p className="text-sm text-gray-500">{t("marketing.knowledge.empty")}</p>;
   return (
-    <ul className="space-y-2">
+    <ul className="divide-y divide-gray-100">
       {items.map((k) => (
-        <li key={k.id} className="text-sm">
+        <li key={k.id} className="py-1.5 text-sm">
           <div className="flex items-center justify-between gap-2">
-            <Link href={`/wiki/${k.pageId}`} className="truncate text-gray-900 hover:underline">
+            <Link
+              href={`/wiki/${k.pageId}`}
+              className="min-w-0 truncate text-gray-900 hover:underline"
+            >
               {k.pageTitle ?? "—"}
             </Link>
             <Pill tone={DOC_STATUS_TONE[k.status]}>{t(`marketing.docStatus.${k.status}`)}</Pill>
           </div>
-          <p className={`text-xs ${k.reviewOverdue ? "text-red-700" : "text-gray-500"}`}>
-            {k.reviewOverdue ? "⚠ " : ""}
-            {t("marketing.knowledge.nextReview")}: {k.nextReviewAt ? date(k.nextReviewAt) : "—"} ·{" "}
-            {k.ownerName ?? "—"}
+          <p
+            className={`mt-0.5 flex flex-wrap items-center gap-x-3 text-xs ${k.reviewOverdue ? "text-red-700" : "text-gray-500"}`}
+          >
+            <span>{k.ownerName ?? "—"}</span>
+            <span className="inline-flex items-center gap-1 tabular-nums">
+              {k.reviewOverdue ? <StatusDot tone="red" /> : null}
+              {k.nextReviewAt ? date(k.nextReviewAt) : "—"}
+            </span>
           </p>
         </li>
       ))}

@@ -129,9 +129,9 @@ function WidgetForm({
                 type="button"
                 onClick={() => toggleMetric(m.key)}
                 aria-pressed={metrics.includes(m.key)}
-                className={`rounded-full border px-2.5 py-1 text-xs ${
+                className={`rounded-sm border px-2 py-1 text-xs ${
                   metrics.includes(m.key)
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    ? "border-gray-900 bg-gray-900 text-white"
                     : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
                 }`}
               >
@@ -268,7 +268,7 @@ export function DashboardEditor({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:grid-cols-2">
+      <div className="grid gap-3 border border-gray-200 bg-white p-3 sm:grid-cols-2">
         <Field label={t("marketing.editor.name")} required>
           <input
             className={inputClass}
@@ -317,7 +317,7 @@ export function DashboardEditor({
 
       <ol className="space-y-2">
         {draft.widgets.map((w, i) => (
-          <li key={w.id} className="rounded-xl border border-gray-200 bg-white">
+          <li key={w.id} className="border border-gray-200 bg-white">
             <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
               <button
                 type="button"
@@ -325,8 +325,11 @@ export function DashboardEditor({
                 onClick={() => setOpenId(openId === w.id ? null : w.id)}
               >
                 {i + 1}. {w.title || t(`marketing.widgetTypes.${w.type}`)}
-                <span className="ml-2 text-xs font-normal text-gray-500">
-                  {t(`marketing.widgetTypes.${w.type}`)} · {t(`marketing.editor.width${w.width}`)}
+                <span className="ml-3 text-xs font-normal text-gray-500">
+                  {t(`marketing.widgetTypes.${w.type}`)}
+                </span>
+                <span className="ml-3 text-xs font-normal text-gray-500">
+                  {t(`marketing.editor.width${w.width}`)}
                 </span>
               </button>
               <div className="flex items-center gap-1">

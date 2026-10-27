@@ -17,6 +17,7 @@ import {
   ExternalLink,
   Field,
   inputClass,
+  loadingPanelClass,
   Notice,
   Pill,
   splitList,
@@ -71,7 +72,7 @@ export default function MarketingChangeDetailPage() {
     queryFn: () => marketingApi.getChange(id),
   });
 
-  if (isLoading) return <div className="h-40 animate-pulse rounded-xl bg-white" />;
+  if (isLoading) return <div className={`h-40 ${loadingPanelClass}`} />;
   if (error || !data)
     return (
       <ErrorBanner message={t("marketing.common.loadFailed")} onRetry={() => void refetch()} />
@@ -122,19 +123,19 @@ export default function MarketingChangeDetailPage() {
       </Link>
       <div className="mt-2 mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">{change.title}</h2>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+          <h2 className="text-base font-semibold text-gray-900">{change.title}</h2>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600">
             <Pill tone={CHANGE_STATUS_TONE[change.status]}>
               {t(`marketing.changeStatus.${change.status}`)}
             </Pill>
             <span>{t(`marketing.changeTypes.${change.type}`)}</span>
-            {change.severity ? <span>· {t(`marketing.severity.${change.severity}`)}</span> : null}
+            {change.severity ? <span>{t(`marketing.severity.${change.severity}`)}</span> : null}
             {change.assetName ? (
               <Link
                 href={`/marketing/assets?asset=${change.assetId}`}
-                className="text-blue-600 hover:underline"
+                className="text-blue-700 hover:underline"
               >
-                · {change.assetName}
+                {change.assetName}
               </Link>
             ) : null}
           </div>

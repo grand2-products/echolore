@@ -9,8 +9,13 @@ import { marketingApi, queryKeys, useWikiPagesQuery } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
 import { useT } from "@/lib/i18n";
 
+/** Shared board surface: one border, no card radius. */
+export const panelClass = "border border-gray-200 bg-white";
+export const tableWrapClass = `overflow-x-auto ${panelClass}`;
+export const loadingPanelClass = `animate-pulse ${panelClass}`;
+
 export const inputClass =
-  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50";
+  "w-full rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:border-blue-600 focus:outline-none focus:ring-1 focus:ring-blue-600 disabled:bg-gray-50";
 
 const BUTTON_VARIANTS = {
   primary: "bg-blue-600 text-white hover:bg-blue-700",
@@ -23,8 +28,8 @@ export function buttonClass(
   variant: keyof typeof BUTTON_VARIANTS = "secondary",
   size: "sm" | "md" = "md"
 ) {
-  const sizing = size === "sm" ? "px-2.5 py-1 text-xs" : "px-3.5 py-2 text-sm";
-  return `inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${sizing} ${BUTTON_VARIANTS[variant]}`;
+  const sizing = size === "sm" ? "px-2 py-1 text-xs" : "px-3 py-1.5 text-sm";
+  return `inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50 ${sizing} ${BUTTON_VARIANTS[variant]}`;
 }
 
 export function Button({
@@ -45,15 +50,21 @@ export function PageHeader({
   description,
   actions,
 }: {
-  title: string;
+  title?: string;
   description?: string;
   actions?: ReactNode;
 }) {
+  if (!title && !description) {
+    if (!actions) return null;
+    return <div className="mb-3 flex flex-wrap items-center justify-end gap-2">{actions}</div>;
+  }
   return (
-    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
-        <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
-        {description ? <p className="mt-1 text-sm text-gray-600">{description}</p> : null}
+        {title ? <h2 className="text-base font-semibold text-gray-900">{title}</h2> : null}
+        {description ? (
+          <p className="mt-0.5 max-w-3xl text-xs leading-5 text-gray-500">{description}</p>
+        ) : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </div>
@@ -65,21 +76,24 @@ export function Card({
   actions,
   children,
   className = "",
+  flush = false,
 }: {
   title?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** Drop body padding so a table sits on the board edge. */
+  flush?: boolean;
 }) {
   return (
-    <section className={`rounded-xl border border-gray-200 bg-white ${className}`}>
+    <section className={`${panelClass} ${className}`}>
       {title || actions ? (
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
-          <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-3 py-2">
+          <h3 className="text-xs font-medium text-gray-700">{title}</h3>
           {actions}
         </header>
       ) : null}
-      <div className="p-4">{children}</div>
+      <div className={flush ? "" : "p-3"}>{children}</div>
     </section>
   );
 }
@@ -126,7 +140,7 @@ export function Modal({
   return (
     <ModalShell open={open} onClose={onClose} maxWidth={wide ? "max-w-3xl" : "max-w-lg"}>
       <div className="flex max-h-[85vh] flex-col">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">{title}</h2>
+        <h2 className="mb-3 text-base font-semibold text-gray-900">{title}</h2>
         <div className="-mx-1 flex-1 overflow-y-auto px-1">{children}</div>
         {footer ? <div className="mt-4 flex justify-end gap-2">{footer}</div> : null}
       </div>
@@ -144,7 +158,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-gray-300 bg-white px-6 py-10 text-center">
+    <div className={`${panelClass} px-6 py-8 text-center`}>
       <p className="text-sm font-medium text-gray-900">{title}</p>
       {description ? <p className="mt-1 text-sm text-gray-500">{description}</p> : null}
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
@@ -165,7 +179,7 @@ export function Notice({
     danger: "border-red-200 bg-red-50 text-red-700",
     success: "border-emerald-200 bg-emerald-50 text-emerald-800",
   };
-  return <div className={`rounded-lg border px-3 py-2 text-sm ${tones[tone]}`}>{children}</div>;
+  return <div className={`border px-3 py-2 text-sm ${tones[tone]}`}>{children}</div>;
 }
 
 /** Status pill: status is never conveyed by color alone — the label is always shown. */
@@ -186,11 +200,18 @@ export function Pill({
   };
   return (
     <span
-      className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${tones[tone]}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[11px] font-medium ${tones[tone]}`}
     >
       {children}
     </span>
   );
+}
+
+/** Status mark beside a label. Color is never the only signal — keep the text. */
+export function StatusDot({ tone = "amber" }: { tone?: "amber" | "red" | "emerald" }) {
+  const color =
+    tone === "red" ? "bg-red-500" : tone === "emerald" ? "bg-emerald-500" : "bg-amber-500";
+  return <span aria-hidden className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${color}`} />;
 }
 
 /** Runs an async action with pending + localized error state. */
@@ -333,8 +354,8 @@ export function WikiLink({ pageId, label }: { pageId: string | null | undefined;
   const t = useT();
   if (!pageId) return null;
   return (
-    <Link href={`/wiki/${pageId}`} className="text-sm text-blue-600 hover:underline">
-      {label ?? t("marketing.common.openWiki")} →
+    <Link href={`/wiki/${pageId}`} className="text-xs text-blue-700 hover:underline">
+      {label ?? t("marketing.common.openWiki")}
     </Link>
   );
 }
@@ -352,9 +373,9 @@ export function ExternalLink({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-sm text-blue-600 hover:underline"
+      className="text-sm text-blue-700 hover:underline"
     >
-      {children} ↗
+      {children}
     </a>
   );
 }
