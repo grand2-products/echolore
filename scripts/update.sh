@@ -145,6 +145,12 @@ if ! grep -q '^UPDATER_SECRET=..*' .env; then
   info "Added missing UPDATER_SECRET to .env"
 fi
 
+# Ensure the updater container (uid/gid 1000, fixed in docker-compose.production.yml)
+# can read/write .env for self-update. Best effort — root-owned installs keep working
+# via host-side update.sh even if this fails.
+chown 1000:1000 .env 2>/dev/null || true
+chmod 600 .env 2>/dev/null || true
+
 # ── pull new images ──────────────────────────────────────────────────────────
 
 info "Pulling images (${TARGET_VERSION})..."

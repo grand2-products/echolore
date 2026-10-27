@@ -172,6 +172,10 @@ UPDATER_SECRET=${UPDATER_SECRET}
 ENVEOF
 
 chmod 600 "${INSTALL_DIR}/.env"
+# The updater container runs as uid/gid 1000 and needs read/write access to
+# .env for self-update (version display and ECHOLORE_VERSION rewrite).
+# Numeric ownership: the uid/gid are fixed in docker-compose.production.yml.
+chown 1000:1000 "${INSTALL_DIR}/.env" 2>/dev/null || true
 
 # ── pull and start ───────────────────────────────────────────────────────────
 
