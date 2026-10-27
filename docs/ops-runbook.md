@@ -1,6 +1,6 @@
 # Ops Runbook
 
-Last updated: 2026-03-13
+Last updated: 2026-10-27
 
 ## Scope
 - API health: `http://localhost:3001/health`
@@ -118,6 +118,13 @@ Last updated: 2026-03-13
 3. Confirm the script stages only `docker-compose.bootstrap-check.yml` and `.env` into a temp directory
 4. Confirm `docker compose config`, `pull`, `up -d --wait`, and in-container health checks all succeed
 5. Use this as a repo-level regression check before running `Bootstrap Validate` against `dev` or `prod`
+
+### Admin UI shows "アップデーターが利用できません" (Updater unavailable)
+- Cause: `UPDATER_SECRET` is empty in the API container; the API returns 503 `UPDATER_UNAVAILABLE` and the admin UI shows the warning
+- Confirm: `docker compose exec -T api printenv UPDATER_SECRET` (must be non-empty)
+- Installs created before the updater feature may lack the key in `.env`; `update.sh` backfills it automatically since this fix
+- Manual fix (break-glass): append `UPDATER_SECRET=$(openssl rand -hex 32)` to `.env`, then `docker compose up -d --force-recreate api updater`
+- Verify: from the api container, `GET http://updater:8787/status` with the `x-echolore-updater-secret` header returns 200 and `updaterAvailable: true`
 
 ## Break-Glass Recovery
 1. SSH to instance

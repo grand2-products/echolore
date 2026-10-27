@@ -137,6 +137,14 @@ else
   echo "ECHOLORE_VERSION=${TARGET_VERSION}" >> .env
 fi
 
+# ── ensure UPDATER_SECRET exists (installs created before the updater feature) ─
+
+if ! grep -q '^UPDATER_SECRET=..*' .env; then
+  sed -i '/^UPDATER_SECRET=$/d' .env
+  echo "UPDATER_SECRET=$(openssl rand -hex 32)" >> .env
+  info "Added missing UPDATER_SECRET to .env"
+fi
+
 # ── pull new images ──────────────────────────────────────────────────────────
 
 info "Pulling images (${TARGET_VERSION})..."
