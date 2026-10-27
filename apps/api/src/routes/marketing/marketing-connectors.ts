@@ -1,4 +1,9 @@
-import { MarketingPermission } from "@echolore/shared/contracts";
+import {
+  CONNECTOR_LINKED_ASSET_TYPES,
+  type MarketingConnectorType,
+  MarketingPermission,
+  normalizeConnectorConfig,
+} from "@echolore/shared/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
@@ -50,6 +55,30 @@ function pickConfig(type: string, config: Record<string, unknown> | undefined) {
   return Object.fromEntries(Object.entries(config ?? {}).filter(([key]) => allowed.has(key)));
 }
 
+function canonicalConfig(type: string, config: Record<string, unknown> | undefined) {
+  return normalizeConnectorConfig(type as MarketingConnectorType, pickConfig(type, config));
+}
+
+/**
+ * New links and asset changes must match the connector. Keeping the same
+ * asset id, including a historical mismatch, is allowed.
+ */
+async function assetLinkError(
+  connectorType: string,
+  assetId: string | null | undefined,
+  previousAssetId?: string | null
+): Promise<string | null> {
+  if (assetId === undefined || assetId === null) return null;
+  const asset = await getAssetById(assetId);
+  if (!asset) return "NOT_FOUND";
+  if (previousAssetId && assetId === previousAssetId) return null;
+  const allowed = CONNECTOR_LINKED_ASSET_TYPES[connectorType as MarketingConnectorType];
+  if (allowed && !allowed.includes(asset.type as never)) {
+    return `${connectorType} connector can only link a ${allowed.join(" or ")} asset`;
+  }
+  return null;
+}
+
 async function assetNameMap() {
   return new Map((await listAssets()).map((a) => [a.id, a.name]));
 }
@@ -78,15 +107,17 @@ marketingConnectorRoutes.post(
     const input = c.req.valid("json");
     const def = getConnectorDefinition(input.type);
     if (!def) return jsonError(c, 400, "MARKETING_INVALID_CONNECTOR", "Unknown connector type");
-    const config = pickConfig(input.type, input.config);
-    const configError = def.validateConfig?.(config);
-    if (configError) return jsonError(c, 400, "MARKETING_INVALID_CONFIG", configError);
+    const normalized = canonicalConfig(input.type, input.config);
+    if (!normalized.ok) return jsonError(c, 400, "MARKETING_INVALID_CONFIG", normalized.message);
+    const config = normalized.value;
     const timezone = input.timezone ?? "Asia/Tokyo";
     if (!isValidTimezone(timezone))
       return jsonError(c, 400, "MARKETING_INVALID_CONFIG", "Unknown timezone");
-    if (input.assetId && !(await getAssetById(input.assetId))) {
+    const linkError = await assetLinkError(input.type, input.assetId ?? null);
+    if (linkError === "NOT_FOUND") {
       return jsonError(c, 400, "MARKETING_INVALID_REFERENCE", "Asset not found");
     }
+    if (linkError) return jsonError(c, 400, "MARKETING_ASSET_TYPE_MISMATCH", linkError);
     const secrets = mergeSecrets(
       {},
       input.secrets,
@@ -136,17 +167,20 @@ marketingConnectorRoutes.put(
     const def = getConnectorDefinition(existing.type);
     if (!def) return jsonError(c, 400, "MARKETING_INVALID_CONNECTOR", "Unknown connector type");
     const input = c.req.valid("json");
-    const config = input.config !== undefined ? pickConfig(existing.type, input.config) : undefined;
-    if (config) {
-      const configError = def.validateConfig?.(config);
-      if (configError) return jsonError(c, 400, "MARKETING_INVALID_CONFIG", configError);
+    let config: Record<string, unknown> | undefined;
+    if (input.config !== undefined) {
+      const normalized = canonicalConfig(existing.type, input.config);
+      if (!normalized.ok) return jsonError(c, 400, "MARKETING_INVALID_CONFIG", normalized.message);
+      config = normalized.value;
     }
     if (input.timezone && !isValidTimezone(input.timezone)) {
       return jsonError(c, 400, "MARKETING_INVALID_CONFIG", "Unknown timezone");
     }
-    if (input.assetId && !(await getAssetById(input.assetId))) {
+    const linkError = await assetLinkError(existing.type, input.assetId, existing.assetId);
+    if (linkError === "NOT_FOUND") {
       return jsonError(c, 400, "MARKETING_INVALID_REFERENCE", "Asset not found");
     }
+    if (linkError) return jsonError(c, 400, "MARKETING_ASSET_TYPE_MISMATCH", linkError);
     const secretsEnc =
       input.secrets !== undefined
         ? encryptSecrets(

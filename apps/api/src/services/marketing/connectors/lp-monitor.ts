@@ -1,5 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { normalizeConnectorConfig, projectConnectorFields } from "@echolore/shared/contracts";
 import { todayInTimezone } from "../marketing-dates.js";
 import {
   ConnectorError,
@@ -142,32 +143,12 @@ export const lpMonitorConnector: MarketingConnectorDefinition = {
   supportsSync: true,
   writeMode: "accumulate",
   metrics: ["uptime_checks", "uptime_successes", "response_ms_total"],
-  configFields: [
-    { key: "urls", kind: "list", required: true, placeholder: "https://example.com/lp/spring" },
-    {
-      key: "expectedTags",
-      kind: "list",
-      required: false,
-      placeholder: "GTM-XXXXXXX, G-XXXXXXXXXX",
-    },
-    { key: "requireForm", kind: "boolean", required: false },
-  ],
-  secretFields: [],
+  ...projectConnectorFields("lp_monitor"),
   // A health check observes "now", so a run always covers today only.
   resolveRange: (today) => ({ from: today, to: today }),
   validateConfig: (config) => {
-    const urls = configList(config, "urls");
-    if (urls.length === 0) return "At least one URL is required";
-    if (urls.length > 50) return "At most 50 URLs per connector";
-    for (const u of urls) {
-      try {
-        const parsed = new URL(u);
-        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return `Invalid URL: ${u}`;
-      } catch {
-        return `Invalid URL: ${u}`;
-      }
-    }
-    return null;
+    const result = normalizeConnectorConfig("lp_monitor", config);
+    return result.ok ? null : result.message;
   },
   async fetch(ctx) {
     const date = todayInTimezone(ctx.timezone);

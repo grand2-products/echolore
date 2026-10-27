@@ -267,12 +267,19 @@ export function AssetSelect({
   value,
   onChange,
   assets,
+  allowedTypes,
 }: {
   value: string | null | undefined;
   onChange: (value: string | null) => void;
   assets: MarketingAssetDto[] | undefined;
+  /** When set, only these asset types are listed. The current value stays visible. */
+  allowedTypes?: readonly string[] | null;
 }) {
   const t = useT();
+  const options = (assets ?? []).filter((asset) => {
+    if (!allowedTypes || asset.id === value) return true;
+    return allowedTypes.includes(asset.type);
+  });
   return (
     <select
       className={inputClass}
@@ -280,7 +287,7 @@ export function AssetSelect({
       onChange={(e) => onChange(e.target.value || null)}
     >
       <option value="">{t("marketing.common.none")}</option>
-      {(assets ?? []).map((a) => (
+      {options.map((a) => (
         <option key={a.id} value={a.id}>
           {a.name} — {t(`marketing.assetTypes.${a.type}`)}
         </option>

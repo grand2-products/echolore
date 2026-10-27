@@ -1,3 +1,8 @@
+import {
+  canonicalAccountId,
+  normalizeConnectorConfig,
+  projectConnectorFields,
+} from "@echolore/shared/contracts";
 import { fetchJsonWithRetry } from "./http.js";
 import {
   type ConnectorContext,
@@ -125,27 +130,10 @@ export const metaAdsConnector: MarketingConnectorDefinition = {
   supportsSync: true,
   writeMode: "replace",
   metrics: ["cost", "impressions", "clicks", "conversions", "conversion_value"],
-  configFields: [
-    { key: "adAccountId", kind: "text", required: true, placeholder: "act_1234567890" },
-    {
-      key: "conversionActionTypes",
-      kind: "list",
-      required: false,
-      placeholder: DEFAULT_CONVERSION_ACTION_TYPES.join(", "),
-    },
-    { key: "clickType", kind: "text", required: false, placeholder: "link | all" },
-    { key: "apiVersion", kind: "text", required: false, placeholder: DEFAULT_API_VERSION },
-  ],
-  secretFields: [{ key: "accessToken", kind: "textarea", required: true }],
+  ...projectConnectorFields("meta_ads"),
   validateConfig: (config) => {
-    if (!/^(act_)?\d+$/.test(configString(config, "adAccountId"))) {
-      return "adAccountId must be numeric (optionally prefixed with act_)";
-    }
-    const clickType = configString(config, "clickType");
-    if (clickType && clickType !== "link" && clickType !== "all") {
-      return "clickType must be 'link' or 'all'";
-    }
-    return null;
+    const result = normalizeConnectorConfig("meta_ads", config);
+    return result.ok ? null : result.message;
   },
   async fetch(ctx) {
     const token = requireSecret(ctx.secrets, "accessToken");
@@ -176,17 +164,24 @@ export const metaAdsConnector: MarketingConnectorDefinition = {
     }
     const warnings: string[] = [];
     if (pages >= 200) warnings.push("Pagination limit reached; results may be truncated");
-    return {
-      rows: mapMetaInsightRows(data, {
-        conversionActionTypes:
-          conversionActionTypes.length > 0
-            ? conversionActionTypes
-            : DEFAULT_CONVERSION_ACTION_TYPES,
-        clickType: configString(ctx.config, "clickType") || "link",
-        currencyOverride: ctx.currency,
-      }),
-      warnings,
-    };
+    const mapped = mapMetaInsightRows(data, {
+      conversionActionTypes:
+        conversionActionTypes.length > 0 ? conversionActionTypes : DEFAULT_CONVERSION_ACTION_TYPES,
+      clickType: configString(ctx.config, "clickType") || "link",
+      currencyOverride: ctx.currency,
+    });
+    const canonical = canonicalAccountId("meta_ads", ctx.config);
+    let differs = false;
+    const rows = mapped.map((row) => {
+      const fromApi = row.accountId ?? "";
+      if (fromApi !== "") {
+        if (canonical && fromApi !== canonical) differs = true;
+        return row;
+      }
+      return { ...row, accountId: canonical };
+    });
+    if (differs) warnings.push("account id from API differs from connector config");
+    return { rows, warnings };
   },
   async test(ctx) {
     const info = await getAccountInfo(ctx);

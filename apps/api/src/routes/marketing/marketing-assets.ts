@@ -1,4 +1,4 @@
-import { MarketingPermission } from "@echolore/shared/contracts";
+import { MarketingPermission, normalizeAssetIdentifiers } from "@echolore/shared/contracts";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { jsonError, withErrorHandler } from "../../lib/api-error.js";
@@ -75,9 +75,12 @@ marketingAssetRoutes.post(
   withErrorHandler("MARKETING_ASSET_CREATE_FAILED", "Failed to create asset"),
   async (c) => {
     const input = c.req.valid("json");
+    const identifiers = normalizeAssetIdentifiers(input.type, input.identifiers ?? {});
+    if (!identifiers.ok)
+      return jsonError(c, 400, "MARKETING_INVALID_IDENTIFIER", identifiers.message);
     const error = await validateReferences(input);
     if (error) return jsonError(c, 400, "MARKETING_INVALID_REFERENCE", error);
-    const asset = await createAsset(input, c.get("user").id);
+    const asset = await createAsset({ ...input, identifiers: identifiers.value }, c.get("user").id);
     await auditAction(c, "marketing.asset.create", "marketing-asset", asset.id, {
       type: asset.type,
       name: asset.name,
@@ -113,9 +116,21 @@ marketingAssetRoutes.put(
   async (c) => {
     const id = c.req.param("id");
     const input = c.req.valid("json");
+    let identifiers: Record<string, string> | undefined;
+    if (input.identifiers !== undefined) {
+      const normalized = normalizeAssetIdentifiers(input.type, input.identifiers);
+      if (!normalized.ok) {
+        return jsonError(c, 400, "MARKETING_INVALID_IDENTIFIER", normalized.message);
+      }
+      identifiers = normalized.value;
+    }
     const error = await validateReferences(input, id);
     if (error) return jsonError(c, 400, "MARKETING_INVALID_REFERENCE", error);
-    const asset = await updateAsset(id, input);
+    const { identifiers: _ignored, ...rest } = input;
+    const asset = await updateAsset(
+      id,
+      identifiers !== undefined ? { ...rest, identifiers } : rest
+    );
     if (!asset) return jsonError(c, 404, "NOT_FOUND", "Asset not found");
     await auditAction(c, "marketing.asset.update", "marketing-asset", id, {
       fields: Object.keys(input),

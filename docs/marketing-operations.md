@@ -1,7 +1,7 @@
 # Marketing Operations (マーケティング運用)
 
 Status: **Implemented (MVP)**
-Date: 2026-10-26
+Date: 2026-10-27
 
 ## Overview
 
@@ -63,12 +63,27 @@ Wiki のページ詳細（`/wiki/[id]`）には、レジストリに登録され
 
 ## Asset register (資産台帳)
 
-`marketing_assets` に、サービス名／アカウント・プロパティ・コンテナID／利用目的／
-所有主体／請求主体／主担当・副担当／代理店と契約・共有関係／関連資産／計測ID／
+`marketing_assets` に、サービス名／種別ごとの識別子／利用目的／
+所有主体／請求主体／主担当・副担当／代理店と契約・共有関係／関連資産／
 管理画面URL・公開URL／緊急時の代行者・連絡先／手順の Wiki ページ／確認周期と最終確認日
-を持つ。
+を持つ。所有主体・担当・確認周期などの統制項目は全種別で共通。識別子だけが種別ごとに異なる。
 
-- 認証秘密は台帳に記載しない。`secretReference` は保管庫の参照先のみ。
+識別子は `identifiers`（JSON オブジェクト）に正規化して保存する。画面の項目は種別に従う。
+
+| 種別 | 識別子 |
+| --- | --- |
+| `ga4` | `propertyId`（必須。数字。Data API の `properties/{id}`。`properties/` は外して保存）。`measurementId`（任意。`G-`。取得入力には使わない） |
+| `meta_ads` | `adAccountId`（必須。`act_` 付きまたは数字。数字だけ保存）。`pixelId`（任意。数字。`act_` は不可。Insights の入力には使わない） |
+| `google_ads` | `customerId`（必須。10 桁。ハイフンは除去） |
+| `gtm` | `containerId`（必須。`GTM-`。大文字で保存） |
+| `domain` | `hostname`（必須。ASCII の LDH。パス・ポート・ユーザー情報は不可。日本語ドメインは利用者が punycode で書く） |
+| `landing_page` | 識別子なし。公開 URL が識別になる |
+| `other` | `label`（任意。秘密は拒否） |
+
+- 作成時に識別子を省略すると `{}` になり、必須項目がある種別は 400。更新で `identifiers` を省略すると保存済みの値を残す。`{}` を送ると置き換える。
+- 種別を変えると、画面は確認のあと識別子を空にする。別種別の値は移さない。
+- 認証秘密は台帳に記載しない。`secretReference` は保管庫の参照先のみ。識別子の値に秘密鍵を書くことも拒否する。
+- 既存の `external_id` と `measurement_ids` は起動時バックフィルで `identifiers` へ写す（移行 0020 は列追加のみ。写し自体は API プロセス）。未写しが残るあいだ古い列は残す。削除は、未写しが 0 件になってから別リリースで行う。
 - 主担当と副担当は同一人物にできない。
 - 権限一覧（`marketing_asset_access`）は外部サービス側で誰がどの権限を持つかの記録。
   代理店・外部委託には終了日が必須。承認者は記録した操作者。期限切れは概要に集計。
@@ -94,7 +109,11 @@ Wiki のページ詳細（`/wiki/[id]`）には、レジストリに登録され
 - 認証情報は AES-256-GCM（`ENCRYPTION_KEY`）で暗号化して保存し、API は
   「設定済みのキー名」だけを返す。書き込み専用で、空欄送信は既存値を保持、明示的な
   削除操作でのみ消去。復号はサーバーの同期処理内のみ。
-- 設定値は種別ごとに宣言されたキーだけを保存する（任意データを保存させない）。
+- 設定値は種別ごとに宣言されたキーだけを保存する（任意データを保存させない）。保存時に識別子は正規化する（`properties/`・`act_`・`customers/` とハイフンを外した値を保存する）。
+- コネクターと資産の種別は、新規の紐づけと資産の付け替えで一致が必要（`MARKETING_ASSET_TYPE_MISMATCH`）。すでに付いている資産を同じ ID のまま保存することは、種別が違っていても残せる。
+- 画面は紐づく資産の識別子をコネクター設定へ転記する。転記はブラウザ上だけで、台帳へは書き戻さない。取得が使う値はコネクター設定が正本。利用者がすでに編集した項目は転記で上書きしない。
+- 取得行のアカウント ID が空のときだけ、GA4 は `propertyId`、Meta は広告アカウント ID、Google 広告は顧客 ID を補う。API の ID が設定と違うときは警告を残し、行の ID は API の値のままにする。警告だけでは実行を要確認にはしない。
+- `GET /marketing/connectors/types` が返す項目は `key` / `kind` / `required` / `placeholder` のみ。
 - LP 監視は SSRF 対策としてループバック・プライベート・リンクローカル宛てを拒否する。
   社内向けページを監視する自己ホスト環境では `MARKETING_ALLOW_PRIVATE_URLS=true` で解除。
 
@@ -213,8 +232,8 @@ open ─submit→ in_review ─approve→ approved ─implement→ implemented �
 
 1. 管理 → アクセス管理でグループを作成し、`marketing.*` 権限を付与する。
 2. `/marketing/knowledge` で初期ツリーを作成する（manage）。チームスペースを選ぶと閲覧はそのグループに限定。
-3. `/marketing/assets` で棚卸しした資産を登録し、主副担当・権限一覧を記録する。
-4. `/marketing/connectors` でコネクターを追加し、接続テスト → 今すぐ取得。API 承認前は CSV 取込で代替。
+3. `/marketing/assets` で棚卸しした資産を登録する。識別子は種別の項目だけを入れ、主副担当・権限一覧を記録する。
+4. `/marketing/connectors` でコネクターを追加する。資産を選ぶと識別子が転記される。接続テスト → 今すぐ取得。API 承認前は CSV 取込で代替。
 5. `/marketing` でテンプレートからダッシュボードを作成し、直近 7 日を元画面と照合して記録する。
 
 API 未承認・データ収集停止時は、ダッシュボードに警告が出る。媒体の一次画面で運用を継続し、
@@ -224,7 +243,7 @@ API 未承認・データ収集停止時は、ダッシュボードに警告が�
 
 | Table | 用途 |
 | --- | --- |
-| `marketing_assets` / `marketing_asset_access` | 資産台帳と外部サービス側の権限一覧 |
+| `marketing_assets` / `marketing_asset_access` | 資産台帳（`identifiers`）と外部サービス側の権限一覧。旧 `external_id` / `measurement_ids` はバックフィル完了まで残す |
 | `marketing_connectors` | コネクター設定（暗号化された認証情報、スケジュール、ロック、最終状態） |
 | `marketing_sync_runs` | 取得履歴と品質確認結果 |
 | `marketing_metrics_daily` | 日次の基本指標（縦持ち） |
@@ -234,7 +253,7 @@ API 未承認・データ収集停止時は、ダッシュボードに警告が�
 | `marketing_knowledge_pages` | Wiki ページの統制情報 |
 | `marketing_reconciliations` | 数値照合 |
 
-Migration: `apps/api/src/db/migrations/0019_marketing_operations.sql`
+Migration: `apps/api/src/db/migrations/0019_marketing_operations.sql`、`0020_marketing_asset_identifiers.sql`（識別子列の追加。旧列の削除は含まない）
 
 ## 計画書の要求との対応
 

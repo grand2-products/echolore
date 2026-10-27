@@ -56,8 +56,11 @@ export interface MarketingAssetDto {
   type: MarketingAssetType;
   /** サービス名 / display name */
   name: string;
-  /** Account / property / container ID */
-  externalId: string | null;
+  /**
+   * Type-specific external identifiers. Keys come from
+   * `ASSET_IDENTIFIER_SCHEMAS`. Values are stored in canonical form.
+   */
+  identifiers: Record<string, string>;
   purpose: string | null;
   /** 所有主体 */
   ownerEntity: string | null;
@@ -73,8 +76,6 @@ export interface MarketingAssetDto {
   agencyRelationship: string | null;
   /** 関連資産 (LP, 計測 etc.) */
   relatedAssetIds: string[];
-  /** 計測ID (GA4 measurement ID, GTM container ID, pixel ID ...) */
-  measurementIds: string[];
   /** 管理画面URL */
   consoleUrl: string | null;
   /** 公開URL (LP など) */
@@ -98,7 +99,11 @@ export interface MarketingAssetDto {
 export interface UpsertMarketingAssetRequest {
   type: MarketingAssetType;
   name: string;
-  externalId?: string | null;
+  /**
+   * Omitted on update leaves stored identifiers unchanged. Present values
+   * replace the whole object after server-side normalization.
+   */
+  identifiers?: Record<string, string>;
   purpose?: string | null;
   ownerEntity?: string | null;
   billingEntity?: string | null;
@@ -107,7 +112,6 @@ export interface UpsertMarketingAssetRequest {
   agencyName?: string | null;
   agencyRelationship?: string | null;
   relatedAssetIds?: string[];
-  measurementIds?: string[];
   consoleUrl?: string | null;
   publicUrl?: string | null;
   secretReference?: string | null;
