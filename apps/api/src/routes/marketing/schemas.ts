@@ -36,7 +36,7 @@ const metricKey = z.string().refine((k) => Boolean(MARKETING_METRIC_MAP[k]), "Un
 export const upsertAssetSchema = z.object({
   type: z.enum(MARKETING_ASSET_TYPES),
   name: z.string().trim().min(1).max(200),
-  externalId: optionalText(200),
+  identifiers: z.record(z.string().trim().min(1).max(100), z.string().trim().max(300)).optional(),
   purpose: optionalText(2000),
   ownerEntity: optionalText(200),
   billingEntity: optionalText(200),
@@ -45,7 +45,6 @@ export const upsertAssetSchema = z.object({
   agencyName: optionalText(200),
   agencyRelationship: optionalText(2000),
   relatedAssetIds: z.array(id).max(50).optional(),
-  measurementIds: z.array(z.string().trim().min(1).max(100)).max(50).optional(),
   consoleUrl: optionalUrl,
   publicUrl: optionalUrl,
   secretReference: optionalText(500),

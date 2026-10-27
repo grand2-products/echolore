@@ -597,6 +597,8 @@ export interface MarketingAssetsTable {
   type: string;
   name: string;
   externalId: string | null;
+  identifiers: Generated<Record<string, string>>;
+  legacyIdentifiersMapped: Generated<boolean>;
   purpose: string | null;
   ownerEntity: string | null;
   billingEntity: string | null;

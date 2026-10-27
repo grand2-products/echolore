@@ -1087,3 +1087,4 @@ export interface GithubSyncLogDto {
 }
 
 export * from "./marketing.js";
+export * from "./marketing-identifiers.js";

@@ -1,12 +1,16 @@
 "use client";
 
 import {
+  ASSET_IDENTIFIER_SCHEMAS,
+  assetDisplayIdentifier,
   type CreateMarketingAssetAccessRequest,
   MARKETING_ACCESS_ROLES,
   MARKETING_ASSET_STATUSES,
   MARKETING_ASSET_TYPES,
   MARKETING_PRINCIPAL_TYPES,
   type MarketingAssetDto,
+  type MarketingAssetType,
+  normalizeAssetIdentifiers,
   type UpsertMarketingAssetRequest,
 } from "@echolore/shared/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,7 +27,6 @@ import {
   Notice,
   PageHeader,
   Pill,
-  splitList,
   UserSelect,
   useAction,
   useMarketingAssets,
@@ -40,17 +43,17 @@ import { useFormatters, useT } from "@/lib/i18n";
 const EMPTY_FORM: UpsertMarketingAssetRequest = {
   type: "meta_ads",
   name: "",
+  identifiers: {},
   verificationIntervalDays: 30,
   status: "active",
   relatedAssetIds: [],
-  measurementIds: [],
 };
 
 function toForm(a: MarketingAssetDto): UpsertMarketingAssetRequest {
   return {
     type: a.type,
     name: a.name,
-    externalId: a.externalId,
+    identifiers: a.identifiers ?? {},
     purpose: a.purpose,
     ownerEntity: a.ownerEntity,
     billingEntity: a.billingEntity,
@@ -59,7 +62,6 @@ function toForm(a: MarketingAssetDto): UpsertMarketingAssetRequest {
     agencyName: a.agencyName,
     agencyRelationship: a.agencyRelationship,
     relatedAssetIds: a.relatedAssetIds,
-    measurementIds: a.measurementIds,
     consoleUrl: a.consoleUrl,
     publicUrl: a.publicUrl,
     secretReference: a.secretReference,
@@ -88,7 +90,8 @@ function AssetForm({
   const members = useMarketingMembers();
   const action = useAction();
   const [form, setForm] = useState(initial);
-  const [measurementText, setMeasurementText] = useState((initial.measurementIds ?? []).join(", "));
+  const [identifiersTouched, setIdentifiersTouched] = useState(false);
+  const [pendingType, setPendingType] = useState<MarketingAssetType | null>(null);
   const set = (patch: Partial<UpsertMarketingAssetRequest>) => setForm((f) => ({ ...f, ...patch }));
   const text = (key: keyof UpsertMarketingAssetRequest) => ({
     value: (form[key] as string | null | undefined) ?? "",
@@ -98,172 +101,226 @@ function AssetForm({
 
   const submit = () =>
     action.run(async () => {
-      const body = { ...form, measurementIds: splitList(measurementText) };
+      const identifiers = form.identifiers ?? {};
+      const normalized = normalizeAssetIdentifiers(form.type, identifiers);
+      const body: UpsertMarketingAssetRequest = { ...form };
+      if (!assetId || identifiersTouched || normalized.ok) body.identifiers = identifiers;
+      else delete body.identifiers;
       if (assetId) await marketingApi.updateAsset(assetId, body);
       else await marketingApi.createAsset(body);
       onSaved();
     });
 
   return (
-    <Modal
-      open
-      onClose={onClose}
-      wide
-      title={assetId ? t("marketing.assets.editTitle") : t("marketing.assets.createTitle")}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t("marketing.common.cancel")}
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => void submit()}
-            disabled={action.pending || !form.name.trim()}
-          >
-            {t("marketing.common.save")}
-          </Button>
-        </>
-      }
-    >
-      {action.error ? <ErrorBanner message={action.error} className="mb-3" /> : null}
-      <Notice tone="warning">{t("marketing.assets.noSecretsNotice")}</Notice>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <Field label={t("marketing.assets.fields.type")} required>
-          <select
-            className={inputClass}
-            value={form.type}
-            onChange={(e) => set({ type: e.target.value as UpsertMarketingAssetRequest["type"] })}
-          >
-            {MARKETING_ASSET_TYPES.map((x) => (
-              <option key={x} value={x}>
-                {t(`marketing.assetTypes.${x}`)}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label={t("marketing.assets.fields.name")} required>
-          <input className={inputClass} maxLength={200} {...text("name")} />
-        </Field>
-        <Field label={t("marketing.assets.fields.externalId")}>
-          <input className={inputClass} maxLength={200} {...text("externalId")} />
-        </Field>
-        <Field label={t("marketing.assets.fields.status")}>
-          <select
-            className={inputClass}
-            value={form.status}
-            onChange={(e) =>
-              set({ status: e.target.value as UpsertMarketingAssetRequest["status"] })
-            }
-          >
-            {MARKETING_ASSET_STATUSES.map((x) => (
-              <option key={x} value={x}>
-                {t(`marketing.assetStatus.${x}`)}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <div className="sm:col-span-2">
-          <Field label={t("marketing.assets.fields.purpose")}>
-            <input className={inputClass} maxLength={2000} {...text("purpose")} />
+    <>
+      <Modal
+        open
+        onClose={onClose}
+        wide
+        title={assetId ? t("marketing.assets.editTitle") : t("marketing.assets.createTitle")}
+        footer={
+          <>
+            <Button variant="ghost" onClick={onClose}>
+              {t("marketing.common.cancel")}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => void submit()}
+              disabled={action.pending || !form.name.trim()}
+            >
+              {t("marketing.common.save")}
+            </Button>
+          </>
+        }
+      >
+        {action.error ? <ErrorBanner message={action.error} className="mb-3" /> : null}
+        <Notice tone="warning">{t("marketing.assets.noSecretsNotice")}</Notice>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Field label={t("marketing.assets.fields.type")} required>
+            <select
+              className={inputClass}
+              value={form.type}
+              onChange={(e) => {
+                const next = e.target.value as MarketingAssetType;
+                if (next === form.type) return;
+                const filled = Object.values(form.identifiers ?? {}).some((value) => value.trim());
+                if (filled) {
+                  setPendingType(next);
+                  return;
+                }
+                set({ type: next, identifiers: {} });
+              }}
+            >
+              {MARKETING_ASSET_TYPES.map((x) => (
+                <option key={x} value={x}>
+                  {t(`marketing.assetTypes.${x}`)}
+                </option>
+              ))}
+            </select>
           </Field>
-        </div>
-        <Field label={t("marketing.assets.fields.ownerEntity")}>
-          <input className={inputClass} maxLength={200} {...text("ownerEntity")} />
-        </Field>
-        <Field label={t("marketing.assets.fields.billingEntity")}>
-          <input className={inputClass} maxLength={200} {...text("billingEntity")} />
-        </Field>
-        <Field label={t("marketing.assets.primary")}>
-          <UserSelect
-            value={form.primaryOwnerUserId}
-            members={members.data}
-            onChange={(v) => set({ primaryOwnerUserId: v })}
-          />
-        </Field>
-        <Field label={t("marketing.assets.secondary")}>
-          <UserSelect
-            value={form.secondaryOwnerUserId}
-            members={members.data}
-            onChange={(v) => set({ secondaryOwnerUserId: v })}
-          />
-        </Field>
-        <Field label={t("marketing.assets.fields.agencyName")}>
-          <input className={inputClass} maxLength={200} {...text("agencyName")} />
-        </Field>
-        <Field label={t("marketing.assets.fields.agencyRelationship")}>
-          <input className={inputClass} maxLength={2000} {...text("agencyRelationship")} />
-        </Field>
-        <Field
-          label={t("marketing.assets.fields.measurementIds")}
-          hint={t("marketing.common.commaSeparated")}
-        >
-          <input
-            className={inputClass}
-            value={measurementText}
-            onChange={(e) => setMeasurementText(e.target.value)}
-          />
-        </Field>
-        <Field label={t("marketing.assets.fields.verificationIntervalDays")}>
-          <input
-            type="number"
-            min={1}
-            max={365}
-            className={inputClass}
-            value={form.verificationIntervalDays ?? 30}
-            onChange={(e) => set({ verificationIntervalDays: Number(e.target.value) || 30 })}
-          />
-        </Field>
-        <Field label={t("marketing.assets.fields.consoleUrl")}>
-          <input className={inputClass} type="url" maxLength={1000} {...text("consoleUrl")} />
-        </Field>
-        <Field label={t("marketing.assets.fields.publicUrl")}>
-          <input className={inputClass} type="url" maxLength={1000} {...text("publicUrl")} />
-        </Field>
-        <Field
-          label={t("marketing.assets.fields.secretReference")}
-          hint={t("marketing.assets.secretReferenceHint")}
-        >
-          <input className={inputClass} maxLength={500} {...text("secretReference")} />
-        </Field>
-        <Field label={t("marketing.assets.fields.emergencyContact")}>
-          <input className={inputClass} maxLength={1000} {...text("emergencyContact")} />
-        </Field>
-        <div className="sm:col-span-2">
-          <Field label={t("marketing.assets.fields.relatedAssets")}>
-            <div className="flex max-h-28 flex-wrap gap-x-4 gap-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2">
-              {assets
-                .filter((a) => a.id !== assetId)
-                .map((a) => (
-                  <label key={a.id} className="flex items-center gap-1.5 text-sm text-gray-700">
+          <Field label={t("marketing.assets.fields.name")} required>
+            <input className={inputClass} maxLength={200} {...text("name")} />
+          </Field>
+          <Field label={t("marketing.assets.fields.status")}>
+            <select
+              className={inputClass}
+              value={form.status}
+              onChange={(e) =>
+                set({ status: e.target.value as UpsertMarketingAssetRequest["status"] })
+              }
+            >
+              {MARKETING_ASSET_STATUSES.map((x) => (
+                <option key={x} value={x}>
+                  {t(`marketing.assetStatus.${x}`)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label={t("marketing.assets.fields.purpose")}>
+              <input className={inputClass} maxLength={2000} {...text("purpose")} />
+            </Field>
+          </div>
+          <Field label={t("marketing.assets.fields.ownerEntity")}>
+            <input className={inputClass} maxLength={200} {...text("ownerEntity")} />
+          </Field>
+          <Field label={t("marketing.assets.fields.billingEntity")}>
+            <input className={inputClass} maxLength={200} {...text("billingEntity")} />
+          </Field>
+          <Field label={t("marketing.assets.primary")}>
+            <UserSelect
+              value={form.primaryOwnerUserId}
+              members={members.data}
+              onChange={(v) => set({ primaryOwnerUserId: v })}
+            />
+          </Field>
+          <Field label={t("marketing.assets.secondary")}>
+            <UserSelect
+              value={form.secondaryOwnerUserId}
+              members={members.data}
+              onChange={(v) => set({ secondaryOwnerUserId: v })}
+            />
+          </Field>
+          <Field label={t("marketing.assets.fields.agencyName")}>
+            <input className={inputClass} maxLength={200} {...text("agencyName")} />
+          </Field>
+          <Field label={t("marketing.assets.fields.agencyRelationship")}>
+            <input className={inputClass} maxLength={2000} {...text("agencyRelationship")} />
+          </Field>
+          <div className="sm:col-span-2">
+            <h3 className="text-sm font-semibold text-gray-900">
+              {t("marketing.assets.identifiers")}
+            </h3>
+            {ASSET_IDENTIFIER_SCHEMAS[form.type].fields.length === 0 ? (
+              <p className="mt-1 text-xs text-gray-500">
+                {t("marketing.assets.landingPageIdentityHint")}
+              </p>
+            ) : (
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                {ASSET_IDENTIFIER_SCHEMAS[form.type].fields.map((field) => (
+                  <Field
+                    key={field.key}
+                    label={t(`marketing.identifierFields.${field.key}`)}
+                    hint={t(`marketing.identifierFields.${field.key}Hint`)}
+                    required={field.required}
+                  >
                     <input
-                      type="checkbox"
-                      checked={(form.relatedAssetIds ?? []).includes(a.id)}
-                      onChange={(e) =>
-                        set({
-                          relatedAssetIds: e.target.checked
-                            ? [...(form.relatedAssetIds ?? []), a.id]
-                            : (form.relatedAssetIds ?? []).filter((x) => x !== a.id),
-                        })
-                      }
+                      className={inputClass}
+                      value={form.identifiers?.[field.key] ?? ""}
+                      onChange={(e) => {
+                        setIdentifiersTouched(true);
+                        const next = { ...(form.identifiers ?? {}) };
+                        if (e.target.value) next[field.key] = e.target.value;
+                        else delete next[field.key];
+                        set({ identifiers: next });
+                      }}
                     />
-                    {a.name}
-                  </label>
+                  </Field>
                 ))}
-            </div>
+              </div>
+            )}
+            {form.notes?.includes("[legacy-identifiers]") ? (
+              <p className="mt-2 whitespace-pre-wrap font-mono text-xs text-amber-800">
+                {form.notes
+                  .split("\n")
+                  .filter((line) => line.includes("[legacy-identifiers]"))
+                  .join("\n")}
+              </p>
+            ) : null}
+          </div>
+          <Field label={t("marketing.assets.fields.verificationIntervalDays")}>
+            <input
+              type="number"
+              min={1}
+              max={365}
+              className={inputClass}
+              value={form.verificationIntervalDays ?? 30}
+              onChange={(e) => set({ verificationIntervalDays: Number(e.target.value) || 30 })}
+            />
           </Field>
-        </div>
-        <div className="sm:col-span-2">
-          <Field label={t("marketing.assets.fields.wikiPage")}>
-            <WikiPageSelect value={form.wikiPageId} onChange={(v) => set({ wikiPageId: v })} />
+          <Field label={t("marketing.assets.fields.consoleUrl")}>
+            <input className={inputClass} type="url" maxLength={1000} {...text("consoleUrl")} />
           </Field>
-        </div>
-        <div className="sm:col-span-2">
-          <Field label={t("marketing.assets.fields.notes")}>
-            <textarea className={inputClass} rows={3} maxLength={5000} {...text("notes")} />
+          <Field label={t("marketing.assets.fields.publicUrl")}>
+            <input className={inputClass} type="url" maxLength={1000} {...text("publicUrl")} />
           </Field>
+          <Field
+            label={t("marketing.assets.fields.secretReference")}
+            hint={t("marketing.assets.secretReferenceHint")}
+          >
+            <input className={inputClass} maxLength={500} {...text("secretReference")} />
+          </Field>
+          <Field label={t("marketing.assets.fields.emergencyContact")}>
+            <input className={inputClass} maxLength={1000} {...text("emergencyContact")} />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label={t("marketing.assets.fields.relatedAssets")}>
+              <div className="flex max-h-28 flex-wrap gap-x-4 gap-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2">
+                {assets
+                  .filter((a) => a.id !== assetId)
+                  .map((a) => (
+                    <label key={a.id} className="flex items-center gap-1.5 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={(form.relatedAssetIds ?? []).includes(a.id)}
+                        onChange={(e) =>
+                          set({
+                            relatedAssetIds: e.target.checked
+                              ? [...(form.relatedAssetIds ?? []), a.id]
+                              : (form.relatedAssetIds ?? []).filter((x) => x !== a.id),
+                          })
+                        }
+                      />
+                      {a.name}
+                    </label>
+                  ))}
+              </div>
+            </Field>
+          </div>
+          <div className="sm:col-span-2">
+            <Field label={t("marketing.assets.fields.wikiPage")}>
+              <WikiPageSelect value={form.wikiPageId} onChange={(v) => set({ wikiPageId: v })} />
+            </Field>
+          </div>
+          <div className="sm:col-span-2">
+            <Field label={t("marketing.assets.fields.notes")}>
+              <textarea className={inputClass} rows={3} maxLength={5000} {...text("notes")} />
+            </Field>
+          </div>
         </div>
-      </div>
-    </Modal>
+      </Modal>
+      <ConfirmDialog
+        open={pendingType !== null}
+        title={t("marketing.assets.fields.type")}
+        description={t("marketing.assets.typeSwitchConfirm")}
+        onConfirm={() => {
+          if (pendingType) set({ type: pendingType, identifiers: {} });
+          setIdentifiersTouched(true);
+          setPendingType(null);
+        }}
+        onCancel={() => setPendingType(null)}
+      />
+    </>
   );
 }
 
@@ -428,7 +485,21 @@ function AssetDetail({
             ) : null}
           </div>
           <dl className="divide-y divide-gray-100">
-            {row(t("marketing.assets.fields.externalId"), asset.externalId)}
+            {ASSET_IDENTIFIER_SCHEMAS[asset.type].fields.map((field) =>
+              row(
+                t(`marketing.identifierFields.${field.key}`),
+                asset.identifiers?.[field.key] ?? null
+              )
+            )}
+            {asset.notes?.includes("[legacy-identifiers]")
+              ? row(
+                  t("marketing.assets.identifiers"),
+                  asset.notes
+                    .split("\n")
+                    .filter((line) => line.includes("[legacy-identifiers]"))
+                    .join("\n")
+                )
+              : null}
             {row(t("marketing.assets.fields.purpose"), asset.purpose)}
             {row(t("marketing.assets.fields.ownerEntity"), asset.ownerEntity)}
             {row(t("marketing.assets.fields.billingEntity"), asset.billingEntity)}
@@ -439,7 +510,6 @@ function AssetDetail({
               t("marketing.assets.fields.agencyName"),
               [asset.agencyName, asset.agencyRelationship].filter(Boolean).join(" — ")
             )}
-            {row(t("marketing.assets.fields.measurementIds"), asset.measurementIds.join(", "))}
             {row(
               t("marketing.assets.fields.consoleUrl"),
               <ExternalLink href={asset.consoleUrl}>{asset.consoleUrl}</ExternalLink>
@@ -621,7 +691,7 @@ export default function MarketingAssetsPage() {
               <tr className="text-left">
                 <th className="px-4 py-2 font-medium">{t("marketing.assets.fields.name")}</th>
                 <th className="px-4 py-2 font-medium">{t("marketing.assets.fields.type")}</th>
-                <th className="px-4 py-2 font-medium">{t("marketing.assets.fields.externalId")}</th>
+                <th className="px-4 py-2 font-medium">{t("marketing.assets.fields.primaryId")}</th>
                 <th className="px-4 py-2 font-medium">{t("marketing.assets.primary")}</th>
                 <th className="px-4 py-2 font-medium">{t("marketing.assets.secondary")}</th>
                 <th className="px-4 py-2 font-medium">
@@ -646,7 +716,9 @@ export default function MarketingAssetsPage() {
                     </button>
                   </td>
                   <td className="px-4 py-2">{t(`marketing.assetTypes.${a.type}`)}</td>
-                  <td className="px-4 py-2 font-mono text-xs">{a.externalId ?? "—"}</td>
+                  <td className="px-4 py-2 font-mono text-xs">
+                    {assetDisplayIdentifier(a.type, a.identifiers, a.publicUrl) ?? "—"}
+                  </td>
                   <td className="px-4 py-2">
                     {a.primaryOwnerName ?? (
                       <span className="text-amber-700">⚠ {t("marketing.common.unassigned")}</span>

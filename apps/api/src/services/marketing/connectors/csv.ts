@@ -1,4 +1,4 @@
-import { MARKETING_BASE_METRIC_KEYS } from "@echolore/shared/contracts";
+import { MARKETING_BASE_METRIC_KEYS, projectConnectorFields } from "@echolore/shared/contracts";
 import { normalizeDate } from "../marketing-dates.js";
 import type { ConnectorMetricRow, MarketingConnectorDefinition } from "./types.js";
 
@@ -164,8 +164,7 @@ export const csvConnector: MarketingConnectorDefinition = {
   supportsSync: false,
   writeMode: "replace",
   metrics: MARKETING_BASE_METRIC_KEYS,
-  configFields: [{ key: "description", kind: "textarea", required: false }],
-  secretFields: [],
+  ...projectConnectorFields("csv"),
   async fetch() {
     return { rows: [], warnings: ["CSV connectors receive data via import only"] };
   },

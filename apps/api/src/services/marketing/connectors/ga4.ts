@@ -1,3 +1,4 @@
+import { normalizeConnectorConfig, projectConnectorFields } from "@echolore/shared/contracts";
 import { GoogleAuth } from "google-auth-library";
 import { getGcpCredentials } from "../../admin/gcp-credentials-service.js";
 import { normalizeDate } from "../marketing-dates.js";
@@ -110,16 +111,11 @@ export const ga4Connector: MarketingConnectorDefinition = {
   supportsSync: true,
   writeMode: "replace",
   metrics: ["sessions", "key_events", "lp_views", "form_starts", "form_submits"],
-  configFields: [
-    { key: "propertyId", kind: "text", required: true, placeholder: "123456789" },
-    { key: "landingPagePaths", kind: "list", required: false, placeholder: "/lp/spring, /lp/form" },
-    { key: "formStartEvent", kind: "text", required: false, placeholder: "form_start" },
-    { key: "formSubmitEvent", kind: "text", required: false, placeholder: "form_submit" },
-    { key: "useGcpDefaults", kind: "boolean", required: false },
-  ],
-  secretFields: [{ key: "serviceAccountKeyJson", kind: "textarea", required: false }],
-  validateConfig: (config) =>
-    /^\d+$/.test(configString(config, "propertyId")) ? null : "propertyId must be numeric",
+  ...projectConnectorFields("ga4"),
+  validateConfig: (config) => {
+    const result = normalizeConnectorConfig("ga4", config);
+    return result.ok ? null : result.message;
+  },
   async fetch(ctx) {
     const token = await tokenProvider(await resolveKeyJson(ctx));
     const propertyId = configString(ctx.config, "propertyId");

@@ -1,3 +1,8 @@
+import {
+  canonicalAccountId,
+  normalizeConnectorConfig,
+  projectConnectorFields,
+} from "@echolore/shared/contracts";
 import { fetchJsonWithRetry } from "./http.js";
 import {
   type ConnectorContext,
@@ -128,25 +133,10 @@ export const googleAdsConnector: MarketingConnectorDefinition = {
   supportsSync: true,
   writeMode: "replace",
   metrics: ["cost", "impressions", "clicks", "conversions", "conversion_value"],
-  configFields: [
-    { key: "customerId", kind: "text", required: true, placeholder: "123-456-7890" },
-    { key: "loginCustomerId", kind: "text", required: false, placeholder: "MCC ID (optional)" },
-    { key: "clientId", kind: "text", required: true },
-    { key: "apiVersion", kind: "text", required: false, placeholder: DEFAULT_API_VERSION },
-  ],
-  secretFields: [
-    { key: "developerToken", kind: "text", required: true },
-    { key: "clientSecret", kind: "text", required: true },
-    { key: "refreshToken", kind: "textarea", required: true },
-  ],
+  ...projectConnectorFields("google_ads"),
   validateConfig: (config) => {
-    if (!/^\d{10}$/.test(digitsOnly(configString(config, "customerId")))) {
-      return "customerId must be a 10-digit Google Ads customer ID";
-    }
-    const login = digitsOnly(configString(config, "loginCustomerId"));
-    if (login && !/^\d{10}$/.test(login)) return "loginCustomerId must be a 10-digit ID";
-    if (!configString(config, "clientId")) return "clientId is required";
-    return null;
+    const result = normalizeConnectorConfig("google_ads", config);
+    return result.ok ? null : result.message;
   },
   async fetch(ctx) {
     const query = [
@@ -157,7 +147,20 @@ export const googleAdsConnector: MarketingConnectorDefinition = {
       `WHERE segments.date BETWEEN '${ctx.from}' AND '${ctx.to}'`,
     ].join(" ");
     const results = await searchStream(ctx, query);
-    return { rows: mapGoogleAdsRows(results, ctx.currency), warnings: [] };
+    const canonical = canonicalAccountId("google_ads", ctx.config);
+    let differs = false;
+    const rows = mapGoogleAdsRows(results, ctx.currency).map((row) => {
+      const fromApi = row.accountId ?? "";
+      if (fromApi !== "") {
+        if (canonical && fromApi !== canonical) differs = true;
+        return row;
+      }
+      return { ...row, accountId: canonical };
+    });
+    return {
+      rows,
+      warnings: differs ? ["account id from API differs from connector config"] : [],
+    };
   },
   async test(ctx) {
     const results = await searchStream(

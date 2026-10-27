@@ -5,7 +5,7 @@ import type { MarketingAsset, MarketingAssetAccess } from "../../db/schema.js";
 export type AssetInput = {
   type: string;
   name: string;
-  externalId?: string | null;
+  identifiers?: Record<string, string>;
   purpose?: string | null;
   ownerEntity?: string | null;
   billingEntity?: string | null;
@@ -14,7 +14,6 @@ export type AssetInput = {
   agencyName?: string | null;
   agencyRelationship?: string | null;
   relatedAssetIds?: string[];
-  measurementIds?: string[];
   consoleUrl?: string | null;
   publicUrl?: string | null;
   secretReference?: string | null;
@@ -48,8 +47,8 @@ export async function createAsset(input: AssetInput, actorUserId: string): Promi
     .values({
       id: `mka_${nanoid(16)}`,
       ...input,
+      identifiers: input.identifiers ?? {},
       relatedAssetIds: input.relatedAssetIds ?? [],
-      measurementIds: input.measurementIds ?? [],
       createdByUserId: actorUserId,
       lastVerifiedAt: null,
       lastVerifiedByUserId: null,
@@ -64,10 +63,13 @@ export async function updateAsset(
   id: string,
   input: Partial<AssetInput>
 ): Promise<MarketingAsset | null> {
+  const patch = Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value !== undefined)
+  );
   return (
     (await db
       .updateTable("marketing_assets")
-      .set({ ...input, updatedAt: new Date() })
+      .set({ ...patch, updatedAt: new Date() })
       .where("id", "=", id)
       .returningAll()
       .executeTakeFirst()) ?? null

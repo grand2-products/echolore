@@ -1,7 +1,11 @@
 "use client";
 
 import {
+  CONNECTOR_LINKED_ASSET_TYPES,
   type CreateMarketingConnectorRequest,
+  connectorIdentityDiffers,
+  connectorIdentityKeys,
+  connectorIdentityPrefill,
   MARKETING_CONNECTOR_TYPES,
   type MarketingConnectorDto,
   type MarketingConnectorFieldSpec,
@@ -35,6 +39,12 @@ import { useFormatters, useT } from "@/lib/i18n";
 
 /** Column names accepted by the CSV importer besides metric keys. */
 const CSV_DIMENSION_COLUMNS = ["date", "account_id", "campaign_id", "campaign_name", "segment"];
+
+function hasConfigValue(config: Record<string, unknown>, key: string): boolean {
+  const value = config[key];
+  if (typeof value === "string") return value.trim() !== "";
+  return value != null && value !== false;
+}
 
 function useConnectorTypes() {
   return useQuery({
@@ -137,6 +147,12 @@ function ConnectorForm({
   const [secrets, setSecrets] = useState<Record<string, string>>({});
   // Keys the user explicitly asked to clear; an emptied input alone keeps the stored value.
   const [cleared, setCleared] = useState<string[]>([]);
+  const [dirtyIdentityKeys, setDirtyIdentityKeys] = useState<string[]>(() =>
+    connector
+      ? connectorIdentityKeys(connector.type).filter((key) => hasConfigValue(connector.config, key))
+      : []
+  );
+  const [prefilled, setPrefilled] = useState(false);
   const spec = types.find((x) => x.type === form.type);
   const set = (patch: Partial<CreateMarketingConnectorRequest>) =>
     setForm((f) => ({ ...f, ...patch }));
@@ -194,13 +210,20 @@ function ConnectorForm({
             className={inputClass}
             value={form.type}
             disabled={Boolean(connector)}
-            onChange={(e) =>
+            onChange={(e) => {
+              const type = e.target.value as MarketingConnectorType;
+              const allowed = CONNECTOR_LINKED_ASSET_TYPES[type];
+              const current = assets.data?.find((asset) => asset.id === form.assetId);
+              const assetStillFits = !current || !allowed || allowed.includes(current.type);
+              setDirtyIdentityKeys([]);
+              setPrefilled(false);
               set({
-                type: e.target.value as MarketingConnectorType,
+                type,
                 config: {},
-                syncIntervalHours: e.target.value === "lp_monitor" ? 1 : 24,
-              })
-            }
+                assetId: assetStillFits ? form.assetId : null,
+                syncIntervalHours: type === "lp_monitor" ? 1 : 24,
+              });
+            }}
           >
             {MARKETING_CONNECTOR_TYPES.map((x) => (
               <option key={x} value={x}>
@@ -216,9 +239,53 @@ function ConnectorForm({
           <AssetSelect
             value={form.assetId}
             assets={assets.data}
-            onChange={(v) => set({ assetId: v })}
+            allowedTypes={CONNECTOR_LINKED_ASSET_TYPES[form.type]}
+            onChange={(assetId) => {
+              const asset = assets.data?.find((item) => item.id === assetId);
+              const keys = connectorIdentityKeys(form.type);
+              const prefill = connectorIdentityPrefill(form.type, asset?.identifiers ?? {});
+              const next = { ...(form.config ?? {}) };
+              let copied = false;
+              for (const key of keys) {
+                if (dirtyIdentityKeys.includes(key)) continue;
+                if (prefill[key]) {
+                  next[key] = prefill[key];
+                  copied = true;
+                } else {
+                  delete next[key];
+                }
+              }
+              if (copied) setPrefilled(true);
+              set({ assetId, config: next });
+            }}
           />
         </Field>
+        {(() => {
+          const linked = assets.data?.find((asset) => asset.id === form.assetId);
+          const allowed = CONNECTOR_LINKED_ASSET_TYPES[form.type];
+          const mismatch = Boolean(linked && allowed && !allowed.includes(linked.type));
+          const differs =
+            linked && connectorIdentityDiffers(form.type, form.config ?? {}, linked.identifiers);
+          return (
+            <>
+              {prefilled ? (
+                <div className="sm:col-span-2">
+                  <Notice tone="info">{t("marketing.connectors.prefillNotice")}</Notice>
+                </div>
+              ) : null}
+              {differs ? (
+                <div className="sm:col-span-2">
+                  <Notice tone="info">{t("marketing.connectors.identityMismatch")}</Notice>
+                </div>
+              ) : null}
+              {mismatch ? (
+                <div className="sm:col-span-2">
+                  <Notice tone="warning">{t("marketing.connectors.assetTypeMismatch")}</Notice>
+                </div>
+              ) : null}
+            </>
+          );
+        })()}
         <Field
           label={t("marketing.connectors.fields.timezone")}
           hint={t("marketing.connectors.timezoneHint")}
@@ -287,7 +354,14 @@ function ConnectorForm({
               <ConfigInput
                 spec={f}
                 value={form.config?.[f.key]}
-                onChange={(v) => set({ config: { ...form.config, [f.key]: v } })}
+                onChange={(v) => {
+                  if (connectorIdentityKeys(form.type).includes(f.key)) {
+                    setDirtyIdentityKeys((keys) =>
+                      keys.includes(f.key) ? keys : [...keys, f.key]
+                    );
+                  }
+                  set({ config: { ...form.config, [f.key]: v } });
+                }}
               />
             </Field>
           </div>

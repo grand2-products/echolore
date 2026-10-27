@@ -1,4 +1,8 @@
-import type { MarketingConnectorType, MarketingConnectorTypeDto } from "@echolore/shared/contracts";
+import {
+  type MarketingConnectorType,
+  type MarketingConnectorTypeDto,
+  projectConnectorFields,
+} from "@echolore/shared/contracts";
 import { csvConnector } from "./csv.js";
 import { ga4Connector } from "./ga4.js";
 import { googleAdsConnector } from "./google-ads.js";
@@ -19,12 +23,15 @@ export function getConnectorDefinition(type: string): MarketingConnectorDefiniti
 }
 
 export function listConnectorTypes(): MarketingConnectorTypeDto[] {
-  return Object.values(REGISTRY).map((def) => ({
-    type: def.type,
-    configFields: def.configFields,
-    secretFields: def.secretFields,
-    supportsSync: def.supportsSync,
-    supportsCsvImport: true,
-    metrics: def.metrics,
-  }));
+  return Object.values(REGISTRY).map((def) => {
+    const fields = projectConnectorFields(def.type);
+    return {
+      type: def.type,
+      configFields: fields.configFields,
+      secretFields: fields.secretFields,
+      supportsSync: def.supportsSync,
+      supportsCsvImport: true,
+      metrics: def.metrics,
+    };
+  });
 }

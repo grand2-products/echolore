@@ -210,6 +210,10 @@ if (process.env.NODE_ENV !== "test") {
   try {
     await runMigrations(migrationPool);
     console.log("Database migrations applied successfully");
+    const { backfillLegacyAssetIdentifiers } = await import(
+      "./db/backfill-legacy-asset-identifiers.js"
+    );
+    await backfillLegacyAssetIdentifiers(migrationPool);
   } catch (err) {
     console.error("Database migration failed:", err);
     process.exit(1);
