@@ -36,7 +36,7 @@ export function SystemUpdateSection() {
   const [notice, setNotice] = useState<string | null>(null);
 
   // Status
-  const currentVersion = process.env.NEXT_PUBLIC_APP_VERSION || "unknown";
+  const [currentVersion, setCurrentVersion] = useState<string | null>(null);
   const [updaterAvailable, setUpdaterAvailable] = useState(false);
 
   // Check update
@@ -53,6 +53,7 @@ export function SystemUpdateSection() {
   const fetchStatus = useCallback(async () => {
     try {
       const status = await adminApi.getSystemStatus();
+      setCurrentVersion(status.currentVersion);
       setUpdaterAvailable(status.updaterAvailable);
 
       if (status.updateInProgress) {
@@ -159,6 +160,7 @@ export function SystemUpdateSection() {
   };
 
   const isActive = progress?.phase === "updating-services" || progress?.phase === "self-updating";
+  const displayVersion = currentVersion ?? process.env.NEXT_PUBLIC_APP_VERSION ?? "unknown";
 
   return (
     <SettingsSectionShell
@@ -170,6 +172,14 @@ export function SystemUpdateSection() {
       onRetry={() => void fetchStatus()}
     >
       <div className="space-y-4">
+        {/* Current version */}
+        <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+          <span className="text-sm text-gray-600">{t("admin.system.currentVersion")}</span>
+          <span className="rounded-full bg-gray-100 px-3 py-1 text-sm font-mono font-medium text-gray-800">
+            {displayVersion}
+          </span>
+        </div>
+
         {/* Updater unavailable */}
         {!updaterAvailable && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
@@ -283,7 +293,7 @@ export function SystemUpdateSection() {
         </h3>
         <p className="mb-4 text-sm text-gray-600">
           {t("admin.system.confirmMessage", {
-            from: currentVersion,
+            from: displayVersion,
             to: releaseInfo?.latestVersion ?? "",
           })}
         </p>
