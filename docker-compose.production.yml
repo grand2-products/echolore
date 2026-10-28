@@ -271,37 +271,23 @@ services:
     networks:
       - backend
 
-  updater-socket-proxy:
-    image: tecnativa/docker-socket-proxy:0.3
-    container_name: echolore-updater-socket-proxy
-    restart: unless-stopped
-    environment:
-      CONTAINERS: 1
-      SERVICES: 1
-      TASKS: 1
-      IMAGES: 1
-      # `docker compose up` from the updater inspects/creates the project
-      # networks and named volumes; without these it fails with 403.
-      NETWORKS: 1
-      VOLUMES: 1
-      POST: 1
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - socket-proxy
-
   updater:
+    # The updater drives the full compose lifecycle (pull, stop, remove,
+    # create, start, networks, volumes) for self-update, which the socket
+    # proxy ACL model cannot express. It therefore gets the docker socket
+    # directly and runs as root — same trust level as the host-side
+    # update.sh. See docs/ops-runbook.md before weakening this.
     image: ghcr.io/grand2-products/echolore/updater:${ECHOLORE_VERSION:-latest}
     container_name: echolore-updater
     restart: unless-stopped
-    user: "1000:1000"
     environment:
       UPDATER_SECRET: ${UPDATER_SECRET:-}
       GITHUB_REPO: grand2-products/echolore
       INSTALL_DIR: /opt/echolore
-      DOCKER_HOST: tcp://updater-socket-proxy:2375
+      UPDATER_CONTAINER_NAME: echolore-updater
       PORT: 8787
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
       - /opt/echolore:/opt/echolore
     healthcheck:
       # 127.0.0.1, not localhost: the Deno server listens on IPv4 only and
@@ -312,9 +298,6 @@ services:
       retries: 3
     networks:
       - backend
-      - socket-proxy
-    depends_on:
-      - updater-socket-proxy
 
 volumes:
   postgres_data:
@@ -325,5 +308,7 @@ volumes:
 networks:
   frontend:
   backend:
+  # Used by Traefik's read-only docker-socket-proxy (NOT the updater — the
+  # updater gets the docker socket directly).
   socket-proxy:
     internal: true

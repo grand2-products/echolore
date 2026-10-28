@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { composeDownloadUrl, fetchLatestRelease } from "./github.ts";
+import { finalizeSwap, swapUpdaterIfNeeded } from "./self-swap.ts";
 import {
   getState,
   loadState,
@@ -11,7 +12,7 @@ import {
 
 const INSTALL_DIR = Deno.env.get("INSTALL_DIR") ?? "/opt/echolore";
 
-async function exec(
+export async function exec(
   cmd: string[],
   opts?: { cwd?: string }
 ): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -58,39 +59,63 @@ async function setStep(
   await saveState(state);
 }
 
-async function failUpdate(state: UpdaterState, stepIndex: number, error: string): Promise<void> {
-  state.steps[stepIndex].status = "failed";
-  state.steps[stepIndex].message = error;
+async function writeVersion(state: UpdaterState): Promise<void> {
+  const envContent = await Deno.readTextFile(envPath());
+  if (envContent.match(/^ECHOLORE_VERSION=/m)) {
+    await Deno.writeTextFile(
+      envPath(),
+      envContent.replace(/^ECHOLORE_VERSION=.*/m, `ECHOLORE_VERSION=${state.targetVersion}`)
+    );
+  } else {
+    await Deno.writeTextFile(envPath(), `${envContent}\nECHOLORE_VERSION=${state.targetVersion}\n`);
+  }
+}
+
+/**
+ * Recreate every service EXCEPT the updater. The updater cannot recreate its
+ * own container (that stops this process before the replacement exists) — it
+ * is swapped separately after the health check (see self-swap.ts).
+ */
+async function restartServices(): Promise<{ code: number; stderr: string }> {
+  const list = await exec(["docker", "compose", "config", "--services"]);
+  if (list.code !== 0) {
+    return { code: list.code, stderr: list.stderr };
+  }
+  const services = list.stdout
+    .split("\n")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && s !== "updater");
+  const up = await exec(["docker", "compose", "up", "-d", "--remove-orphans", ...services]);
+  return { code: up.code, stderr: up.stderr };
+}
+
+async function failUpdate(state: UpdaterState, index: number, message: string): Promise<void> {
+  await setStep(state, index, "failed", message);
   state.phase = "failed";
-  state.error = error;
+  state.error = message;
   await saveState(state);
 }
 
 async function rollback(state: UpdaterState): Promise<void> {
   console.error("[updater] Rolling back...");
-  const prevCompose = join(INSTALL_DIR, "docker-compose.yml.prev");
-
   try {
-    // Restore compose file
+    const prevCompose = join(INSTALL_DIR, "docker-compose.yml.prev");
     try {
-      await Deno.stat(prevCompose);
       await Deno.copyFile(prevCompose, composePath());
     } catch {
-      /* no prev file */
+      /* no prev file, keep current compose */
     }
 
-    // Restore .env version
     if (state.previousVersion && state.previousVersion !== "unknown") {
       const envContent = await Deno.readTextFile(envPath());
-      const updated = envContent.replace(
-        /^ECHOLORE_VERSION=.*/m,
-        `ECHOLORE_VERSION=${state.previousVersion}`
+      await Deno.writeTextFile(
+        envPath(),
+        envContent.replace(/^ECHOLORE_VERSION=.*/m, `ECHOLORE_VERSION=${state.previousVersion}`)
       );
-      await Deno.writeTextFile(envPath(), updated);
     }
 
     await exec(["docker", "compose", "pull"]);
-    await exec(["docker", "compose", "up", "-d", "--remove-orphans"]);
+    await restartServices();
   } catch (e) {
     console.error("[updater] Rollback error:", e);
   }
@@ -201,67 +226,16 @@ async function runUpdate(state: UpdaterState): Promise<void> {
     await Deno.copyFile(composePath(), join(INSTALL_DIR, "docker-compose.yml.prev"));
     await setStep(state, 2, "done");
 
-    // Step 3: self_update_check
-    await setStep(state, 3, "running", "Checking updater image...");
-    // Read current updater image from running compose
-    const currentCompose = await Deno.readTextFile(composePath());
-    const currentUpdaterMatch = currentCompose.match(/^\s*image:\s*(.+updater.+)$/m);
-    const newUpdaterMatch = newCompose.match(/^\s*image:\s*(.+updater.+)$/m);
-
-    if (
-      currentUpdaterMatch &&
-      newUpdaterMatch &&
-      currentUpdaterMatch[1].trim() !== newUpdaterMatch[1].trim()
-    ) {
-      // Self-update needed
-      await setStep(state, 3, "running", "Self-updating...");
-      state.phase = "self-updating";
-      await saveState(state);
-
-      // Place new compose file
-      await Deno.rename(tmpCompose, composePath());
-
-      // Update .env version first so the updater image tag resolves
-      const envContent = await Deno.readTextFile(envPath());
-      if (envContent.match(/^ECHOLORE_VERSION=/m)) {
-        await Deno.writeTextFile(
-          envPath(),
-          envContent.replace(/^ECHOLORE_VERSION=.*/m, `ECHOLORE_VERSION=${state.targetVersion}`)
-        );
-      } else {
-        await Deno.writeTextFile(
-          envPath(),
-          `${envContent}\nECHOLORE_VERSION=${state.targetVersion}\n`
-        );
-      }
-
-      // Pull only updater image and restart self
-      await exec(["docker", "compose", "pull", "updater"]);
-      // This will kill our own process - the new container will resume from state file
-      await exec(["docker", "compose", "up", "-d", "--no-deps", "updater"]);
-      return;
-    }
-
-    // No self-update needed
-    await setStep(state, 3, "done", "No self-update needed");
-
-    // Place new compose file
+    // Step 3: place new compose file. The updater container itself is swapped
+    // at the very end (see self-swap.ts) — a compose-based self-recreate would
+    // stop this process before the replacement exists.
+    await setStep(state, 3, "running", "Placing compose file...");
     await Deno.rename(tmpCompose, composePath());
+    await setStep(state, 3, "done");
 
     // Step 4: update_env
     await setStep(state, 4, "running", "Updating version...");
-    const envContent = await Deno.readTextFile(envPath());
-    if (envContent.match(/^ECHOLORE_VERSION=/m)) {
-      await Deno.writeTextFile(
-        envPath(),
-        envContent.replace(/^ECHOLORE_VERSION=.*/m, `ECHOLORE_VERSION=${state.targetVersion}`)
-      );
-    } else {
-      await Deno.writeTextFile(
-        envPath(),
-        `${envContent}\nECHOLORE_VERSION=${state.targetVersion}\n`
-      );
-    }
+    await writeVersion(state);
     await setStep(state, 4, "done");
 
     // Step 5: pull_images
@@ -274,9 +248,9 @@ async function runUpdate(state: UpdaterState): Promise<void> {
     }
     await setStep(state, 5, "done");
 
-    // Step 6: restart_services
+    // Step 6: restart_services (everything except the updater)
     await setStep(state, 6, "running", "Restarting services...");
-    const up = await exec(["docker", "compose", "up", "-d", "--remove-orphans"]);
+    const up = await restartServices();
     if (up.code !== 0) {
       await failUpdate(state, 6, `docker compose up failed: ${up.stderr}`);
       await rollback(state);
@@ -294,12 +268,16 @@ async function runUpdate(state: UpdaterState): Promise<void> {
     }
     await setStep(state, 7, "done");
 
-    // Cleanup
     try {
       await Deno.remove(join(INSTALL_DIR, "docker-compose.yml.prev"));
     } catch {
       /* ok */
     }
+
+    // Finally: swap this updater container if its image changed. On success
+    // this process is stopped and the replacement resumes from the state file.
+    const swapped = await swapUpdaterIfNeeded(state);
+    if (swapped) return;
 
     state.phase = "complete";
     await saveState(state);
@@ -314,49 +292,21 @@ async function runUpdate(state: UpdaterState): Promise<void> {
 }
 
 /**
- * Resume after self-update: new updater container starts, checks state file,
- * and continues from step 4 (update_env was already done during self-update).
+ * Boot path for the replacement updater container (phase "self-updating"):
+ * remove the old container, take its name, then finalize the update state.
  */
 export async function resumeAfterSelfUpdate(): Promise<void> {
   const state = await loadState();
   if (state.phase !== "self-updating") return;
 
   console.log("[updater] Resuming after self-update...");
-  state.phase = "updating-services";
-  await setStep(state, 3, "done", "Self-update completed");
+  await finalizeSwap();
 
-  // .env and compose already updated during self-update phase
-  await setStep(state, 4, "done", "Already updated during self-update");
-
-  // Step 5: pull remaining images
-  await setStep(state, 5, "running", "Pulling images...");
-  const pull = await exec(["docker", "compose", "pull"]);
-  if (pull.code !== 0) {
-    await failUpdate(state, 5, `docker compose pull failed: ${pull.stderr}`);
-    await rollback(state);
-    return;
+  for (let i = 0; i <= 7; i++) {
+    if (state.steps[i]) {
+      await setStep(state, i, "done", i === 7 ? "Completed before updater swap" : undefined);
+    }
   }
-  await setStep(state, 5, "done");
-
-  // Step 6: restart services
-  await setStep(state, 6, "running", "Restarting services...");
-  const up = await exec(["docker", "compose", "up", "-d", "--remove-orphans"]);
-  if (up.code !== 0) {
-    await failUpdate(state, 6, `docker compose up failed: ${up.stderr}`);
-    await rollback(state);
-    return;
-  }
-  await setStep(state, 6, "done");
-
-  // Step 7: health check
-  await setStep(state, 7, "running", "Waiting for services...");
-  const healthy = await waitForHealth(120);
-  if (!healthy) {
-    await failUpdate(state, 7, "Health check timed out");
-    await rollback(state);
-    return;
-  }
-  await setStep(state, 7, "done");
 
   try {
     await Deno.remove(join(INSTALL_DIR, "docker-compose.yml.prev"));
@@ -415,7 +365,7 @@ export async function triggerRollback(): Promise<{
   );
 
   await exec(["docker", "compose", "pull"]);
-  await exec(["docker", "compose", "up", "-d", "--remove-orphans"]);
+  await restartServices();
 
   return {
     success: true,

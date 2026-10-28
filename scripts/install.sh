@@ -172,11 +172,6 @@ UPDATER_SECRET=${UPDATER_SECRET}
 ENVEOF
 
 chmod 600 "${INSTALL_DIR}/.env"
-# The updater container runs as uid/gid 1000 and needs write access to the
-# install directory (state file, compose replacement) and read/write on .env.
-# Numeric ownership: the uid/gid are fixed in docker-compose.production.yml.
-chown 1000:1000 "${INSTALL_DIR}" 2>/dev/null || true
-chown 1000:1000 "${INSTALL_DIR}/.env" 2>/dev/null || true
 
 # ── pull and start ───────────────────────────────────────────────────────────
 
