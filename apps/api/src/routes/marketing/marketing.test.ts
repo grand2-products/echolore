@@ -438,6 +438,8 @@ describe("marketing connector identity", () => {
     );
     expect(ga.status).toBe(201);
     expect(mocks.createConnector.mock.calls[0]?.[0].config).toEqual({ propertyId: "123" });
+    expect(mocks.createConnector.mock.calls[0]?.[0].timezone).toBeNull();
+    expect(mocks.createConnector.mock.calls[0]?.[0].currency).toBeNull();
 
     const ads = await app(memberUser()).request(
       "/api/marketing/connectors",
@@ -534,6 +536,85 @@ describe("marketing connector identity", () => {
       required: true,
       placeholder: "123456789",
     });
+    expect(ga).toMatchObject({ accountLocale: true });
+    expect(types.find((item) => item.type === "csv")).toMatchObject({ accountLocale: false });
     expect(JSON.stringify(ga)).not.toContain("connectorConfigKey");
+  });
+
+  it("ignores a typed timezone for GA4 and keeps one for CSV", async () => {
+    const ga = await app(memberUser()).request(
+      "/api/marketing/connectors",
+      json({
+        name: "GA",
+        type: "ga4",
+        config: { propertyId: "123" },
+        timezone: "Europe/London",
+        currency: "EUR",
+      })
+    );
+    expect(ga.status).toBe(201);
+    expect(mocks.createConnector.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        timezone: null,
+        currency: null,
+        config: { propertyId: "123" },
+      })
+    );
+
+    const csv = await app(memberUser()).request(
+      "/api/marketing/connectors",
+      json({ name: "Sheet", type: "csv", timezone: "Asia/Tokyo", currency: "JPY" })
+    );
+    expect(csv.status).toBe(201);
+    expect(mocks.createConnector.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({ timezone: "Asia/Tokyo", currency: "JPY" })
+    );
+  });
+
+  it("does not write a client timezone when a GA4 connector is only renamed", async () => {
+    mocks.getConnectorById.mockResolvedValue(
+      connectorRow({
+        id: "mkc_1",
+        type: "ga4",
+        timezone: "America/Los_Angeles",
+        currency: "USD",
+      })
+    );
+    const res = await app(memberUser()).request("/api/marketing/connectors/mkc_1", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "Renamed", timezone: "Europe/London", currency: "EUR" }),
+    });
+    expect(res.status).toBe(200);
+    const patch = mocks.updateConnector.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(patch).not.toHaveProperty("timezone");
+    expect(patch).not.toHaveProperty("currency");
+    expect(patch?.name).toBe("Renamed");
+  });
+
+  it("clears a stored timezone when GA4 config changes and credentials are absent", async () => {
+    mocks.getConnectorById.mockResolvedValue(
+      connectorRow({
+        id: "mkc_1",
+        type: "ga4",
+        timezone: "America/Los_Angeles",
+        currency: "USD",
+        config: { propertyId: "123" },
+        secretsEnc: null,
+      })
+    );
+    const res = await app(memberUser()).request("/api/marketing/connectors/mkc_1", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ config: { propertyId: "456" } }),
+    });
+    expect(res.status).toBe(200);
+    expect(mocks.updateConnector.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        timezone: null,
+        currency: null,
+        config: { propertyId: "456" },
+      })
+    );
   });
 });

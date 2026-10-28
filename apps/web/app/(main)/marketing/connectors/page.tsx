@@ -15,6 +15,7 @@ import {
 } from "@echolore/shared/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { ConnectorSetupDialog } from "@/components/marketing/ConnectorSetupDialog";
 import { useMarketingFormat } from "@/components/marketing/format";
 import { RunStatusPill, useConnectorsQuery } from "@/components/marketing/ops-widgets";
 import {
@@ -133,7 +134,7 @@ function ConnectorForm({
           enabled: connector.enabled,
           syncIntervalHours: connector.syncIntervalHours,
           lookbackDays: connector.lookbackDays,
-          timezone: connector.timezone,
+          timezone: connector.timezone ?? undefined,
           currency: connector.currency,
         }
       : {
@@ -166,11 +167,16 @@ function ConnectorForm({
         Object.entries(secrets).filter(([, v]) => v.trim() !== "")
       );
       for (const key of cleared) if (!(key in secretUpdates)) secretUpdates[key] = "";
+      const body: CreateMarketingConnectorRequest = { ...form, secrets: secretUpdates };
+      if (spec?.accountLocale) {
+        delete body.timezone;
+        delete body.currency;
+      }
       if (connector) {
-        const { type: _type, ...rest } = form;
-        await marketingApi.updateConnector(connector.id, { ...rest, secrets: secretUpdates });
+        const { type: _type, ...rest } = body;
+        await marketingApi.updateConnector(connector.id, rest);
       } else {
-        await marketingApi.createConnector({ ...form, secrets: secretUpdates });
+        await marketingApi.createConnector(body);
       }
       onSaved();
     });
@@ -289,27 +295,40 @@ function ConnectorForm({
             </>
           );
         })()}
-        <Field
-          label={t("marketing.connectors.fields.timezone")}
-          hint={t("marketing.connectors.timezoneHint")}
-        >
-          <input
-            className={inputClass}
-            value={form.timezone ?? ""}
-            onChange={(e) => set({ timezone: e.target.value })}
-          />
-        </Field>
-        <Field
-          label={t("marketing.connectors.fields.currency")}
-          hint={t("marketing.connectors.currencyHint")}
-        >
-          <input
-            className={inputClass}
-            value={form.currency ?? ""}
-            maxLength={3}
-            onChange={(e) => set({ currency: e.target.value.toUpperCase() || null })}
-          />
-        </Field>
+        {spec?.accountLocale ? (
+          <div className="sm:col-span-2">
+            <Notice tone="info">{t("marketing.connectors.localeFromSource")}</Notice>
+            <p className="mt-2 text-sm text-gray-700">
+              {connector?.timezone
+                ? `${connector.timezone}${connector.currency ? ` · ${connector.currency}` : ""}`
+                : t("marketing.connectors.localePending")}
+            </p>
+          </div>
+        ) : (
+          <>
+            <Field
+              label={t("marketing.connectors.fields.timezone")}
+              hint={t("marketing.connectors.timezoneHint")}
+            >
+              <input
+                className={inputClass}
+                value={form.timezone ?? ""}
+                onChange={(e) => set({ timezone: e.target.value })}
+              />
+            </Field>
+            <Field
+              label={t("marketing.connectors.fields.currency")}
+              hint={t("marketing.connectors.currencyHint")}
+            >
+              <input
+                className={inputClass}
+                value={form.currency ?? ""}
+                maxLength={3}
+                onChange={(e) => set({ currency: e.target.value.toUpperCase() || null })}
+              />
+            </Field>
+          </>
+        )}
         {spec?.supportsSync ? (
           <>
             <Field label={t("marketing.connectors.fields.syncIntervalHours")}>
@@ -629,6 +648,7 @@ export default function MarketingConnectorsPage() {
   const { data, isLoading, error, refetch } = useConnectorsQuery();
   const types = useConnectorTypes();
   const [form, setForm] = useState<{ connector: MarketingConnectorDto | null } | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
   const [runsFor, setRunsFor] = useState<MarketingConnectorDto | null>(null);
   const [csvFor, setCsvFor] = useState<MarketingConnectorDto | null>(null);
   const [deleting, setDeleting] = useState<MarketingConnectorDto | null>(null);
@@ -643,13 +663,18 @@ export default function MarketingConnectorsPage() {
       <PageHeader
         actions={
           can("marketing.manage") ? (
-            <Button
-              variant="primary"
-              onClick={() => setForm({ connector: null })}
-              disabled={!types.data}
-            >
-              + {t("marketing.connectors.create")}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => setForm({ connector: null })}
+                disabled={!types.data}
+              >
+                {t("marketing.connectors.setup.advanced")}
+              </Button>
+              <Button variant="primary" onClick={() => setSetupOpen(true)}>
+                {t("marketing.connectors.setup.open")}
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -663,6 +688,13 @@ export default function MarketingConnectorsPage() {
         <EmptyState
           title={t("marketing.connectors.empty")}
           description={t("marketing.connectors.emptyDescription")}
+          action={
+            can("marketing.manage") ? (
+              <Button variant="primary" onClick={() => setSetupOpen(true)}>
+                {t("marketing.connectors.setup.open")}
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <div className={tableWrapClass}>
@@ -732,7 +764,7 @@ export default function MarketingConnectorsPage() {
                     <td className="px-3 py-2 text-xs text-gray-700">
                       <div>{schedule}</div>
                       <div className="text-gray-500">
-                        {c.timezone}
+                        {c.timezone ?? "—"}
                         {c.currency ? ` ${c.currency}` : ""}
                       </div>
                     </td>
@@ -757,6 +789,7 @@ export default function MarketingConnectorsPage() {
                                 void action.run(async () => {
                                   const res = await marketingApi.testConnector(c.id);
                                   setTestResult({ id: c.id, ...res });
+                                  if (res.ok) await refetch();
                                 })
                               }
                             >
@@ -805,6 +838,12 @@ export default function MarketingConnectorsPage() {
         </div>
       )}
 
+      {setupOpen ? (
+        <ConnectorSetupDialog
+          onClose={() => setSetupOpen(false)}
+          onConnected={() => void refresh()}
+        />
+      ) : null}
       {form && types.data ? (
         <ConnectorForm
           connector={form.connector}

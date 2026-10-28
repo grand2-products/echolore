@@ -5,6 +5,7 @@ import {
 } from "@echolore/shared/contracts";
 import { fetchJsonWithRetry } from "./http.js";
 import {
+  accountLocaleFromSource,
   type ConnectorContext,
   type ConnectorMetricRow,
   configList,
@@ -86,7 +87,7 @@ function sumActions(actions: MetaAction[] | undefined, types: Set<string>): numb
 
 export function mapMetaInsightRows(
   data: MetaInsightRow[],
-  options: { conversionActionTypes: string[]; clickType: string; currencyOverride: string | null }
+  options: { conversionActionTypes: string[]; clickType: string }
 ): ConnectorMetricRow[] {
   const types = new Set(options.conversionActionTypes);
   const rows: ConnectorMetricRow[] = [];
@@ -96,7 +97,7 @@ export function mapMetaInsightRows(
       accountId: item.account_id ?? "",
       campaignId: item.campaign_id ?? "",
       campaignName: item.campaign_name ?? null,
-      currency: options.currencyOverride ?? item.account_currency ?? null,
+      currency: item.account_currency ?? null,
     };
     const clicks = options.clickType === "all" ? item.clicks : item.inline_link_clicks;
     const values: Array<[string, number | null]> = [
@@ -135,6 +136,10 @@ export const metaAdsConnector: MarketingConnectorDefinition = {
     const result = normalizeConnectorConfig("meta_ads", config);
     return result.ok ? null : result.message;
   },
+  readAccountLocale: async (ctx) => {
+    const info = await getAccountInfo(ctx);
+    return accountLocaleFromSource(info.timezone_name, info.currency);
+  },
   async fetch(ctx) {
     const token = requireSecret(ctx.secrets, "accessToken");
     const accountId = normalizeAccountId(configString(ctx.config, "adAccountId"));
@@ -168,7 +173,6 @@ export const metaAdsConnector: MarketingConnectorDefinition = {
       conversionActionTypes:
         conversionActionTypes.length > 0 ? conversionActionTypes : DEFAULT_CONVERSION_ACTION_TYPES,
       clickType: configString(ctx.config, "clickType") || "link",
-      currencyOverride: ctx.currency,
     });
     const canonical = canonicalAccountId("meta_ads", ctx.config);
     let differs = false;
@@ -185,9 +189,12 @@ export const metaAdsConnector: MarketingConnectorDefinition = {
   },
   async test(ctx) {
     const info = await getAccountInfo(ctx);
+    const locale = accountLocaleFromSource(info.timezone_name, info.currency);
     return {
       ok: true,
-      message: `Connected: ${info.name ?? "ad account"} (${info.currency ?? "?"}, ${info.timezone_name ?? "?"})`,
+      message: `Connected: ${info.name ?? "ad account"} (${locale.currency}, ${locale.timezone})`,
+      timezone: locale.timezone,
+      currency: locale.currency,
     };
   },
 };

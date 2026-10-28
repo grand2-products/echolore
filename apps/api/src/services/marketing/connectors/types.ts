@@ -2,6 +2,7 @@ import type {
   MarketingConnectorFieldSpec,
   MarketingConnectorType,
 } from "@echolore/shared/contracts";
+import { isValidTimezone } from "../marketing-dates.js";
 
 /** One base-metric value for one day and one dimension combination. */
 export interface ConnectorMetricRow {
@@ -42,9 +43,32 @@ export interface ConnectorFetchResult {
   alerts?: string[];
 }
 
+export interface AccountLocale {
+  timezone: string;
+  currency: string;
+}
+
+/** Accepts the timezone and currency an ad account or GA4 property reports. */
+export function accountLocaleFromSource(
+  timezone: string | undefined,
+  currency: string | undefined
+): AccountLocale {
+  const zone = timezone?.trim() ?? "";
+  if (!zone || !isValidTimezone(zone)) {
+    throw new ConnectorError("Account did not return a valid timezone");
+  }
+  const code = currency?.trim().toUpperCase() ?? "";
+  if (!/^[A-Z]{3}$/.test(code)) {
+    throw new ConnectorError("Account did not return a valid currency");
+  }
+  return { timezone: zone, currency: code };
+}
+
 export interface ConnectorTestResult {
   ok: boolean;
   message: string;
+  timezone?: string;
+  currency?: string;
 }
 
 /**
@@ -70,6 +94,8 @@ export interface MarketingConnectorDefinition {
   resolveRange?: (today: string, lookbackDays: number) => { from: string; to: string };
   /** Returns an error message for invalid config, or null. */
   validateConfig?: (config: Record<string, unknown>) => string | null;
+  /** Reads timezone and currency from the source account. Must not use ctx.timezone. */
+  readAccountLocale?: (ctx: ConnectorContext) => Promise<AccountLocale>;
   fetch: (ctx: ConnectorFetchContext) => Promise<ConnectorFetchResult>;
   test: (ctx: ConnectorContext) => Promise<ConnectorTestResult>;
 }

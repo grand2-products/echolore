@@ -193,6 +193,8 @@ export interface MarketingConnectorTypeDto {
   supportsCsvImport: boolean;
   /** Base metric keys this connector can produce. */
   metrics: string[];
+  /** Timezone and currency come from the account or property, not the form. */
+  accountLocale: boolean;
 }
 
 export type MarketingRunStatus = "running" | "success" | "partial" | "failed";
@@ -209,7 +211,8 @@ export interface MarketingConnectorDto {
   enabled: boolean;
   syncIntervalHours: number;
   lookbackDays: number;
-  timezone: string;
+  /** Null until an account or property read succeeds. CSV and LP checks always set one. */
+  timezone: string | null;
   currency: string | null;
   lastRunAt: ISODateString | null;
   lastSuccessAt: ISODateString | null;

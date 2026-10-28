@@ -168,7 +168,7 @@ describe("media mappers", () => {
           action_values: [{ action_type: "lead", value: "5000" }],
         },
       ],
-      { conversionActionTypes: ["lead"], clickType: "link", currencyOverride: null }
+      { conversionActionTypes: ["lead"], clickType: "link" }
     );
     const byMetric = Object.fromEntries(rows.map((r) => [r.metric, r.value]));
     expect(byMetric).toEqual({
@@ -182,17 +182,14 @@ describe("media mappers", () => {
   });
 
   it("converts Google Ads cost micros", () => {
-    const rows = mapGoogleAdsRows(
-      [
-        {
-          segments: { date: "2026-10-01" },
-          campaign: { id: "9", name: "Search" },
-          customer: { id: "123", currencyCode: "JPY" },
-          metrics: { costMicros: "2500000000", impressions: "10", clicks: "2", conversions: 1.5 },
-        },
-      ],
-      null
-    );
+    const rows = mapGoogleAdsRows([
+      {
+        segments: { date: "2026-10-01" },
+        campaign: { id: "9", name: "Search" },
+        customer: { id: "123", currencyCode: "JPY" },
+        metrics: { costMicros: "2500000000", impressions: "10", clicks: "2", conversions: 1.5 },
+      },
+    ]);
     expect(rows.find((r) => r.metric === "cost")?.value).toBe(2500);
     expect(rows.find((r) => r.metric === "conversions")?.value).toBe(1.5);
   });

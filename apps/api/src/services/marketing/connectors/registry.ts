@@ -32,6 +32,7 @@ export function listConnectorTypes(): MarketingConnectorTypeDto[] {
       supportsSync: def.supportsSync,
       supportsCsvImport: true,
       metrics: def.metrics,
+      accountLocale: Boolean(def.readAccountLocale),
     };
   });
 }

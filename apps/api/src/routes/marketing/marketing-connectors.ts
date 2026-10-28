@@ -28,7 +28,12 @@ import {
   getConnectorDefinition,
   listConnectorTypes,
 } from "../../services/marketing/connectors/registry.js";
-import { ConnectorError } from "../../services/marketing/connectors/types.js";
+import {
+  type AccountLocale,
+  ConnectorError,
+  configBool,
+  type MarketingConnectorDefinition,
+} from "../../services/marketing/connectors/types.js";
 import { isValidTimezone } from "../../services/marketing/marketing-dates.js";
 import { toConnectorDto, toSyncRunDto } from "../../services/marketing/marketing-dto.js";
 import {
@@ -83,6 +88,36 @@ async function assetNameMap() {
   return new Map((await listAssets()).map((a) => [a.id, a.name]));
 }
 
+/** True when a source read can be attempted. An empty secret is not enough. */
+function credentialsResolvable(
+  def: MarketingConnectorDefinition,
+  secrets: Record<string, string>,
+  config: Record<string, unknown>
+): boolean {
+  if (configBool(config, "useGcpDefaults")) return true;
+  return def.secretFields.some((field) => Boolean(secrets[field.key]?.trim()));
+}
+
+/**
+ * Reads timezone and currency from the account or property.
+ * Returns null without a network call when this type has no source locale,
+ * or when no credential is available yet.
+ */
+async function resolveAccountLocale(
+  def: MarketingConnectorDefinition,
+  config: Record<string, unknown>,
+  secrets: Record<string, string>,
+  requireRead: boolean
+): Promise<AccountLocale | null> {
+  if (!def.readAccountLocale || !requireRead) return null;
+  return def.readAccountLocale({
+    config,
+    secrets,
+    timezone: "UTC",
+    currency: null,
+  });
+}
+
 marketingConnectorRoutes.get("/types", (c) => c.json(listConnectorTypes()));
 
 marketingConnectorRoutes.get(
@@ -110,9 +145,6 @@ marketingConnectorRoutes.post(
     const normalized = canonicalConfig(input.type, input.config);
     if (!normalized.ok) return jsonError(c, 400, "MARKETING_INVALID_CONFIG", normalized.message);
     const config = normalized.value;
-    const timezone = input.timezone ?? "Asia/Tokyo";
-    if (!isValidTimezone(timezone))
-      return jsonError(c, 400, "MARKETING_INVALID_CONFIG", "Unknown timezone");
     const linkError = await assetLinkError(input.type, input.assetId ?? null);
     if (linkError === "NOT_FOUND") {
       return jsonError(c, 400, "MARKETING_INVALID_REFERENCE", "Asset not found");
@@ -123,6 +155,27 @@ marketingConnectorRoutes.post(
       input.secrets,
       def.secretFields.map((f) => f.key)
     );
+    let timezone: string | null;
+    let currency: string | null;
+    if (def.readAccountLocale) {
+      const requireRead = credentialsResolvable(def, secrets, config);
+      try {
+        const locale = await resolveAccountLocale(def, config, secrets, requireRead);
+        timezone = locale?.timezone ?? null;
+        currency = locale?.currency ?? null;
+      } catch (err) {
+        if (err instanceof ConnectorError) {
+          return jsonError(c, 400, "MARKETING_INVALID_CONFIG", err.message);
+        }
+        throw err;
+      }
+    } else {
+      timezone = input.timezone ?? "Asia/Tokyo";
+      if (!isValidTimezone(timezone)) {
+        return jsonError(c, 400, "MARKETING_INVALID_CONFIG", "Unknown timezone");
+      }
+      currency = input.currency ?? null;
+    }
     const connector = await createConnector({
       name: input.name,
       type: input.type,
@@ -133,7 +186,7 @@ marketingConnectorRoutes.post(
       syncIntervalHours: input.syncIntervalHours ?? (input.type === "lp_monitor" ? 1 : 24),
       lookbackDays: input.lookbackDays ?? 7,
       timezone,
-      currency: input.currency ?? null,
+      currency,
       createdByUserId: c.get("user").id,
     });
     await auditAction(c, "marketing.connector.create", "marketing-connector", connector.id, {
@@ -173,25 +226,23 @@ marketingConnectorRoutes.put(
       if (!normalized.ok) return jsonError(c, 400, "MARKETING_INVALID_CONFIG", normalized.message);
       config = normalized.value;
     }
-    if (input.timezone && !isValidTimezone(input.timezone)) {
-      return jsonError(c, 400, "MARKETING_INVALID_CONFIG", "Unknown timezone");
-    }
     const linkError = await assetLinkError(existing.type, input.assetId, existing.assetId);
     if (linkError === "NOT_FOUND") {
       return jsonError(c, 400, "MARKETING_INVALID_REFERENCE", "Asset not found");
     }
     if (linkError) return jsonError(c, 400, "MARKETING_ASSET_TYPE_MISMATCH", linkError);
-    const secretsEnc =
-      input.secrets !== undefined
-        ? encryptSecrets(
-            mergeSecrets(
-              decryptSecrets(existing.secretsEnc),
-              input.secrets,
-              def.secretFields.map((f) => f.key)
-            )
-          )
+    const secretKeys = def.secretFields.map((f) => f.key);
+    const secretsTouched = input.secrets !== undefined;
+    const configTouched = config !== undefined;
+    const localeTouched = Boolean(def.readAccountLocale) && (secretsTouched || configTouched);
+    const nextSecrets =
+      secretsTouched || localeTouched
+        ? secretsTouched
+          ? mergeSecrets(decryptSecrets(existing.secretsEnc), input.secrets, secretKeys)
+          : decryptSecrets(existing.secretsEnc)
         : undefined;
-    const updated = await updateConnector(existing.id, {
+    const secretsEnc = secretsTouched ? encryptSecrets(nextSecrets ?? {}) : undefined;
+    const patch: Parameters<typeof updateConnector>[1] = {
       name: input.name,
       assetId: input.assetId,
       config,
@@ -199,9 +250,36 @@ marketingConnectorRoutes.put(
       enabled: input.enabled,
       syncIntervalHours: input.syncIntervalHours,
       lookbackDays: input.lookbackDays,
-      timezone: input.timezone,
-      currency: input.currency,
-    });
+    };
+    if (def.readAccountLocale) {
+      if (localeTouched && nextSecrets) {
+        const nextConfig = config ?? existing.config;
+        if (credentialsResolvable(def, nextSecrets, nextConfig)) {
+          try {
+            const locale = await resolveAccountLocale(def, nextConfig, nextSecrets, true);
+            patch.timezone = locale?.timezone ?? null;
+            patch.currency = locale?.currency ?? null;
+          } catch (err) {
+            if (err instanceof ConnectorError) {
+              return jsonError(c, 400, "MARKETING_INVALID_CONFIG", err.message);
+            }
+            throw err;
+          }
+        } else {
+          patch.timezone = null;
+          patch.currency = null;
+        }
+      }
+    } else {
+      if (input.timezone !== undefined) {
+        if (!isValidTimezone(input.timezone)) {
+          return jsonError(c, 400, "MARKETING_INVALID_CONFIG", "Unknown timezone");
+        }
+        patch.timezone = input.timezone;
+      }
+      if (input.currency !== undefined) patch.currency = input.currency;
+    }
+    const updated = await updateConnector(existing.id, patch);
     await auditAction(c, "marketing.connector.update", "marketing-connector", existing.id, {
       fields: Object.keys(input).filter((k) => k !== "secrets"),
       secretKeysChanged: Object.keys(input.secrets ?? {}),
@@ -242,13 +320,19 @@ marketingConnectorRoutes.post(
       const result = await def.test({
         config: connector.config,
         secrets: decryptSecrets(connector.secretsEnc),
-        timezone: connector.timezone,
+        timezone: connector.timezone ?? "UTC",
         currency: connector.currency,
       });
+      if (result.ok && result.timezone && result.currency) {
+        await updateConnector(connector.id, {
+          timezone: result.timezone,
+          currency: result.currency,
+        });
+      }
       await auditAction(c, "marketing.connector.test", "marketing-connector", connector.id, {
         ok: result.ok,
       });
-      return c.json(result);
+      return c.json({ ok: result.ok, message: result.message });
     } catch (err) {
       const message = err instanceof ConnectorError ? err.message : "Connection test failed";
       if (!(err instanceof ConnectorError)) console.error("[marketing] connector test", err);
