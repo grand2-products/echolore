@@ -59,6 +59,7 @@ rollback() {
     sed -i "s|^ECHOLORE_VERSION=.*|ECHOLORE_VERSION=${CURRENT_VERSION}|" .env
   fi
 
+  docker rm -f echolore-updater 2>/dev/null || true
   docker compose pull 2>/dev/null || true
   docker compose up -d --remove-orphans 2>/dev/null || true
 
@@ -145,6 +146,13 @@ if ! grep -q '^UPDATER_SECRET=..*' .env; then
   info "Added missing UPDATER_SECRET to .env"
 fi
 
+# ── remove swap-born updater (must precede every compose up) ──────────────────
+# A container born from a UI-triggered self-swap is not tracked by compose
+# (no config-hash label) but holds the container name, which makes every
+# `docker compose up` fail with a name conflict. Remove it first; the updater
+# is recreated from compose below.
+ECHOLORE_VERSION="${TARGET_VERSION}" docker rm -f echolore-updater 2>/dev/null || true
+
 # ── pull new images ──────────────────────────────────────────────────────────
 
 info "Pulling images (${TARGET_VERSION})..."
@@ -158,11 +166,7 @@ ECHOLORE_VERSION="${TARGET_VERSION}" docker compose up -d --remove-orphans
 # containers. Traefik caches internal router state and may not fully refresh
 # when only downstream container labels change (especially reserved names).
 ECHOLORE_VERSION="${TARGET_VERSION}" docker compose up -d --force-recreate traefik
-# Same for the updater: a container born from a UI-triggered self-swap is not
-# tracked by compose (no config-hash label) and holds the container name, so
-# compose cannot recreate it. Remove it explicitly, then recreate from compose
-# so it is properly tracked again.
-ECHOLORE_VERSION="${TARGET_VERSION}" docker rm -f echolore-updater 2>/dev/null || true
+# Recreate the updater from compose tracking (removed above).
 ECHOLORE_VERSION="${TARGET_VERSION}" docker compose up -d --no-deps updater
 
 # ── health check ─────────────────────────────────────────────────────────────
