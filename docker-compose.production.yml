@@ -280,6 +280,10 @@ services:
       SERVICES: 1
       TASKS: 1
       IMAGES: 1
+      # `docker compose up` from the updater inspects/creates the project
+      # networks and named volumes; without these it fails with 403.
+      NETWORKS: 1
+      VOLUMES: 1
       POST: 1
       NETWORKS: 0
     volumes:

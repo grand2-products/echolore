@@ -373,19 +373,10 @@ async function waitForHealth(timeoutSeconds: number): Promise<boolean> {
   const deadline = Date.now() + timeoutSeconds * 1000;
   while (Date.now() < deadline) {
     try {
-      const result = await exec([
-        "docker",
-        "compose",
-        "exec",
-        "-T",
-        "api",
-        "wget",
-        "--no-verbose",
-        "--tries=1",
-        "--spider",
-        "http://localhost:3001/health",
-      ]);
-      if (result.code === 0) return true;
+      // HTTP probe from the updater container (backend network) — avoids
+      // needing docker exec through the socket proxy.
+      const resp = await fetch("http://api:3001/health");
+      if (resp.ok) return true;
     } catch {
       /* retry */
     }
