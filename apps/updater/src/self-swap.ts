@@ -84,8 +84,8 @@ export async function swapUpdaterIfNeeded(state: UpdaterState): Promise<boolean>
   if (cfg.WorkingDir) args.push("-w", cfg.WorkingDir);
   for (const e of [...(cfg.Env ?? []), "UPDATER_SWAP_PENDING=1"]) args.push("-e", e);
   for (const [k, v] of Object.entries(cfg.Labels ?? {})) {
-    // Stale by definition — the replacement runs the new image/config.
-    if (k === "com.docker.compose.config-hash") continue;
+    // config-hash is copied as-is: it goes stale on purpose so the next
+    // host-side update.sh sees drift and recreates this container cleanly.
     args.push("--label", `${k}=${v}`);
   }
   for (const b of hc.Binds ?? []) args.push("-v", b);
