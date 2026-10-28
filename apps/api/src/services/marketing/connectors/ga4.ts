@@ -4,6 +4,7 @@ import { getGcpCredentials } from "../../admin/gcp-credentials-service.js";
 import { normalizeDate } from "../marketing-dates.js";
 import { fetchJsonWithRetry } from "./http.js";
 import {
+  accountLocaleFromSource,
   type ConnectorContext,
   ConnectorError,
   type ConnectorMetricRow,
@@ -106,6 +107,24 @@ function cell(row: NonNullable<RunReportResponse["rows"]>[number], kind: "d" | "
   return list?.[i]?.value ?? "";
 }
 
+export async function readGa4AccountLocale(ctx: ConnectorContext) {
+  const token = await tokenProvider(await resolveKeyJson(ctx));
+  const propertyId = configString(ctx.config, "propertyId");
+  if (!propertyId) throw new ConnectorError("propertyId is required");
+  const property = await fetchJsonWithRetry<{ timeZone?: string; currencyCode?: string }>(
+    `https://analyticsadmin.googleapis.com/v1beta/properties/${encodeURIComponent(propertyId)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    {
+      retries: 1,
+      describeError: (status, body) => {
+        const message = (body as { error?: { message?: string } } | null)?.error?.message;
+        return message ? `GA4 Admin API ${status}: ${message}` : `GA4 Admin API ${status}`;
+      },
+    }
+  );
+  return accountLocaleFromSource(property.timeZone, property.currencyCode);
+}
+
 export const ga4Connector: MarketingConnectorDefinition = {
   type: "ga4",
   supportsSync: true,
@@ -116,6 +135,7 @@ export const ga4Connector: MarketingConnectorDefinition = {
     const result = normalizeConnectorConfig("ga4", config);
     return result.ok ? null : result.message;
   },
+  readAccountLocale: readGa4AccountLocale,
   async fetch(ctx) {
     const token = await tokenProvider(await resolveKeyJson(ctx));
     const propertyId = configString(ctx.config, "propertyId");
@@ -185,6 +205,7 @@ export const ga4Connector: MarketingConnectorDefinition = {
     return { rows: out, warnings };
   },
   async test(ctx) {
+    const locale = await readGa4AccountLocale(ctx);
     const token = await tokenProvider(await resolveKeyJson(ctx));
     const propertyId = configString(ctx.config, "propertyId");
     const meta = await fetchJsonWithRetry<{ name?: string }>(
@@ -192,6 +213,11 @@ export const ga4Connector: MarketingConnectorDefinition = {
       { headers: { Authorization: `Bearer ${token}` } },
       { retries: 1 }
     );
-    return { ok: true, message: `Connected: ${meta.name ?? `properties/${propertyId}`}` };
+    return {
+      ok: true,
+      message: `Connected: ${meta.name ?? `properties/${propertyId}`} (${locale.currency}, ${locale.timezone})`,
+      timezone: locale.timezone,
+      currency: locale.currency,
+    };
   },
 };

@@ -15,6 +15,7 @@ import {
   listConnectors,
   purgeExpiredMarketingData,
   releaseConnectorRun,
+  updateConnector,
   writeMetricRows,
 } from "../../repositories/marketing/marketing-connector-repository.js";
 import { getUserById } from "../../repositories/user/user-repository.js";
@@ -278,7 +279,43 @@ async function completeRun(
   }
 }
 
+/**
+ * Re-reads the account timezone before a sync. A failed read keeps the stored
+ * zone so a brief API error does not stop a connector that already has one.
+ */
+async function refreshAccountLocale(connector: MarketingConnector): Promise<MarketingConnector> {
+  const def = getConnectorDefinition(connector.type);
+  if (!def?.readAccountLocale) return connector;
+  try {
+    const locale = await def.readAccountLocale({
+      config: connector.config,
+      secrets: decryptSecrets(connector.secretsEnc),
+      timezone: "UTC",
+      currency: connector.currency,
+    });
+    if (locale.timezone === connector.timezone && locale.currency === connector.currency) {
+      return connector;
+    }
+    const updated = await updateConnector(connector.id, {
+      timezone: locale.timezone,
+      currency: locale.currency,
+    });
+    return updated ?? { ...connector, timezone: locale.timezone, currency: locale.currency };
+  } catch (err) {
+    if (connector.timezone) return connector;
+    throw new MarketingSyncError(
+      err instanceof ConnectorError
+        ? "Account timezone is not available"
+        : "Account timezone has not been read",
+      "INVALID"
+    );
+  }
+}
+
 export function resolveSyncRange(connector: MarketingConnector, now = new Date()) {
+  if (!connector.timezone) {
+    throw new MarketingSyncError("Account timezone has not been read", "INVALID");
+  }
   const def = getConnectorDefinition(connector.type);
   const today = todayInTimezone(connector.timezone, now);
   const lookback = Math.min(Math.max(connector.lookbackDays, 1), 90);
@@ -300,16 +337,21 @@ export async function runConnectorSync(
   actorUserId: string | null,
   options: { background?: boolean } = {}
 ): Promise<MarketingSyncRun> {
-  const connector = await getConnectorById(connectorId);
-  if (!connector) throw new MarketingSyncError("Connector not found", "NOT_FOUND");
-  const def = getConnectorDefinition(connector.type);
+  const loaded = await getConnectorById(connectorId);
+  if (!loaded) throw new MarketingSyncError("Connector not found", "NOT_FOUND");
+  const def = getConnectorDefinition(loaded.type);
   if (!def?.supportsSync) {
     throw new MarketingSyncError("This connector only accepts CSV import", "UNSUPPORTED");
+  }
+  const connector = await refreshAccountLocale(loaded);
+  if (!connector.timezone) {
+    throw new MarketingSyncError("Account timezone has not been read", "INVALID");
   }
   if (!(await claimConnectorRun(connector.id, RUN_LOCK_MINUTES))) {
     throw new MarketingSyncError("A run is already in progress", "LOCKED");
   }
   const range = resolveSyncRange(connector);
+  const timezone = connector.timezone;
   return executeRun(
     connector,
     trigger,
@@ -319,7 +361,7 @@ export async function runConnectorSync(
       const result = await def.fetch({
         config: connector.config,
         secrets: decryptSecrets(connector.secretsEnc),
-        timezone: connector.timezone,
+        timezone,
         currency: connector.currency,
         ...range,
       });

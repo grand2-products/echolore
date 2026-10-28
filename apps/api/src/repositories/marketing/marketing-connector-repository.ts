@@ -33,7 +33,7 @@ export async function createConnector(input: {
   enabled: boolean;
   syncIntervalHours: number;
   lookbackDays: number;
-  timezone: string;
+  timezone: string | null;
   currency: string | null;
   createdByUserId: string;
 }): Promise<MarketingConnector> {
@@ -65,7 +65,7 @@ export async function updateConnector(
     enabled: boolean;
     syncIntervalHours: number;
     lookbackDays: number;
-    timezone: string;
+    timezone: string | null;
     currency: string | null;
   }>
 ): Promise<MarketingConnector | null> {

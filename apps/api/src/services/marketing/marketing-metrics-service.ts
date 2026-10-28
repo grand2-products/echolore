@@ -174,7 +174,7 @@ async function buildCoverage(
   return connectors.map((c) => {
     // Only dates a run could already have covered count as missing: API sources
     // fetch through yesterday, health checks through today.
-    const today = todayInTimezone(c.timezone);
+    const today = todayInTimezone(c.timezone ?? "UTC");
     const expectedEnd =
       getConnectorDefinition(c.type)?.resolveRange?.(today, 1).to ?? addDays(today, -1);
     const end = to < expectedEnd ? to : expectedEnd;

@@ -647,7 +647,8 @@ export interface MarketingConnectorsTable {
   enabled: Generated<boolean>;
   syncIntervalHours: Generated<number>;
   lookbackDays: Generated<number>;
-  timezone: Generated<string>;
+  /** IANA zone read from the account or property. Null until that read succeeds. */
+  timezone: string | null;
   currency: string | null;
   lastRunAt: Date | null;
   lastSuccessAt: Date | null;

@@ -5,6 +5,7 @@ import {
 } from "@echolore/shared/contracts";
 import { fetchJsonWithRetry } from "./http.js";
 import {
+  accountLocaleFromSource,
   type ConnectorContext,
   ConnectorError,
   type ConnectorMetricRow,
@@ -98,10 +99,17 @@ async function searchStream(ctx: ConnectorContext, query: string): Promise<Googl
   return (response ?? []).flatMap((batch) => batch.results ?? []);
 }
 
-export function mapGoogleAdsRows(
-  results: GoogleAdsRow[],
-  currencyOverride: string | null
-): ConnectorMetricRow[] {
+async function readGoogleCustomer(ctx: ConnectorContext) {
+  const results = await searchStream(
+    ctx,
+    "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone FROM customer LIMIT 1"
+  );
+  return results[0]?.customer as
+    | { id?: string; descriptiveName?: string; currencyCode?: string; timeZone?: string }
+    | undefined;
+}
+
+export function mapGoogleAdsRows(results: GoogleAdsRow[]): ConnectorMetricRow[] {
   const rows: ConnectorMetricRow[] = [];
   for (const r of results) {
     const date = r.segments?.date;
@@ -111,7 +119,7 @@ export function mapGoogleAdsRows(
       accountId: r.customer?.id ?? "",
       campaignId: r.campaign?.id ?? "",
       campaignName: r.campaign?.name ?? null,
-      currency: currencyOverride ?? r.customer?.currencyCode ?? null,
+      currency: r.customer?.currencyCode ?? null,
     };
     const m = r.metrics ?? {};
     const values: Array<[string, number]> = [
@@ -138,6 +146,10 @@ export const googleAdsConnector: MarketingConnectorDefinition = {
     const result = normalizeConnectorConfig("google_ads", config);
     return result.ok ? null : result.message;
   },
+  readAccountLocale: async (ctx) => {
+    const customer = await readGoogleCustomer(ctx);
+    return accountLocaleFromSource(customer?.timeZone, customer?.currencyCode);
+  },
   async fetch(ctx) {
     const query = [
       "SELECT segments.date, customer.id, customer.currency_code, campaign.id, campaign.name,",
@@ -149,7 +161,7 @@ export const googleAdsConnector: MarketingConnectorDefinition = {
     const results = await searchStream(ctx, query);
     const canonical = canonicalAccountId("google_ads", ctx.config);
     let differs = false;
-    const rows = mapGoogleAdsRows(results, ctx.currency).map((row) => {
+    const rows = mapGoogleAdsRows(results).map((row) => {
       const fromApi = row.accountId ?? "";
       if (fromApi !== "") {
         if (canonical && fromApi !== canonical) differs = true;
@@ -163,16 +175,13 @@ export const googleAdsConnector: MarketingConnectorDefinition = {
     };
   },
   async test(ctx) {
-    const results = await searchStream(
-      ctx,
-      "SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone FROM customer LIMIT 1"
-    );
-    const customer = results[0]?.customer as
-      | { id?: string; descriptiveName?: string; currencyCode?: string; timeZone?: string }
-      | undefined;
+    const customer = await readGoogleCustomer(ctx);
+    const locale = accountLocaleFromSource(customer?.timeZone, customer?.currencyCode);
     return {
       ok: true,
-      message: `Connected: ${customer?.descriptiveName ?? customer?.id ?? "customer"} (${customer?.currencyCode ?? "?"}, ${customer?.timeZone ?? "?"})`,
+      message: `Connected: ${customer?.descriptiveName ?? customer?.id ?? "customer"} (${locale.currency}, ${locale.timezone})`,
+      timezone: locale.timezone,
+      currency: locale.currency,
     };
   },
 };
