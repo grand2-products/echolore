@@ -158,6 +158,9 @@ ECHOLORE_VERSION="${TARGET_VERSION}" docker compose up -d --remove-orphans
 # containers. Traefik caches internal router state and may not fully refresh
 # when only downstream container labels change (especially reserved names).
 ECHOLORE_VERSION="${TARGET_VERSION}" docker compose up -d --force-recreate traefik
+# Same for the updater: a container born from a UI-triggered self-swap carries
+# labels compose does not track as drift, so it must be recreated explicitly.
+ECHOLORE_VERSION="${TARGET_VERSION}" docker compose up -d --no-deps --force-recreate updater
 
 # ── health check ─────────────────────────────────────────────────────────────
 
