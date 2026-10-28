@@ -1026,6 +1026,7 @@ admin:
   system:
     title: "システムアップデート"
     description: "アプリケーションのバージョン管理とアップデートを行います。"
+    currentVersion: "現在のバージョン"
     updaterUnavailable: "アップデーターが利用できません。手動でアップデートしてください。"
     reconnecting: "サーバーに再接続中..."
     updating: "{from} → {to} にアップデート中..."
