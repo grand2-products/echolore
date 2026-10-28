@@ -17,11 +17,9 @@ RUN chown -R deno:deno /app
 ENV PORT=8787
 EXPOSE 8787
 
-# Run as the built-in non-root deno user (uid 1000)
-USER deno
-
-# Use 127.0.0.1: the server binds IPv4 only and "localhost" resolves to ::1
-# first in this image, which left the container permanently unhealthy.
+# Runs as root on purpose: self-update needs full control of the docker socket
+# (create/remove/rename containers plus the compose lifecycle). See the
+# updater notes in docs/ops-runbook.md before changing this.
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:8787/health || exit 1
 
