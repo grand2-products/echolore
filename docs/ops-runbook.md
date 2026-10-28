@@ -126,6 +126,12 @@ Last updated: 2026-10-27
 - Manual fix (break-glass): append `UPDATER_SECRET=$(openssl rand -hex 32)` to `.env`, then `docker compose up -d --force-recreate api updater`
 - Verify: from the api container, `GET http://updater:8787/status` with the `x-echolore-updater-secret` header returns 200 and `updaterAvailable: true`
 
+### Updater architecture notes
+- The updater container runs as root with the docker socket mounted (`/var/run/docker.sock`) and drives the full compose lifecycle for self-update. It is a first-party image shipped through the same release pipeline; treat updater image integrity as a trust boundary.
+- Self-update flow: services except the updater are recreated by compose; the updater container itself is swapped last (`self-swap.ts`) — the replacement is started beside the old one, then the old one is stopped and removed by the replacement's boot path.
+- A compose-based self-recreate (stopping the caller) can never work: recreating a fixed-name container stops the compose client before the replacement is created.
+- If the updater is stuck mid-update (`phase: self-updating` / `updating-services` in `/opt/echolore/.updater-state.json`), reset by stopping the updater, removing `.updater-state.json`, and running the host-side `update.sh` (recovery path of last resort).
+
 ## Break-Glass Recovery
 1. SSH to instance
 2. `cd /opt/wiki`

@@ -298,6 +298,7 @@ services:
       UPDATER_SECRET: ${UPDATER_SECRET:-}
       GITHUB_REPO: grand2-products/echolore
       INSTALL_DIR: /opt/echolore
+      UPDATER_CONTAINER_NAME: echolore-updater
       PORT: 8787
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
