@@ -146,7 +146,11 @@ export async function finalizeSwap(): Promise<void> {
   }
 
   const selfId = await selfContainerId();
-  if (!selfId || !nextId || selfId !== nextId) return; // we are not the replacement
+  // /etc/hostname holds the short (12-char) container ID; .Id is the full
+  // 64-char one.
+  if (!selfId || !nextId || !(nextId === selfId || nextId.startsWith(selfId))) {
+    return; // we are not the replacement
+  }
 
   console.log("[updater] Taking over container name from old updater...");
   await exec(["docker", "rm", "-f", UPDATER_CONTAINER]);
