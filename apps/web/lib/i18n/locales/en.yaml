@@ -1026,6 +1026,7 @@ admin:
   system:
     title: "System Update"
     description: "Manage application versions and updates."
+    currentVersion: "Current Version"
     updaterUnavailable: "Updater is not available. Please update manually."
     reconnecting: "Reconnecting to server..."
     updating: "Updating from {from} to {to}..."
