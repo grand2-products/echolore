@@ -1,0 +1,59 @@
+---
+title: Troubleshooting
+description: Common issues and diagnostics
+---
+
+## Won't start / can't access
+
+```bash
+cd /opt/echolore
+docker compose ps          # status
+docker compose logs -f api # API logs
+docker compose logs -f web # Web logs
+```
+
+| Symptom | Fix |
+|---------|-----|
+| Container keeps `restarting` | Check `docker compose logs <service>`. Usually a missing required env var such as `AUTH_SECRET` |
+| TLS certificate not issued | Verify the DNS A record and that ports 80/443 are open. Beware ACME rate limits |
+| 502 / 504 | Check the API container health endpoint (`/health`) |
+
+## Database connection errors
+
+```
+DATABASE_URL connection refused
+```
+
+- Is the DB container running? `docker compose ps db`
+- Do the credentials in `.env` match the volume?
+  - If `.env` was regenerated after the initial install, re-run `install.sh --force` (existing secrets are preserved)
+
+## AI features not working
+
+1. Run the **connection test** under Admin console → Settings → LLM provider
+2. Embeddings (search) require a Gemini API key
+3. Initial indexing of existing pages runs at API startup or via re-index
+4. Check API logs for events like `ai-chat.search.error`
+
+## Meetings: no audio/video
+
+- Check TURN ports (3478/udp, 5349/tcp, 50000-50020/udp) are open
+- Check browser camera/microphone permissions
+- Check `docker compose logs livekit` for RTC connections
+
+## MCP (external AI agent) connection issues
+
+| Error | Cause |
+|-------|-------|
+| 401 | Invalid/revoked token, or issuing account suspended |
+| 403 | Browser-originated request from a non-allowlisted origin |
+| 400 `-32022` | Client speaks a protocol older than 2026-07-28 |
+| 404 `-32601` | Legacy methods (`initialize` etc.) — update the client/SDK |
+
+## Support
+
+If the problem persists, report it on [GitHub Issues](https://github.com/grand2-products/echolore/issues) with:
+
+- Version (shown in Admin console → System)
+- Relevant container logs
+- Steps to reproduce

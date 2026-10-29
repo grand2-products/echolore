@@ -1,0 +1,52 @@
+---
+title: Installation
+description: Install EchoLore on your server with a single command
+---
+
+## One-command install
+
+```bash
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | sudo bash
+```
+
+You will be prompted for a domain name and an email address (for ACME registration). The installer then automatically:
+
+1. Verifies Docker / Compose are installed
+2. Generates secrets (DB password, auth keys, LiveKit keys, etc.)
+3. Places files under `/opt/echolore/`
+4. Pulls and starts the Docker images
+5. Runs database migrations
+6. Performs a health check
+
+Once finished, open `https://your-domain.com/login` and register your first user.
+
+:::warning[Re-running]
+`install.sh` is intended for first-time setup. If `.env` already exists it will error out and point you to `update.sh`. You can re-run with `--force`; existing secrets are preserved.
+:::
+
+## Unattended mode (for CI/CD)
+
+```bash
+DOMAIN=echolore.example.com ACME_EMAIL=admin@example.com \
+  curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | sudo -E bash -s -- --unattended
+```
+
+## Automatic recovery on reboot
+
+All containers are configured with `restart: unless-stopped`, so they recover automatically after a server reboot once the Docker daemon starts. Enable the daemon's autostart:
+
+```bash
+sudo systemctl enable docker
+```
+
+## First user registration
+
+1. Open `https://your-domain.com/login`
+2. Register with an email address and password
+   - The first user is automatically verified (no email link needed since no email provider is configured yet)
+   - Google SSO is not available at this point — it requires admin console configuration
+3. **The first registered user is automatically promoted to admin**
+4. Self-registration is closed after the first user
+5. Add more users via invitations from the admin console (`/admin/users`)
+
+Next, configure SSO, LLM, and more in [First-Time Setup](/en/getting-started/first-setup/).

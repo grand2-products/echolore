@@ -1,0 +1,50 @@
+---
+title: Contribution Guide
+description: Branch policy, testing, release flow
+---
+
+Contributions are welcome. Please share your proposal in an [Issue](https://github.com/grand2-products/echolore/issues) first when possible.
+
+## Branch policy
+
+- `main` is the release branch
+- Features and fixes follow the **feature branch → PR → merge to main** flow
+- PRs should include context (what and why) and a test plan
+
+## Before opening a PR
+
+```bash
+pnpm typecheck   # required (CI gate)
+pnpm lint        # Biome
+pnpm test        # tests
+```
+
+Tests are required in particular for:
+
+- Authentication/authorization changes → regression tests
+- API contract changes → update `packages/shared` and verify both API and web sides
+- DB schema changes → update `apps/api/src/db/schema/database.ts` and add an SQL migration in the same change
+
+## Commit messages
+
+Use Conventional Commits (`feat:` / `fix:` / `refactor:` / `docs:`, etc.).
+
+## Documentation sync
+
+- Stable rules and conventions → `AGENTS.md`
+- Implemented behavior and operational procedures → `docs/`
+- Remaining work and open decisions → `plan/` (do not keep implemented content)
+- User-facing manual → `apps/docs` (this site)
+
+## Release flow
+
+- Pushing a `v*.*.*` tag triggers the `Publish Release` workflow
+- Images are published to GHCR and a GitHub Release is created
+- End users update via `scripts/update.sh`
+- Manual host mutation is never the durable fix — keep changes workflow-based
+
+## Security
+
+Do not commit secrets. Report vulnerabilities through a security advisory rather than public issues.
+
+See [AGENTS.md](https://github.com/grand2-products/echolore/blob/main/AGENTS.md) in the repository for the full development rules.

@@ -1,0 +1,51 @@
+---
+title: Updates & Rollback
+description: Updating with update.sh, version pinning, recovery
+---
+
+## Updating
+
+```bash
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/update.sh | sudo bash
+```
+
+To update to a specific version:
+
+```bash
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/update.sh | sudo bash -s -- --version v0.2.0
+```
+
+`update.sh` automatically:
+
+1. Checks the version (no-op if current; bypass with `--force`)
+2. Backs up `.env` and `docker-compose.yml`
+3. Downloads and verifies the new compose file
+4. Pulls the new images
+5. Runs database migrations
+6. Restarts services
+7. Runs health checks
+8. **Rolls back automatically on failure** (migration failures or health check timeouts restore the previous version)
+
+## Version pinning
+
+Pin a version in `.env` via `ECHOLORE_VERSION` (default `latest`). Updates reconcile against the tags in `docker-compose.production.yml`.
+
+## Manual rollback
+
+```bash
+cd /opt/echolore
+ls -la .env.backup.*
+cp .env.backup.20260316120000 .env
+docker compose pull
+docker compose up -d --remove-orphans
+```
+
+## Updating from the admin console
+
+The admin console → **System** shows the current version and can run updates (using the same update mechanism under the hood).
+
+## Release cycle
+
+- Releases use semantic versioning (`v0.1.0` style tags)
+- Each release ships a GitHub Release plus container images on GHCR (tagged `v0.1.0`, `0.1`, `latest`)
+- Breaking changes include migration notes in the release notes

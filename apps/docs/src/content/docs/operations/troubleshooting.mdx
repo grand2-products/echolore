@@ -1,0 +1,59 @@
+---
+title: トラブルシューティング
+description: よくある問題と診断手順
+---
+
+## 起動しない・アクセスできない
+
+```bash
+cd /opt/echolore
+docker compose ps          # 状態確認
+docker compose logs -f api # API ログ
+docker compose logs -f web # Web ログ
+```
+
+| 症状 | 対処 |
+|------|------|
+| コンテナが `restarting` を繰り返す | `docker compose logs <service>` で原因確認。`AUTH_SECRET` 等の必須 env 欠落が多い |
+| TLS 証明書が取得できない | DNS A レコードと 80/443 の開放を確認。ACME のレート制限に注意 |
+| 502 / 504 | API コンテナのヘルスチェック (`/health`) を確認 |
+
+## データベース接続エラー
+
+```
+DATABASE_URL connection refused
+```
+
+- DB コンテナが起動しているか: `docker compose ps db`
+- `.env` の DB パスワードと実際のボリュームの資格情報が一致しているか
+  - 初回 `install.sh` 以降に `.env` を再生成した場合は **`--force` を付けて再実行** (既存シークレットは保持されます)
+
+## AI 機能が動かない
+
+1. 管理画面 → 設定 → LLM プロバイダで**接続テスト**を実行
+2. embedding (検索) には Gemini API キーが必須
+3. 既存ページの初回インデックスは API 起動時または再インデックスで実行
+4. API ログで `ai-chat.search.error` 等のイベントを確認
+
+## 会議で音声・映像が繋がらない
+
+- TURN ポート (3478/udp, 5349/tcp, 50000-50020/udp) が開放されているか
+- クライアント側のブラウザ権限 (カメラ/マイク) を確認
+- `docker compose logs livekit` で RTC 接続状況を確認
+
+## MCP 接続 (外部 AI エージェント) できない
+
+| エラー | 原因 |
+|--------|------|
+| 401 | トークン不正・失効済み・発行者アカウント停止 |
+| 403 | Origin 許可リスト外のブラウザ起源リクエスト |
+| 400 `-32022` | クライアントが旧プロトコル (2026-07-28 未対応) |
+| 404 `-32601` | 旧メソッド (`initialize` 等) の使用 — クライアント/SDK を更新 |
+
+## サポート
+
+問題が解決しない場合は [GitHub Issues](https://github.com/grand2-products/echolore/issues) に、以下を添えて報告してください:
+
+- バージョン (管理画面 → システム に表示)
+- 関連コンテナのログ
+- 再現手順

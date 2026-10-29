@@ -1,0 +1,44 @@
+---
+title: EchoLore とは
+description: セルフホスト可能な AI ナレッジ & ミーティングプラットフォーム
+---
+
+EchoLore は、チームのナレッジとミーティングを一つにまとめる、**セルフホスト可能な AI プラットフォーム**です。コマンド 1 つで VPS に導入でき、データは自分のサーバーから離れません。
+
+## 主な機能
+
+- **Notion スタイルの Wiki** — ブロックエディタ、リアルタイム共同編集、ページ権限、階層構造
+- **AI 検索チャット** — Wiki をベクトル検索して根拠付きで回答する RAG チャット
+- **ミーティング** — LiveKit によるビデオ・音声・画面共有、録画、AI 議事録要約
+- **外部 AI エージェント接続 (MCP)** — ChatGPT / Claude などの AI エージェントをナレッジに接続
+- **認証** — Google SSO とメール/パスワード
+- **管理画面** — ユーザー・グループ・権限・LLM プロバイダの集中管理
+- **ストレージ** — ローカル / S3 互換 / GCS から選択可能
+- **多言語 UI** — 日本語・英語・韓国語・中国語 (簡体字)
+
+## クイックスタート
+
+```bash
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | sudo bash
+```
+
+ドメイン名とメールアドレスを入力するだけで、TLS 証明書の取得からデータベースマイグレーションまで自動で行われます。
+
+詳しくは [インストール](/getting-started/install/) を参照してください。
+
+## 技術スタック
+
+| レイヤー | 技術 |
+|---------|------|
+| フロントエンド | Next.js |
+| API | Hono + Kysely |
+| データベース | PostgreSQL (pgvector) |
+| リアルタイム | LiveKit / Yjs |
+| キャッシュ | Valkey |
+| 認証 | Auth.js (JWT) |
+| AI | LangChain + Gemini / Vertex AI / Z.ai |
+| インフラ | Docker Compose + Traefik (自動 TLS) |
+
+## ライセンス
+
+ソースコードは [GitHub](https://github.com/grand2-products/echolore) で公開されています。ライセンスの詳細はリポジトリの [LICENSE](https://github.com/grand2-products/echolore/blob/main/LICENSE) を参照してください。

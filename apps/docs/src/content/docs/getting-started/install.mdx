@@ -1,0 +1,52 @@
+---
+title: インストール
+description: ワンコマンドで EchoLore をサーバーに導入する
+---
+
+## ワンコマンドインストール
+
+```bash
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | sudo bash
+```
+
+対話形式でドメイン名とメールアドレス (ACME 登録用) を入力すると、以下が自動で行われます。
+
+1. Docker / Compose の存在確認
+2. シークレット類の自動生成 (DB パスワード、認証キー、LiveKit キー等)
+3. `/opt/echolore/` へのファイル配置
+4. Docker イメージの pull と起動
+5. データベースマイグレーション
+6. ヘルスチェック
+
+完了後、`https://<あなたのドメイン>/login` にアクセスして最初のユーザーを登録してください。
+
+:::warning[再実行について]
+`install.sh` は初回セットアップ専用です。既に `.env` が存在する場合はエラーになり、`update.sh` の使用を案内します。`--force` フラグで再初期化も可能ですが、既存シークレットは保持されます。
+:::
+
+## 非対話モード (CI/CD 向け)
+
+```bash
+DOMAIN=echolore.example.com ACME_EMAIL=admin@example.com \
+  curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | sudo -E bash -s -- --unattended
+```
+
+## サーバー再起動時の自動復旧
+
+すべてのコンテナは `restart: unless-stopped` ポリシーで構成されているため、サーバー再起動後は Docker デーモンの起動次第で自動復旧します。Docker デーモン自体の自動起動を有効化してください。
+
+```bash
+sudo systemctl enable docker
+```
+
+## 初期ユーザー登録の流れ
+
+1. ブラウザで `https://your-domain.com/login` にアクセス
+2. メールアドレス + パスワードで登録
+   - 初回はメールプロバイダ未設定のため、メール認証リンクなしで自動的に認証済みになります
+   - Google SSO はこの時点では使用できません (管理画面での設定が必要)
+3. **最初に登録したユーザーが自動的に管理者 (admin) に昇格**
+4. 以降の自己登録は自動的に閉鎖されます
+5. 追加ユーザーは管理画面 (`/admin/users`) から招待してください
+
+次は [初期セットアップ](/getting-started/first-setup/) で SSO・LLM などを設定します。

@@ -1,0 +1,56 @@
+---
+title: Requirements
+description: Server and network requirements for running EchoLore
+---
+
+## Server Requirements
+
+| Item | Minimum | Recommended |
+|------|---------|-------------|
+| OS | Debian 12 / Ubuntu 22.04+ (Linux) | — |
+| Memory | 4 GB | 8 GB (when using recording / AI features) |
+| Storage | 20 GB | Depends on usage |
+| CPU | 2 cores | 4 cores |
+
+## Software Requirements
+
+- [Docker Engine](https://docs.docker.com/engine/install/)
+- [Docker Compose v2 plugin](https://docs.docker.com/compose/install/linux/)
+
+:::note
+`install.sh` fails with an error if Docker / Compose are not installed. Install them from the links above first.
+:::
+
+## Network (ports to open)
+
+| Port | Purpose |
+|------|---------|
+| 80/tcp | HTTP (TLS redirect) |
+| 443/tcp | HTTPS |
+| 3478/udp | TURN (WebRTC) |
+| 5349/tcp | TURN over TLS |
+| 50000-50020/udp | LiveKit RTC media |
+
+Example with ufw:
+
+```bash
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 3478/udp
+sudo ufw allow 5349/tcp
+sudo ufw allow 50000:50020/udp
+sudo ufw reload
+```
+
+## Domain
+
+Point a DNS A record at your server's IP address. TLS certificates are obtained automatically by Traefik via Let's Encrypt (ACME).
+
+## Optional external services
+
+All of these can be configured from the admin console after deployment:
+
+- **Google Cloud project** — for Google SSO / Gemini / Vertex AI / GCS
+- **LLM provider** — Gemini / Vertex AI / Z.ai / OpenAI-compatible
+- **Email provider** — SMTP / Resend (for email verification and invitations)
+- **Storage provider** — S3-compatible / GCS (for cloud file storage)

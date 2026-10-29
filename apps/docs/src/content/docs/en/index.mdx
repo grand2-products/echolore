@@ -1,0 +1,44 @@
+---
+title: What is EchoLore
+description: Self-hostable AI-powered knowledge & meeting platform
+---
+
+EchoLore is a **self-hostable AI platform** that unifies your team's knowledge and meetings. Install it on your own server with a single command — your data never leaves your infrastructure.
+
+## Key Features
+
+- **Notion-style Wiki** — block editor, real-time collaboration, page permissions, hierarchical structure
+- **AI-powered search chat** — RAG chat that answers with citations from your Wiki
+- **Meetings** — LiveKit video, audio, and screen sharing with recording and AI meeting summaries
+- **External AI agents (MCP)** — connect ChatGPT, Claude, and other agents to your knowledge base
+- **Authentication** — Google SSO and email/password
+- **Admin console** — centralized user, group, permission, and LLM provider management
+- **Pluggable storage** — Local / S3-compatible / GCS
+- **Multi-language UI** — English, Japanese, Korean, Simplified Chinese
+
+## Quick Start
+
+```bash
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | sudo bash
+```
+
+You will be prompted for a domain name and an email address. Everything else — TLS certificates, database migrations, service startup — is configured automatically.
+
+See [Installation](/en/getting-started/install/) for details.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | Next.js |
+| API | Hono + Kysely |
+| Database | PostgreSQL (pgvector) |
+| Realtime | LiveKit / Yjs |
+| Cache | Valkey |
+| Auth | Auth.js (JWT) |
+| AI | LangChain + Gemini / Vertex AI / Z.ai |
+| Infrastructure | Docker Compose + Traefik (automatic TLS) |
+
+## License
+
+The source code is available on [GitHub](https://github.com/grand2-products/echolore). See the repository's [LICENSE](https://github.com/grand2-products/echolore/blob/main/LICENSE) for details.

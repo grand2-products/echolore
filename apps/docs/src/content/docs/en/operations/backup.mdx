@@ -1,0 +1,48 @@
+---
+title: Backup & Restore
+description: Protecting and restoring your data volumes
+---
+
+## What to back up
+
+| Data | Location |
+|------|----------|
+| Database (PostgreSQL) | Docker volume |
+| Wiki attachments | Storage provider (Docker volume when local) |
+| Environment / secrets | `/opt/echolore/.env` |
+
+:::caution[Critical]
+Losing `.env` means losing your secrets. Without the DB password and auth keys the database becomes inaccessible. Store it in a safe location.
+:::
+
+## Database backup
+
+```bash
+cd /opt/echolore
+docker compose exec db pg_dump -U echolore echolore > backup_$(date +%Y%m%d).sql
+```
+
+## Database restore
+
+```bash
+cd /opt/echolore
+cat backup_20260329.sql | docker compose exec -T db psql -U echolore echolore
+```
+
+## Full volume backup
+
+```bash
+docker run --rm \
+  -v echolore_pgdata:/data:ro \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/pgdata_$(date +%Y%m%d).tar.gz -C /data .
+```
+
+## Automating backups
+
+Scheduled backups can be configured in Admin console → Settings → Backup. See `docs/backup-strategy.md` in the repository for retention policy details.
+
+## Restore notes
+
+- Restart services with `docker compose up -d` after restoring
+- You cannot restore a backup from a newer schema into an older image — boot the image version matching the backup

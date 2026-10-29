@@ -1,0 +1,50 @@
+---
+title: コントリビューションガイド
+description: ブランチポリシー、テスト、リリースフロー
+---
+
+コントリビューションを歓迎します。まず [Issue](https://github.com/grand2-products/echolore/issues) で提案を共有していただけるとスムーズです。
+
+## ブランチポリシー
+
+- `main` がリリースブランチ
+- 機能追加・修正は **フィーチャーブランチ → PR → main マージ** のフロー
+- PR には Context (何を・なぜ) と Test plan (検証内容) を記載
+
+## PR 前に確認すること
+
+```bash
+pnpm typecheck   # 必須 (CI ゲート)
+pnpm lint        # Biome
+pnpm test        # テスト
+```
+
+特に以下の変更ではテストの追加・更新を求めます:
+
+- 認証・認可 (authn/authz) の変更 → 回帰テスト必須
+- API 契約の変更 → `packages/shared` を更新し、API と Web の両側を検証
+- DB スキーマ変更 → `apps/api/src/db/schema/database.ts` と SQL マイグレーションを同時に更新
+
+## コミットメッセージ
+
+Conventional Commits 形式 (`feat:` / `fix:` / `refactor:` / `docs:` 等) を使用します。
+
+## ドキュメントの同期
+
+- 安定したルール・規約 → `AGENTS.md`
+- 実装された動作・運用手順 → `docs/`
+- 未完了の計画 → `plan/` (実装済み内容は残さない)
+- ユーザー向けマニュアル → `apps/docs` (本サイト)
+
+## リリースフロー
+
+- `v*.*.*` タグの push で `Publish Release` ワークフローが発火
+- GHCR にイメージ公開 + GitHub Release 作成
+- エンドユーザーは `scripts/update.sh` で更新
+- **手動でのホスト直接変更は恒久手段にしない** (ワークフロー経由を維持)
+
+## セキュリティ
+
+脆弱性報告は公開 Issue ではなく、安全性に配慮したチャンネル (security advisory) を使用してください。シークレットをコミットに含めないでください。
+
+詳細な開発規約はリポジトリの [AGENTS.md](https://github.com/grand2-products/echolore/blob/main/AGENTS.md) を参照してください。

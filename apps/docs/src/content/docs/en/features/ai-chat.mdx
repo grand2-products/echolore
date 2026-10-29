@@ -1,0 +1,39 @@
+---
+title: AI Chat
+description: RAG chat grounded in your Wiki
+---
+
+AI Chat is a Retrieval-Augmented Generation (RAG) chat that answers from your Wiki content.
+
+## How it works
+
+1. Your question triggers a vector search over Wiki page embeddings
+2. Relevant context is injected into the system prompt
+3. An LLM agent generates the answer (using `wiki_search` / `wiki_read_page` tools for further research when needed)
+4. Answers include citations linking back to the source pages
+
+## Example requests
+
+- "Tell me about X" — answers grounded in related pages
+- "Introduce recent articles" — summarizes the page list
+- "How is our knowledge maintenance doing?" — summarizes an audit report (overdue reviews, stale pages, etc.)
+- "Save this as an article" — **creates a new Wiki page from the conversation** (only on explicit request)
+
+## Data sources
+
+Search scope extends when integrations are enabled in the admin console.
+
+| Source | Description |
+|--------|-------------|
+| Wiki | Always (embeddings generated automatically) |
+| Google Drive | Search shared drive files |
+| GitHub | Search indexed repository documentation |
+
+## Sessions
+
+- Conversations are saved with auto-generated titles
+- Tool call history (which pages were referenced) is recorded
+
+## Privacy
+
+Searches are filtered by each user's read permissions. Content from pages a user cannot read never appears in their answers.
