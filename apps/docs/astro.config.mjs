@@ -9,6 +9,10 @@ export default defineConfig({
     starlight({
       title: "EchoLore",
       description: "AI-powered knowledge & meeting platform. Self-hostable with a single command.",
+      logo: {
+        src: "./src/assets/logo.svg",
+        replacesTitle: true,
+      },
       // Japanese is the root locale (served at /), English under /en/
       locales: {
         root: { label: "日本語", lang: "ja-JP" },
