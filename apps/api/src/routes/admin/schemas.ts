@@ -1,4 +1,9 @@
-import { ALL_GROUP_PERMISSIONS, type GroupPermission, UserRole } from "@echolore/shared/contracts";
+import {
+  AGENT_TOKEN_SCOPE_VALUES,
+  ALL_GROUP_PERMISSIONS,
+  type GroupPermission,
+  UserRole,
+} from "@echolore/shared/contracts";
 import { z } from "zod";
 
 const LLM_PROVIDER_ENUM = ["google", "vertex", "zhipu", "openai-compatible"] as const;
@@ -52,6 +57,14 @@ export const createAgentSchema = z.object({
 });
 
 export const updateAgentSchema = createAgentSchema.partial();
+
+export const createAgentTokenSchema = z.object({
+  name: z.string().min(1).max(100),
+  scopes: z
+    .array(z.enum(AGENT_TOKEN_SCOPE_VALUES))
+    .min(1)
+    .default([...AGENT_TOKEN_SCOPE_VALUES]),
+});
 
 export const updateUserRoleSchema = z.object({ role: z.enum([UserRole.Admin, UserRole.Member]) });
 

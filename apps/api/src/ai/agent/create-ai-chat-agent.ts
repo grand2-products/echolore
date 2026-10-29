@@ -26,6 +26,7 @@ export function createAiChatAgent(
     '3. **Deep-dive requests** (e.g. "このページの詳細を教えて"): Use `wiki_read_page` to fetch full content.',
     "4. **Drive-based questions**: The retrieved context above may include Wiki, Drive, and GitHub sources. If you need more Drive content, use `drive_search` for additional queries or `drive_read` for full file content.",
     "5. **GitHub docs-based questions**: When wiki and drive searches yield insufficient results, try `github_search` to find information in indexed GitHub repository documentation.",
+    '6. **Knowledge maintenance requests** (e.g. "ナレッジのメンテ状況は？", "更新されていないページは？", "レビュー期限が近いページは？"): Use `wiki_maintenance_report` to get a maintenance audit, then summarize the findings. Optionally use `wiki_read_page` for details on a specific flagged page.',
     "",
     "## Guidelines",
     '- Proactively use tools when the retrieved context is empty or insufficient. Do not just say "見つかりませんでした" without trying tools first.',

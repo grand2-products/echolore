@@ -53,6 +53,21 @@ export interface UserDto {
   updatedAt: ISODateString;
 }
 
+// ─── Agent Tokens (external AI agent access) ─────────────────────
+
+export const AGENT_TOKEN_SCOPE_VALUES = ["read"] as const;
+export type AgentTokenScopeValue = (typeof AGENT_TOKEN_SCOPE_VALUES)[number];
+
+export interface AgentTokenDto {
+  id: string;
+  name: string;
+  scopes: AgentTokenScopeValue[];
+  createdByUserId: string | null;
+  lastUsedAt: ISODateString | null;
+  revokedAt: ISODateString | null;
+  createdAt: ISODateString;
+}
+
 export interface SpaceDto {
   id: string;
   name: string;

@@ -20,6 +20,7 @@ import {
   createAiChatGithubSearchTool,
   type GithubToolResult,
 } from "../../ai/tools/ai-chat-github-tools.js";
+import { createAiChatMaintenanceReportTool } from "../../ai/tools/ai-chat-maintenance-tool.js";
 import {
   type AiChatToolResult,
   createAiChatListPagesTool,
@@ -296,11 +297,18 @@ async function invokeAgent(
   const { searchTool, referencedPages: searchRefs } = createAiChatSearchTool(user);
   const { listPagesTool, referencedPages: listRefs } = createAiChatListPagesTool(user);
   const { readPageTool, referencedPages: readRefs } = createAiChatReadPageTool(user);
+  const { maintenanceTool, referencedPages: maintenanceRefs } =
+    createAiChatMaintenanceReportTool(user);
 
   // Step 4b: Conditionally add Drive tools
   let driveSearchRefs: DriveToolResult[] = [];
   let driveReadRefs: DriveToolResult[] = [];
-  const allTools: DynamicStructuredTool[] = [searchTool, listPagesTool, readPageTool];
+  const allTools: DynamicStructuredTool[] = [
+    searchTool,
+    listPagesTool,
+    readPageTool,
+    maintenanceTool,
+  ];
 
   try {
     const driveSettings = await getResolvedDriveSettings();
@@ -391,6 +399,7 @@ async function invokeAgent(
       ...searchRefs,
       ...listRefs,
       ...readRefs,
+      ...maintenanceRefs,
     ].filter((ref) => {
       if (seenIds.has(ref.pageId)) return false;
       seenIds.add(ref.pageId);

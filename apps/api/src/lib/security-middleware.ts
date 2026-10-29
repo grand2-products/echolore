@@ -58,6 +58,13 @@ export const csrfProtection: MiddlewareHandler<AppEnv> = async (c, next) => {
     return next();
   }
 
+  // Skip CSRF check for the MCP endpoint — authenticated by a bearer agent
+  // token, which browsers never attach automatically (same reasoning as the
+  // bearer-token skip below, but agent tokens use a custom format).
+  if (path === "/mcp" || path.startsWith("/mcp/")) {
+    return next();
+  }
+
   // Skip CSRF check for requests with Bearer token (API/mobile clients).
   // Bearer tokens are not automatically attached by browsers, so they are
   // inherently CSRF-safe. We validate the token contains a dot (our custom

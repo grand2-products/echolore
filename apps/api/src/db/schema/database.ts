@@ -812,8 +812,21 @@ export interface MarketingReconciliationsTable {
 
 // ─── Database interface ──────────────────────────────────────────
 
+export interface AgentTokensTable {
+  id: string;
+  name: string;
+  tokenHash: string;
+  scopes: Generated<string[]>;
+  createdByUserId: string | null;
+  lastUsedAt: Date | null;
+  revokedAt: Date | null;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
 export interface Database {
   users: UsersTable;
+  agent_tokens: AgentTokensTable;
   auth_identities: AuthIdentitiesTable;
   email_verification_tokens: EmailVerificationTokensTable;
   auth_refresh_tokens: AuthRefreshTokensTable;
