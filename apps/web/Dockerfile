@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:25-alpine AS builder
 
 ARG APP_VERSION=dev
 
@@ -26,7 +26,7 @@ RUN pnpm --filter @echolore/shared build
 RUN pnpm --filter @echolore/ui build
 RUN pnpm --filter @echolore/web build
 
-FROM node:22-alpine AS runner
+FROM node:25-alpine AS runner
 
 WORKDIR /app
 
