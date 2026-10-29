@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:25-alpine AS builder
 
 WORKDIR /app
 
@@ -27,7 +27,7 @@ RUN pnpm deploy --filter @echolore/worker --prod --ignore-scripts /prod/worker
 # deployed worker tree so the runner image carries the extracted native binary.
 RUN pnpm --dir /prod/worker rebuild @livekit/rtc-node || true
 
-FROM node:22-alpine AS runner
+FROM node:25-alpine AS runner
 
 WORKDIR /app
 
