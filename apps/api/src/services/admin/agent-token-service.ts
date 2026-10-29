@@ -8,6 +8,7 @@ import {
   listAgentTokenRows,
   revokeAgentTokenRow,
   touchAgentTokenLastUsed,
+  updateAgentTokenSecret,
 } from "../../repositories/admin/agent-token-repository.js";
 import { getUserById } from "../../repositories/user/user-repository.js";
 
@@ -33,15 +34,36 @@ export async function createAgentToken(input: {
   name: string;
   scopes: AgentTokenScope[];
   createdByUserId: string;
+  /** Optional lifetime in days; absent means the token does not expire. */
+  expiresInDays?: number | null;
 }): Promise<{ token: AgentToken; secret: string }> {
   const secret = generateAgentTokenSecret();
+  const expiresAt = input.expiresInDays
+    ? new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000)
+    : null;
   const token = await createAgentTokenRow({
     name: input.name,
     tokenHash: hashAgentTokenSecret(secret),
     scopes: input.scopes,
     createdByUserId: input.createdByUserId,
+    expiresAt,
   });
   return { token, secret };
+}
+
+/** Replace an existing token's secret and extend its expiry (refresh rotation). */
+export async function rotateAgentTokenSecret(input: {
+  id: string;
+  expiresInDays: number;
+}): Promise<{ token: AgentToken; secret: string } | null> {
+  const secret = generateAgentTokenSecret();
+  const expiresAt = new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000);
+  const token = await updateAgentTokenSecret({
+    id: input.id,
+    tokenHash: hashAgentTokenSecret(secret),
+    expiresAt,
+  });
+  return token ? { token, secret } : null;
 }
 
 export async function listAgentTokens(): Promise<AgentToken[]> {
@@ -54,7 +76,7 @@ export async function revokeAgentToken(id: string): Promise<AgentToken | null> {
 
 /**
  * Resolve a bearer secret into an active token + the acting user.
- * Returns null for unknown, revoked tokens, or tokens whose creator
+ * Returns null for unknown, revoked, or expired tokens, or tokens whose creator
  * no longer has an active account.
  */
 export async function resolveAgentToken(secret: string): Promise<ResolvedAgentToken | null> {

@@ -820,13 +820,49 @@ export interface AgentTokensTable {
   createdByUserId: string | null;
   lastUsedAt: Date | null;
   revokedAt: Date | null;
+  expiresAt: Date | null;
   createdAt: Generated<Date>;
   updatedAt: Generated<Date>;
+}
+
+export interface OAuthClientsTable {
+  id: string;
+  clientName: string;
+  redirectUris: Generated<string[]>;
+  createdAt: Generated<Date>;
+  updatedAt: Generated<Date>;
+}
+
+export interface OAuthAuthorizationCodesTable {
+  id: string;
+  codeHash: string;
+  clientId: string;
+  userId: string;
+  redirectUri: string;
+  scopes: Generated<string[]>;
+  codeChallenge: string;
+  codeChallengeMethod: Generated<string>;
+  expiresAt: Date;
+  consumedAt: Date | null;
+  createdAt: Generated<Date>;
+}
+
+export interface OAuthRefreshTokensTable {
+  id: string;
+  tokenHash: string;
+  agentTokenId: string;
+  clientId: string;
+  expiresAt: Date;
+  revokedAt: Date | null;
+  createdAt: Generated<Date>;
 }
 
 export interface Database {
   users: UsersTable;
   agent_tokens: AgentTokensTable;
+  oauth_clients: OAuthClientsTable;
+  oauth_authorization_codes: OAuthAuthorizationCodesTable;
+  oauth_refresh_tokens: OAuthRefreshTokensTable;
   auth_identities: AuthIdentitiesTable;
   email_verification_tokens: EmailVerificationTokensTable;
   auth_refresh_tokens: AuthRefreshTokensTable;

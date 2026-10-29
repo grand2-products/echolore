@@ -9,8 +9,9 @@ You are connected to an EchoLore instance via MCP. The available tools are:
 
 | Tool | What it does |
 |------|--------------|
-| `wiki_search` | Vector search over wiki pages (returns title, id, snippet) |
-| `wiki_read_page` | Full text of a page by id (permission-checked) |
+| `wiki_search` | Vector search over wiki pages (returns title, id, similarity, snippet) |
+| `wiki_read_page` | Page content as markdown by id (permission-checked; use offset/maxLength for long pages) |
+| `wiki_list_spaces` | Visible spaces with IDs and writability (use to pick a spaceId before creating) |
 | `wiki_maintenance_report` | Knowledge health audit (see below) |
 | `wiki_create_page` | Create a NEW page from markdown (only with write scope; only on explicit request) |
 
@@ -41,8 +42,9 @@ You only see pages the token's creator may read. Never invent page ids or conten
 
 1. Draft the article as markdown: a leading summary, `##` sections, lists where scannable, code blocks for technical content. Write in the user's language.
 2. Derive a concise descriptive title (not "メモ" or "新しいページ").
-3. Call `wiki_create_page` with `{ title, markdown }`.
-4. Report the created page title and remind the user to review — the page is attributed to them and fully editable/deletable in the UI.
+3. If the user names a target space, call `wiki_list_spaces` to resolve its spaceId; otherwise omit `spaceId` (General is used).
+4. Call `wiki_create_page` with `{ title, markdown }` (add `spaceId` when resolved).
+5. Report the created page title and remind the user to review — the page is attributed to them and fully editable/deletable in the UI.
 
 ### 4. Audit-then-draft (combined)
 

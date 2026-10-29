@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentTokenDto } from "@echolore/shared/contracts";
+import type { AgentTokenDto, AgentTokenUsageDto } from "@echolore/shared/contracts";
 import { useState } from "react";
 import { adminApi } from "@/lib/api";
 import { useApiErrorMessage } from "@/lib/api-error-message";
@@ -8,10 +8,19 @@ import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useFormatters, useT } from "@/lib/i18n";
 
 /**
- * Admin UI for MCP agent tokens: issue, list, and revoke bearer tokens that
- * external AI agents (ChatGPT / Claude / etc.) use to connect to /mcp.
+ * Admin UI for MCP agent tokens: issue (with optional expiry), list, revoke,
+ * and inspect recent tool-call usage of bearer tokens that external AI agents
+ * (ChatGPT / Claude / etc.) use to connect to /mcp.
  * The plaintext secret is shown exactly once at creation time.
  */
+
+const EXPIRY_OPTIONS = [null, 7, 30, 90] as const;
+
+function isExpired(token: AgentTokenDto): boolean {
+  if (!token.expiresAt) return false;
+  return new Date(token.expiresAt).getTime() <= Date.now();
+}
+
 export function AgentTokensSection() {
   const t = useT();
   const formatters = useFormatters();
@@ -29,11 +38,15 @@ export function AgentTokensSection() {
 
   const [name, setName] = useState("");
   const [scopes, setScopes] = useState<string[]>(["read"]);
+  const [expiresInDays, setExpiresInDays] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [issuedSecret, setIssuedSecret] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [usageForId, setUsageForId] = useState<string | null>(null);
+  const [usage, setUsage] = useState<AgentTokenUsageDto[] | null>(null);
+  const [usageError, setUsageError] = useState<string | null>(null);
 
   const displayError = error ?? createError;
 
@@ -41,6 +54,13 @@ export function AgentTokensSection() {
     setScopes((current) =>
       current.includes(scope) ? current.filter((s) => s !== scope) : [...current, scope]
     );
+  };
+
+  const expiryLabel = (days: number | null) => {
+    if (days === null) return t("admin.agentTokens.expiryNever");
+    if (days === 7) return t("admin.agentTokens.expiry7d");
+    if (days === 30) return t("admin.agentTokens.expiry30d");
+    return t("admin.agentTokens.expiry90d");
   };
 
   const create = async () => {
@@ -51,10 +71,12 @@ export function AgentTokensSection() {
       const response = await adminApi.createAgentToken({
         name: name.trim(),
         scopes: scopes as AgentTokenDto["scopes"],
+        expiresInDays,
       });
       setIssuedSecret(response.secret);
       setName("");
       setScopes(["read"]);
+      setExpiresInDays(null);
       await loadTokens();
     } catch (err) {
       setCreateError(getApiErrorMessage(err, t("admin.agentTokens.createError")));
@@ -67,11 +89,33 @@ export function AgentTokensSection() {
     setRevokingId(id);
     try {
       await adminApi.revokeAgentToken(id);
+      if (usageForId === id) {
+        setUsageForId(null);
+        setUsage(null);
+      }
       await loadTokens();
     } catch (err) {
       setCreateError(getApiErrorMessage(err, t("admin.agentTokens.revokeError")));
     } finally {
       setRevokingId(null);
+    }
+  };
+
+  const toggleUsage = async (id: string) => {
+    if (usageForId === id) {
+      setUsageForId(null);
+      setUsage(null);
+      setUsageError(null);
+      return;
+    }
+    setUsageForId(id);
+    setUsage(null);
+    setUsageError(null);
+    try {
+      const response = await adminApi.listAgentTokenUsage(id);
+      setUsage(response.usage);
+    } catch (err) {
+      setUsageError(getApiErrorMessage(err, t("admin.agentTokens.usageError")));
     }
   };
 
@@ -156,6 +200,22 @@ export function AgentTokensSection() {
               </label>
             ))}
           </div>
+          <label className="block text-sm font-medium text-gray-700">
+            {t("admin.agentTokens.expiresIn")}
+            <select
+              value={expiresInDays === null ? "never" : String(expiresInDays)}
+              onChange={(event) =>
+                setExpiresInDays(event.target.value === "never" ? null : Number(event.target.value))
+              }
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 sm:w-48"
+            >
+              {EXPIRY_OPTIONS.map((days) => (
+                <option key={days === null ? "never" : days} value={days === null ? "never" : days}>
+                  {expiryLabel(days)}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
         <button
           type="button"
@@ -179,6 +239,7 @@ export function AgentTokensSection() {
                 <th className="px-2 py-2">{t("admin.agentTokens.name")}</th>
                 <th className="px-2 py-2">{t("admin.agentTokens.scopes")}</th>
                 <th className="px-2 py-2">{t("admin.agentTokens.createdAt")}</th>
+                <th className="px-2 py-2">{t("admin.agentTokens.expiresAt")}</th>
                 <th className="px-2 py-2">{t("admin.agentTokens.lastUsedAt")}</th>
                 <th className="px-2 py-2">{t("admin.agentTokens.status")}</th>
                 <th className="px-2 py-2" />
@@ -186,41 +247,99 @@ export function AgentTokensSection() {
             </thead>
             <tbody>
               {tokens.map((token) => (
-                <tr key={token.id} className="border-b border-gray-100">
-                  <td className="px-2 py-2 font-medium text-gray-900">{token.name}</td>
-                  <td className="px-2 py-2 text-gray-600">{token.scopes.join(", ")}</td>
-                  <td className="px-2 py-2 text-gray-600">
-                    {formatters.dateTime(token.createdAt)}
-                  </td>
-                  <td className="px-2 py-2 text-gray-600">
-                    {token.lastUsedAt ? formatters.dateTime(token.lastUsedAt) : "—"}
-                  </td>
-                  <td className="px-2 py-2">
-                    {token.revokedAt ? (
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                        {t("admin.agentTokens.revoked")}
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
-                        {t("admin.agentTokens.active")}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-2 py-2 text-right">
-                    {!token.revokedAt ? (
-                      <button
-                        type="button"
-                        onClick={() => void revoke(token.id)}
-                        disabled={revokingId === token.id}
-                        className="rounded-md border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
-                      >
-                        {revokingId === token.id
-                          ? t("common.status.loading")
-                          : t("admin.agentTokens.revoke")}
-                      </button>
-                    ) : null}
-                  </td>
-                </tr>
+                <>
+                  <tr key={token.id} className="border-b border-gray-100">
+                    <td className="px-2 py-2 font-medium text-gray-900">{token.name}</td>
+                    <td className="px-2 py-2 text-gray-600">{token.scopes.join(", ")}</td>
+                    <td className="px-2 py-2 text-gray-600">
+                      {formatters.dateTime(token.createdAt)}
+                    </td>
+                    <td className="px-2 py-2 text-gray-600">
+                      {token.expiresAt ? formatters.dateTime(token.expiresAt) : "—"}
+                    </td>
+                    <td className="px-2 py-2 text-gray-600">
+                      {token.lastUsedAt ? formatters.dateTime(token.lastUsedAt) : "—"}
+                    </td>
+                    <td className="px-2 py-2">
+                      {token.revokedAt ? (
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                          {t("admin.agentTokens.revoked")}
+                        </span>
+                      ) : isExpired(token) ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                          {t("admin.agentTokens.expired")}
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
+                          {t("admin.agentTokens.active")}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void toggleUsage(token.id)}
+                          className="rounded-md border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                        >
+                          {usageForId === token.id
+                            ? t("common.actions.close")
+                            : t("admin.agentTokens.usage")}
+                        </button>
+                        {!token.revokedAt ? (
+                          <button
+                            type="button"
+                            onClick={() => void revoke(token.id)}
+                            disabled={revokingId === token.id}
+                            className="rounded-md border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+                          >
+                            {revokingId === token.id
+                              ? t("common.status.loading")
+                              : t("admin.agentTokens.revoke")}
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                  {usageForId === token.id ? (
+                    <tr key={`${token.id}-usage`} className="border-b border-gray-100 bg-gray-50">
+                      <td colSpan={7} className="px-3 py-3">
+                        {usageError ? (
+                          <p className="text-sm text-red-600">{usageError}</p>
+                        ) : usage === null ? (
+                          <p className="text-sm text-gray-500">{t("common.status.loading")}</p>
+                        ) : usage.length === 0 ? (
+                          <p className="text-sm text-gray-500">
+                            {t("admin.agentTokens.usageEmpty")}
+                          </p>
+                        ) : (
+                          <ul className="space-y-1 text-xs text-gray-700">
+                            {usage.map((entry) => (
+                              <li key={entry.id} className="flex flex-wrap gap-2">
+                                <span className="w-40 text-gray-500">
+                                  {formatters.dateTime(entry.createdAt)}
+                                </span>
+                                <span
+                                  className={
+                                    entry.ok
+                                      ? "font-medium text-emerald-700"
+                                      : "font-medium text-red-600"
+                                  }
+                                >
+                                  {entry.ok ? "OK" : "ERROR"}
+                                </span>
+                                <span className="font-mono">{entry.tool}</span>
+                                {entry.client ? (
+                                  <span className="text-gray-500">({entry.client})</span>
+                                ) : null}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
+                  ) : null}
+                </>
               ))}
             </tbody>
           </table>

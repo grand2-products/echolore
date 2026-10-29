@@ -27,6 +27,14 @@ export type NewAuthRefreshToken = Insertable<Database["auth_refresh_tokens"]>;
 export type AgentToken = Selectable<Database["agent_tokens"]>;
 export type NewAgentToken = Insertable<Database["agent_tokens"]>;
 
+// ─── OAuth (MCP client authorization) ────────────────────────────
+export type OAuthClient = Selectable<Database["oauth_clients"]>;
+export type NewOAuthClient = Insertable<Database["oauth_clients"]>;
+export type OAuthAuthorizationCode = Selectable<Database["oauth_authorization_codes"]>;
+export type NewOAuthAuthorizationCode = Insertable<Database["oauth_authorization_codes"]>;
+export type OAuthRefreshToken = Selectable<Database["oauth_refresh_tokens"]>;
+export type NewOAuthRefreshToken = Insertable<Database["oauth_refresh_tokens"]>;
+
 // ─── Email Verification Tokens ───────────────────────────────────
 export type EmailVerificationToken = Selectable<Database["email_verification_tokens"]>;
 export type NewEmailVerificationToken = Insertable<Database["email_verification_tokens"]>;

@@ -28,6 +28,7 @@ import { livekitRoutes } from "./routes/livekit.js";
 import { livekitWebhookRoutes } from "./routes/livekit-webhook.js";
 import { marketingRoutes } from "./routes/marketing/index.js";
 import { mcpRoutes } from "./routes/mcp.js";
+import { oauthRoutes, wellKnownRoutes } from "./routes/mcp-oauth.js";
 import { meetingGuestRoutes } from "./routes/meeting-guest.js";
 import { meetingsRoutes } from "./routes/meetings/index.js";
 import { metricsRoutes } from "./routes/metrics.js";
@@ -136,6 +137,8 @@ app.get("/", (c) => c.json({ message: `${appTitle} API`, version: "0.0.1" }));
 app.get("/health", (c) => c.json({ status: "ok", timestamp: new Date().toISOString() }));
 app.route("/api/ws", createWikiCollabRoutes(upgradeWebSocket)); // WebSocket routes before authGuard
 app.route("/mcp", mcpRoutes); // MCP for external AI agents — agent-token bearer auth (before authGuard)
+app.route("/.well-known", wellKnownRoutes); // OAuth 2.1 discovery metadata (MCP clients)
+app.route("/oauth", oauthRoutes); // OAuth 2.1 AS for MCP clients (consent is admin-session guarded inside)
 app.route("/internal/room-ai", internalRoomAiRoutes);
 app.route("/api/livekit/webhook", livekitWebhookRoutes);
 app.route("/api/github", githubWebhookRoutes);

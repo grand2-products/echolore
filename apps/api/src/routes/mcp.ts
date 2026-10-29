@@ -1,11 +1,14 @@
 import { AGENT_TOKEN_SCOPE_VALUES, type AgentTokenScopeValue } from "@echolore/shared/contracts";
 import { Hono } from "hono";
+import { writeAuditLog } from "../lib/audit.js";
 import type { SessionUser } from "../lib/auth.js";
 import { parseCorsOrigins } from "../lib/cors-origins.js";
-import { stripHtml } from "../lib/html-utils.js";
 import { canReadPage } from "../policies/authorization-policy.js";
+import { countAuditLogsByActionAndResourceId } from "../repositories/audit/audit-repository.js";
 import { getPageBlocks, getPageById } from "../repositories/wiki/wiki-repository.js";
 import { resolveAgentToken } from "../services/admin/agent-token-service.js";
+import { pageBlocksToMarkdown } from "../services/wiki/block-markdown-exporter.js";
+import { canAccessSpace, listVisibleSpaces } from "../services/wiki/space-service.js";
 import { searchByVector } from "../services/wiki/vector-search-service.js";
 import { createWikiArticleFromMarkdown } from "../services/wiki/wiki-article-creation-service.js";
 import {
@@ -20,16 +23,23 @@ import {
  * handshake, per-request version metadata, required HTTP headers).
  *
  * Transport: stateless Streamable HTTP — single JSON-RPC message per POST,
- * plain JSON responses. Auth is a bearer agent token (admin-issued).
- * Read tools run with the page-read permissions of the token's creator;
- * page creation is attributed to the token's creator.
+ * plain JSON responses. Auth is a bearer agent token (admin-issued directly
+ * or via the OAuth 2.1 flow). Read tools run with the page-read permissions
+ * of the token's creator; page creation is attributed to the token's creator.
+ *
+ * Every tools/call is rate limited per token and recorded in the audit log
+ * (action `mcp.tool.call`, resourceId = token id) for admin visibility.
  */
 
 const SUPPORTED_PROTOCOL_VERSION = "2026-07-28";
 const SUPPORTED_PROTOCOL_VERSIONS = [SUPPORTED_PROTOCOL_VERSION];
 const SERVER_INFO = { name: "echolore", version: "0.1.0" };
 const SERVER_INSTRUCTIONS =
-  "EchoLore knowledge base: search and read wiki pages, audit knowledge maintenance health, and save conversation content as new wiki articles when explicitly requested.";
+  "EchoLore knowledge base: search and read wiki pages, list writable spaces, audit knowledge maintenance health, and save conversation content as new wiki articles when explicitly requested.";
+
+/** Per-token tool call rate limit (counted via the audit log). */
+const TOOL_CALL_RATE_LIMIT = { windowMs: 5 * 60_000, maxAttempts: 60 };
+const TOOL_CALL_AUDIT_ACTION = "mcp.tool.call";
 
 // CacheableResult freshness hints (spec: required on list/discover results)
 const LIST_TTL_MS = 300_000; // 5 minutes
@@ -55,12 +65,22 @@ interface JsonRpcRequest {
   params?: Record<string, unknown>;
 }
 
+interface ToolOutput {
+  text: string;
+  /** Structured output; validated against the tool's outputSchema. */
+  structured?: Record<string, unknown>;
+}
+
 interface McpToolDef {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  /** JSON Schema for the tool's structured output (omitted for text-only tools). */
+  outputSchema?: Record<string, unknown>;
+  /** Spec tool annotations describing safety characteristics. */
+  annotations: Record<string, boolean>;
   requiredScopes: AgentTokenScopeValue[];
-  handler: (args: Record<string, unknown>, user: SessionUser) => Promise<string>;
+  handler: (args: Record<string, unknown>, user: SessionUser) => Promise<ToolOutput>;
 }
 
 function rpcResult(id: JsonRpcRequest["id"], result: Record<string, unknown>) {
@@ -97,47 +117,153 @@ function decodeHeaderValue(value: string): string {
 
 // ─── Tool implementations (shared services, permission-checked) ───
 
-async function wikiSearch(args: Record<string, unknown>, user: SessionUser): Promise<string> {
-  const query = typeof args.query === "string" ? args.query.trim() : "";
-  if (!query) throw new ToolArgumentError("query is required");
+const READ_ANNOTATIONS = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+};
 
-  const results = await searchByVector(query, 10);
-  const output: string[] = [];
-  for (const r of results.slice(0, 5)) {
-    const canRead = await canReadPage(user, r.pageId, "");
-    if (!canRead) continue;
-    output.push(
-      `- [${r.pageTitle}] (id: ${r.pageId}, similarity: ${r.similarity.toFixed(3)})\n  Snippet: ${r.chunkText.slice(0, 200)}`
-    );
+class ToolArgumentError extends Error {}
+
+function intArg(
+  args: Record<string, unknown>,
+  name: string,
+  { min, max, fallback }: { min: number; max: number; fallback: number }
+): number {
+  const raw = args[name];
+  if (raw === undefined || raw === null) return fallback;
+  const value = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new ToolArgumentError(`${name} must be an integer between ${min} and ${max}`);
   }
-  return output.length > 0 ? output.join("\n") : "No accessible wiki pages found for that query.";
+  return value;
 }
 
-async function wikiReadPage(args: Record<string, unknown>, user: SessionUser): Promise<string> {
+async function wikiSearch(args: Record<string, unknown>, user: SessionUser): Promise<ToolOutput> {
+  const query = typeof args.query === "string" ? args.query.trim() : "";
+  if (!query) throw new ToolArgumentError("query is required");
+  const limit = intArg(args, "limit", { min: 1, max: 10, fallback: 5 });
+
+  // Over-fetch to compensate for permission filtering
+  const results = await searchByVector(query, Math.min(limit * 2, 20));
+  const accessible: Array<{
+    pageId: string;
+    title: string;
+    similarity: number;
+    snippet: string;
+  }> = [];
+  for (const r of results) {
+    if (accessible.length >= limit) break;
+    if (!(await canReadPage(user, r.pageId, ""))) continue;
+    accessible.push({
+      pageId: r.pageId,
+      title: r.pageTitle,
+      similarity: Math.round(r.similarity * 1000) / 1000,
+      snippet: r.chunkText.slice(0, 300),
+    });
+  }
+
+  const text =
+    accessible.length > 0
+      ? accessible
+          .map(
+            (r) =>
+              `- [${r.title}] (id: ${r.pageId}, similarity: ${r.similarity})\n  Snippet: ${r.snippet}`
+          )
+          .join("\n")
+      : "No accessible wiki pages found for that query.";
+
+  return {
+    text,
+    structured: { query, results: accessible },
+  };
+}
+
+const MAX_READ_LENGTH = 20_000;
+
+async function wikiReadPage(args: Record<string, unknown>, user: SessionUser): Promise<ToolOutput> {
   const pageId = typeof args.pageId === "string" ? args.pageId.trim() : "";
   if (!pageId) throw new ToolArgumentError("pageId is required");
+  const offset = intArg(args, "offset", { min: 0, max: 1_000_000, fallback: 0 });
+  const maxLength = intArg(args, "maxLength", { min: 500, max: MAX_READ_LENGTH, fallback: 8_000 });
 
   const page = await getPageById(pageId);
-  if (!page) return "Page not found.";
+  if (!page) return { text: "Page not found.", structured: { pageId, title: null, content: null } };
   if (!(await canReadPage(user, page.id, page.authorId))) {
-    return "You do not have permission to read this page.";
+    return { text: "You do not have permission to read this page." };
   }
 
   const blocks = await getPageBlocks(page.id);
-  const content = blocks
-    .map((b) => (b.content ? stripHtml(b.content) : ""))
-    .filter(Boolean)
-    .join("\n")
-    .slice(0, 4000);
-  return `# ${page.title}\n\n${content}`;
+  const full = `# ${page.title}\n\n${pageBlocksToMarkdown(blocks)}`;
+
+  let content = offset > 0 ? full.slice(offset) : full;
+  const truncated = content.length > maxLength;
+  if (truncated) {
+    // Cut on a line boundary when one is nearby so markdown stays well-formed
+    let cut = content.lastIndexOf("\n", maxLength);
+    if (cut < maxLength * 0.5) cut = maxLength;
+    content = content.slice(0, cut);
+  }
+  const nextOffset = truncated ? offset + content.length : null;
+
+  const text = truncated
+    ? `${content}\n\n[truncated — call wiki_read_page again with offset=${nextOffset} for the rest]`
+    : content;
+
+  return {
+    text,
+    structured: {
+      pageId: page.id,
+      title: page.title,
+      content: text,
+      offset,
+      truncated,
+      nextOffset,
+    },
+  };
 }
 
-async function wikiMaintenanceReport(_args: Record<string, unknown>, user: SessionUser) {
+async function wikiListSpaces(
+  _args: Record<string, unknown>,
+  user: SessionUser
+): Promise<ToolOutput> {
+  const spaces = await listVisibleSpaces(user);
+  const visible: Array<{ spaceId: string; name: string; type: string; canWrite: boolean }> = [];
+  for (const space of spaces) {
+    visible.push({
+      spaceId: space.id,
+      name: space.name,
+      type: space.type,
+      canWrite: await canAccessSpace(user, space, "write"),
+    });
+  }
+
+  const text =
+    visible.length > 0
+      ? visible
+          .map(
+            (s) =>
+              `- ${s.name} (id: ${s.spaceId}, type: ${s.type}${s.canWrite ? ", writable" : ""})`
+          )
+          .join("\n")
+      : "No accessible spaces found.";
+
+  return { text, structured: { spaces: visible } };
+}
+
+async function wikiMaintenanceReport(
+  _args: Record<string, unknown>,
+  user: SessionUser
+): Promise<ToolOutput> {
   const report = await auditWikiMaintenance(user);
-  return formatMaintenanceReportText(report);
+  return { text: await formatMaintenanceReportText(report) };
 }
 
-async function wikiCreatePage(args: Record<string, unknown>, user: SessionUser): Promise<string> {
+async function wikiCreatePage(
+  args: Record<string, unknown>,
+  user: SessionUser
+): Promise<ToolOutput> {
   const title = typeof args.title === "string" ? args.title : "";
   const markdown = typeof args.markdown === "string" ? args.markdown : "";
   const spaceId = typeof args.spaceId === "string" ? args.spaceId : undefined;
@@ -145,10 +271,11 @@ async function wikiCreatePage(args: Record<string, unknown>, user: SessionUser):
   if (!markdown.trim()) throw new ToolArgumentError("markdown is required");
 
   const page = await createWikiArticleFromMarkdown({ user, title, markdown, spaceId });
-  return `Created wiki page: ${page.title} (id: ${page.id})`;
+  return {
+    text: `Created wiki page: ${page.title} (id: ${page.id})`,
+    structured: { pageId: page.id, title: page.title, spaceId: page.spaceId },
+  };
 }
-
-class ToolArgumentError extends Error {}
 
 // Deterministic order (spec SHOULD) — clients rely on stable listing for caching
 const MCP_TOOLS: McpToolDef[] = [
@@ -160,31 +287,111 @@ const MCP_TOOLS: McpToolDef[] = [
       type: "object",
       properties: {
         query: { type: "string", description: "Search query to find relevant wiki pages" },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 10,
+          description: "Maximum number of results to return (default 5)",
+        },
       },
       required: ["query"],
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        results: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              pageId: { type: "string" },
+              title: { type: "string" },
+              similarity: { type: "number" },
+              snippet: { type: "string" },
+            },
+            required: ["pageId", "title", "similarity", "snippet"],
+          },
+        },
+      },
+      required: ["query", "results"],
+    },
+    annotations: READ_ANNOTATIONS,
     requiredScopes: ["read"],
     handler: wikiSearch,
   },
   {
     name: "wiki_read_page",
     description:
-      "Read the full content of a wiki page by its ID. Use this when you need more detail than the search snippet provides.",
+      "Read the content of a wiki page by its ID as markdown (headings, lists, code blocks preserved). Use offset/maxLength to page through long pages.",
     inputSchema: {
       type: "object",
       properties: {
         pageId: { type: "string", description: "The ID of the wiki page to read" },
+        offset: {
+          type: "integer",
+          minimum: 0,
+          description: "Character offset to start reading from (default 0)",
+        },
+        maxLength: {
+          type: "integer",
+          minimum: 500,
+          maximum: MAX_READ_LENGTH,
+          description: "Maximum characters to return per call (default 8000, max 20000)",
+        },
       },
       required: ["pageId"],
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        pageId: { type: "string" },
+        title: { type: ["string", "null"] },
+        content: { type: ["string", "null"] },
+        offset: { type: "integer" },
+        truncated: { type: "boolean" },
+        nextOffset: { type: ["integer", "null"] },
+      },
+      required: ["pageId", "title", "content", "offset", "truncated", "nextOffset"],
+    },
+    annotations: READ_ANNOTATIONS,
     requiredScopes: ["read"],
     handler: wikiReadPage,
+  },
+  {
+    name: "wiki_list_spaces",
+    description:
+      "List the wiki spaces visible to you, with IDs and whether wiki_create_page may target them. Use this to pick a spaceId before creating a page.",
+    inputSchema: { type: "object", additionalProperties: false },
+    outputSchema: {
+      type: "object",
+      properties: {
+        spaces: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              spaceId: { type: "string" },
+              name: { type: "string" },
+              type: { type: "string" },
+              canWrite: { type: "boolean" },
+            },
+            required: ["spaceId", "name", "type", "canWrite"],
+          },
+        },
+      },
+      required: ["spaces"],
+    },
+    annotations: READ_ANNOTATIONS,
+    requiredScopes: ["read"],
+    handler: wikiListSpaces,
   },
   {
     name: "wiki_maintenance_report",
     description:
       "Audit the health of wiki knowledge and return a maintenance report: overdue or upcoming knowledge reviews, unapproved knowledge entries, registry drift (deleted but still registered), and stale or empty pages.",
     inputSchema: { type: "object", additionalProperties: false },
+    annotations: READ_ANNOTATIONS,
     requiredScopes: ["read"],
     handler: wikiMaintenanceReport,
   },
@@ -200,9 +407,27 @@ const MCP_TOOLS: McpToolDef[] = [
           type: "string",
           description: "Full article body in markdown (headings, lists, code blocks supported)",
         },
-        spaceId: { type: "string", description: "Target space ID (defaults to General)" },
+        spaceId: {
+          type: "string",
+          description: "Target space ID (see wiki_list_spaces; defaults to General)",
+        },
       },
       required: ["title", "markdown"],
+    },
+    outputSchema: {
+      type: "object",
+      properties: {
+        pageId: { type: "string" },
+        title: { type: "string" },
+        spaceId: { type: "string" },
+      },
+      required: ["pageId", "title", "spaceId"],
+    },
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
     },
     requiredScopes: ["write"],
     handler: wikiCreatePage,
@@ -238,7 +463,7 @@ mcpRoutes.all("/", async (c) => {
 
   const resolved = await resolveAgentToken(secret.trim());
   if (!resolved) {
-    return c.json({ error: { code: -32000, message: "Invalid or revoked token" } }, 401);
+    return c.json({ error: { code: -32000, message: "Invalid, expired, or revoked token" } }, 401);
   }
 
   const scopes = (resolved.token.scopes ?? []).filter((s): s is AgentTokenScopeValue =>
@@ -352,6 +577,8 @@ mcpRoutes.all("/", async (c) => {
           name: t.name,
           description: t.description,
           inputSchema: t.inputSchema,
+          ...(t.outputSchema ? { outputSchema: t.outputSchema } : {}),
+          annotations: t.annotations,
         })
       );
       return c.json(rpcResult(id, { tools, ttlMs: LIST_TTL_MS, cacheScope: LIST_CACHE_SCOPE }));
@@ -386,11 +613,38 @@ mcpRoutes.all("/", async (c) => {
         );
       }
 
+      // ─── Per-token rate limit (audit-log based, same as auth routes) ───
+      const since = new Date(Date.now() - TOOL_CALL_RATE_LIMIT.windowMs);
+      let recentCalls = 0;
+      try {
+        recentCalls = await countAuditLogsByActionAndResourceId(
+          TOOL_CALL_AUDIT_ACTION,
+          resolved.token.id,
+          since
+        );
+      } catch {
+        // Counting is best-effort; never block on audit infrastructure failure
+      }
+      if (recentCalls >= TOOL_CALL_RATE_LIMIT.maxAttempts) {
+        return c.json(
+          rpcError(
+            id,
+            -32000,
+            `Rate limit exceeded: more than ${TOOL_CALL_RATE_LIMIT.maxAttempts} tool calls in the last ${Math.round(
+              TOOL_CALL_RATE_LIMIT.windowMs / 60_000
+            )} minutes for this token`,
+            { retryAfterMs: TOOL_CALL_RATE_LIMIT.windowMs }
+          ),
+          429
+        );
+      }
+
       const startedAt = Date.now();
-      const log = (ok: boolean, error?: string) =>
+      const clientIp = c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? null;
+      const recordCall = (ok: boolean, error?: string) => {
         console.log(
           JSON.stringify({
-            event: "mcp.tool.call",
+            event: TOOL_CALL_AUDIT_ACTION,
             tool: tool.name,
             userId: resolved.user.id,
             client: clientName,
@@ -399,17 +653,34 @@ mcpRoutes.all("/", async (c) => {
             ...(error ? { error } : {}),
           })
         );
+        // Durable per-token audit trail surfaced in the admin UI
+        return writeAuditLog({
+          actorUserId: resolved.user.id,
+          actorEmail: resolved.user.email,
+          action: TOOL_CALL_AUDIT_ACTION,
+          resourceType: "agent-token",
+          resourceId: resolved.token.id,
+          metadata: { tool: tool.name, ok, durationMs: Date.now() - startedAt, client: clientName },
+          ipAddress: clientIp,
+          userAgent: c.req.header("user-agent") ?? null,
+        });
+      };
 
       try {
-        const text = await tool.handler(args, resolved.user);
-        log(true);
-        return c.json(rpcResult(id, { content: [{ type: "text", text }] }));
+        const output = await tool.handler(args, resolved.user);
+        await recordCall(true);
+        return c.json(
+          rpcResult(id, {
+            content: [{ type: "text", text: output.text }],
+            ...(output.structured ? { structuredContent: output.structured } : {}),
+          })
+        );
       } catch (error) {
         // Input validation errors are tool execution errors (SEP-1303) so the
         // model can self-correct; anything else is reported as an internal
         // tool error without leaking details.
         const isArgError = error instanceof ToolArgumentError;
-        log(false, error instanceof Error ? error.message : "Unknown");
+        await recordCall(false, error instanceof Error ? error.message : "Unknown");
         if (isArgError) {
           return c.json(
             rpcResult(id, {

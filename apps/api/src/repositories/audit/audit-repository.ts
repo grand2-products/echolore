@@ -45,6 +45,36 @@ export async function countAuditLogsByActionAndIp(
   return Number(result?.count ?? 0);
 }
 
+export async function countAuditLogsByActionAndResourceId(
+  action: string,
+  resourceId: string,
+  since: Date
+): Promise<number> {
+  const result = await db
+    .selectFrom("audit_logs")
+    .select(sql<number>`count(*)`.as("count"))
+    .where("action", "=", action)
+    .where("resourceId", "=", resourceId)
+    .where("createdAt", ">", since)
+    .executeTakeFirst();
+  return Number(result?.count ?? 0);
+}
+
+export async function listAuditLogsByActionAndResourceId(
+  action: string,
+  resourceId: string,
+  limit: number
+): Promise<Array<{ id: string; metadata: Record<string, unknown> | null; createdAt: Date }>> {
+  return db
+    .selectFrom("audit_logs")
+    .select(["id", "metadata", "createdAt"])
+    .where("action", "=", action)
+    .where("resourceId", "=", resourceId)
+    .orderBy("createdAt", "desc")
+    .limit(limit)
+    .execute();
+}
+
 export async function countAuditLogsByActionAndIdentity(
   action: string,
   since: Date,
