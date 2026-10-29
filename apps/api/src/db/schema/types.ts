@@ -23,6 +23,10 @@ export type NewAuthIdentity = Insertable<Database["auth_identities"]>;
 export type AuthRefreshToken = Selectable<Database["auth_refresh_tokens"]>;
 export type NewAuthRefreshToken = Insertable<Database["auth_refresh_tokens"]>;
 
+// ─── Agent Tokens ────────────────────────────────────────────────
+export type AgentToken = Selectable<Database["agent_tokens"]>;
+export type NewAgentToken = Insertable<Database["agent_tokens"]>;
+
 // ─── Email Verification Tokens ───────────────────────────────────
 export type EmailVerificationToken = Selectable<Database["email_verification_tokens"]>;
 export type NewEmailVerificationToken = Insertable<Database["email_verification_tokens"]>;

@@ -8,6 +8,7 @@
   - Notion-style Wiki
   - Meetings with LiveKit
   - AI agent (LangChain) for meeting transcript summarization and Wiki integration
+  - External AI agent access via MCP endpoint (`/mcp`) with admin-issued agent tokens (read-only tools) (`docs/agent-mcp.md`)
   - Marketing operations: asset register, generic media/GA4/LP/CSV connectors, versioned dashboards, change approval, Wiki knowledge governance (`docs/marketing-operations.md`)
 
 ## Monorepo Structure
@@ -79,6 +80,8 @@
 - `apps/api/src/routes/meetings.ts`
 - `apps/api/src/routes/files.ts`
 - `apps/api/src/routes/users.ts`
+- `apps/api/src/routes/mcp.ts`
+- `apps/api/src/services/admin/agent-token-service.ts`
 - `apps/api/src/routes/livekit.ts`
 - `apps/api/src/routes/internal-room-ai.ts`
 - `apps/api/src/routes/marketing/`
