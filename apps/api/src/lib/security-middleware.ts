@@ -65,6 +65,14 @@ export const csrfProtection: MiddlewareHandler<AppEnv> = async (c, next) => {
     return next();
   }
 
+  // Skip CSRF check for OAuth token/registration endpoints — called
+  // server-to-server by MCP clients (no browser Origin); protected by PKCE
+  // and registered redirect URIs instead. The consent screen (/oauth/authorize)
+  // keeps CSRF protection.
+  if (path === "/oauth/token" || path === "/oauth/register") {
+    return next();
+  }
+
   // Skip CSRF check for requests with Bearer token (API/mobile clients).
   // Bearer tokens are not automatically attached by browsers, so they are
   // inherently CSRF-safe. We validate the token contains a dot (our custom

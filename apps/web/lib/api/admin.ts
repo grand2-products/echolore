@@ -1,6 +1,7 @@
 import type {
   AgentTokenDto,
   AgentTokenScopeValue,
+  AgentTokenUsageDto,
   CheckUpdateResponse,
   CreateUserInvitationResponse,
   ListUserInvitationsResponse,
@@ -147,11 +148,18 @@ export const adminApi = {
 
   listAgentTokens: () => fetchApi<{ tokens: AgentTokenDto[] }>("/admin/agent-tokens"),
 
-  createAgentToken: (data: { name: string; scopes: AgentTokenScopeValue[] }) =>
+  createAgentToken: (data: {
+    name: string;
+    scopes: AgentTokenScopeValue[];
+    expiresInDays?: number | null;
+  }) =>
     fetchApi<{ token: AgentTokenDto; secret: string }>("/admin/agent-tokens", {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  listAgentTokenUsage: (id: string) =>
+    fetchApi<{ usage: AgentTokenUsageDto[] }>(`/admin/agent-tokens/${id}/usage`),
 
   revokeAgentToken: (id: string) =>
     fetchApi<{ token: AgentTokenDto }>(`/admin/agent-tokens/${id}`, {

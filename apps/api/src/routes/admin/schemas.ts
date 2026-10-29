@@ -61,6 +61,8 @@ export const updateAgentSchema = createAgentSchema.partial();
 export const createAgentTokenSchema = z.object({
   name: z.string().min(1).max(100),
   scopes: z.array(z.enum(AGENT_TOKEN_SCOPE_VALUES)).min(1).default(["read"]),
+  /** Optional token lifetime in days; omitted/null means no expiry. */
+  expiresInDays: z.number().int().min(1).max(365).nullable().optional(),
 });
 
 export const updateUserRoleSchema = z.object({ role: z.enum([UserRole.Admin, UserRole.Member]) });

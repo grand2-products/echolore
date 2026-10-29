@@ -54,6 +54,7 @@ function tokenRow(overrides: Partial<AgentToken> = {}): AgentToken {
     createdByUserId: "admin_1",
     lastUsedAt: null,
     revokedAt: null,
+    expiresAt: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -84,8 +85,27 @@ describe("agent-token-service", () => {
     // The stored hash must be a sha256 of the secret, never the secret itself
     expect(token.tokenHash).toBe(hashAgentTokenSecret(secret));
     expect(createAgentTokenRowMock).toHaveBeenCalledWith(
-      expect.objectContaining({ tokenHash: hashAgentTokenSecret(secret) })
+      expect.objectContaining({ tokenHash: hashAgentTokenSecret(secret), expiresAt: null })
     );
+  });
+
+  it("creates an expiring token when a lifetime is given", async () => {
+    createAgentTokenRowMock.mockImplementation(
+      async (input: { name: string; tokenHash: string; expiresAt: Date | null }) =>
+        tokenRow({ ...input })
+    );
+
+    const { token } = await createAgentToken({
+      name: "CI agent",
+      scopes: ["read"],
+      createdByUserId: "admin_1",
+      expiresInDays: 30,
+    });
+
+    expect(token.expiresAt).not.toBeNull();
+    const ttl = (token.expiresAt as Date).getTime() - Date.now();
+    expect(ttl).toBeGreaterThan(29 * 24 * 60 * 60 * 1000);
+    expect(ttl).toBeLessThan(31 * 24 * 60 * 60 * 1000);
   });
 
   it("resolves a valid token to its creating user", async () => {

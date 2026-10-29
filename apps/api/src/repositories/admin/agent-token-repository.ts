@@ -7,6 +7,7 @@ export async function createAgentTokenRow(input: {
   tokenHash: string;
   scopes: string[];
   createdByUserId: string;
+  expiresAt: Date | null;
 }): Promise<AgentToken> {
   const now = new Date();
   return db
@@ -19,11 +20,31 @@ export async function createAgentTokenRow(input: {
       createdByUserId: input.createdByUserId,
       lastUsedAt: null,
       revokedAt: null,
+      expiresAt: input.expiresAt,
       createdAt: now,
       updatedAt: now,
     })
     .returningAll()
     .executeTakeFirstOrThrow();
+}
+
+export async function updateAgentTokenSecret(input: {
+  id: string;
+  tokenHash: string;
+  expiresAt: Date;
+}): Promise<AgentToken | null> {
+  return (
+    (await db
+      .updateTable("agent_tokens")
+      .set({
+        tokenHash: input.tokenHash,
+        expiresAt: input.expiresAt,
+        updatedAt: new Date(),
+      })
+      .where("id", "=", input.id)
+      .returningAll()
+      .executeTakeFirst()) ?? null
+  );
 }
 
 export async function listAgentTokenRows(): Promise<AgentToken[]> {
@@ -49,7 +70,15 @@ export async function findActiveAgentTokenByHash(tokenHash: string): Promise<Age
       .selectAll()
       .where("tokenHash", "=", tokenHash)
       .where("revokedAt", "is", null)
+      .where((eb) => eb.or([eb("expiresAt", "is", null), eb("expiresAt", ">", new Date())]))
       .executeTakeFirst()) ?? null
+  );
+}
+
+export async function findAgentTokenById(id: string): Promise<AgentToken | null> {
+  return (
+    (await db.selectFrom("agent_tokens").selectAll().where("id", "=", id).executeTakeFirst()) ??
+    null
   );
 }
 

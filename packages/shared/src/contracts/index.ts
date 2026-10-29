@@ -65,6 +65,16 @@ export interface AgentTokenDto {
   createdByUserId: string | null;
   lastUsedAt: ISODateString | null;
   revokedAt: ISODateString | null;
+  expiresAt: ISODateString | null;
+  createdAt: ISODateString;
+}
+
+/** A recorded MCP tool call executed with an agent token (from the audit log). */
+export interface AgentTokenUsageDto {
+  id: string;
+  tool: string;
+  ok: boolean;
+  client: string | null;
   createdAt: ISODateString;
 }
 
