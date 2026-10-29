@@ -49,6 +49,7 @@
       "!**/dist",
       "!**/.next",
       "!**/.turbo",
+      "!**/.astro",
       "!**/coverage",
       "!**/plan",
       "!**/*.md",

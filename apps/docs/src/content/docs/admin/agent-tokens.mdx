@@ -1,0 +1,44 @@
+---
+title: エージェントトークン
+description: MCP 接続用トークンの発行・失効管理
+---
+
+外部 AI エージェント (ChatGPT / Claude 等) の MCP 接続に使うトークンを管理画面から管理できます。
+
+## 発行
+
+1. 管理画面 → **AI 設定** → **外部 AI エージェント接続 (MCP)**
+2. トークン名 (例: `CI agent`) とスコープを入力して「トークンを発行」
+
+| スコープ | 許可される操作 |
+|---------|---------------|
+| `read` (既定) | `wiki_search` / `wiki_read_page` / `wiki_maintenance_report` |
+| `write` (追加) | 上記に加えて `wiki_create_page` (新規ページ作成) |
+
+:::warning[トークンの取り扱い]
+平文トークンは**発行時に一度だけ表示**されます。紛失した場合は失効させて再発行してください。トークンは発行者 (あなた) の権限で動作するため、第三者との共有は避けてください。
+:::
+
+## 一覧
+
+各トークンのスコープ・発行日時・最終使用日時・状態 (有効/失効済み) を確認できます。
+
+## 失効
+
+「失効」ボタンで即座に無効化できます。失効したトークンは以後の MCP リクエストで 401 を返します。
+
+## API での管理
+
+```bash
+# 発行
+curl -X POST https://<host>/api/admin/agent-tokens \
+  -H "Authorization: Bearer <admin-session>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"CI agent","scopes":["read"]}'
+
+# 一覧 / 失効
+curl https://<host>/api/admin/agent-tokens -H "Authorization: Bearer <admin-session>"
+curl -X DELETE https://<host>/api/admin/agent-tokens/<id> -H "Authorization: Bearer <admin-session>"
+```
+
+接続方法の詳細は [外部 AI エージェント (MCP)](/features/mcp-agents/) を参照してください。

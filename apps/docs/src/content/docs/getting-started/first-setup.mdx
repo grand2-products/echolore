@@ -1,0 +1,54 @@
+---
+title: 初期セットアップ
+description: 管理画面での基本設定 (認証・LLM・メール・ストレージ)
+---
+
+管理画面 `https://your-domain.com/admin/settings` で以下を設定できます。
+
+## サイト設定
+
+- サイトタイトル・タグライン
+- サイトアイコン (ファビコン)
+
+## 認証設定
+
+| 項目 | 説明 |
+|------|------|
+| Google SSO | Google OAuth クライアント ID / シークレット |
+| 許可ドメイン | 自己登録を許可するメールドメイン |
+| パスワード認証 | メール/パスワードログインの有効/無効 |
+
+Google SSO を使うには、Google Cloud Console で OAuth クライアントを作成し、リダイレクト URI を `https://<あなたのドメイン>/api/auth/callback/google` に設定します。同じメールアドレスで SSO とパスワード認証を紐付け (アイデンティティ調整) できます。
+
+## メールプロバイダ
+
+なし (コンソール出力) / SMTP / Resend から選択します。メール認証やユーザー招待に必要です。
+
+## LLM プロバイダ
+
+AI チャット (RAG)、会議要約、AI エージェントなどの機能で使用します。
+
+- **Google Gemini** — API キーのみで最も手軽
+- **Vertex AI** — GCP プロジェクト・ロケーション指定
+- **Z.ai** — GLM 系列
+- **OpenAI 互換** — ベース URL + API キー
+
+**LLM 設定セット** を複数作成して機能ごとに割り当てできます (例: チャットは Gemini、要約は Vertex)。接続テスト機能付きです。
+
+Embedding (ベクトル検索) には Gemini API キーが必要です。既定では `gemini-embedding-2-preview` (768 次元) を使用します。
+
+## ストレージプロバイダ
+
+| プロバイダ | 用途 |
+|-----------|------|
+| ローカル (既定) | Docker ボリュームに保存 |
+| S3 互換 | AWS S3 / MinIO / Cloudflare R2 等 |
+| Google Cloud Storage | GCS バケット |
+
+接続テスト機能付きです。
+
+## 映像品質設定
+
+会議 / コワーキングそれぞれで Simulcast・Dynacast・Adaptive Stream を調整できます。
+
+設定が済んだら、[機能ガイド](/features/wiki/) を参照してください。

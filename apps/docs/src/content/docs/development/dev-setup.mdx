@@ -1,0 +1,66 @@
+---
+title: 開発環境の構築
+description: ローカル開発のセットアップ手順
+---
+
+## 前提
+
+- Node.js 22 以上
+- pnpm 9 以上 (`corepack enable` 推奨)
+- Docker / Docker Compose
+
+## セットアップ
+
+```bash
+git clone https://github.com/grand2-products/echolore.git
+cd echolore
+pnpm install
+
+# 環境変数ファイルを複製
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.local.example apps/web/.env.local
+cp apps/worker/.env.example apps/worker/.env
+```
+
+## 起動
+
+```bash
+# Docker で DB / Valkey / LiveKit 等を起動
+pnpm docker:dev
+
+# アプリ開発サーバー (turbo)
+pnpm dev
+```
+
+Windows では `./dev.ps1` (または `pnpm dev:daily`) を使います。
+
+## 主要コマンド
+
+| コマンド | 説明 |
+|---------|------|
+| `pnpm typecheck` | 全パッケージの型チェック |
+| `pnpm lint` | Biome リント |
+| `pnpm test` | 全テスト |
+| `pnpm build` | 全パッケージビルド |
+| `pnpm db:migrate` | マイグレーション適用 |
+| `pnpm db:generate` | マイグレーション生成 |
+| `pnpm docker:dev` / `pnpm docker:down` | 開発用 compose up/down |
+
+## モノレポ構成
+
+| パッケージ | 内容 |
+|-----------|------|
+| `apps/web` | Next.js フロントエンド |
+| `apps/api` | Hono API バックエンド |
+| `apps/worker` | AI エージェントワーカー |
+| `apps/docs` | 本ドキュメントサイト (Starlight) |
+| `packages/shared` | 共有契約 (DTO・型) |
+| `packages/ui` | 共有 UI コンポーネント |
+
+## ドキュメントサイトの開発
+
+```bash
+pnpm --filter @echolore/docs dev
+```
+
+`apps/docs/src/content/docs/{ja,en}/` 配下の Markdown/MDX がサイトコンテンツです。

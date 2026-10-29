@@ -1,0 +1,54 @@
+---
+title: First-Time Setup
+description: Basic configuration in the admin console (auth, LLM, email, storage)
+---
+
+Configure the following in the admin console at `https://your-domain.com/admin/settings`.
+
+## Site settings
+
+- Site title and tagline
+- Site icon (favicon)
+
+## Authentication
+
+| Item | Description |
+|------|-------------|
+| Google SSO | Google OAuth client ID / secret |
+| Allowed domains | Email domains permitted for self-registration |
+| Password auth | Enable/disable email + password login |
+
+To use Google SSO, create an OAuth client in Google Cloud Console with the redirect URI `https://<your-domain>/api/auth/callback/google`. SSO and password login are reconciled by email address.
+
+## Email provider
+
+Choose none (console output), SMTP, or Resend. Required for email verification and user invitations.
+
+## LLM provider
+
+Used by AI chat (RAG), meeting summaries, and AI agents.
+
+- **Google Gemini** — easiest, API key only
+- **Vertex AI** — GCP project and location
+- **Z.ai** — GLM models
+- **OpenAI-compatible** — base URL + API key
+
+You can create multiple **LLM config sets** and assign them per feature (e.g., Gemini for chat, Vertex for summaries). Each set includes a connection test.
+
+Embeddings (vector search) require a Gemini API key. The default model is `gemini-embedding-2-preview` (768 dimensions).
+
+## Storage provider
+
+| Provider | Use case |
+|----------|----------|
+| Local (default) | Stored in a Docker volume |
+| S3-compatible | AWS S3 / MinIO / Cloudflare R2, etc. |
+| Google Cloud Storage | GCS bucket |
+
+Connection tests are included.
+
+## Video quality
+
+Adjust Simulcast, Dynacast, and Adaptive Stream independently for meetings and coworking.
+
+Once configured, continue with the [Feature Guides](/en/features/wiki/).

@@ -1,0 +1,51 @@
+---
+title: アップデートとロールバック
+description: update.sh による更新、バージョン固定、障害時の復旧
+---
+
+## アップデート
+
+```bash
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/update.sh | sudo bash
+```
+
+特定バージョンに更新する場合:
+
+```bash
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/update.sh | sudo bash -s -- --version v0.2.0
+```
+
+`update.sh` は以下を自動で行います。
+
+1. バージョンチェック (最新なら終了、`--force` でバイパス)
+2. `.env` と `docker-compose.yml` のバックアップ
+3. 新しい compose ファイルのダウンロードと検証
+4. 新イメージの pull
+5. データベースマイグレーション
+6. サービスの再起動
+7. ヘルスチェック
+8. **失敗時の自動ロールバック** (マイグレーション失敗やヘルスチェックタイムアウト時に前バージョンへ自動復旧)
+
+## バージョン固定
+
+`.env` の `ECHOLORE_VERSION` でバージョンを固定できます (既定 `latest`)。アップデートは `docker-compose.production.yml` のタグと突き合わせて行われます。
+
+## 手動ロールバック
+
+```bash
+cd /opt/echolore
+ls -la .env.backup.*
+cp .env.backup.20260316120000 .env
+docker compose pull
+docker compose up -d --remove-orphans
+```
+
+## 管理画面からのアップデート
+
+管理画面 → **システム** から現在バージョンの確認とアップデートの実行もできます (内部では同一のアップデート機構が動作します)。
+
+## リリースサイクル
+
+- リリースはセマンティックバージョニング (`v0.1.0` 形式のタグ)
+- 各リリースには GitHub Release と GHCR のコンテナイメージ (`v0.1.0` / `0.1` / `latest` タグ) が付属
+- ブレイキングチェンジがある場合はリリースノートに移行手順が記載されます

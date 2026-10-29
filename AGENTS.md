@@ -14,11 +14,13 @@
 ## Monorepo Structure
 - `apps/web`: Next.js frontend
 - `apps/api`: Hono API
+- `apps/docs`: user-facing documentation site (Starlight, GitHub Pages)
 - `packages/shared`: shared contracts/types
 - `packages/ui`: shared UI package
 - `scripts/`: install, update, and dev helper scripts
 - `plan/`: planning and architecture documents
 - `docs/`: operational notes and runbooks
+- `skills/`: Agent Skills distributed to external AI agents (MCP)
 
 ## Runtime Architecture
 - Web: Next.js
@@ -37,6 +39,7 @@
 - Main workflows:
   - `CI`: lint, typecheck, build, test
   - `Publish Release`: image build/push to GHCR, GitHub Release creation
+  - `Docs Publish`: build `apps/docs` and deploy to GitHub Pages on main push (docs changes only, not tag-based)
 - Runtime deploy uses prebuilt images via `docker-compose.production.yml`.
 - End users install and update via `scripts/install.sh` and `scripts/update.sh`.
 - Versioning: semver tags (`v0.1.0`), Docker tags (`v0.1.0`, `0.1`, `latest`).
@@ -158,6 +161,8 @@
 - `AGENTS.md` stores stable rules, conventions, and operating assumptions.
 - `plan/` stores only temporary plans, open decisions, incomplete work, acceptance criteria, and execution backlog.
 - `docs/` stores implemented behavior, operational procedures, and implementation notes.
+- `apps/docs` stores the public user-facing manual (Starlight, JP root + EN). When user-visible behavior changes, update the corresponding manual pages in the same change.
+- `docs/` (internal spec) and `apps/docs` (public manual) are separate sources: internal runbooks and security-sensitive details are not copied into the public manual.
 - If a change affects team defaults or repository-wide behavior, update `AGENTS.md` in the same change.
 - Do not use `plan/` for implemented system overviews, implemented feature descriptions, current-state summaries, or durable operational explanations.
 - When a planned item is implemented, move the durable description out of `plan/` and into `docs/` in the same change when the behavior is now real and stable.

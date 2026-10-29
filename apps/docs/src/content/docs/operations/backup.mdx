@@ -1,0 +1,48 @@
+---
+title: バックアップとリストア
+description: データボリュームの保護と復旧手順
+---
+
+## バックアップ対象
+
+| データ | 場所 |
+|--------|------|
+| データベース (PostgreSQL) | Docker ボリューム |
+| Wiki の添付ファイル | ストレージプロバイダ (ローカルの場合 Docker ボリューム) |
+| 環境変数・シークレット | `/opt/echolore/.env` |
+
+:::caution[最重要]
+`.env` の紛失 = シークレットの紛失です。DB パスワード・認証鍵が失われるとデータベースに接続できなくなります。必ず安全な場所に保管してください。
+:::
+
+## データベースのバックアップ
+
+```bash
+cd /opt/echolore
+docker compose exec db pg_dump -U echolore echolore > backup_$(date +%Y%m%d).sql
+```
+
+## データベースのリストア
+
+```bash
+cd /opt/echolore
+cat backup_20260329.sql | docker compose exec -T db psql -U echolore echolore
+```
+
+## ボリューム全体のバックアップ
+
+```bash
+docker run --rm \
+  -v echolore_pgdata:/data:ro \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/pgdata_$(date +%Y%m%d).tar.gz -C /data .
+```
+
+## バックアップの自動化
+
+管理画面 → **設定** → バックアップで定期バックアップの設定ができます。詳細な保持ポリシーはリポジリポジトリ内 `docs/backup-strategy.md` を参照してください。
+
+## リストア時の注意
+
+- リストア後は `docker compose up -d` でサービスを再起動
+- マイグレーションより新しいバージョンのバックアップを古いイメージに戻すことはできません (そのバージョンに対応するイメージで起動してください)

@@ -56,6 +56,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup instructions.
 - `pnpm db:migrate` — Apply migrations
 
 ## Documentation
+- **Manual (JP/EN)**: https://grand2-products.github.io/echolore/
 - [Deployment Guide](DEPLOYMENT.md)
 - [Contributing: Deployment](docs/contributing-deployment.md)
 - [System Architecture](docs/system-architecture.md)

@@ -1,0 +1,37 @@
+---
+title: Admin Console
+description: Users, access, AI settings, system management
+---
+
+The admin console (`/admin`) is accessible to admin-role users only.
+
+## Tabs
+
+| Tab | Function |
+|-----|----------|
+| Users | User list, role changes, group assignment, suspension, invitations |
+| Access | Group management, space permissions |
+| AI Settings | Meeting agent definitions, LLM config sets, **External AI Agent Access (MCP)** |
+| KPI | Usage metrics |
+| Google | Google integrations (GCP credentials, Drive sync) |
+| Settings | Site, auth, email, LLM, storage, TTS, backup settings |
+| System | System info, version, update execution |
+
+## User management
+
+- **Invitations** — invite by email (requires a configured email provider)
+- **Roles** — `admin` / `member`
+- **Suspension** — suspending a user invalidates all their sessions
+
+## Groups and permissions
+
+Grant permissions to groups (e.g. `wiki.read` / `wiki.write` / `meeting.create` / `marketing.view`). Team spaces are tied to groups; access is controlled by both space and page permissions.
+
+## LLM config sets
+
+Create multiple provider configurations (Gemini / Vertex / Z.ai / OpenAI-compatible) and assign them per feature (AI chat, summaries, Aituber, etc.). Each set includes a connection test.
+
+## System
+
+- View the current version and run updates
+- See [Updates & Rollback](/en/operations/update/) for details

@@ -1,0 +1,61 @@
+---
+title: External AI Agents (MCP)
+description: Connect ChatGPT, Claude, and other agents via MCP
+---
+
+EchoLore includes a built-in MCP (Model Context Protocol) server, letting external AI agents such as ChatGPT and Claude connect to your Wiki knowledge.
+
+## Available tools
+
+| Tool | Scope | Function |
+|------|-------|----------|
+| `wiki_search` | read | Vector search over the Wiki |
+| `wiki_read_page` | read | Fetch a page's full content |
+| `wiki_maintenance_report` | read | Knowledge audit (overdue reviews, stale/empty pages, etc.) |
+| `wiki_create_page` | write | Create a new page from markdown |
+
+Read tools are filtered by the token creator's read permissions — information from inaccessible pages is never returned.
+
+## Issuing a token
+
+1. Open **Admin console → AI Settings → External AI Agent Access (MCP)**
+2. Choose a token name and scopes (`read` / `write`), then issue
+   - Defaults to `read` (least privilege). Add `write` only to allow page creation
+3. The plaintext token (`ech_agt_...`) is **shown exactly once** — copy and store it safely
+
+Tokens act with the issuing admin's permissions and can be revoked instantly at any time.
+
+## Client configuration
+
+```json
+{
+  "mcpServers": {
+    "echolore": {
+      "type": "http",
+      "url": "https://<your-domain>/mcp",
+      "headers": {
+        "Authorization": "Bearer ech_agt_..."
+      }
+    }
+  }
+}
+```
+
+## Protocol
+
+- Implements protocol revision **2026-07-28** (stateless MCP) only
+  - Legacy `initialize`-handshake clients are not supported
+- Stateless Streamable HTTP, POST only
+- `server/discover` advertises supported versions and capabilities
+- Bearer token authentication
+
+## Agent Skills
+
+The repository ships `skills/echolore-wiki-maintenance/SKILL.md` — a skill definition to load into agents covering audit, research, and article-creation workflows, including the rule that page creation tools may only be used on explicit request.
+
+## Security notes
+
+- Tokens are stored as SHA-256 hashes only (plaintext is never shown again)
+- Tokens are automatically invalidated if the issuing account is deleted or suspended
+- Page creation is always attributed to the issuing user and recorded in the audit log
+- No tool modifies existing pages (destructive operations are excluded by design)

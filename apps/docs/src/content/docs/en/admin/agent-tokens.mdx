@@ -1,0 +1,44 @@
+---
+title: Agent Tokens
+description: Issue and revoke MCP connection tokens
+---
+
+Manage the tokens used by external AI agents (ChatGPT / Claude etc.) to connect via MCP, directly from the admin console.
+
+## Issuing
+
+1. Open **Admin console → AI Settings → External AI Agent Access (MCP)**
+2. Enter a token name (e.g. `CI agent`) and scopes, then click "Issue token"
+
+| Scope | Permitted operations |
+|-------|----------------------|
+| `read` (default) | `wiki_search` / `wiki_read_page` / `wiki_maintenance_report` |
+| `write` (add-on) | The above plus `wiki_create_page` (new page creation) |
+
+:::warning[Token handling]
+The plaintext token is **displayed exactly once** at issuance. If lost, revoke and reissue. Tokens act with your permissions — avoid sharing them with third parties.
+:::
+
+## List
+
+Review each token's scopes, issue date, last-used timestamp, and status (active/revoked).
+
+## Revocation
+
+Click "Revoke" to invalidate immediately. Revoked tokens receive 401 on all MCP requests.
+
+## Managing via API
+
+```bash
+# Issue
+curl -X POST https://<host>/api/admin/agent-tokens \
+  -H "Authorization: Bearer <admin-session>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"CI agent","scopes":["read"]}'
+
+# List / revoke
+curl https://<host>/api/admin/agent-tokens -H "Authorization: Bearer <admin-session>"
+curl -X DELETE https://<host>/api/admin/agent-tokens/<id> -H "Authorization: Bearer <admin-session>"
+```
+
+See [External AI Agents (MCP)](/en/features/mcp-agents/) for connection instructions.

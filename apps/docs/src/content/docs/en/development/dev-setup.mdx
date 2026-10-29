@@ -1,0 +1,66 @@
+---
+title: Development Setup
+description: Setting up a local development environment
+---
+
+## Prerequisites
+
+- Node.js 22+
+- pnpm 9+ (`corepack enable` recommended)
+- Docker / Docker Compose
+
+## Setup
+
+```bash
+git clone https://github.com/grand2-products/echolore.git
+cd echolore
+pnpm install
+
+# Copy environment files
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.local.example apps/web/.env.local
+cp apps/worker/.env.example apps/worker/.env
+```
+
+## Running
+
+```bash
+# Start DB / Valkey / LiveKit etc. via Docker
+pnpm docker:dev
+
+# App dev servers (turbo)
+pnpm dev
+```
+
+On Windows, use `./dev.ps1` (or `pnpm dev:daily`).
+
+## Key commands
+
+| Command | Description |
+|---------|-------------|
+| `pnpm typecheck` | Type-check all packages |
+| `pnpm lint` | Biome lint |
+| `pnpm test` | All tests |
+| `pnpm build` | Build all packages |
+| `pnpm db:migrate` | Apply migrations |
+| `pnpm db:generate` | Generate a migration |
+| `pnpm docker:dev` / `pnpm docker:down` | Dev compose up/down |
+
+## Monorepo layout
+
+| Package | Contents |
+|---------|----------|
+| `apps/web` | Next.js frontend |
+| `apps/api` | Hono API backend |
+| `apps/worker` | AI agent worker |
+| `apps/docs` | This documentation site (Starlight) |
+| `packages/shared` | Shared contracts (DTOs, types) |
+| `packages/ui` | Shared UI components |
+
+## Documentation site development
+
+```bash
+pnpm --filter @echolore/docs dev
+```
+
+Site content lives in `apps/docs/src/content/docs/{ja,en}/` as Markdown/MDX.
