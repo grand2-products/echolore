@@ -21,6 +21,29 @@ Guidelines:
 
 The rest of this documentation (installation, updates, backups) applies to all of these environments.
 
+## Protection with Cloudflare proxy (optional)
+
+Placing **Cloudflare's DNS proxy (orange cloud)** in front of HTTP/HTTPS significantly improves attack resistance even on a small VPS. It pairs well with deployments where you want to publish on a VPS while reducing the attack surface.
+
+**Benefits:**
+
+| Benefit | Description |
+|---------|-------------|
+| DDoS / WAF | Attacks are absorbed at the edge (L3-L7 filtering) |
+| Origin IP concealment (web) | Attacks and scans against `https://your-domain` hit Cloudflare instead |
+| Access control | WAF rules can add IP or country restrictions on `/admin` |
+| Bot mitigation | Reduces credential stuffing against login pages |
+
+**EchoLore-specific caveats:**
+
+1. **TLS mode must be Full (strict)** — with Flexible, traffic between Cloudflare and the origin is plaintext. Traefik's ACME certificate works as-is
+2. **WebRTC (UDP) is not proxied** — LiveKit media (50000-50020/udp) and TURN (3478/udp, 5349/tcp) cannot pass through Cloudflare. Set RTC subdomains to **DNS only (grey cloud)**. The origin IP remains discoverable this way, so this is not full IP concealment
+3. **WebSockets** — Yjs collaboration and LiveKit signaling use WebSockets through Cloudflare. EchoLore's keepalives handle the ~100 second idle timeout, but verify the behavior in your environment
+4. **Upload limits** — the Free plan caps request bodies at 100 MB. Watch out for large Wiki attachments
+5. **ACME renewals** — HTTP-01 challenges work through the proxy; TLS-ALPN-01 does not
+
+Defense of the UDP ports must continue at the origin (firewall + LiveKit-only ingress). Cloudflare hardens the HTTP surface; it does not replace UDP-side countermeasures.
+
 ## Server Requirements
 
 | Item | Minimum | Recommended |
