@@ -50,7 +50,20 @@ curl -X DELETE https://<host>/api/admin/agent-tokens/<id> -H "Authorization: Bea
 - URL: `https://<host>/mcp`
 - トランスポート: Streamable HTTP(ステートレス、POST のみ、JSON レスポンス)
 - 認証: `Authorization: Bearer ech_agt_...`
-- プロトコルバージョン: 2024-11-05 / 2025-03-26 / 2025-06-18 に対応(ネゴシエーション可)
+- プロトコル: **MCP 2026-07-28 専用**(旧リビジョンの `initialize` ハンドシェイク方式には非対応)
+
+### プロトコル詳細 (2026-07-28)
+
+- セッションレス方式: `initialize` / `ping` は廃止。毎リクエストの `params._meta` に
+  `io.modelcontextprotocol/protocolVersion` を携带し、結果は `resultType: "complete"` を返す
+- `server/discover` を実装(対応バージョン・能力・サーバー情報の広告)
+- 必須ヘッダーを検証: `MCP-Protocol-Version`(body の `_meta` と一致必須)、
+  `Mcp-Method`(body と一致必須)、`tools/call` では `Mcp-Name`(`params.name` と一致必須)。
+  不一致は `-32020 HeaderMismatch`、未対応バージョンは `-32022`(`supportedVersions` 付き)
+- 未実装メソッドは HTTP 404 + `-32601`
+- `tools/list` はトークンのスコープでツール集合をフィルタし、決定的順序 + `ttlMs`/`cacheScope` を返す
+- ツール引数のバリデーションエラーは `isError: true` の実行エラーとして返却(SEP-1303)
+- `Origin` ヘッダー検証: 許可オリジン(CORS 設定)以外のブラウザ起源リクエストは 403
 
 ### 提供ツール
 
