@@ -1,6 +1,6 @@
 # Ops Runbook
 
-Last updated: 2026-10-27
+Last updated: 2026-10-29
 
 ## Scope
 - API health: `http://localhost:3001/health`
@@ -33,6 +33,19 @@ Last updated: 2026-10-27
    - `docker compose exec -T web wget --no-verbose --tries=1 --spider http://127.0.0.1:3000`
    - `docker compose ps`
    - `curl http://localhost:3001/api/auth/session` from inside the host if auth validation is needed
+
+## Dependency Vulnerability Management
+- Source of truth for npm dependency risk is `pnpm audit` (respects `pnpm.overrides` and the resolved versions in `pnpm-lock.yaml`).
+- `pnpm.overrides` in the root `package.json` force patched minimum versions for transitive dependencies. Keep each override floor at or above the first patched version of open advisories, and remove overrides for packages no longer present in the lockfile.
+- Known Dependabot limitation: for pnpm workspaces, Dependabot does not apply `pnpm.overrides` when building the dependency graph. It matches declared spec ranges (dependents' ranges and override floors) against advisories, producing false positives for packages whose resolved versions in `pnpm-lock.yaml` are already patched (including packages not installed at all).
+- Triage procedure for a Dependabot alert:
+  1. Check the resolved version in `pnpm-lock.yaml` (search `'<pkg>@<version>':` entries).
+  2. Compare it against the alert's vulnerable range.
+  3. If the resolved version is patched (or the package is absent from the lockfile), dismiss the alert as `inaccurate` with a comment noting the resolved version.
+  4. If genuinely vulnerable, fix via direct dependency update or an override floor bump, then verify with `pnpm audit`, `pnpm typecheck`, and `pnpm test`.
+- Accepted residuals (documented, not dismissible as inaccurate):
+  - `@hono/node-server` GHSA-rmxm-3fg6-px4f (serveStatic double-decode): fix requires v2.1.3+, but `@hono/node-ws` only supports `^1.19.11`. The API uses `serve()` only and never `serveStatic`, so not exploitable. Revisit when `@hono/node-ws` supports 2.x.
+  - `deepmerge` GHSA-gcqx-w48m-w2h4 (prototype poisoning): no patched version exists (latest 4.3.1 is in the vulnerable range). Transitive via `@langchain/community > @browserbasehq/stagehand`, which this deployment does not use. Revisit when a patched release exists.
 
 ## Initial Triage
 1. `docker compose ps`
