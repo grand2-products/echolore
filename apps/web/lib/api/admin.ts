@@ -1,4 +1,6 @@
 import type {
+  AgentTokenDto,
+  AgentTokenScopeValue,
   CheckUpdateResponse,
   CreateUserInvitationResponse,
   ListUserInvitationsResponse,
@@ -141,6 +143,19 @@ export const adminApi = {
     fetchApi<{ agent: AgentDefinition }>(`/admin/agents/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
+    }),
+
+  listAgentTokens: () => fetchApi<{ tokens: AgentTokenDto[] }>("/admin/agent-tokens"),
+
+  createAgentToken: (data: { name: string; scopes: AgentTokenScopeValue[] }) =>
+    fetchApi<{ token: AgentTokenDto; secret: string }>("/admin/agent-tokens", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  revokeAgentToken: (id: string) =>
+    fetchApi<{ token: AgentTokenDto }>(`/admin/agent-tokens/${id}`, {
+      method: "DELETE",
     }),
 
   getSiteSettings: () => fetchApi<SiteSettings>("/admin/settings"),
