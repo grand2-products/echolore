@@ -18,6 +18,7 @@ import {
   TestConnectionModal,
   type TestModalState,
 } from "../settings/_components/TestConnectionModal";
+import { AgentTokensSection } from "./_components/AgentTokensSection";
 import { ConfigSetManager } from "./_components/ConfigSetManager";
 
 const VALID_INTERVENTION_STYLES = ["facilitator", "observer", "active"] as const;
@@ -398,6 +399,8 @@ export default function AdminAgentsPage() {
       </div>
 
       {testModal && <TestConnectionModal modal={testModal} onClose={() => setTestModal(null)} />}
+
+      <AgentTokensSection />
     </div>
   );
 }
