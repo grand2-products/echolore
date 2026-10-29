@@ -48,6 +48,10 @@ vi.mock("../services/wiki/wiki-article-creation-service.js", () => ({
   createWikiArticleFromMarkdown: createWikiArticleFromMarkdownMock,
 }));
 
+vi.mock("../lib/cors-origins.js", () => ({
+  parseCorsOrigins: vi.fn(() => new Set(["https://wiki.example.com"])),
+}));
+
 function tokenRow(overrides: Partial<AgentToken> = {}): AgentToken {
   const now = new Date();
   return {
@@ -64,22 +68,67 @@ function tokenRow(overrides: Partial<AgentToken> = {}): AgentToken {
   } as AgentToken;
 }
 
-function authedUser(): SessionUser {
-  return adminUser();
+const PROTOCOL_VERSION = "2026-07-28";
+
+interface PostOptions {
+  token?: string | null;
+  method?: string;
+  name?: string | null;
+  metaVersion?: string | null;
+  origin?: string;
 }
 
-function post(body: unknown, token: string | null = "ech_agt_valid") {
+function meta(metaVersion: string | null) {
+  return metaVersion === null ? {} : { "io.modelcontextprotocol/protocolVersion": metaVersion };
+}
+
+function post(
+  body: Record<string, unknown>,
+  {
+    token = "ech_agt_valid",
+    method,
+    name,
+    metaVersion = PROTOCOL_VERSION,
+    origin,
+  }: PostOptions = {}
+) {
+  const rpcMethod = method ?? (body.method as string);
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    "mcp-method": rpcMethod,
+  };
+  if (metaVersion !== null) headers["mcp-protocol-version"] = metaVersion;
+  if (name !== null && name !== undefined) headers["mcp-name"] = name;
+  if (token) headers.authorization = `Bearer ${token}`;
+  if (origin) headers.origin = origin;
+
+  const bodyParams = (body.params ?? {}) as Record<string, unknown>;
+  const params = { ...bodyParams, _meta: meta(metaVersion) };
+
   return mcpRoutes.request("/", {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
+    headers,
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      ...body,
+      params,
+    }),
   });
 }
 
-describe("mcpRoutes", () => {
+function callTool(
+  id: number | string,
+  name: string,
+  args: Record<string, unknown>,
+  options: PostOptions = {}
+) {
+  return post(
+    { id, method: "tools/call", params: { name, arguments: args } },
+    { name, ...options }
+  );
+}
+
+describe("mcpRoutes (protocol 2026-07-28)", () => {
   beforeEach(() => {
     resolveAgentTokenMock.mockReset();
     searchByVectorMock.mockReset();
@@ -89,18 +138,20 @@ describe("mcpRoutes", () => {
     createWikiArticleFromMarkdownMock.mockReset();
     resolveAgentTokenMock.mockResolvedValue({
       token: tokenRow(),
-      user: authedUser(),
+      user: adminUser() as SessionUser,
     });
   });
 
+  // ─── Transport & security ─────────────────────────────────────
+
   it("rejects requests without a bearer token", async () => {
-    const res = await post({ jsonrpc: "2.0", id: 1, method: "initialize" }, null);
+    const res = await post({ id: 1, method: "server/discover" }, { token: null });
     expect(res.status).toBe(401);
   });
 
   it("rejects invalid or revoked tokens", async () => {
     resolveAgentTokenMock.mockResolvedValue(null);
-    const res = await post({ jsonrpc: "2.0", id: 1, method: "initialize" });
+    const res = await post({ id: 1, method: "server/discover" });
     expect(res.status).toBe(401);
   });
 
@@ -109,10 +160,35 @@ describe("mcpRoutes", () => {
     expect(res.status).toBe(405);
   });
 
+  it("rejects cross-site origins not in the allowlist", async () => {
+    const res = await post(
+      { id: 1, method: "server/discover" },
+      {
+        origin: "https://evil.example.com",
+      }
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("allows allowlisted origins", async () => {
+    const res = await post(
+      { id: 1, method: "server/discover" },
+      {
+        origin: "https://wiki.example.com",
+      }
+    );
+    expect(res.status).toBe(200);
+  });
+
   it("rejects malformed JSON with a parse error", async () => {
     const res = await mcpRoutes.request("/", {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: "Bearer ech_agt_valid" },
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer ech_agt_valid",
+        "mcp-protocol-version": PROTOCOL_VERSION,
+        "mcp-method": "server/discover",
+      },
       body: "not json",
     });
     expect(res.status).toBe(400);
@@ -120,48 +196,101 @@ describe("mcpRoutes", () => {
     expect(body.error.code).toBe(-32700);
   });
 
-  it("handles initialize with protocol negotiation", async () => {
-    const res = await post({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: { protocolVersion: "2025-03-26" },
+  // ─── Header & version validation ──────────────────────────────
+
+  it("rejects a missing MCP-Protocol-Version header", async () => {
+    const res = await post({ id: 1, method: "server/discover" }, { metaVersion: null });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe(-32020);
+  });
+
+  it("rejects when the header version does not match the body _meta version", async () => {
+    const res = await post(
+      { id: 1, method: "server/discover" },
+      { metaVersion: "2026-07-29" } // header value; body _meta will carry the same
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    // Both carry the same (unsupported) version → unsupported-version error
+    expect(body.error.code).toBe(-32022);
+    expect(body.error.data.supportedVersions).toEqual([PROTOCOL_VERSION]);
+  });
+
+  it("rejects header/_meta version mismatch with HeaderMismatch", async () => {
+    const res = await mcpRoutes.request("/", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer ech_agt_valid",
+        "mcp-protocol-version": PROTOCOL_VERSION,
+        "mcp-method": "server/discover",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "server/discover",
+        params: { _meta: meta("2025-06-18") },
+      }),
     });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe(-32020);
+  });
+
+  it("rejects a mismatched Mcp-Method header", async () => {
+    const res = await post({ id: 1, method: "server/discover" }, { method: "tools/list" });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe(-32020);
+  });
+
+  it("rejects tools/call with a mismatched Mcp-Name header", async () => {
+    const res = await callTool(1, "wiki_search", { query: "x" }, { name: "wiki_read_page" });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe(-32020);
+  });
+
+  // ─── server/discover ──────────────────────────────────────────
+
+  it("answers server/discover with versions, capabilities, and serverInfo", async () => {
+    const res = await post({ id: 1, method: "server/discover" });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.result.protocolVersion).toBe("2025-03-26");
-    expect(body.result.serverInfo.name).toBe("echolore");
+    expect(body.result.resultType).toBe("complete");
+    expect(body.result.supportedVersions).toEqual([PROTOCOL_VERSION]);
     expect(body.result.capabilities.tools).toBeDefined();
+    expect(body.result._meta["io.modelcontextprotocol/serverInfo"].name).toBe("echolore");
+    expect(body.result.ttlMs).toBeGreaterThan(0);
+    expect(body.result.cacheScope).toBe("private");
+    expect(typeof body.result.instructions).toBe("string");
   });
 
-  it("falls back to the latest protocol version for unknown requests", async () => {
-    const res = await post({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "initialize",
-      params: { protocolVersion: "1999-01-01" },
+  // ─── Tools ────────────────────────────────────────────────────
+
+  it("lists tools filtered by token scope in deterministic order", async () => {
+    resolveAgentTokenMock.mockResolvedValue({
+      token: tokenRow({ scopes: ["read"] }),
+      user: adminUser(),
     });
-    const body = await res.json();
-    expect(body.result.protocolVersion).toBe("2025-06-18");
-  });
-
-  it("answers ping", async () => {
-    const res = await post({ jsonrpc: "2.0", id: 3, method: "ping" });
-    const body = await res.json();
-    expect(body.result).toEqual({});
-  });
-
-  it("returns 202 without a body for notifications", async () => {
-    const res = await post({ jsonrpc: "2.0", method: "notifications/initialized" });
-    expect(res.status).toBe(202);
-    expect(await res.text()).toBe("");
-  });
-
-  it("lists the four tools", async () => {
-    const res = await post({ jsonrpc: "2.0", id: 4, method: "tools/list" });
+    const res = await post({ id: 2, method: "tools/list" });
     const body = await res.json();
     const names = body.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toEqual([
+    // write-scoped tool hidden from read-only tokens
+    expect(names).toEqual(["wiki_search", "wiki_read_page", "wiki_maintenance_report"]);
+    expect(body.result.ttlMs).toBeGreaterThan(0);
+    expect(body.result.cacheScope).toBe("private");
+  });
+
+  it("lists all four tools for a write-scoped token", async () => {
+    resolveAgentTokenMock.mockResolvedValue({
+      token: tokenRow({ scopes: ["read", "write"] }),
+      user: adminUser(),
+    });
+    const res = await post({ id: 2, method: "tools/list" });
+    const body = await res.json();
+    expect(body.result.tools.map((t: { name: string }) => t.name)).toEqual([
       "wiki_search",
       "wiki_read_page",
       "wiki_maintenance_report",
@@ -170,17 +299,10 @@ describe("mcpRoutes", () => {
   });
 
   it("executes tools/call for the maintenance report", async () => {
-    auditWikiMaintenanceMock.mockResolvedValue({
-      findings: [],
-      summary: {},
-    });
-    const res = await post({
-      jsonrpc: "2.0",
-      id: 5,
-      method: "tools/call",
-      params: { name: "wiki_maintenance_report", arguments: {} },
-    });
+    auditWikiMaintenanceMock.mockResolvedValue({ findings: [], summary: {} });
+    const res = await callTool(3, "wiki_maintenance_report", {});
     const body = await res.json();
+    expect(body.result.resultType).toBe("complete");
     expect(body.result.content[0].type).toBe("text");
     expect(body.result.content[0].text).toContain("Review overdue");
     expect(auditWikiMaintenanceMock).toHaveBeenCalledWith(
@@ -190,67 +312,37 @@ describe("mcpRoutes", () => {
 
   it("executes tools/call for wiki_search", async () => {
     searchByVectorMock.mockResolvedValue([
-      {
-        pageId: "p1",
-        pageTitle: "Page one",
-        chunkText: "content here",
-        similarity: 0.9,
-      },
+      { pageId: "p1", pageTitle: "Page one", chunkText: "content here", similarity: 0.9 },
     ]);
-    const res = await post({
-      jsonrpc: "2.0",
-      id: 6,
-      method: "tools/call",
-      params: { name: "wiki_search", arguments: { query: "topic" } },
-    });
+    const res = await callTool(4, "wiki_search", { query: "topic" });
     const body = await res.json();
     expect(body.result.content[0].text).toContain("Page one");
     expect(searchByVectorMock).toHaveBeenCalledWith("topic", 10);
   });
 
-  it("rejects unknown tools with -32602", async () => {
-    const res = await post({
-      jsonrpc: "2.0",
-      id: 7,
-      method: "tools/call",
-      params: { name: "wiki_delete_page", arguments: {} },
-    });
+  it("reports invalid tool arguments as tool execution errors (SEP-1303)", async () => {
+    const res = await callTool(5, "wiki_read_page", {});
     const body = await res.json();
-    expect(body.error.code).toBe(-32602);
+    expect(body.result.isError).toBe(true);
+    expect(body.result.content[0].text).toContain("Invalid arguments");
   });
 
-  it("rejects missing tool arguments with -32602", async () => {
-    const res = await post({
-      jsonrpc: "2.0",
-      id: 8,
-      method: "tools/call",
-      params: { name: "wiki_read_page", arguments: {} },
-    });
+  it("returns a protocol error for unknown tools", async () => {
+    const res = await callTool(6, "wiki_delete_page", {});
     const body = await res.json();
     expect(body.error.code).toBe(-32602);
-  });
-
-  it("returns method-not-found for unknown methods", async () => {
-    const res = await post({ jsonrpc: "2.0", id: 9, method: "resources/list" });
-    const body = await res.json();
-    expect(body.error.code).toBe(-32601);
   });
 
   it("creates a page with a write-scoped token", async () => {
     resolveAgentTokenMock.mockResolvedValue({
       token: tokenRow({ scopes: ["read", "write"] }),
-      user: authedUser(),
+      user: adminUser(),
     });
     createWikiArticleFromMarkdownMock.mockResolvedValue({ id: "page_9", title: "Draft" });
 
-    const res = await post({
-      jsonrpc: "2.0",
-      id: 10,
-      method: "tools/call",
-      params: {
-        name: "wiki_create_page",
-        arguments: { title: "Draft", markdown: "# Draft\n\ncontent" },
-      },
+    const res = await callTool(7, "wiki_create_page", {
+      title: "Draft",
+      markdown: "# Draft\n\ncontent",
     });
     const body = await res.json();
     expect(body.result.content[0].text).toContain("page_9");
@@ -262,34 +354,46 @@ describe("mcpRoutes", () => {
   it("rejects page creation for read-only tokens with an isError result", async () => {
     resolveAgentTokenMock.mockResolvedValue({
       token: tokenRow({ scopes: ["read"] }),
-      user: authedUser(),
+      user: adminUser(),
     });
 
-    const res = await post({
-      jsonrpc: "2.0",
-      id: 11,
-      method: "tools/call",
-      params: { name: "wiki_create_page", arguments: { title: "x", markdown: "y" } },
-    });
+    const res = await callTool(8, "wiki_create_page", { title: "x", markdown: "y" });
     const body = await res.json();
     expect(body.result.isError).toBe(true);
     expect(body.result.content[0].text).toContain("write");
     expect(createWikiArticleFromMarkdownMock).not.toHaveBeenCalled();
   });
 
-  it("rejects page creation with missing arguments", async () => {
-    resolveAgentTokenMock.mockResolvedValue({
-      token: tokenRow({ scopes: ["read", "write"] }),
-      user: authedUser(),
-    });
+  // ─── Method dispatch ──────────────────────────────────────────
 
-    const res = await post({
-      jsonrpc: "2.0",
-      id: 12,
-      method: "tools/call",
-      params: { name: "wiki_create_page", arguments: { title: "only title" } },
-    });
+  it("returns 404 with -32601 for unimplemented methods (no legacy initialize)", async () => {
+    const res = await post({ id: 9, method: "initialize" });
+    expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error.code).toBe(-32602);
+    expect(body.error.code).toBe(-32601);
+  });
+
+  it("returns 404 for removed legacy methods like ping", async () => {
+    const res = await post({ id: 10, method: "ping" });
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 202 without a body for notifications", async () => {
+    const res = await mcpRoutes.request("/", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer ech_agt_valid",
+        "mcp-protocol-version": PROTOCOL_VERSION,
+        "mcp-method": "notifications/cancelled",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "notifications/cancelled",
+        params: { _meta: meta(PROTOCOL_VERSION) },
+      }),
+    });
+    expect(res.status).toBe(202);
+    expect(await res.text()).toBe("");
   });
 });

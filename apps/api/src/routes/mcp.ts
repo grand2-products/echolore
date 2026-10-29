@@ -1,6 +1,7 @@
 import { AGENT_TOKEN_SCOPE_VALUES, type AgentTokenScopeValue } from "@echolore/shared/contracts";
 import { Hono } from "hono";
 import type { SessionUser } from "../lib/auth.js";
+import { parseCorsOrigins } from "../lib/cors-origins.js";
 import { stripHtml } from "../lib/html-utils.js";
 import { canReadPage } from "../policies/authorization-policy.js";
 import { getPageBlocks, getPageById } from "../repositories/wiki/wiki-repository.js";
@@ -15,15 +16,37 @@ import {
 /**
  * MCP (Model Context Protocol) endpoint for external AI agents.
  *
- * Stateless Streamable HTTP: single JSON-RPC message per POST, plain JSON
- * responses. Auth is a bearer agent token (admin-issued; read/write scopes).
+ * Implements protocol revision 2026-07-28 (stateless MCP: no initialize
+ * handshake, per-request version metadata, required HTTP headers).
+ *
+ * Transport: stateless Streamable HTTP — single JSON-RPC message per POST,
+ * plain JSON responses. Auth is a bearer agent token (admin-issued).
  * Read tools run with the page-read permissions of the token's creator;
  * page creation is attributed to the token's creator.
  */
 
-const SUPPORTED_PROTOCOL_VERSIONS = new Set(["2024-11-05", "2025-03-26", "2025-06-18"]);
-const LATEST_PROTOCOL_VERSION = "2025-06-18";
-const SERVER_NAME = "echolore";
+const SUPPORTED_PROTOCOL_VERSION = "2026-07-28";
+const SUPPORTED_PROTOCOL_VERSIONS = [SUPPORTED_PROTOCOL_VERSION];
+const SERVER_INFO = { name: "echolore", version: "0.1.0" };
+const SERVER_INSTRUCTIONS =
+  "EchoLore knowledge base: search and read wiki pages, audit knowledge maintenance health, and save conversation content as new wiki articles when explicitly requested.";
+
+// CacheableResult freshness hints (spec: required on list/discover results)
+const LIST_TTL_MS = 300_000; // 5 minutes
+const LIST_CACHE_SCOPE = "private" as const; // tool set varies by token scopes
+
+const JSON_RPC = {
+  parseError: -32700,
+  invalidRequest: -32600,
+  invalidParams: -32602,
+  methodNotFound: -32601,
+  headerMismatch: -32020,
+  unsupportedProtocolVersion: -32022,
+} as const;
+
+const META_PROTOCOL_VERSION = "io.modelcontextprotocol/protocolVersion";
+const META_CLIENT_INFO = "io.modelcontextprotocol/clientInfo";
+const META_SERVER_INFO = "io.modelcontextprotocol/serverInfo";
 
 interface JsonRpcRequest {
   jsonrpc: string;
@@ -40,8 +63,36 @@ interface McpToolDef {
   handler: (args: Record<string, unknown>, user: SessionUser) => Promise<string>;
 }
 
-function textResult(text: string) {
-  return { content: [{ type: "text", text }] };
+function rpcResult(id: JsonRpcRequest["id"], result: Record<string, unknown>) {
+  return {
+    jsonrpc: "2.0",
+    id,
+    result: {
+      resultType: "complete",
+      ...result,
+      _meta: { [META_SERVER_INFO]: SERVER_INFO },
+    },
+  };
+}
+
+function rpcError(
+  id: JsonRpcRequest["id"],
+  code: number,
+  message: string,
+  data?: Record<string, unknown>
+) {
+  return {
+    jsonrpc: "2.0",
+    id,
+    error: data ? { code, message, data } : { code, message },
+  };
+}
+
+/** Decode the base64 sentinel format used for non-ASCII header values. */
+function decodeHeaderValue(value: string): string {
+  const match = /^=\?base64\?(.+)\?=$/s.exec(value);
+  if (!match || match[1] === undefined) return value;
+  return Buffer.from(match[1], "base64").toString("utf8");
 }
 
 // ─── Tool implementations (shared services, permission-checked) ───
@@ -99,6 +150,7 @@ async function wikiCreatePage(args: Record<string, unknown>, user: SessionUser):
 
 class ToolArgumentError extends Error {}
 
+// Deterministic order (spec SHOULD) — clients rely on stable listing for caching
 const MCP_TOOLS: McpToolDef[] = [
   {
     name: "wiki_search",
@@ -132,7 +184,7 @@ const MCP_TOOLS: McpToolDef[] = [
     name: "wiki_maintenance_report",
     description:
       "Audit the health of wiki knowledge and return a maintenance report: overdue or upcoming knowledge reviews, unapproved knowledge entries, registry drift (deleted but still registered), and stale or empty pages.",
-    inputSchema: { type: "object", properties: {} },
+    inputSchema: { type: "object", additionalProperties: false },
     requiredScopes: ["read"],
     handler: wikiMaintenanceReport,
   },
@@ -157,134 +209,6 @@ const MCP_TOOLS: McpToolDef[] = [
   },
 ];
 
-// ─── JSON-RPC handling ───────────────────────────────────────────
-
-function jsonRpcResult(id: JsonRpcRequest["id"], result: unknown) {
-  return { jsonrpc: "2.0", id, result };
-}
-
-function jsonRpcError(id: JsonRpcRequest["id"], code: number, message: string) {
-  return { jsonrpc: "2.0", id, error: { code, message } };
-}
-
-async function handleRpcMessage(
-  message: JsonRpcRequest,
-  user: SessionUser,
-  scopes: AgentTokenScopeValue[]
-): Promise<{ status: number; body: unknown } | null> {
-  // Notifications (no id) get no response body
-  if (message.id === undefined || message.id === null) return null;
-
-  switch (message.method) {
-    case "initialize": {
-      const requested =
-        typeof message.params?.protocolVersion === "string"
-          ? message.params.protocolVersion
-          : LATEST_PROTOCOL_VERSION;
-      return {
-        status: 200,
-        body: jsonRpcResult(message.id, {
-          protocolVersion: SUPPORTED_PROTOCOL_VERSIONS.has(requested)
-            ? requested
-            : LATEST_PROTOCOL_VERSION,
-          capabilities: { tools: {} },
-          serverInfo: { name: SERVER_NAME, version: "0.1.0" },
-        }),
-      };
-    }
-
-    case "ping":
-      return { status: 200, body: jsonRpcResult(message.id, {}) };
-
-    case "tools/list":
-      return {
-        status: 200,
-        body: jsonRpcResult(message.id, {
-          tools: MCP_TOOLS.map((t) => ({
-            name: t.name,
-            description: t.description,
-            inputSchema: t.inputSchema,
-          })),
-        }),
-      };
-
-    case "tools/call": {
-      const name = message.params?.name;
-      const args =
-        message.params?.arguments && typeof message.params.arguments === "object"
-          ? (message.params.arguments as Record<string, unknown>)
-          : {};
-      const tool = MCP_TOOLS.find((t) => t.name === name);
-
-      if (!tool) {
-        return { status: 200, body: jsonRpcError(message.id, -32602, `Unknown tool: ${name}`) };
-      }
-      const missingScope = tool.requiredScopes.find((s) => !scopes.includes(s));
-      if (missingScope) {
-        return {
-          status: 200,
-          body: jsonRpcResult(message.id, {
-            ...textResult(
-              `This token does not have the '${missingScope}' scope required for this tool.`
-            ),
-            isError: true,
-          }),
-        };
-      }
-
-      const startedAt = Date.now();
-      try {
-        const text = await tool.handler(args, user);
-        console.log(
-          JSON.stringify({
-            event: "mcp.tool.call",
-            tool: tool.name,
-            userId: user.id,
-            ok: true,
-            durationMs: Date.now() - startedAt,
-          })
-        );
-        return { status: 200, body: jsonRpcResult(message.id, textResult(text)) };
-      } catch (error) {
-        const isArgError = error instanceof ToolArgumentError;
-        console.log(
-          JSON.stringify({
-            event: "mcp.tool.call",
-            tool: tool.name,
-            userId: user.id,
-            ok: false,
-            durationMs: Date.now() - startedAt,
-            error: error instanceof Error ? error.message : "Unknown",
-          })
-        );
-        if (isArgError) {
-          return {
-            status: 200,
-            body: jsonRpcError(
-              message.id,
-              -32602,
-              error instanceof Error ? error.message : "Invalid arguments"
-            ),
-          };
-        }
-        return {
-          status: 200,
-          body: jsonRpcResult(message.id, {
-            ...textResult("Internal error while executing the tool."),
-            isError: true,
-          }),
-        };
-      }
-    }
-
-    default:
-      return {
-        status: 200,
-        body: jsonRpcError(message.id, -32601, `Method not found: ${message.method}`),
-      };
-  }
-}
-
 // ─── Route ───────────────────────────────────────────────────────
 
 export const mcpRoutes = new Hono();
@@ -295,6 +219,14 @@ mcpRoutes.all("/", async (c) => {
       { error: { code: -32000, message: "Only POST is supported (stateless MCP server)" } },
       405
     );
+  }
+
+  // Origin validation (spec MUST — DNS rebinding defense). Requests without an
+  // Origin header (native/server-side MCP clients) are allowed; cross-site
+  // browser origins must match the configured CORS allowlist.
+  const origin = c.req.header("origin");
+  if (origin && !parseCorsOrigins().has(origin)) {
+    return c.json({ error: { code: -32000, message: "Origin not allowed" } }, 403);
   }
 
   // Bearer agent-token auth — the token acts as its creating admin.
@@ -309,6 +241,10 @@ mcpRoutes.all("/", async (c) => {
     return c.json({ error: { code: -32000, message: "Invalid or revoked token" } }, 401);
   }
 
+  const scopes = (resolved.token.scopes ?? []).filter((s): s is AgentTokenScopeValue =>
+    (AGENT_TOKEN_SCOPE_VALUES as readonly string[]).includes(s)
+  );
+
   let message: JsonRpcRequest;
   try {
     const parsed = await c.req.json();
@@ -318,18 +254,192 @@ mcpRoutes.all("/", async (c) => {
       Array.isArray(parsed) ||
       typeof parsed.method !== "string"
     ) {
-      return c.json({ error: { code: -32600, message: "Invalid Request" } }, 400);
+      return c.json(rpcError(null, JSON_RPC.invalidRequest, "Invalid Request"), 400);
     }
     message = parsed as JsonRpcRequest;
   } catch {
-    return c.json({ error: { code: -32700, message: "Parse error" } }, 400);
+    return c.json(rpcError(null, JSON_RPC.parseError, "Parse error"), 400);
   }
 
-  const scopes = (resolved.token.scopes ?? []).filter((s): s is AgentTokenScopeValue =>
-    (AGENT_TOKEN_SCOPE_VALUES as readonly string[]).includes(s)
-  );
+  // ─── Header / version validation (Streamable HTTP 2026-07-28) ───
 
-  const response = await handleRpcMessage(message, resolved.user, scopes);
-  if (!response) return c.body(null, 202);
-  return c.json(response.body, response.status as 200 | 400);
+  const id = message.id ?? null;
+
+  // Notifications (no id) that pass validation get 202 with no body
+  const isNotification = message.id === undefined || message.id === null;
+
+  const headerVersion = c.req.header("mcp-protocol-version")?.trim() ?? "";
+  const meta = (message.params?._meta ?? {}) as Record<string, unknown>;
+  const metaVersion =
+    typeof meta[META_PROTOCOL_VERSION] === "string" ? (meta[META_PROTOCOL_VERSION] as string) : "";
+
+  const headerMethod = c.req.header("mcp-method")?.trim() ?? "";
+  const headerName = decodeHeaderValue(c.req.header("mcp-name")?.trim() ?? "");
+
+  // MCP-Protocol-Version is required and must match the body _meta value.
+  // (This server does not support pre-header clients, so a missing header is
+  // rejected per spec Server Validation rules.)
+  if (!headerVersion || !metaVersion || headerVersion !== metaVersion) {
+    return c.json(
+      rpcError(
+        id,
+        JSON_RPC.headerMismatch,
+        "Missing or mismatched MCP-Protocol-Version header (must match params._meta protocolVersion)"
+      ),
+      400
+    );
+  }
+
+  if (headerVersion !== SUPPORTED_PROTOCOL_VERSION) {
+    return c.json(
+      rpcError(
+        id,
+        JSON_RPC.unsupportedProtocolVersion,
+        `Unsupported protocol version: ${headerVersion}`,
+        { supportedVersions: SUPPORTED_PROTOCOL_VERSIONS }
+      ),
+      400
+    );
+  }
+
+  // Mcp-Method is required and must match the body method.
+  if (!headerMethod || headerMethod !== message.method) {
+    return c.json(
+      rpcError(id, JSON_RPC.headerMismatch, "Missing or mismatched Mcp-Method header"),
+      400
+    );
+  }
+
+  // Mcp-Name is required for tools/call and must match params.name.
+  if (message.method === "tools/call") {
+    const bodyName = typeof message.params?.name === "string" ? message.params.name : "";
+    if (!headerName || !bodyName || headerName !== bodyName) {
+      return c.json(
+        rpcError(id, JSON_RPC.headerMismatch, "Missing or mismatched Mcp-Name header"),
+        400
+      );
+    }
+  }
+
+  const clientInfo = meta[META_CLIENT_INFO];
+  const clientName =
+    clientInfo && typeof clientInfo === "object" && "name" in clientInfo
+      ? String((clientInfo as { name: unknown }).name)
+      : null;
+
+  // ─── Method dispatch ────────────────────────────────────────────
+
+  switch (message.method) {
+    case "server/discover": {
+      if (isNotification) return c.body(null, 202);
+      return c.json(
+        rpcResult(id, {
+          supportedVersions: SUPPORTED_PROTOCOL_VERSIONS,
+          capabilities: { tools: {} },
+          instructions: SERVER_INSTRUCTIONS,
+          ttlMs: LIST_TTL_MS,
+          cacheScope: LIST_CACHE_SCOPE,
+        })
+      );
+    }
+
+    case "tools/list": {
+      if (isNotification) return c.body(null, 202);
+      // Tool set is filtered by the token's scopes (per-request credentials),
+      // deterministic order for client-side caching.
+      const tools = MCP_TOOLS.filter((t) => t.requiredScopes.every((s) => scopes.includes(s))).map(
+        (t) => ({
+          name: t.name,
+          description: t.description,
+          inputSchema: t.inputSchema,
+        })
+      );
+      return c.json(rpcResult(id, { tools, ttlMs: LIST_TTL_MS, cacheScope: LIST_CACHE_SCOPE }));
+    }
+
+    case "tools/call": {
+      if (isNotification) return c.body(null, 202);
+      const name = message.params?.name;
+      const args =
+        message.params?.arguments && typeof message.params.arguments === "object"
+          ? (message.params.arguments as Record<string, unknown>)
+          : {};
+      const tool = MCP_TOOLS.find((t) => t.name === name);
+
+      // Unknown tool is a protocol error (spec: tools.md Error Handling)
+      if (!tool) {
+        return c.json(rpcError(id, JSON_RPC.invalidParams, `Unknown tool: ${name}`));
+      }
+
+      const missingScope = tool.requiredScopes.find((s) => !scopes.includes(s));
+      if (missingScope) {
+        return c.json(
+          rpcResult(id, {
+            content: [
+              {
+                type: "text",
+                text: `This token does not have the '${missingScope}' scope required for this tool.`,
+              },
+            ],
+            isError: true,
+          })
+        );
+      }
+
+      const startedAt = Date.now();
+      const log = (ok: boolean, error?: string) =>
+        console.log(
+          JSON.stringify({
+            event: "mcp.tool.call",
+            tool: tool.name,
+            userId: resolved.user.id,
+            client: clientName,
+            ok,
+            durationMs: Date.now() - startedAt,
+            ...(error ? { error } : {}),
+          })
+        );
+
+      try {
+        const text = await tool.handler(args, resolved.user);
+        log(true);
+        return c.json(rpcResult(id, { content: [{ type: "text", text }] }));
+      } catch (error) {
+        // Input validation errors are tool execution errors (SEP-1303) so the
+        // model can self-correct; anything else is reported as an internal
+        // tool error without leaking details.
+        const isArgError = error instanceof ToolArgumentError;
+        log(false, error instanceof Error ? error.message : "Unknown");
+        if (isArgError) {
+          return c.json(
+            rpcResult(id, {
+              content: [
+                {
+                  type: "text",
+                  text: `Invalid arguments: ${error instanceof Error ? error.message : "unknown"}`,
+                },
+              ],
+              isError: true,
+            })
+          );
+        }
+        return c.json(
+          rpcResult(id, {
+            content: [{ type: "text", text: "Internal error while executing the tool." }],
+            isError: true,
+          })
+        );
+      }
+    }
+
+    default: {
+      // This server implements only 2026-07-28 (no legacy initialize/ping).
+      // Unimplemented methods return 404 + -32601 per the transport spec.
+      if (isNotification) return c.body(null, 202);
+      return c.json(
+        rpcError(id, JSON_RPC.methodNotFound, `Method not found: ${message.method}`),
+        404
+      );
+    }
+  }
 });
