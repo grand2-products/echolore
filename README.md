@@ -1,67 +1,84 @@
+<div align="center">
+
 # EchoLore
 
-AI-powered knowledge & meeting platform. Self-hostable with a single command.
+**AI-powered knowledge & meeting platform. Self-hostable with a single command.**
+
+[![CI](https://github.com/grand2-products/echolore/actions/workflows/ci.yml/badge.svg)](https://github.com/grand2-products/echolore/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/grand2-products/echolore)](https://github.com/grand2-products/echolore/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-manual-8b5cf6)](https://grand2-products.github.io/echolore/)
+
+[Manual (EN)](https://grand2-products.github.io/echolore/en/) · [マニュアル (JP)](https://grand2-products.github.io/echolore/) · [日本語 README](README.ja.md)
+
+</div>
 
 ## Features
-- Block-based Wiki with AI-powered search
-- Real-time meetings with LiveKit (video, audio, screen share)
-- AI meeting summaries → Wiki integration
-- Google SSO and email/password authentication
-- Admin dashboard for team management
-- Pluggable file storage (Local / S3 / GCS)
-- Multi-language support (EN, JA, KO, ZH)
+
+- 📝 **Notion-style Wiki** — block editor, real-time collaboration, page permissions
+- 🔍 **AI Chat (RAG)** — answers grounded in your wiki, with citations
+- 🎥 **Meetings** — LiveKit video/audio/screen sharing with AI meeting summaries
+- 🤖 **External AI agents (MCP)** — connect ChatGPT, Claude, and other agents to your knowledge base
+- 🔐 **Auth** — Google SSO and email/password
+- 🗄️ **Pluggable storage** — Local / S3-compatible / GCS
+- 🌐 **Multi-language UI** — EN, JA, KO, ZH
 
 ## Quick Start
 
 ```bash
-curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | bash
+curl -fsSL https://github.com/grand2-products/echolore/releases/latest/download/install.sh | sudo bash
 ```
 
-This installs EchoLore on your server. You'll be prompted for a domain name and email. Everything else is auto-configured.
+You'll be prompted for a domain name and an email. Everything else — TLS, database migrations, service startup — is auto-configured.
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup instructions.
+→ Full guide: [Installation](https://grand2-products.github.io/echolore/en/getting-started/install/)
+
+## Documentation
+
+**The complete manual lives at https://grand2-products.github.io/echolore/**
+
+| Section | Contents |
+|---------|----------|
+| [Getting Started](https://grand2-products.github.io/echolore/en/getting-started/requirements/) | Requirements, installation, first-time setup, deployment environments (on-prem / VPS / cloud) |
+| [Feature Guides](https://grand2-products.github.io/echolore/en/features/wiki/) | Wiki, Meetings, AI Chat, MCP agents |
+| [Administration](https://grand2-products.github.io/echolore/en/admin/console/) | Admin console, agent tokens |
+| [Operations](https://grand2-products.github.io/echolore/en/operations/update/) | Updates, backup & restore, troubleshooting, Cloudflare hardening |
+| [Contributing](https://grand2-products.github.io/echolore/en/development/dev-setup/) | Dev setup, branch policy, release flow |
+
+Additional internals (Japanese): [DEPLOYMENT.md](DEPLOYMENT.md) · [docs/](docs/) · [AGENTS.md](AGENTS.md)
 
 ## Tech Stack
-- **Frontend**: Next.js
-- **API**: Hono + Kysely
-- **Database**: PostgreSQL (pgvector)
-- **Realtime**: LiveKit
-- **Cache**: Valkey
-- **Auth**: Auth.js (JWT sessions)
-- **AI**: LangChain + Google Gemini / Vertex AI
-- **Infra**: Docker Compose + Traefik (auto TLS)
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | Next.js |
+| API | Hono + Kysely |
+| Database | PostgreSQL (pgvector) |
+| Realtime | LiveKit / Yjs |
+| Cache | Valkey |
+| Auth | Auth.js (JWT) |
+| AI | LangChain + Gemini / Vertex AI / Z.ai |
+| Infra | Docker Compose + Traefik (auto TLS) |
 
 ## Monorepo Structure
+
 - `apps/web` — Next.js frontend
 - `apps/api` — Hono API backend
 - `apps/worker` — AI agent worker
-- `packages/shared` — Shared contracts and types
-- `packages/ui` — Shared UI components
+- `apps/docs` — documentation site (Starlight, GitHub Pages)
+- `packages/shared` — shared contracts and types
+- `packages/ui` — shared UI components
+- `skills/` — Agent Skills for external AI agents (MCP)
 
-## Local Development
+## Contributing
 
-1. Install dependencies: `pnpm install`
-2. Copy env files:
-   - `apps/api/.env.example` → `apps/api/.env`
-   - `apps/web/.env.local.example` → `apps/web/.env.local`
-   - `apps/worker/.env.example` → `apps/worker/.env`
-3. Start: `./dev.ps1` or `pnpm dev:daily`
+Contributions are welcome! See the [contribution guide](https://grand2-products.github.io/echolore/en/development/contributing/) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Commands
-- `pnpm lint` — Biome lint
-- `pnpm typecheck` — TypeScript check
-- `pnpm build` — Build all packages
-- `pnpm test` — Run tests
-- `pnpm db:generate` — Generate migration
-- `pnpm db:migrate` — Apply migrations
+## Support
 
-## Documentation
-- **Manual (JP/EN)**: https://grand2-products.github.io/echolore/
-- [Deployment Guide](DEPLOYMENT.md)
-- [Contributing: Deployment](docs/contributing-deployment.md)
-- [System Architecture](docs/system-architecture.md)
-- [Project Rules](AGENTS.md)
+- 🐛 [Report a bug](https://github.com/grand2-products/echolore/issues/new?template=bug_report.md) / 💡 [Request a feature](https://github.com/grand2-products/echolore/issues/new?template=feature_request.md)
+- 🔒 Security issues: see [SECURITY.md](SECURITY.md)
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+[MIT](LICENSE) © Grand2

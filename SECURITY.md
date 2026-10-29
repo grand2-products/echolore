@@ -1,57 +1,31 @@
 # Security Policy
 
-## Supported Versions
-
-| Version | Supported          |
-| ------- | ------------------ |
-| latest  | Yes                |
-
-Only the latest release on the main branch is actively supported with security updates. Users are encouraged to keep their deployments up to date.
-
 ## Reporting a Vulnerability
 
-**Please do NOT report security vulnerabilities through public GitHub issues.**
+セキュリティ脆弱性を見つけた場合は、公開 Issue ではなく **GitHub Security Advisories** 経由で報告してください:
 
-If you discover a security vulnerability, please report it responsibly by sending an email to:
+1. リポジトリの [Security タブ](https://github.com/grand2-products/echolore/security/advisories) を開く
+2. 「Report a vulnerability」から報告
 
-**security@echolore.dev**
+Please report vulnerabilities via [GitHub Security Advisories](https://github.com/grand2-products/echolore/security/advisories) rather than public issues.
 
-Include the following in your report:
-
-- A description of the vulnerability and its potential impact
-- Steps to reproduce the issue
-- Any relevant logs, screenshots, or proof-of-concept code
-- Your name and contact information (optional, for follow-up)
-
-## Response Timeline
-
-- **Acknowledgement**: Within 2 business days of receiving your report
-- **Initial assessment**: Within 5 business days
-- **Resolution target**: Critical vulnerabilities will be addressed within 14 days; lower-severity issues will be prioritized accordingly
-
-You will be kept informed of progress toward a fix and may be asked for additional information.
-
-## Security Update Policy
-
-- Critical security patches are released as soon as a fix is validated.
-- Non-critical security fixes are included in the next scheduled release.
-- All security-related changes are documented in the release notes (after the fix has been deployed).
+- 検証の上、影響範囲に応じて対応します (通常 90 日以内を目安)
+- 報告者のクレジットをリリースノートに記載することも可能です
 
 ## Scope
 
-This security policy covers:
+- EchoLore 本体 (apps/, packages/, skills/)
+- インフラ構成 (docker-compose*.yml, scripts/)
+- 認証・認可、MCP エンドポイント、外部連携
 
-- The application source code in this repository
-- First-party API endpoints and services
-- Authentication and authorization mechanisms
-- Data storage and handling practices
+以下は対象外です:
 
-Out of scope:
+- 自己ホスト環境での独自カスタマイズに起因する問題
+- 旧バージョンの継続使用に起因する問題 (最新版で修正済みのもの)
+- サーバー自体の運用ミス (公開すべきでないポートの開放など)
 
-- Third-party dependencies (report these to the respective maintainers)
-- Social engineering attacks
-- Denial-of-service attacks that do not exploit a code vulnerability
+## Best Practices for Self-Hosters
 
-## Acknowledgements
-
-We appreciate the efforts of security researchers and community members who help keep this project secure. With your permission, we will credit you in the release notes for any vulnerability you report.
+- 常に最新版へアップデートしてください (`scripts/update.sh`)
+- 管理画面のパスワードは強固なものを設定し、必要に応じて Cloudflare 等で `/admin` にアクセス制限を併用してください
+- MCP エージェントトークンは最小権限 (read) で発行し、不要になったら失効させてください
