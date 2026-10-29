@@ -1,4 +1,4 @@
-FROM denoland/deno:alpine-2.2.3
+FROM denoland/deno:alpine-2.9.8
 
 # Install Docker CLI and Compose plugin
 RUN apk add --no-cache docker-cli docker-cli-compose bash curl
