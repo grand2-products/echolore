@@ -3,6 +3,24 @@ title: Requirements
 description: Server and network requirements for running EchoLore
 ---
 
+## Choosing a deployment environment
+
+EchoLore runs on Docker Compose, so it can be installed on **any Linux (amd64) host with Docker**. Choose an environment according to your security and operational requirements.
+
+| Environment | Best suited for | Characteristics |
+|-------------|-----------------|-----------------|
+| **On-premises** (own servers / data center) | Cases where data sovereignty and confidentiality are the top priority | Data never leaves your managed network. Existing monitoring and backup infrastructure can be reused |
+| **VPS** (WebArena Indigo, etc.) | Small to mid-sized teams | Cost-efficient and quick to set up. **WebArena Indigo (NTTPC Communications) is a verified environment.** Japanese data centers offer low latency |
+| **Public cloud** (Amazon EC2, etc.) | When scaling or integration with an existing cloud environment is required | Integrates with existing VPCs, IAM, and snapshot-based backups. Consider cloud-specific settings such as Instance Metadata Service |
+
+Guidelines:
+
+- **Prohibit sending data to external networks** → on-premises
+- **Start easily / reduce operational overhead** → VPS (WebArena Indigo, verified)
+- **Integrate with other systems on AWS / anticipate future scaling** → EC2
+
+The rest of this documentation (installation, updates, backups) applies to all of these environments.
+
 ## Server Requirements
 
 | Item | Minimum | Recommended |
