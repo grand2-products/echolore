@@ -5,9 +5,10 @@ Last updated: 2026-10-29
 ## 概要
 
 ChatGPT / Claude / Grok / ローカルエージェント等の外部 AI エージェントを **MCP (Model Context Protocol)** 経由で EchoLore の Wiki に接続するためのインターフェース。
-API の `/mcp` エンドポイントがステートレスな MCP サーバーとして動作し、読み取り専用ツールを提供する。
+API の `/mcp` エンドポイントがステートレスな MCP サーバーとして動作する。
 
-Phase 1 は読み取り専用(検索・読み取り・メンテ監査)。書き込み系(変更提案)は将来フェーズ。
+読み取り系(検索・読み取り・メンテ監査)に加え、対話での明示的な依頼に基づく**新規ページ作成**(`write` スコープ)を提供する。
+既存ページの編集ツールは提供しない(将来は提案+承認方式で検討)。
 
 ## 認証: エージェントトークン
 
@@ -15,7 +16,7 @@ Phase 1 は読み取り専用(検索・読み取り・メンテ監査)。書き�
 - **SHA-256 ハッシュのみ DB 保存**。平文は発行時のみ一度返却される
 - トークンは**発行した管理者ユーザーの読み取り権限**で動作する(ページ権限は `canReadPage` で判定)
 - 作成者が削除・停止されるとトークンは無効化される
-- スコープ: 現在 `read` のみ
+- スコープ: `read`(参照系ツール)と `write`(ページ作成ツール)。発行時の既定は `read`(最小権限)
 
 ### 発行・管理 (管理者 API)
 
@@ -25,6 +26,12 @@ curl -X POST https://<host>/api/admin/agent-tokens \
   -H "Authorization: Bearer <admin-session>" \
   -H "Content-Type: application/json" \
   -d '{"name":"CI agent","scopes":["read"]}'
+
+# 書き込み付きトークン (ページ作成を許可)
+curl -X POST https://<host>/api/admin/agent-tokens \
+  -H "Authorization: Bearer <admin-session>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Author agent","scopes":["read","write"]}'
 
 # 一覧
 curl https://<host>/api/admin/agent-tokens -H "Authorization: Bearer <admin-session>"
@@ -42,13 +49,23 @@ curl -X DELETE https://<host>/api/admin/agent-tokens/<id> -H "Authorization: Bea
 
 ### 提供ツール
 
-| ツール | 説明 |
-|--------|------|
-| `wiki_search` | ベクトル検索で Wiki ページを検索(タイトル・ID・スニペット) |
-| `wiki_read_page` | ページ ID で本文を取得(全文、権限チェックあり) |
-| `wiki_maintenance_report` | ナレッジ・メンテナンス監査(レビュー期限超過・未承認・レジストリ不整合・停滞・空ページ) |
+| ツール | 必要スコープ | 説明 |
+|--------|-------------|------|
+| `wiki_search` | `read` | ベクトル検索で Wiki ページを検索(タイトル・ID・スニペット) |
+| `wiki_read_page` | `read` | ページ ID で本文を取得(全文、権限チェックあり) |
+| `wiki_maintenance_report` | `read` | ナレッジ・メンテナンス監査(レビュー期限超過・未承認・レジストリ不整合・停滞・空ページ) |
+| `wiki_create_page` | `write` | Markdown から新規ページを作成。対話での明示的な依頼(「記事にして」「シェアしたい」)時のみ使用。既存ページは変更しない |
 
-いずれもトークン発行者の読み取り権限でフィルタされ、読めないページの情報は返らない。
+いずれもトークン発行者の権限でフィルタされ、読めないページの情報は返らない。
+
+### ページ作成 (`wiki_create_page`) の設計
+
+- **作成者は要求ユーザー(トークン発行者)**。サーバー側で固定され、クライアントは authorId を指定できない
+- 対象スペースへの書き込み権限を `canAccessSpace(user, space, "write")` で判定
+- Markdown は `parseMarkdown` で BlockNote ブロックに変換して保存(既存のインポート機能と同じ経路)
+- 作成後に `indexPage` で embedding を生成(チャット検索対象になる)
+- 監査ログに `wiki.page.create.agent` として記録(AI 経由であることが追跡可能)
+- **新規作成のみ**。既存ページの編集は将来の「提案+承認」方式でのみ提供予定
 
 ### クライアント設定例 (Claude / その他の MCP クライアント)
 
@@ -81,12 +98,18 @@ curl -X DELETE https://<host>/api/admin/agent-tokens/<id> -H "Authorization: Bea
 | MCP ルート | `apps/api/src/routes/mcp.ts` |
 | エージェントトークンサービス | `apps/api/src/services/admin/agent-token-service.ts` |
 | エージェントトークンリポジトリ | `apps/api/src/repositories/admin/agent-token-repository.ts` |
+| 記事化サービス (Markdown→ページ) | `apps/api/src/services/wiki/wiki-article-creation-service.ts` |
 | 管理 API | `apps/api/src/routes/admin/admin-agent-tokens.ts` |
 | 共通契約 | `packages/shared/src/contracts/index.ts` (`AgentTokenDto`, `AGENT_TOKEN_SCOPE_VALUES`) |
 | DB | `agent_tokens` テーブル(マイグレーション `0022_agent_tokens.sql`) |
 
+Wiki チャット側にも同じ「記事化」ツールが接続されている
+(`apps/api/src/ai/tools/ai-chat-create-page-tool.ts`)。チャットで
+「これを記事にして」等と依頼すると、対話内容から Markdown 記事を起草して
+ページを作成する。
+
 ## 今後のフェーズ(未実装)
 
-- Phase 2: 書き込み系ツール(変更提案の作成のみ・人間承認必須)と `propose` スコープ
-- Phase 3: Agent Skills 配布物 (SKILL.md) の同梱
+- 既存ページ編集の提案スキル(作成のみ・人間承認必須)
+- Agent Skills 配布物 (SKILL.md) の同梱
 - 管理画面 UI でのトークン発行・失効操作

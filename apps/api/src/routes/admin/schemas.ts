@@ -60,10 +60,7 @@ export const updateAgentSchema = createAgentSchema.partial();
 
 export const createAgentTokenSchema = z.object({
   name: z.string().min(1).max(100),
-  scopes: z
-    .array(z.enum(AGENT_TOKEN_SCOPE_VALUES))
-    .min(1)
-    .default([...AGENT_TOKEN_SCOPE_VALUES]),
+  scopes: z.array(z.enum(AGENT_TOKEN_SCOPE_VALUES)).min(1).default(["read"]),
 });
 
 export const updateUserRoleSchema = z.object({ role: z.enum([UserRole.Admin, UserRole.Member]) });

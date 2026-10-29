@@ -1,4 +1,4 @@
-import type { AgentTokenScopeValue } from "@echolore/shared/contracts";
+import { AGENT_TOKEN_SCOPE_VALUES, type AgentTokenScopeValue } from "@echolore/shared/contracts";
 import { Hono } from "hono";
 import type { SessionUser } from "../lib/auth.js";
 import { stripHtml } from "../lib/html-utils.js";
@@ -6,6 +6,7 @@ import { canReadPage } from "../policies/authorization-policy.js";
 import { getPageBlocks, getPageById } from "../repositories/wiki/wiki-repository.js";
 import { resolveAgentToken } from "../services/admin/agent-token-service.js";
 import { searchByVector } from "../services/wiki/vector-search-service.js";
+import { createWikiArticleFromMarkdown } from "../services/wiki/wiki-article-creation-service.js";
 import {
   auditWikiMaintenance,
   formatMaintenanceReportText,
@@ -15,8 +16,9 @@ import {
  * MCP (Model Context Protocol) endpoint for external AI agents.
  *
  * Stateless Streamable HTTP: single JSON-RPC message per POST, plain JSON
- * responses. Auth is a bearer agent token (admin-issued, read scope).
- * Tools run with the page-read permissions of the token's creator.
+ * responses. Auth is a bearer agent token (admin-issued; read/write scopes).
+ * Read tools run with the page-read permissions of the token's creator;
+ * page creation is attributed to the token's creator.
  */
 
 const SUPPORTED_PROTOCOL_VERSIONS = new Set(["2024-11-05", "2025-03-26", "2025-06-18"]);
@@ -34,6 +36,7 @@ interface McpToolDef {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  requiredScopes: AgentTokenScopeValue[];
   handler: (args: Record<string, unknown>, user: SessionUser) => Promise<string>;
 }
 
@@ -83,6 +86,17 @@ async function wikiMaintenanceReport(_args: Record<string, unknown>, user: Sessi
   return formatMaintenanceReportText(report);
 }
 
+async function wikiCreatePage(args: Record<string, unknown>, user: SessionUser): Promise<string> {
+  const title = typeof args.title === "string" ? args.title : "";
+  const markdown = typeof args.markdown === "string" ? args.markdown : "";
+  const spaceId = typeof args.spaceId === "string" ? args.spaceId : undefined;
+  if (!title.trim()) throw new ToolArgumentError("title is required");
+  if (!markdown.trim()) throw new ToolArgumentError("markdown is required");
+
+  const page = await createWikiArticleFromMarkdown({ user, title, markdown, spaceId });
+  return `Created wiki page: ${page.title} (id: ${page.id})`;
+}
+
 class ToolArgumentError extends Error {}
 
 const MCP_TOOLS: McpToolDef[] = [
@@ -97,6 +111,7 @@ const MCP_TOOLS: McpToolDef[] = [
       },
       required: ["query"],
     },
+    requiredScopes: ["read"],
     handler: wikiSearch,
   },
   {
@@ -110,6 +125,7 @@ const MCP_TOOLS: McpToolDef[] = [
       },
       required: ["pageId"],
     },
+    requiredScopes: ["read"],
     handler: wikiReadPage,
   },
   {
@@ -117,7 +133,27 @@ const MCP_TOOLS: McpToolDef[] = [
     description:
       "Audit the health of wiki knowledge and return a maintenance report: overdue or upcoming knowledge reviews, unapproved knowledge entries, registry drift (deleted but still registered), and stale or empty pages.",
     inputSchema: { type: "object", properties: {} },
+    requiredScopes: ["read"],
     handler: wikiMaintenanceReport,
+  },
+  {
+    name: "wiki_create_page",
+    description:
+      "Create a new wiki page from markdown content. Only use this when the user explicitly asks to save or share content as a wiki article. The page is created under the requesting user's name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Title for the new wiki page" },
+        markdown: {
+          type: "string",
+          description: "Full article body in markdown (headings, lists, code blocks supported)",
+        },
+        spaceId: { type: "string", description: "Target space ID (defaults to General)" },
+      },
+      required: ["title", "markdown"],
+    },
+    requiredScopes: ["write"],
+    handler: wikiCreatePage,
   },
 ];
 
@@ -183,11 +219,14 @@ async function handleRpcMessage(
       if (!tool) {
         return { status: 200, body: jsonRpcError(message.id, -32602, `Unknown tool: ${name}`) };
       }
-      if (!scopes.includes("read")) {
+      const missingScope = tool.requiredScopes.find((s) => !scopes.includes(s));
+      if (missingScope) {
         return {
           status: 200,
           body: jsonRpcResult(message.id, {
-            ...textResult("This token does not have the read scope required for this tool."),
+            ...textResult(
+              `This token does not have the '${missingScope}' scope required for this tool.`
+            ),
             isError: true,
           }),
         };
@@ -287,7 +326,7 @@ mcpRoutes.all("/", async (c) => {
   }
 
   const scopes = (resolved.token.scopes ?? []).filter((s): s is AgentTokenScopeValue =>
-    (["read"] as const).includes(s as AgentTokenScopeValue)
+    (AGENT_TOKEN_SCOPE_VALUES as readonly string[]).includes(s)
   );
 
   const response = await handleRpcMessage(message, resolved.user, scopes);

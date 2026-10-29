@@ -10,12 +10,14 @@ const {
   getPageByIdMock,
   getPageBlocksMock,
   auditWikiMaintenanceMock,
+  createWikiArticleFromMarkdownMock,
 } = vi.hoisted(() => ({
   resolveAgentTokenMock: vi.fn(),
   searchByVectorMock: vi.fn(),
   getPageByIdMock: vi.fn(),
   getPageBlocksMock: vi.fn(),
   auditWikiMaintenanceMock: vi.fn(),
+  createWikiArticleFromMarkdownMock: vi.fn(),
 }));
 
 vi.mock("../services/admin/agent-token-service.js", () => ({
@@ -40,6 +42,10 @@ vi.mock("../services/wiki/wiki-maintenance-service.js", () => ({
   formatMaintenanceReportText: vi.fn(
     async () => "Scanned 3 page(s).\n- [Review overdue] Old page (id: p1) — Review is overdue"
   ),
+}));
+
+vi.mock("../services/wiki/wiki-article-creation-service.js", () => ({
+  createWikiArticleFromMarkdown: createWikiArticleFromMarkdownMock,
 }));
 
 function tokenRow(overrides: Partial<AgentToken> = {}): AgentToken {
@@ -80,6 +86,7 @@ describe("mcpRoutes", () => {
     getPageByIdMock.mockReset();
     getPageBlocksMock.mockReset();
     auditWikiMaintenanceMock.mockReset();
+    createWikiArticleFromMarkdownMock.mockReset();
     resolveAgentTokenMock.mockResolvedValue({
       token: tokenRow(),
       user: authedUser(),
@@ -150,11 +157,16 @@ describe("mcpRoutes", () => {
     expect(await res.text()).toBe("");
   });
 
-  it("lists the three read-only tools", async () => {
+  it("lists the four tools", async () => {
     const res = await post({ jsonrpc: "2.0", id: 4, method: "tools/list" });
     const body = await res.json();
     const names = body.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toEqual(["wiki_search", "wiki_read_page", "wiki_maintenance_report"]);
+    expect(names).toEqual([
+      "wiki_search",
+      "wiki_read_page",
+      "wiki_maintenance_report",
+      "wiki_create_page",
+    ]);
   });
 
   it("executes tools/call for the maintenance report", async () => {
@@ -222,5 +234,62 @@ describe("mcpRoutes", () => {
     const res = await post({ jsonrpc: "2.0", id: 9, method: "resources/list" });
     const body = await res.json();
     expect(body.error.code).toBe(-32601);
+  });
+
+  it("creates a page with a write-scoped token", async () => {
+    resolveAgentTokenMock.mockResolvedValue({
+      token: tokenRow({ scopes: ["read", "write"] }),
+      user: authedUser(),
+    });
+    createWikiArticleFromMarkdownMock.mockResolvedValue({ id: "page_9", title: "Draft" });
+
+    const res = await post({
+      jsonrpc: "2.0",
+      id: 10,
+      method: "tools/call",
+      params: {
+        name: "wiki_create_page",
+        arguments: { title: "Draft", markdown: "# Draft\n\ncontent" },
+      },
+    });
+    const body = await res.json();
+    expect(body.result.content[0].text).toContain("page_9");
+    expect(createWikiArticleFromMarkdownMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Draft", markdown: expect.stringContaining("content") })
+    );
+  });
+
+  it("rejects page creation for read-only tokens with an isError result", async () => {
+    resolveAgentTokenMock.mockResolvedValue({
+      token: tokenRow({ scopes: ["read"] }),
+      user: authedUser(),
+    });
+
+    const res = await post({
+      jsonrpc: "2.0",
+      id: 11,
+      method: "tools/call",
+      params: { name: "wiki_create_page", arguments: { title: "x", markdown: "y" } },
+    });
+    const body = await res.json();
+    expect(body.result.isError).toBe(true);
+    expect(body.result.content[0].text).toContain("write");
+    expect(createWikiArticleFromMarkdownMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects page creation with missing arguments", async () => {
+    resolveAgentTokenMock.mockResolvedValue({
+      token: tokenRow({ scopes: ["read", "write"] }),
+      user: authedUser(),
+    });
+
+    const res = await post({
+      jsonrpc: "2.0",
+      id: 12,
+      method: "tools/call",
+      params: { name: "wiki_create_page", arguments: { title: "only title" } },
+    });
+    const body = await res.json();
+    expect(body.error.code).toBe(-32602);
   });
 });

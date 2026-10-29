@@ -27,6 +27,7 @@ export function createAiChatAgent(
     "4. **Drive-based questions**: The retrieved context above may include Wiki, Drive, and GitHub sources. If you need more Drive content, use `drive_search` for additional queries or `drive_read` for full file content.",
     "5. **GitHub docs-based questions**: When wiki and drive searches yield insufficient results, try `github_search` to find information in indexed GitHub repository documentation.",
     '6. **Knowledge maintenance requests** (e.g. "ナレッジのメンテ状況は？", "更新されていないページは？", "レビュー期限が近いページは？"): Use `wiki_maintenance_report` to get a maintenance audit, then summarize the findings. Optionally use `wiki_read_page` for details on a specific flagged page.',
+    '7. **Save-as-article requests** (e.g. "これを記事にして", "チームにシェアしたいからWikiに残して", "まとめてページ作って"): Draft a well-structured markdown article from the conversation, then call `wiki_create_page` with a concise title and the full body. This tool must ONLY be used when the user explicitly asks to create/save a page — never proactively.',
     "",
     "## Guidelines",
     '- Proactively use tools when the retrieved context is empty or insufficient. Do not just say "見つかりませんでした" without trying tools first.',

@@ -9,6 +9,7 @@ import { nanoid } from "nanoid";
 import { createAiChatAgent } from "../../ai/agent/create-ai-chat-agent.js";
 import { defaultLlmProvider, type LlmProvider } from "../../ai/providers/index.js";
 import { escapeXmlTags } from "../../ai/sanitize-prompt-input.js";
+import { createAiChatCreatePageTool } from "../../ai/tools/ai-chat-create-page-tool.js";
 import {
   createAiChatDriveReadTool,
   createAiChatDriveSearchTool,
@@ -299,6 +300,7 @@ async function invokeAgent(
   const { readPageTool, referencedPages: readRefs } = createAiChatReadPageTool(user);
   const { maintenanceTool, referencedPages: maintenanceRefs } =
     createAiChatMaintenanceReportTool(user);
+  const { createPageTool, referencedPages: createPageRefs } = createAiChatCreatePageTool(user);
 
   // Step 4b: Conditionally add Drive tools
   let driveSearchRefs: DriveToolResult[] = [];
@@ -308,6 +310,7 @@ async function invokeAgent(
     listPagesTool,
     readPageTool,
     maintenanceTool,
+    createPageTool,
   ];
 
   try {
@@ -400,6 +403,7 @@ async function invokeAgent(
       ...listRefs,
       ...readRefs,
       ...maintenanceRefs,
+      ...createPageRefs,
     ].filter((ref) => {
       if (seenIds.has(ref.pageId)) return false;
       seenIds.add(ref.pageId);

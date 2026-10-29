@@ -12,7 +12,7 @@ import {
 import { getUserById } from "../../repositories/user/user-repository.js";
 
 export const AGENT_TOKEN_PREFIX = "ech_agt_";
-export const AGENT_TOKEN_SCOPES = ["read"] as const;
+export const AGENT_TOKEN_SCOPES = ["read", "write"] as const;
 export type AgentTokenScope = (typeof AGENT_TOKEN_SCOPES)[number];
 
 export interface ResolvedAgentToken {
@@ -62,7 +62,11 @@ export async function resolveAgentToken(secret: string): Promise<ResolvedAgentTo
 
   const token = await findActiveAgentTokenByHash(hashAgentTokenSecret(secret));
   if (!token) return null;
-  if (!token.scopes.includes("read")) return null;
+  // At least one recognized scope; per-tool checks enforce the rest.
+  const validScopes = token.scopes.filter((s) =>
+    (AGENT_TOKEN_SCOPES as readonly string[]).includes(s)
+  );
+  if (validScopes.length === 0) return null;
 
   const dbUser = await getUserById(token.createdByUserId ?? "");
   if (!dbUser || dbUser.suspendedAt || dbUser.deletedAt) return null;
