@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:25-alpine AS builder
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ RUN pnpm --filter @echolore/shared build
 RUN pnpm --filter @echolore/api build
 RUN pnpm deploy --filter @echolore/api --prod --ignore-scripts /prod/api
 
-FROM node:22-alpine AS runner
+FROM node:25-alpine AS runner
 
 WORKDIR /app
 
