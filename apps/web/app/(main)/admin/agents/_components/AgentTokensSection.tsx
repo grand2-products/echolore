@@ -188,7 +188,7 @@ export function AgentTokensSection() {
             />
           </label>
           <div className="flex flex-wrap gap-4 text-sm text-gray-700">
-            {(["read", "write"] as const).map((scope) => (
+            {(["read", "write", "reporting"] as const).map((scope) => (
               <label key={scope} className="inline-flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -196,7 +196,11 @@ export function AgentTokensSection() {
                   onChange={() => toggleScope(scope)}
                   className="h-4 w-4"
                 />
-                {scope === "read" ? t("admin.agentTokens.read") : t("admin.agentTokens.write")}
+                {scope === "read"
+                  ? t("admin.agentTokens.read")
+                  : scope === "write"
+                    ? t("admin.agentTokens.write")
+                    : t("admin.agentTokens.reporting")}
               </label>
             ))}
           </div>

@@ -55,7 +55,7 @@ export interface UserDto {
 
 // ─── Agent Tokens (external AI agent access) ─────────────────────
 
-export const AGENT_TOKEN_SCOPE_VALUES = ["read", "write"] as const;
+export const AGENT_TOKEN_SCOPE_VALUES = ["read", "write", "reporting"] as const;
 export type AgentTokenScopeValue = (typeof AGENT_TOKEN_SCOPE_VALUES)[number];
 
 export interface AgentTokenDto {

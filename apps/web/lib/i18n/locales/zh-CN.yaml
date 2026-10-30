@@ -740,6 +740,7 @@ admin:
     scopes: "权限范围"
     read: "读取 (read)"
     write: "创建页面 (write)"
+    reporting: "营销报告 (reporting)"
     create: "签发令牌"
     createError: "签发令牌失败。"
     revokeError: "吊销令牌失败。"

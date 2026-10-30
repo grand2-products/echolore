@@ -12,11 +12,26 @@ EchoLore includes a built-in MCP (Model Context Protocol) server, letting extern
 | `wiki_search` | read | Vector search over the Wiki |
 | `wiki_read_page` | read | Fetch a page's content as markdown (paged for long pages) |
 | `wiki_list_spaces` | read | List visible spaces and writability |
+| `wiki_list_pages` | read | List visible pages (by space, newest first, with hierarchy) for inventory and browsing |
 | `wiki_maintenance_report` | read | Knowledge audit (overdue reviews, stale/empty pages, etc.) |
 | `wiki_create_page` | write | Create a new page from markdown |
+| `marketing_query_metrics` | reporting | Marketing metrics aggregation (cost, conversions, sessions + derived CPA/ROAS etc.) |
+| `marketing_list_dashboards` | reporting | List reporting dashboards |
+| `marketing_get_dashboard` | reporting | Read a dashboard definition (widgets, metrics, filters) |
+| `marketing_data_status` | reporting | Data freshness, sync health, and pending approvals |
 
 Read tools are filtered by the token creator's read permissions — information from inaccessible pages is never returned.
+Marketing tools additionally require the token creator to hold the `marketing.view` permission.
 Tool calls are rate limited per token (60 calls per 5 minutes).
+
+### Reporting dashboards without a GUI
+
+With a `reporting`-scoped token, you can simply ask ChatGPT or Claude things like
+"summarize last week's ad spend and CPA" or "build this month's dashboard report" —
+the agent reads the dashboard definition, queries the metrics, and assembles the report.
+Aggregation semantics (missing days are never treated as zero, media conversions are never
+summed across sources, currencies stay separate) are identical to the web UI because both
+use the same query API.
 
 ## Connecting
 
@@ -27,8 +42,8 @@ EchoLore embeds an OAuth 2.1 authorization server. Point your client at `https:/
 ### Manual bearer tokens
 
 1. Open **Admin console → AI Settings → External AI Agent Access (MCP)**
-2. Choose a token name, scopes (`read` / `write`), and an expiry (never / 7 / 30 / 90 days), then issue
-   - Defaults to `read` (least privilege). Add `write` only to allow page creation
+2. Choose a token name, scopes (`read` / `write` / `reporting`), and an expiry (never / 7 / 30 / 90 days), then issue
+   - Defaults to `read` (least privilege). Add `write` only for page creation, `reporting` for marketing reports
 3. The plaintext token (`ech_agt_...`) is **shown exactly once** — copy and store it safely
 
 Tokens act with the issuing admin's permissions and can be revoked instantly at any time.

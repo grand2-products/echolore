@@ -740,6 +740,7 @@ admin:
     scopes: "スコープ"
     read: "読み取り (read)"
     write: "ページ作成 (write)"
+    reporting: "マーケティングレポート (reporting)"
     create: "トークンを発行"
     createError: "トークンの発行に失敗しました。"
     revokeError: "トークンの失効に失敗しました。"

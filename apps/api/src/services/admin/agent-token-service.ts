@@ -13,7 +13,7 @@ import {
 import { getUserById } from "../../repositories/user/user-repository.js";
 
 export const AGENT_TOKEN_PREFIX = "ech_agt_";
-export const AGENT_TOKEN_SCOPES = ["read", "write"] as const;
+export const AGENT_TOKEN_SCOPES = ["read", "write", "reporting"] as const;
 export type AgentTokenScope = (typeof AGENT_TOKEN_SCOPES)[number];
 
 export interface ResolvedAgentToken {
