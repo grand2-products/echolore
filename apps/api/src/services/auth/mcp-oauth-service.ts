@@ -84,7 +84,8 @@ export function parseScopeParam(scope: string | undefined | null): string[] | nu
   if (!scope) return []; // empty scope defaults to read-only, decided by the caller
   const requested = scope.split(/[\s+]+/).filter(Boolean);
   if (requested.length === 0) return [];
-  const invalid = requested.filter((s) => !(["read", "write"] as const).includes(s as never));
+  const valid = ["read", "write", "reporting"];
+  const invalid = requested.filter((s) => !valid.includes(s));
   if (invalid.length > 0) return null;
   return [...new Set(requested)];
 }

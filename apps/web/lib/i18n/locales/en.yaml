@@ -740,6 +740,7 @@ admin:
     scopes: "Scopes"
     read: "Read"
     write: "Create pages"
+    reporting: "Marketing reports"
     create: "Issue token"
     createError: "Failed to issue the token."
     revokeError: "Failed to revoke the token."

@@ -12,6 +12,7 @@ You are connected to an EchoLore instance via MCP. The available tools are:
 | `wiki_search` | Vector search over wiki pages (returns title, id, similarity, snippet) |
 | `wiki_read_page` | Page content as markdown by id (permission-checked; use offset/maxLength for long pages) |
 | `wiki_list_spaces` | Visible spaces with IDs and writability (use to pick a spaceId before creating) |
+| `wiki_list_pages` | Page inventory by space (newest first, paginated; parentId gives hierarchy) — use when you have no search keywords |
 | `wiki_maintenance_report` | Knowledge health audit (see below) |
 | `wiki_create_page` | Create a NEW page from markdown (only with write scope; only on explicit request) |
 
@@ -29,6 +30,10 @@ You only see pages the token's creator may read. Never invent page ids or conten
    - **Empty page** → deletion or content candidates
 3. For high-severity items, optionally `wiki_read_page` to add context.
 4. Deliver an action list: page title, id, recommended action, suggested owner.
+
+For full inventories ("スペースのページを全部洗い出して"), use `wiki_list_pages` with the
+spaceId and paginate with `offset` instead of guessing search keywords; read tree
+structure from `parentId`.
 
 ### 2. Research ("社内の○○について調べて")
 

@@ -129,8 +129,9 @@ describe("oauth-service", () => {
   });
 
   describe("scope parsing", () => {
-    it("accepts read/write and defaults to empty (read by caller)", () => {
+    it("accepts read/write/reporting and defaults to empty (read by caller)", () => {
       expect(parseScopeParam("read write")).toEqual(["read", "write"]);
+      expect(parseScopeParam("read reporting")).toEqual(["read", "reporting"]);
       expect(parseScopeParam("read read")).toEqual(["read"]);
       expect(parseScopeParam(undefined)).toEqual([]);
     });

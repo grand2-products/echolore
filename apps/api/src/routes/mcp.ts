@@ -1,12 +1,36 @@
-import { AGENT_TOKEN_SCOPE_VALUES, type AgentTokenScopeValue } from "@echolore/shared/contracts";
+import {
+  AGENT_TOKEN_SCOPE_VALUES,
+  type AgentTokenScopeValue,
+  MARKETING_CONNECTOR_TYPES,
+  MARKETING_DIMENSIONS,
+  MARKETING_METRIC_MAP,
+  type MarketingMetricFilters,
+  type MarketingMetricsQueryRequest,
+  type MarketingMetricsQueryResponse,
+  MarketingPermission,
+} from "@echolore/shared/contracts";
 import { Hono } from "hono";
 import { writeAuditLog } from "../lib/audit.js";
 import type { SessionUser } from "../lib/auth.js";
 import { parseCorsOrigins } from "../lib/cors-origins.js";
 import { canReadPage } from "../policies/authorization-policy.js";
+import { resolveMarketingPermissions } from "../policies/marketing-policy.js";
 import { countAuditLogsByActionAndResourceId } from "../repositories/audit/audit-repository.js";
+import { listConnectors } from "../repositories/marketing/marketing-connector-repository.js";
+import {
+  getDashboardById,
+  listDashboards,
+} from "../repositories/marketing/marketing-dashboard-repository.js";
 import { getPageBlocks, getPageById } from "../repositories/wiki/wiki-repository.js";
 import { resolveAgentToken } from "../services/admin/agent-token-service.js";
+import { addDays, todayInTimezone } from "../services/marketing/marketing-dates.js";
+import {
+  isConnectorStale,
+  MetricsQueryError,
+  queryMarketingMetrics,
+} from "../services/marketing/marketing-metrics-service.js";
+import { getMarketingOverview } from "../services/marketing/marketing-overview-service.js";
+import { getMarketingSettings } from "../services/marketing/marketing-settings-service.js";
 import { pageBlocksToMarkdown } from "../services/wiki/block-markdown-exporter.js";
 import { canAccessSpace, listVisibleSpaces } from "../services/wiki/space-service.js";
 import { searchByVector } from "../services/wiki/vector-search-service.js";
@@ -15,6 +39,7 @@ import {
   auditWikiMaintenance,
   formatMaintenanceReportText,
 } from "../services/wiki/wiki-maintenance-service.js";
+import { listVisiblePages } from "../services/wiki/wiki-service.js";
 
 /**
  * MCP (Model Context Protocol) endpoint for external AI agents.
@@ -35,7 +60,7 @@ const SUPPORTED_PROTOCOL_VERSION = "2026-07-28";
 const SUPPORTED_PROTOCOL_VERSIONS = [SUPPORTED_PROTOCOL_VERSION];
 const SERVER_INFO = { name: "echolore", version: "0.1.0" };
 const SERVER_INSTRUCTIONS =
-  "EchoLore knowledge base: search and read wiki pages, list writable spaces, audit knowledge maintenance health, and save conversation content as new wiki articles when explicitly requested.";
+  "EchoLore knowledge base and marketing reporting: search and read wiki pages, list writable spaces, audit knowledge maintenance health, save conversation content as new wiki articles when explicitly requested, and query marketing dashboard metrics (requires the reporting scope).";
 
 /** Per-token tool call rate limit (counted via the audit log). */
 const TOOL_CALL_RATE_LIMIT = { windowMs: 5 * 60_000, maxAttempts: 60 };
@@ -68,7 +93,7 @@ interface JsonRpcRequest {
 interface ToolOutput {
   text: string;
   /** Structured output; validated against the tool's outputSchema. */
-  structured?: Record<string, unknown>;
+  structured?: object;
 }
 
 interface McpToolDef {
@@ -207,6 +232,8 @@ async function wikiReadPage(args: Record<string, unknown>, user: SessionUser): P
   }
   const nextOffset = truncated ? offset + content.length : null;
 
+  // The pagination hint goes into text only; structuredContent.content is the
+  // plain page body so programmatic consumers never have to strip notices.
   const text = truncated
     ? `${content}\n\n[truncated — call wiki_read_page again with offset=${nextOffset} for the rest]`
     : content;
@@ -216,7 +243,7 @@ async function wikiReadPage(args: Record<string, unknown>, user: SessionUser): P
     structured: {
       pageId: page.id,
       title: page.title,
-      content: text,
+      content,
       offset,
       truncated,
       nextOffset,
@@ -252,6 +279,46 @@ async function wikiListSpaces(
   return { text, structured: { spaces: visible } };
 }
 
+async function wikiListPages(
+  args: Record<string, unknown>,
+  user: SessionUser
+): Promise<ToolOutput> {
+  const spaceId = typeof args.spaceId === "string" ? args.spaceId.trim() : "";
+  const offset = intArg(args, "offset", { min: 0, max: 1_000_000, fallback: 0 });
+  const limit = intArg(args, "limit", { min: 1, max: 200, fallback: 50 });
+
+  const visible = await listVisiblePages(user);
+  const filtered = spaceId ? visible.filter((p) => p.spaceId === spaceId) : visible;
+  const items = filtered.slice(offset, offset + limit).map((p) => ({
+    pageId: p.id,
+    title: p.title,
+    spaceId: p.spaceId,
+    parentId: p.parentId,
+    updatedAt: p.updatedAt.toISOString(),
+  }));
+
+  const text =
+    items.length > 0
+      ? [
+          `${filtered.length} page(s)${spaceId ? ` in space ${spaceId}` : ""} (showing ${offset + 1}-${offset + items.length})`,
+          ...items.map(
+            (p) =>
+              `- ${p.title} (id: ${p.pageId}${p.parentId ? `, parent: ${p.parentId}` : ""}, updated: ${p.updatedAt.slice(0, 10)})`
+          ),
+          ...(offset + items.length < filtered.length
+            ? [
+                `(... ${filtered.length - offset - items.length} more — call again with offset=${offset + items.length})`,
+              ]
+            : []),
+        ].join("\n")
+      : "No pages found.";
+
+  return {
+    text,
+    structured: { total: filtered.length, offset, limit, pages: items },
+  };
+}
+
 async function wikiMaintenanceReport(
   _args: Record<string, unknown>,
   user: SessionUser
@@ -275,6 +342,259 @@ async function wikiCreatePage(
     text: `Created wiki page: ${page.title} (id: ${page.id})`,
     structured: { pageId: page.id, title: page.title, spaceId: page.spaceId },
   };
+}
+
+// ─── Marketing reporting tools (reporting scope) ──────────────────
+
+/**
+ * Marketing tools run with the token creator's marketing permissions
+ * (`marketing.view` minimum). Denied permission is a tool execution error
+ * so the model can explain it to the user instead of retrying.
+ */
+class ToolPermissionError extends Error {}
+
+async function requireMarketingView(user: SessionUser): Promise<void> {
+  const permissions = await resolveMarketingPermissions(user);
+  if (!permissions.includes(MarketingPermission.View)) {
+    throw new ToolPermissionError(
+      "The token creator does not have the marketing.view permission required for marketing reporting tools"
+    );
+  }
+}
+
+const MARKETING_DIMENSION_VALUES = MARKETING_DIMENSIONS as readonly string[];
+const MARKETING_SOURCE_VALUES = MARKETING_CONNECTOR_TYPES as readonly string[];
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function stringArrayArg(
+  args: Record<string, unknown>,
+  name: string,
+  valid?: readonly string[]
+): string[] {
+  const raw = args[name];
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) throw new ToolArgumentError(`${name} must be an array of strings`);
+  const values = raw.map((v) => String(v));
+  const invalid = values.filter((v) => valid && !valid.includes(v));
+  if (invalid.length > 0 && valid) {
+    throw new ToolArgumentError(`${name}: unknown values ${invalid.join(", ")}`);
+  }
+  return values;
+}
+
+function dimensionLabel(row: MarketingMetricsQueryResponse["rows"][number], dim: string): string {
+  if (dim === "campaign") return row.dims.campaignName || row.dims.campaign || "";
+  if (dim === "connector") return row.dims.connectorName || row.dims.connector || "";
+  return row.dims[dim as keyof typeof row.dims] ?? "";
+}
+
+function metricsResponseText(res: MarketingMetricsQueryResponse): string {
+  const lines: string[] = [`Period: ${res.from} .. ${res.to}`];
+
+  const warnings = res.coverage.filter((c) => c.stale || c.missingDates.length > 0);
+  if (warnings.length > 0) {
+    lines.push("Data freshness warnings:");
+    for (const c of warnings) {
+      const parts = [`${c.connectorName} (${c.type})`];
+      if (c.stale) parts.push("stale");
+      if (c.missingDates.length > 0) parts.push(`${c.missingDates.length} day(s) not fetched`);
+      lines.push(`- ${parts.join(", ")}`);
+    }
+    lines.push("Missing dates are 未取得 (not zero) — exclude them from totals.");
+  }
+
+  const dimCols = res.splitByCurrency ? [...res.dimensions, "currency"] : res.dimensions;
+  const header = [...dimCols, ...res.metrics].join(" | ");
+  const tableRows = res.rows.slice(0, 50).map((row) => {
+    const dims = res.dimensions.map((d) => dimensionLabel(row, d));
+    if (res.splitByCurrency) dims.push(row.currency ?? "");
+    const values = res.metrics.map((m) => {
+      const v = row.values[m];
+      return v === null || v === undefined ? "-" : String(Math.round(v * 1000) / 1000);
+    });
+    return [...dims, ...values].join(" | ");
+  });
+  lines.push("", header, ...tableRows);
+  if (res.rows.length > 50)
+    lines.push(`(... ${res.rows.length - 50} more rows in structuredContent)`);
+  if (res.splitBySource) {
+    lines.push("", "Note: metrics that must not be summed across sources are split by source.");
+  }
+  return lines.join("\n");
+}
+
+async function marketingQueryMetrics(
+  args: Record<string, unknown>,
+  user: SessionUser
+): Promise<ToolOutput> {
+  await requireMarketingView(user);
+
+  const metrics = stringArrayArg(args, "metrics", Object.keys(MARKETING_METRIC_MAP));
+  if (metrics.length === 0) {
+    throw new ToolArgumentError(
+      `metrics is required (valid keys: ${Object.keys(MARKETING_METRIC_MAP).join(", ")})`
+    );
+  }
+
+  const lastDays = intArg(args, "lastDays", { min: 1, max: 400, fallback: 7 });
+  let from = typeof args.from === "string" ? args.from : "";
+  let to = typeof args.to === "string" ? args.to : "";
+  if (!from && !to) {
+    to = todayInTimezone("UTC");
+    from = addDays(to, -(lastDays - 1));
+  }
+  if (!ISO_DATE_RE.test(from) || !ISO_DATE_RE.test(to)) {
+    throw new ToolArgumentError("from/to must be YYYY-MM-DD (or omitted to use lastDays)");
+  }
+
+  const dimensions = stringArrayArg(args, "dimensions", MARKETING_DIMENSION_VALUES);
+  const sources = stringArrayArg(args, "sources", MARKETING_SOURCE_VALUES);
+  const connectorIds = stringArrayArg(args, "connectorIds");
+  const accountIds = stringArrayArg(args, "accountIds");
+  const campaignIds = stringArrayArg(args, "campaignIds");
+  const segments = stringArrayArg(args, "segments");
+  const filters: MarketingMetricFilters = {
+    ...(sources.length > 0 ? { sources: sources as MarketingMetricFilters["sources"] } : {}),
+    ...(connectorIds.length > 0 ? { connectorIds } : {}),
+    ...(accountIds.length > 0 ? { accountIds } : {}),
+    ...(campaignIds.length > 0 ? { campaignIds } : {}),
+    ...(segments.length > 0 ? { segments } : {}),
+  };
+  const request: MarketingMetricsQueryRequest = {
+    from,
+    to,
+    metrics,
+    ...(dimensions.length > 0
+      ? { dimensions: dimensions as MarketingMetricsQueryRequest["dimensions"] }
+      : {}),
+    ...(Object.keys(filters).length > 0 ? { filters } : {}),
+    ...(typeof args.sortBy === "string" ? { sortBy: args.sortBy } : {}),
+    sortDir: args.sortDir === "asc" ? "asc" : "desc",
+    limit: intArg(args, "limit", { min: 1, max: 1000, fallback: 200 }),
+  };
+
+  try {
+    const response = await queryMarketingMetrics(request);
+    return { text: metricsResponseText(response), structured: response };
+  } catch (error) {
+    if (error instanceof MetricsQueryError) throw new ToolArgumentError(error.message);
+    throw error;
+  }
+}
+
+async function marketingListDashboards(
+  _args: Record<string, unknown>,
+  user: SessionUser
+): Promise<ToolOutput> {
+  await requireMarketingView(user);
+
+  const [dashboards, settings] = await Promise.all([listDashboards(), getMarketingSettings()]);
+  const items = dashboards.map((d) => ({
+    dashboardId: d.id,
+    name: d.name,
+    description: d.description,
+    version: d.version,
+    isDefault: d.id === settings.defaultDashboardId,
+    defaultRange: d.defaultRange,
+    widgetCount: (d.widgets ?? []).length,
+    updatedAt: d.updatedAt.toISOString(),
+  }));
+
+  const text =
+    items.length > 0
+      ? items
+          .map(
+            (d) =>
+              `- ${d.name} (id: ${d.dashboardId}, v${d.version}${d.isDefault ? ", default" : ""}, range: ${d.defaultRange}, ${d.widgetCount} widgets)`
+          )
+          .join("\n")
+      : "No dashboards defined. Create one in the web UI, or query metrics directly with marketing_query_metrics.";
+
+  return { text, structured: { dashboards: items } };
+}
+
+async function marketingGetDashboard(
+  args: Record<string, unknown>,
+  user: SessionUser
+): Promise<ToolOutput> {
+  await requireMarketingView(user);
+
+  const dashboardId = typeof args.dashboardId === "string" ? args.dashboardId.trim() : "";
+  if (!dashboardId) throw new ToolArgumentError("dashboardId is required");
+
+  const dashboard = await getDashboardById(dashboardId);
+  if (!dashboard) return { text: "Dashboard not found." };
+
+  const settings = await getMarketingSettings();
+  const widgets = (dashboard.widgets ?? []) as Array<Record<string, unknown>>;
+
+  const widgetLines = widgets.map((w) => {
+    const metrics = Array.isArray(w.metrics)
+      ? ` — metrics: ${(w.metrics as string[]).join(", ")}`
+      : "";
+    return `- [${String(w.type)}] ${String(w.title)}${metrics}`;
+  });
+  const text = [
+    `# ${dashboard.name} (v${dashboard.version}${dashboard.id === settings.defaultDashboardId ? ", default" : ""})`,
+    dashboard.description ?? "",
+    `Default range: ${dashboard.defaultRange}`,
+    "",
+    ...widgetLines,
+  ].join("\n");
+
+  return {
+    text,
+    structured: {
+      dashboardId: dashboard.id,
+      name: dashboard.name,
+      description: dashboard.description,
+      wikiPageId: dashboard.wikiPageId,
+      defaultRange: dashboard.defaultRange,
+      version: dashboard.version,
+      isDefault: dashboard.id === settings.defaultDashboardId,
+      widgets,
+      updatedAt: dashboard.updatedAt.toISOString(),
+    },
+  };
+}
+
+async function marketingDataStatus(
+  _args: Record<string, unknown>,
+  user: SessionUser
+): Promise<ToolOutput> {
+  await requireMarketingView(user);
+
+  const [overview, connectors, settings] = await Promise.all([
+    getMarketingOverview(),
+    listConnectors(),
+    getMarketingSettings(),
+  ]);
+
+  const connectorRows = connectors.map((c) => ({
+    connectorId: c.id,
+    name: c.name,
+    type: c.type,
+    enabled: c.enabled,
+    lastStatus: c.lastStatus,
+    lastSuccessAt: c.lastSuccessAt?.toISOString() ?? null,
+    stale: isConnectorStale(c, settings.staleAfterHours),
+  }));
+
+  const text = [
+    "Operating health:",
+    `- Connectors: ${overview.connectors.total} total, ${overview.connectors.healthy} healthy, ${overview.connectors.stale} stale, ${overview.connectors.failing} failing (scheduled-update success rate: ${overview.connectors.updateSuccessRate === null ? "n/a" : `${Math.round(overview.connectors.updateSuccessRate * 100)}%`})`,
+    `- Assets: ${overview.assets.total} active, ${overview.assets.verificationOverdue} verification overdue, ${overview.assets.expiredAccess} expired access entries`,
+    `- Knowledge: ${overview.knowledge.approved}/${overview.knowledge.total} approved, ${overview.knowledge.reviewOverdue} review overdue`,
+    `- Changes: ${overview.changes.open} open (${overview.changes.awaitingApproval} awaiting approval, ${overview.changes.postReviewOverdue} post-review overdue), reconciliations pending: ${overview.reconciliations.pending}`,
+    "",
+    "Connectors:",
+    ...connectorRows.map(
+      (c) =>
+        `- ${c.name} (${c.type}): ${c.enabled ? "enabled" : "disabled"}${c.stale ? ", STALE" : ""}, last success ${c.lastSuccessAt ?? "none"}`
+    ),
+  ].join("\n");
+
+  return { text, structured: { overview, connectors: connectorRows } };
 }
 
 // Deterministic order (spec SHOULD) — clients rely on stable listing for caching
@@ -387,6 +707,53 @@ const MCP_TOOLS: McpToolDef[] = [
     handler: wikiListSpaces,
   },
   {
+    name: "wiki_list_pages",
+    description:
+      "List wiki pages visible to you, most recently updated first, optionally filtered by space. Use this to inventory a space or browse the tree (parentId gives hierarchy) when you don't have search keywords; then read pages with wiki_read_page.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        spaceId: {
+          type: "string",
+          description: "Restrict to one space (see wiki_list_spaces); omit for all visible pages",
+        },
+        offset: { type: "integer", minimum: 0, description: "Pagination offset (default 0)" },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 200,
+          description: "Max pages to return (default 50)",
+        },
+      },
+    },
+    outputSchema: {
+      type: "object",
+      properties: {
+        total: { type: "integer" },
+        offset: { type: "integer" },
+        limit: { type: "integer" },
+        pages: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              pageId: { type: "string" },
+              title: { type: "string" },
+              spaceId: { type: "string" },
+              parentId: { type: ["string", "null"] },
+              updatedAt: { type: "string" },
+            },
+            required: ["pageId", "title", "spaceId", "parentId", "updatedAt"],
+          },
+        },
+      },
+      required: ["total", "offset", "limit", "pages"],
+    },
+    annotations: READ_ANNOTATIONS,
+    requiredScopes: ["read"],
+    handler: wikiListPages,
+  },
+  {
     name: "wiki_maintenance_report",
     description:
       "Audit the health of wiki knowledge and return a maintenance report: overdue or upcoming knowledge reviews, unapproved knowledge entries, registry drift (deleted but still registered), and stale or empty pages.",
@@ -431,6 +798,91 @@ const MCP_TOOLS: McpToolDef[] = [
     },
     requiredScopes: ["write"],
     handler: wikiCreatePage,
+  },
+  {
+    name: "marketing_query_metrics",
+    description:
+      "Query marketing dashboard metrics (ad cost, conversions, sessions, forms, revenue, and derived ratios like cpa/roas/ctr) with daily totals or breakdowns by source/campaign/account. Coverage info distinguishes 未取得 (not fetched) days from zero. Metric keys: cost, impressions, clicks, conversions, conversion_value, sessions, lp_views, form_starts, form_submits, key_events, inquiries, revenue, uptime_checks, uptime_successes, response_ms_total, ctr, cpc, cpa, cvr, form_completion_rate, roas, availability, avg_response_ms.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        metrics: {
+          type: "array",
+          items: { type: "string", enum: Object.keys(MARKETING_METRIC_MAP) },
+          description: "Metric keys to query",
+        },
+        from: { type: "string", description: "Inclusive start date (YYYY-MM-DD)" },
+        to: { type: "string", description: "Inclusive end date (YYYY-MM-DD)" },
+        lastDays: {
+          type: "integer",
+          minimum: 1,
+          maximum: 400,
+          description: "Used when from/to are omitted: query the last N days (default 7)",
+        },
+        dimensions: {
+          type: "array",
+          items: { type: "string", enum: MARKETING_DIMENSION_VALUES },
+          description: "Breakdown dimensions (omit for period totals; use date for daily series)",
+        },
+        sources: {
+          type: "array",
+          items: { type: "string", enum: MARKETING_SOURCE_VALUES },
+          description: "Filter by connector type (ga4, meta_ads, google_ads, lp_monitor, csv)",
+        },
+        connectorIds: { type: "array", items: { type: "string" } },
+        accountIds: { type: "array", items: { type: "string" } },
+        campaignIds: { type: "array", items: { type: "string" } },
+        segments: { type: "array", items: { type: "string" } },
+        sortBy: { type: "string", description: "Metric key to sort by" },
+        sortDir: { type: "string", enum: ["asc", "desc"] },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 1000,
+          description: "Max rows (default 200)",
+        },
+      },
+      required: ["metrics"],
+    },
+    annotations: READ_ANNOTATIONS,
+    requiredScopes: ["reporting"],
+    handler: marketingQueryMetrics,
+  },
+  {
+    name: "marketing_list_dashboards",
+    description:
+      "List the marketing reporting dashboards defined in EchoLore (id, version, default flag, widget count). Use marketing_get_dashboard to see a dashboard's full widget definitions.",
+    inputSchema: { type: "object", additionalProperties: false },
+    annotations: READ_ANNOTATIONS,
+    requiredScopes: ["reporting"],
+    handler: marketingListDashboards,
+  },
+  {
+    name: "marketing_get_dashboard",
+    description:
+      "Read a marketing dashboard definition (widgets with metrics, dimensions, filters, date range, and linked wiki pages). Combine with marketing_query_metrics to reproduce the report as text, tables, or charts.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dashboardId: {
+          type: "string",
+          description: "Dashboard ID (see marketing_list_dashboards)",
+        },
+      },
+      required: ["dashboardId"],
+    },
+    annotations: READ_ANNOTATIONS,
+    requiredScopes: ["reporting"],
+    handler: marketingGetDashboard,
+  },
+  {
+    name: "marketing_data_status",
+    description:
+      "Check marketing data health: connector freshness (stale/failed syncs), scheduled-update success rate, asset register verification status, knowledge review status, and pending approvals/reconciliations. Use before reporting on data to know how fresh the numbers are.",
+    inputSchema: { type: "object", additionalProperties: false },
+    annotations: READ_ANNOTATIONS,
+    requiredScopes: ["reporting"],
+    handler: marketingDataStatus,
   },
 ];
 
@@ -676,18 +1128,22 @@ mcpRoutes.all("/", async (c) => {
           })
         );
       } catch (error) {
-        // Input validation errors are tool execution errors (SEP-1303) so the
-        // model can self-correct; anything else is reported as an internal
-        // tool error without leaking details.
-        const isArgError = error instanceof ToolArgumentError;
+        // Input validation and permission errors are tool execution errors
+        // (SEP-1303) so the model can self-correct or explain; anything else
+        // is reported as an internal tool error without leaking details.
+        const isToolError =
+          error instanceof ToolArgumentError || error instanceof ToolPermissionError;
         await recordCall(false, error instanceof Error ? error.message : "Unknown");
-        if (isArgError) {
+        if (isToolError) {
           return c.json(
             rpcResult(id, {
               content: [
                 {
                   type: "text",
-                  text: `Invalid arguments: ${error instanceof Error ? error.message : "unknown"}`,
+                  text:
+                    error instanceof ToolArgumentError
+                      ? `Invalid arguments: ${error.message}`
+                      : `Permission denied: ${error instanceof Error ? error.message : "unknown"}`,
                 },
               ],
               isError: true,

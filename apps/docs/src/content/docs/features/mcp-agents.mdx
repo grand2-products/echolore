@@ -12,11 +12,25 @@ EchoLore は MCP (Model Context Protocol) サーバーを内蔵しており、Ch
 | `wiki_search` | read | Wiki のベクトル検索 |
 | `wiki_read_page` | read | ページ本文を Markdown で取得 (長文はページング対応) |
 | `wiki_list_spaces` | read | スペース一覧と書き込み可否の確認 |
+| `wiki_list_pages` | read | ページ一覧 (更新順・スペース絞り込み・階層付き、棚卸しに) |
 | `wiki_maintenance_report` | read | ナレッジ監査 (レビュー期限超過・停滞・空ページ等) |
 | `wiki_create_page` | write | Markdown からの新規ページ作成 |
+| `marketing_query_metrics` | reporting | マーケティング指標の集計 (費用・CV・セッション等 + CPA/ROAS 等の派生指標) |
+| `marketing_list_dashboards` | reporting | レポーティングダッシュボード一覧 |
+| `marketing_get_dashboard` | reporting | ダッシュボード定義 (ウィジェット・指標・フィルタ) |
+| `marketing_data_status` | reporting | データ鮮度・同期健全性・承認待ちの確認 |
 
 読み取りツールはトークン発行者の読み取り権限でフィルタされ、読めないページの情報は返りません。
+マーケティングツールはトークン発行者が `marketing.view` 権限を持っている必要があります。
 ツール実行はトークンごとにレート制限 (5分間で60回) が適用されます。
+
+### レポーティングダッシュボードを GUI なしで使う
+
+`reporting` スコープ付きトークンを発行すれば、ChatGPT や Claude に
+「先週の広告費とCPAをまとめて」「今月のダッシュボードをレポートして」のように
+依頼するだけで、ダッシュボード定義の取得 → 指標クエリ → レポート組み立てを
+エージェントが行います。集計挙動 (未取得日はゼロ扱いしない、媒体CVは合算しない、
+複数通貨は通貨別) は Web UI と同じ API なので、数字の解釈も GUI と一致します。
 
 ## 接続方法
 
@@ -27,8 +41,8 @@ OAuth 2.1 認可サーバーを内蔵しているため、認可サーバー URL
 ### Bearer トークン (手動発行)
 
 1. 管理画面 → **AI 設定** → **外部 AI エージェント接続 (MCP)** を開く
-2. トークン名・スコープ (`read` / `write`)・有効期限 (無期限/7/30/90日) を選んで発行
-   - 既定は `read` (最小権限)。ページ作成を許可する場合のみ `write` を追加
+2. トークン名・スコープ (`read` / `write` / `reporting`)・有効期限 (無期限/7/30/90日) を選んで発行
+   - 既定は `read` (最小権限)。ページ作成を許可する場合のみ `write`、マーケティングレポートに `reporting` を追加
 3. 平文トークン (`ech_agt_...`) は**発行時に一度だけ表示**されるのでコピーして保管
 
 トークンは発行した管理者の権限で動作します。失効させるといつでも即座に無効化できます。

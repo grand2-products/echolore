@@ -8,7 +8,7 @@
   - Notion-style Wiki
   - Meetings with LiveKit
   - AI agent (LangChain) for meeting transcript summarization and Wiki integration
-  - External AI agent access via MCP endpoint (`/mcp`) with agent tokens (read tools + scoped page creation, per-token rate limiting and audit) and an OAuth 2.1 authorization server for MCP clients (`/oauth`, `/​.well-known`) (`docs/agent-mcp.md`)
+  - External AI agent access via MCP endpoint (`/mcp`) with agent tokens (wiki read tools + scoped page creation + marketing reporting tools behind a `reporting` scope and `marketing.view`, per-token rate limiting and audit) and an OAuth 2.1 authorization server for MCP clients (`/oauth`, `/​.well-known`) (`docs/agent-mcp.md`)
   - Marketing operations: asset register, generic media/GA4/LP/CSV connectors, versioned dashboards, change approval, Wiki knowledge governance (`docs/marketing-operations.md`)
 
 ## Monorepo Structure

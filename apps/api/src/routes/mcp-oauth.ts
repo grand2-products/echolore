@@ -54,7 +54,7 @@ wellKnownRoutes.get("/oauth-authorization-server", (c) => {
     authorization_endpoint: `${origin}/oauth/authorize`,
     token_endpoint: `${origin}/oauth/token`,
     registration_endpoint: `${origin}/oauth/register`,
-    scopes_supported: ["read", "write"],
+    scopes_supported: ["read", "write", "reporting"],
     response_types_supported: ["code"],
     response_modes_supported: ["query"],
     grant_types_supported: ["authorization_code", "refresh_token"],
@@ -69,7 +69,7 @@ wellKnownRoutes.get("/oauth-protected-resource", (c) => {
   return c.json({
     resource: `${origin}/mcp`,
     authorization_servers: [origin],
-    scopes_supported: ["read", "write"],
+    scopes_supported: ["read", "write", "reporting"],
     resource_documentation: `${origin}/docs`,
   });
 });
@@ -177,7 +177,13 @@ oauthRoutes.get("/authorize", async (c) => {
 
   const { client, scopes, state } = result.value;
   const scopeLabels = scopes
-    .map((s) => (s === "write" ? "ページ作成 (write)" : "読み取り (read)"))
+    .map((s) =>
+      s === "write"
+        ? "ページ作成 (write)"
+        : s === "reporting"
+          ? "マーケティングレポート (reporting)"
+          : "読み取り (read)"
+    )
     .join(", ");
 
   const hiddenFields = AUTHORIZE_FIELDS.map((field) => {

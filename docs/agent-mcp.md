@@ -7,7 +7,8 @@ Last updated: 2026-10-29
 ChatGPT / Claude / Grok / ローカルエージェント等の外部 AI エージェントを **MCP (Model Context Protocol)** 経由で EchoLore の Wiki に接続するためのインターフェース。
 API の `/mcp` エンドポイントがステートレスな MCP サーバーとして動作する。
 
-読み取り系(検索・読み取り・スペース一覧・メンテ監査)に加え、対話での明示的な依頼に基づく**新規ページ作成**(`write` スコープ)を提供する。
+読み取り系(検索・読み取り・スペース一覧・メンテ監査)に加え、対話での明示的な依頼に基づく**新規ページ作成**(`write` スコープ)、
+マーケティングレポーティングダッシュボードのデータ・定義・健全性(`reporting` スコープ)を提供する。
 既存ページの編集ツールは提供しない(将来は提案+承認方式で検討)。
 
 ## 認証
@@ -18,8 +19,11 @@ API の `/mcp` エンドポイントがステートレスな MCP サーバーと
 - **SHA-256 ハッシュのみ DB 保存**。平文は発行時のみ一度返却される
 - トークンは**発行した管理者ユーザーの読み取り権限**で動作する(ページ権限は `canReadPage` で判定)
 - 作成者が削除・停止されるとトークンは無効化される
-- スコープ: `read`(参照系ツール)と `write`(ページ作成ツール)。発行時の既定は `read`(最小権限)
+- スコープ: `read`(参照系ツール)、`write`(ページ作成ツール)、`reporting`(マーケティングレポーティングツール)。
+  発行時の既定は `read`(最小権限)
 - **有効期限**: 発行時に任意設定(7/30/90日 or 無期限)。OAuth 経由のトークンは必ず 30日で失効し refresh で更新
+- **マーケティングツールはトークン発行者の `marketing.view` 権限も必要**。
+  権限がない場合、ツール実行は `isError` の実行エラーとして拒否される(通常の UI と同じ `marketing-policy` で判定)
 
 #### 発行・管理
 
@@ -113,10 +117,28 @@ ChatGPT / Claude 等の OAuth 対応 MCP クライアント向けに、**OAuth 2
 | `wiki_search` | `read` | ベクトル検索で Wiki ページを検索(タイトル・ID・スニペット、`limit` 1-10)。構造化出力あり |
 | `wiki_read_page` | `read` | ページ ID で本文を **Markdown として**取得(見出し・リスト・コードブロック・テーブル保持)。長文は `offset`/`maxLength` でページング。構造化出力あり |
 | `wiki_list_spaces` | `read` | 参照可能なスペース一覧(ID・種別・書き込み可否)。作成先の spaceId 選択に使用。構造化出力あり |
+| `wiki_list_pages` | `read` | 参照可能なページ一覧(更新順、スペース絞り込み・`offset`/`limit` ページング・`parentId` で階層)。検索キーワードなしの棚卸し・巡回に使用。構造化出力あり |
 | `wiki_maintenance_report` | `read` | ナレッジ・メンテナンス監査(レビュー期限超過・未承認・レジストリ不整合・停滞・空ページ) |
 | `wiki_create_page` | `write` | Markdown から新規ページを作成。対話での明示的な依頼(「記事にして」「シェアしたい」)時のみ使用。既存ページは変更しない。構造化出力あり |
+| `marketing_query_metrics` | `reporting` | マーケティング指標の集計クエリ(費用・CV・セッション・フォーム等 + CPA/ROAS 等の派生指標)。日次・媒体・キャンペーン別。coverage(未取得日・更新遅延)付き。構造化出力あり |
+| `marketing_list_dashboards` | `reporting` | レポーティングダッシュボード一覧(ID・版・既定フラグ・ウィジェット数)。構造化出力あり |
+| `marketing_get_dashboard` | `reporting` | ダッシュボード定義(ウィジェット・指標・フィルタ・期間・根拠Wikiリンク)。`marketing_query_metrics` と組み合わせてレポートを再現。構造化出力あり |
+| `marketing_data_status` | `reporting` | データ健全性(コネクターの鮮度・失敗、定時更新達成率、資産確認・知識レビュー状況、承認待ち)。構造化出力あり |
 
-いずれもトークン発行者の権限でフィルタされ、読めないページの情報は返らない。
+Wiki ツールはトークン発行者の権限でフィルタされ、読めないページの情報は返らない。
+マーケティングツールは発行者の `marketing.view` 権限を判定する。
+
+### レポーティング連携の設計 (`reporting` スコープ)
+
+- **GUI を作らなくてもダッシュボードが再現できる**のが目的。`marketing_list_dashboards` /
+  `marketing_get_dashboard` で定義(何を・どの期間・どの指標)を取得し、
+  `marketing_query_metrics` で各ウィジェットのデータを取得して、エージェントが
+  レポート(表・テキスト・必要ならWiki記事)として組み立てる
+- 集計は既存の `queryMarketingMetrics`(Web UI と同じ唯一の集計 API)をそのまま使用:
+  派生指標は合計÷合計、媒体 CV 等は自動で `source` 別に分割、複数通貨は通貨別分割、
+  未取得日 (`missingDates`) はゼロ扱いしない、という挙動は GUI と完全に同一
+- 期間は `from`/`to`(ISO日付)または `lastDays`(既定 7日)で指定
+- レポートの記事化は `write` スコープ保有時のみ `wiki_create_page` で可能(明示依頼時のみ)
 
 ### ページ作成 (`wiki_create_page`) の設計
 
@@ -155,6 +177,11 @@ OAuth 対応クライアント(ChatGPT connectors / Claude connectors 等)は
 `skills/echolore-wiki-maintenance/SKILL.md` に、外部エージェント
 (Claude 等) に読み込ませるスキル定義を同梱している。監査・調査・記事化
 のワークフローと、書き込みツールの利用規律 (明示依頼時のみ) が
+定義されている。
+
+`skills/echolore-marketing-reporting/SKILL.md` にはレポーティング連携用の
+スキル定義を同梱している。ダッシュボード再現・指標質問応答のワークフローと、
+データ規律 (未取得≠ゼロ、null≠0、媒体横断合算禁止の徹底、鮮度確認) が
 定義されている。
 
 ## セキュリティ設計
